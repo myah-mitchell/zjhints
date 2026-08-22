@@ -90,11 +90,19 @@ Minor and major bumps are yours to make. Edit `version` in `Cargo.toml`, merge
 that to `main`, and the same machinery publishes it — the workflow only asks
 whether the version in `Cargo.toml` has been tagged yet, not how it got there.
 
+By convention, a minor bump marks a large feature change and/or a move to a
+new Zellij major/minor (e.g. 0.3.x → 0.4.x alongside zellij-tile 0.44 → 0.45)
+— see [the README's Versioning section](../README.md#versioning). The
+`zellij-upgrade` pull request below still only proposes a patch bump; when
+the Zellij move is what's driving it, bumping to a minor instead — once
+you've confirmed hints render right — is a manual edit on that branch before
+merging.
+
 ### How dependencies are chosen
 
 `cargo update` only moves within the range each `Cargo.toml` entry allows. For
-`0.x` crates that is patch releases, so `zellij-tile = "0.44.3"` accepts 0.44.4
-but never 0.45.0.
+`0.x` crates that is patch releases, so `zellij-tile = "0.45.0"` accepts 0.45.1
+but never 0.46.0.
 
 That is the policy on purpose. **A `zellij-tile` newer than the Zellij you run
 breaks hints silently.** Zellij's plugin boundary decodes a binding's actions
