@@ -1,6 +1,6 @@
 [package]
 name = "zjstatus-hints"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.96"
@@ -8,5 +8,5 @@ rust-version = "1.96"
 [dependencies]
 ansi_term = "0.12"
 unicode-width = "0.2"
-zellij-tile = "0.44.3"
-zellij-tile-utils = "0.44.3"
+zellij-tile = "0.45.0"
+zellij-tile-utils = "0.45.0"
