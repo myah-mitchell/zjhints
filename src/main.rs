@@ -39,6 +39,18 @@ struct State {
     hint_order: HintOrder,
     hint_precedence: HintPrecedence,
     hide_shared_hints: bool,
+    /// Render nothing when this session is nested (see `is_nested`), so a
+    /// shared layout gives nested sessions no bottom bar without a second
+    /// layout file.
+    hide_when_nested: bool,
+    dim_when_unfocused: bool,
+    /// How strongly to dim, in `dim_color`'s `0.0..=1.0` scale.
+    dim_strength: f32,
+    /// Prefix the hints line with the current mode, so this plugin can stand
+    /// on its own in a pane without needing zjstatus's own `{mode}` widget
+    /// alongside it. See `render_mode_prefix`.
+    show_mode: bool,
+    mode_format: Option<String>,
     config: BTreeMap<String, String>,
 }
 
@@ -114,11 +126,40 @@ const CONFIG_AUTO_WIDTH: &str = "auto_width";
 const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
 const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
 const CONFIG_HIDE_SHARED_HINTS: &str = "hide_shared_hints";
+const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
+const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
+const CONFIG_DIM_STRENGTH: &str = "dim_strength";
+const CONFIG_SHOW_MODE: &str = "show_mode";
+const CONFIG_MODE_FORMAT: &str = "mode_format";
+// Per-mode override of the mode prefix, e.g. `mode_format_normal`. Matches
+// zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
+// so an icon set up for zjstatus's {mode} widget can be reused here.
+const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
+
+/// Concept id of the synthetic hint standing in for the descended-session
+/// placeholder (see `render`'s `is_host_descended` branch), and its default
+/// label. Rendering it as an ordinary `Hint` through `render_hint` means
+/// `key_format`/`desc_format`/`label_descended`/`key_format_descended`/
+/// `desc_format_descended`/`keys_descended` all apply to it exactly as they
+/// would to any other hint, including key and modifier aliases, with no
+/// bespoke styling path of its own to keep in sync.
+const DESCENDED_HINT_ID: &str = "descended";
+const DESCENDED_HINT_LABEL: &str = "return to host";
 
 // The curated list alone is the readable default; discovery is comprehensive but
 // long, and on a narrow bar the extra hints are the first to be dropped anyway.
 const DEFAULT_DISCOVER_HINTS: bool = false;
 const DEFAULT_HIDE_SHARED_HINTS: bool = true;
+// A nested session gets no bottom bar by default, so hints for it show up in
+// the host's bar instead (see `is_nested`) rather than doubling up.
+const DEFAULT_HIDE_WHEN_NESTED: bool = true;
+const DEFAULT_DIM_WHEN_UNFOCUSED: bool = true;
+// Matches the zjstatus fork's default, so a shared layout's two bars dim in
+// step. See that fork's `dim_color` for the same blend-toward-gray formula.
+const DEFAULT_DIM_STRENGTH: f32 = 0.5;
+// Off by default: most setups pair this plugin with zjstatus's own {mode}
+// widget on the same line, so a second mode indicator would be redundant.
+const DEFAULT_SHOW_MODE: bool = false;
 
 type ActionLabel = (Action, &'static str);
 type ActionSequenceLabel = (&'static [Action], &'static str);
@@ -294,6 +335,12 @@ impl HintPrecedence {
 /// is configured, and resolve `$alias` colors from the plugin configuration.
 struct HintStyle<'a> {
     colors: &'a Styling,
+    /// How strongly to dim custom-format colors (`key_format`, `desc_format`,
+    /// `hint_spacer`, `drop_indicator`), `0.0` = unchanged. `colors` is
+    /// already the dimmed `Styling` when this is nonzero; this is only for
+    /// colors resolved by `format::render_template`, which bypasses `colors`
+    /// entirely, so it needs the dim amount passed in separately.
+    dim: f32,
     key_format: Option<&'a str>,
     desc_format: Option<&'a str>,
     /// Rendered between consecutive hints (never before the first or after the
@@ -450,6 +497,116 @@ impl State {
             (limit, None) | (None, limit) => limit,
         }
     }
+
+    /// Whether this session is nested inside another Zellij session.
+    fn is_nested(&self) -> bool {
+        !self.mode_info.session_ancestry.is_empty()
+    }
+
+    /// Whether this session currently has its own focus deferred to a
+    /// nested child it is hosting, regardless of whether this session is
+    /// itself also nested inside something else. Independent of the
+    /// `dim_when_unfocused`/`dim_strength` display options: this is the raw
+    /// fact the descended-into indicator (`render_descended_indicator`) acts
+    /// on, not a rendering preference.
+    fn is_host_descended(&self) -> bool {
+        self.mode_info.session_dimmed == Some(true)
+    }
+
+    /// The dim strength to render with right now, in `dim_color`'s
+    /// `0.0..=1.0` scale: `0.0` (no change) unless `dim_when_unfocused` is
+    /// enabled and this session is currently the dimmed side of a
+    /// nested-session pair, a host that has descended into a child, or a
+    /// nested session not currently ascended into.
+    /// `session_ascended`/`session_dimmed` are the same fields Zellij's own
+    /// bundled tab-bar/compact-bar plugins use for this exact purpose, and
+    /// the zjstatus fork's `ZellijState::dim_amount` mirrors this exactly
+    /// so a shared layout's two bars dim in step.
+    fn dim_amount(&self) -> f32 {
+        let is_dimmed = self.mode_info.session_ascended == Some(true)
+            || self.mode_info.session_dimmed == Some(true);
+
+        if self.dim_when_unfocused && is_dimmed {
+            self.dim_strength
+        } else {
+            0.0
+        }
+    }
+}
+
+/// Fades a `PaletteColor` toward a dark, desaturated gray by `strength`
+/// (`0.0` = unchanged, `1.0` = fully dimmed), mirroring the zjstatus fork's
+/// `dim_color`. The actual blend (`format::dim_rgb`) also backs custom
+/// `key_format`/`desc_format`/`mode_format` colors, so a hand-styled bar
+/// dims the same amount as the theme-palette default. `EightBit` entries
+/// pass through unchanged: they're indices into a terminal-defined palette,
+/// not RGB triples, so there's no well-defined "dimmed version" of one to
+/// compute without also assuming a specific palette.
+fn dim_color(color: PaletteColor, strength: f32) -> PaletteColor {
+    match color {
+        PaletteColor::Rgb((r, g, b)) => {
+            let (r, g, b) = format::dim_rgb(r, g, b, strength);
+            PaletteColor::Rgb((r, g, b))
+        }
+        other => other,
+    }
+}
+
+fn dim_style_declaration(decl: &StyleDeclaration, strength: f32) -> StyleDeclaration {
+    StyleDeclaration {
+        base: dim_color(decl.base, strength),
+        background: dim_color(decl.background, strength),
+        emphasis_0: dim_color(decl.emphasis_0, strength),
+        emphasis_1: dim_color(decl.emphasis_1, strength),
+        emphasis_2: dim_color(decl.emphasis_2, strength),
+        emphasis_3: dim_color(decl.emphasis_3, strength),
+    }
+}
+
+/// A dimmed copy of `colors`. Only the `Styling` groups this plugin's own
+/// rendering actually reads are touched, so dimming the rest would be dead
+/// work: `ribbon_unselected`/`text_unselected` for hints
+/// (`style_key_with_modifier`/`style_key_text`/`style_description`), and
+/// `ribbon_selected` for the optional mode prefix (`style_mode`).
+fn dim_styling(colors: &Styling, strength: f32) -> Styling {
+    Styling {
+        ribbon_unselected: dim_style_declaration(&colors.ribbon_unselected, strength),
+        ribbon_selected: dim_style_declaration(&colors.ribbon_selected, strength),
+        text_unselected: dim_style_declaration(&colors.text_unselected, strength),
+        ..*colors
+    }
+}
+
+/// Renders the placeholder shown in the host's hint bar while descended
+/// into a nested session, naming the keys that ascend back out. Built
+/// entirely from this session's own `nested_ascend_keys`, not a mirror of
+/// the nested session's actual mode or hints, that needs cross-session data
+/// this plugin does not have (see docs/configuration.md). Empty when there
+/// are no ascend keys to show.
+///
+/// Rendered as an ordinary `Hint` (id `descended`, see `DESCENDED_HINT_ID`)
+/// through the normal `render_hint` path, rather than a bespoke styling
+/// function of its own: `key_format`/`desc_format` (default or per-hint,
+/// `key_format_descended`/`desc_format_descended`), `label_descended`, and
+/// `keys_descended` all apply to it exactly as they would to any other
+/// hint, including key and modifier aliases through the usual
+/// `style_key_with_modifier`/`compose_key_text` path. `style.key_order`
+/// should be `KeyOrder::Unsorted` when the caller builds it: the ascend keys
+/// are a sequence (press one, then the other), not the alternative-key set
+/// `sort_keys` is meant to reorder for a normal hint.
+fn render_descended_indicator(mode_info: &ModeInfo, style: &HintStyle) -> String {
+    if mode_info.nested_ascend_keys.is_empty() {
+        return String::new();
+    }
+
+    let hint = Hint {
+        id: DESCENDED_HINT_ID.to_string(),
+        label: DESCENDED_HINT_LABEL.to_string(),
+        keys: mode_info.nested_ascend_keys.clone(),
+    };
+    let mut parts = vec![];
+    render_hint(&mut parts, &hint, style);
+    ANSIStrings(&parts).to_string()
 }
 
 impl ZellijPlugin for State {
@@ -473,6 +630,53 @@ impl ZellijPlugin for State {
             .get("hide_in_base_mode")
             .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(false))
             .unwrap_or(false);
+        // Render nothing at all when this session is nested (see
+        // `is_nested`), so nested sessions get no bottom bar from the same
+        // shared config a host session uses.
+        self.hide_when_nested = configuration
+            .get(CONFIG_HIDE_WHEN_NESTED)
+            .map(|s| {
+                s.to_lowercase()
+                    .parse::<bool>()
+                    .unwrap_or(DEFAULT_HIDE_WHEN_NESTED)
+            })
+            .unwrap_or(DEFAULT_HIDE_WHEN_NESTED);
+        // Dim hints when this session isn't the one currently receiving
+        // input (host descended into a nested child, or a nested session
+        // not yet ascended into). See `dim_amount`.
+        self.dim_when_unfocused = configuration
+            .get(CONFIG_DIM_WHEN_UNFOCUSED)
+            .map(|s| {
+                s.to_lowercase()
+                    .parse::<bool>()
+                    .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED)
+            })
+            .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED);
+        // Clamped: dim_color's blend overshoots past neutral gray above
+        // 1.0, and inverts the blend direction below 0.0.
+        self.dim_strength = configuration
+            .get(CONFIG_DIM_STRENGTH)
+            .and_then(|s| s.parse::<f32>().ok())
+            .unwrap_or(DEFAULT_DIM_STRENGTH)
+            .clamp(0.0, 1.0);
+        // Prefix the hints line with the current mode. Off by default since
+        // most setups already get a mode indicator from zjstatus's own
+        // {mode} widget on the same line; this exists for standing alone.
+        self.show_mode = configuration
+            .get(CONFIG_SHOW_MODE)
+            .map(|s| {
+                s.to_lowercase()
+                    .parse::<bool>()
+                    .unwrap_or(DEFAULT_SHOW_MODE)
+            })
+            .unwrap_or(DEFAULT_SHOW_MODE);
+        // Optional zjstatus-style format string for the mode prefix, with a
+        // `{mode}` placeholder. When unset, the theme's ribbon_selected pill
+        // style is used (see `style_mode`).
+        self.mode_format = configuration
+            .get(CONFIG_MODE_FORMAT)
+            .filter(|s| !s.is_empty())
+            .cloned();
         // Fit the hints to the terminal, dropping the trailing ones as it
         // narrows instead of overflowing off the edge.
         self.auto_width = configuration
@@ -621,7 +825,74 @@ impl ZellijPlugin for State {
 
     fn render(&mut self, _rows: usize, _cols: usize) {
         let mode_info = &self.mode_info;
-        let output = if !(self.hide_in_base_mode && Some(mode_info.mode) == mode_info.base_mode) {
+        let is_nested = self.is_nested();
+        let dim = self.dim_amount();
+
+        let output = if is_nested && self.hide_when_nested {
+            String::new()
+        } else if self.is_host_descended() {
+            // Currently descended into a nested child (regardless of
+            // whether this session is itself also nested under something
+            // else): its own hints would describe a mode this session
+            // isn't actually receiving input in, so show a placeholder
+            // instead of them. Independent of dim_when_unfocused/
+            // dim_strength: whether to show the placeholder at all isn't a
+            // display preference the way the color dim is.
+            let dimmed_colors;
+            let colors: &Styling = if dim > 0.0 {
+                dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+                &dimmed_colors
+            } else {
+                &mode_info.style.colors
+            };
+            let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
+            let hint_order = HintOrder::default();
+            let indicator_style = HintStyle {
+                colors,
+                dim,
+                key_format: self.key_format.as_deref(),
+                desc_format: self.desc_format.as_deref(),
+                spacer: None,
+                discover: false,
+                direction_keys: DirectionKeys::default(),
+                // A sequence ("press Ctrl o, then ]"), not the alternative
+                // keys sort_keys reorders for a normal hint.
+                key_order: KeyOrder::Unsorted,
+                mode: &mode_key,
+                hint_order: &hint_order,
+                limit: None,
+                wide_ambiguous: self.wide_ambiguous,
+                drop_indicator: None,
+                precedence: HintPrecedence::default(),
+                shared: &[],
+                config: &self.config,
+            };
+            let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
+            let styled = if styled_indicator.is_empty() {
+                String::new()
+            } else if self.show_mode {
+                let mode_prefix = render_mode_prefix(
+                    mode_info.mode,
+                    colors,
+                    self.mode_format.as_deref(),
+                    &self.config,
+                    dim,
+                );
+                format!("{}{}", ANSIStrings(&mode_prefix), styled_indicator)
+            } else {
+                styled_indicator
+            };
+            let limit = self.length_limit();
+            let visible_len = calculate_visible_length(&styled, self.wide_ambiguous);
+            match limit {
+                Some(limit) if visible_len > limit => {
+                    truncate_ansi_string(&styled, &self.overflow_str, limit, self.wide_ambiguous)
+                }
+                _ => styled,
+            }
+        } else if self.hide_in_base_mode && Some(mode_info.mode) == mode_info.base_mode {
+            String::new()
+        } else {
             let keymap = get_keymap_for_mode(mode_info);
             // Bindings the base mode already advertises. Every non-base mode
             // inherits these via Zellij's `shared_except` groups, so listing
@@ -634,8 +905,39 @@ impl ZellijPlugin for State {
             };
             let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
             let limit = self.length_limit();
+            let dimmed_colors;
+            let colors: &Styling = if dim > 0.0 {
+                dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+                &dimmed_colors
+            } else {
+                &mode_info.style.colors
+            };
+            let mode_prefix = if self.show_mode {
+                render_mode_prefix(
+                    mode_info.mode,
+                    colors,
+                    self.mode_format.as_deref(),
+                    &self.config,
+                    dim,
+                )
+            } else {
+                vec![]
+            };
+            let mode_prefix_len = calculate_visible_length(
+                &ANSIStrings(&mode_prefix).to_string(),
+                self.wide_ambiguous,
+            );
+
+            // A bare leading space is only wanted when the hints open the
+            // line themselves: it's breathing room against the pane edge.
+            // The mode prefix (when shown) already opens with its own
+            // styled background, so an unstyled space in front of it would
+            // just show up as a gap of default terminal background before
+            // the pill starts.
+            let leading_space: usize = if mode_prefix_len > 0 { 0 } else { 1 };
             let ctx = HintStyle {
-                colors: &mode_info.style.colors,
+                colors,
+                dim,
                 key_format: self.key_format.as_deref(),
                 desc_format: self.desc_format.as_deref(),
                 spacer: self.hint_spacer.as_deref(),
@@ -644,19 +946,26 @@ impl ZellijPlugin for State {
                 key_order: self.key_order,
                 mode: &mode_key,
                 hint_order: &self.hint_order,
-                // `render` prefixes a space, so the hints themselves get one
-                // column less than the limit.
-                limit: limit.map(|limit| limit.saturating_sub(1)),
+                limit: limit.map(|limit| {
+                    limit
+                        .saturating_sub(leading_space)
+                        .saturating_sub(mode_prefix_len)
+                }),
                 wide_ambiguous: self.wide_ambiguous,
                 drop_indicator: self.drop_indicator.as_deref(),
                 precedence: self.hint_precedence,
                 shared: &shared,
                 config: &self.config,
             };
-            let parts = render_hints_for_mode(mode_info.mode, &keymap, &ctx);
+            let mut parts = mode_prefix;
+            parts.extend(render_hints_for_mode(mode_info.mode, &keymap, &ctx));
 
             let ansi_strings = ANSIStrings(&parts);
-            let formatted = format!(" {}", ansi_strings);
+            let formatted = if leading_space > 0 {
+                format!(" {}", ansi_strings)
+            } else {
+                ansi_strings.to_string()
+            };
 
             let visible_len = calculate_visible_length(&formatted, self.wide_ambiguous);
             match limit {
@@ -665,8 +974,6 @@ impl ZellijPlugin for State {
                 }
                 _ => formatted.to_string(),
             }
-        } else {
-            String::new()
         };
 
         // HACK: Because we're not sure when zjstatus will be ready to receive messages,
@@ -1243,6 +1550,81 @@ fn style_description(description: &str, palette: &Styling) -> Vec<ANSIString<'st
         .paint(format!(" {} ", description))]
 }
 
+/// Renders the current input mode as a styled prefix (e.g. " NORMAL "), shown
+/// at the very start of the hints line when `show_mode` is enabled. Exists so
+/// this plugin can stand on its own in a pane, with its own mode indicator,
+/// instead of relying on zjstatus's `{mode}` widget on the same line: that's
+/// the only way to get a mode indicator next to hints piped through a
+/// headless setup, which doesn't receive nested-session state (see
+/// docs/nested-sessions.md).
+///
+/// A per-mode override (`mode_format_normal`, `mode_format_locked`, ...)
+/// takes precedence over the global `mode_format`, which takes precedence
+/// over the built-in theme styling. Per-mode overrides use the same suffix
+/// names as zjstatus's own `mode_<suffix>` config keys (see
+/// `mode_config_suffix`), so an icon already set up for zjstatus's `{mode}`
+/// widget can be copied straight over. `dim` fades either path the same
+/// amount: the built-in styling through `colors` (already dimmed by the
+/// caller), a custom format string through `format::render_template`, which
+/// resolves its own literal colors and would otherwise ignore `colors`
+/// (and `dim_when_unfocused`) entirely.
+fn render_mode_prefix(
+    mode: InputMode,
+    colors: &Styling,
+    mode_format: Option<&str>,
+    config: &BTreeMap<String, String>,
+    dim: f32,
+) -> Vec<ANSIString<'static>> {
+    let mode_name = format!("{:?}", mode).to_uppercase();
+    let per_mode_key = format!("{}{}", CONFIG_MODE_FORMAT_PREFIX, mode_config_suffix(mode));
+    let format_str = config
+        .get(&per_mode_key)
+        .map(String::as_str)
+        .or(mode_format);
+
+    match format_str {
+        Some(fmt) => format::render_template(fmt, &[("mode", &mode_name)], config, dim),
+        None => style_mode(&mode_name, colors),
+    }
+}
+
+/// The zjstatus-style suffix for a mode's per-mode config keys, e.g.
+/// `InputMode::EnterSearch` -> `"enter_search"`, matching zjstatus's own
+/// `mode_enter_search` naming exactly (see `zjstatus`'s `ModeWidget::new`).
+fn mode_config_suffix(mode: InputMode) -> &'static str {
+    match mode {
+        InputMode::Normal => "normal",
+        InputMode::Locked => "locked",
+        InputMode::Resize => "resize",
+        InputMode::Pane => "pane",
+        InputMode::Tab => "tab",
+        InputMode::Scroll => "scroll",
+        InputMode::EnterSearch => "enter_search",
+        InputMode::Search => "search",
+        InputMode::RenameTab => "rename_tab",
+        InputMode::RenamePane => "rename_pane",
+        InputMode::Session => "session",
+        InputMode::Move => "move",
+        InputMode::Prompt => "prompt",
+        InputMode::Tmux => "tmux",
+    }
+}
+
+/// Default mode styling when neither a per-mode nor a global `mode_format`
+/// is set: the theme's `ribbon_selected` pill, the same "currently active"
+/// style Zellij's own ribbons use, bold so it reads as a badge rather than
+/// plain text.
+fn style_mode(mode_name: &str, palette: &Styling) -> Vec<ANSIString<'static>> {
+    let bg = palette_match!(palette.ribbon_selected.background);
+    let fg = palette_match!(palette.ribbon_selected.base);
+
+    vec![Style::new()
+        .fg(fg)
+        .on(bg)
+        .bold()
+        .paint(format!(" {} ", mode_name))]
+}
+
 fn plugin_key(
     keymap: &[(KeyWithModifier, Vec<Action>)],
     plugin_name: &str,
@@ -1349,6 +1731,7 @@ fn render_hint(parts: &mut Vec<ANSIString<'static>>, hint: &Hint, style: &HintSt
             fmt,
             &[("key", &key_text)],
             style.config,
+            style.dim,
         )),
         Some(_) => {}
         // Real keys keep the modifier grouping the palette styling does;
@@ -1369,6 +1752,7 @@ fn render_hint(parts: &mut Vec<ANSIString<'static>>, hint: &Hint, style: &HintSt
             fmt,
             &[("desc", &hint.label)],
             style.config,
+            style.dim,
         )),
         None => parts.extend(style_description(&hint.label, style.colors)),
     }
@@ -1802,12 +2186,12 @@ fn render_hints_for_mode(
 
     let spacer: Vec<ANSIString<'static>> = style
         .spacer
-        .map(|spacer| format::render_template(spacer, &[], style.config))
+        .map(|spacer| format::render_template(spacer, &[], style.config, style.dim))
         .unwrap_or_default();
 
     let indicator: Vec<ANSIString<'static>> = style
         .drop_indicator
-        .map(|indicator| format::render_template(indicator, &[], style.config))
+        .map(|indicator| format::render_template(indicator, &[], style.config, style.dim))
         .unwrap_or_default();
 
     let gap = style.limit.and_then(|limit| {
@@ -2671,6 +3055,10 @@ mod tests {
         let mode_key = format!("{:?}", mode).to_lowercase();
         let style = HintStyle {
             colors: &colors,
+            dim: config
+                .get("test_dim_strength")
+                .and_then(|v| v.parse::<f32>().ok())
+                .unwrap_or(0.0),
             // Minimal formats keep assertions readable; a test can override
             // them through config to exercise the real precedence.
             key_format: config
@@ -3585,5 +3973,309 @@ mod tests {
             })
             .collect();
         assert_eq!(rendered, vec!["h", "j", "^h", "^j"]);
+    }
+
+    fn state_with_ancestry(ancestry: Vec<&str>) -> State {
+        State {
+            mode_info: ModeInfo {
+                session_ancestry: ancestry.into_iter().map(str::to_owned).collect(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_session_with_no_ancestry_is_not_nested() {
+        assert!(!state_with_ancestry(vec![]).is_nested());
+    }
+
+    #[test]
+    fn a_session_with_ancestry_is_nested() {
+        assert!(state_with_ancestry(vec!["host"]).is_nested());
+    }
+
+    #[test]
+    fn is_host_descended_reflects_session_dimmed_only() {
+        let mut state = State {
+            mode_info: ModeInfo {
+                session_dimmed: Some(true),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(state.is_host_descended());
+
+        // session_ascended is a different signal (this session being the
+        // nested, not-yet-ascended-into side); it must not trigger the
+        // host-descended indicator on its own.
+        state.mode_info.session_dimmed = None;
+        state.mode_info.session_ascended = Some(true);
+        assert!(!state.is_host_descended());
+    }
+
+    #[test]
+    fn is_host_descended_ignores_the_dim_display_options() {
+        // Whether to show the descended placeholder isn't a rendering
+        // preference the way dim_when_unfocused/dim_strength are: it stays
+        // true even with dimming turned off.
+        let state = State {
+            mode_info: ModeInfo {
+                session_dimmed: Some(true),
+                ..Default::default()
+            },
+            dim_when_unfocused: false,
+            dim_strength: 0.0,
+            ..Default::default()
+        };
+        assert!(state.is_host_descended());
+        assert_eq!(state.dim_amount(), 0.0);
+    }
+
+    fn state_with_dim(
+        dim_when_unfocused: bool,
+        dim_strength: f32,
+        session_ascended: Option<bool>,
+        session_dimmed: Option<bool>,
+    ) -> State {
+        State {
+            mode_info: ModeInfo {
+                session_ascended,
+                session_dimmed,
+                ..Default::default()
+            },
+            dim_when_unfocused,
+            dim_strength,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn dim_amount_is_zero_when_not_dimmed() {
+        assert_eq!(
+            state_with_dim(true, 0.5, Some(false), None).dim_amount(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn dim_amount_follows_session_ascended() {
+        assert_eq!(
+            state_with_dim(true, 0.5, Some(true), None).dim_amount(),
+            0.5
+        );
+    }
+
+    #[test]
+    fn dim_amount_follows_session_dimmed() {
+        assert_eq!(
+            state_with_dim(true, 0.7, None, Some(true)).dim_amount(),
+            0.7
+        );
+    }
+
+    #[test]
+    fn dim_amount_respects_the_config_toggle() {
+        assert_eq!(
+            state_with_dim(false, 0.5, Some(true), Some(true)).dim_amount(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn dim_color_blends_rgb_toward_gray() {
+        // Pure red's BT.601 luminance is 0.299*255 = 76.245; the dim target
+        // is 30% of that (~22.9), so full strength converges there on all
+        // three channels: darker than the color's own brightness, not just
+        // desaturated to it.
+        let red = PaletteColor::Rgb((255, 0, 0));
+        assert_eq!(dim_color(red, 0.0), red);
+        assert_eq!(dim_color(red, 1.0), PaletteColor::Rgb((23, 23, 23)));
+        assert_eq!(dim_color(red, 0.5), PaletteColor::Rgb((139, 11, 11)));
+
+        // A color that's already gray has nothing to desaturate, but still
+        // darkens: its luminance equals every channel already, but the dim
+        // target is a fraction of that.
+        let white = PaletteColor::Rgb((255, 255, 255));
+        assert_eq!(dim_color(white, 1.0), PaletteColor::Rgb((77, 77, 77)));
+    }
+
+    #[test]
+    fn dim_color_passes_through_indexed_colors() {
+        let indexed = PaletteColor::EightBit(200);
+        assert_eq!(dim_color(indexed, 0.8), indexed);
+    }
+
+    /// Test helper: build the `HintStyle` `render_descended_indicator`
+    /// expects and render it, so individual tests only vary the ascend
+    /// keys and the format overrides they're checking.
+    fn rendered_descended_indicator(
+        ascend_keys: Vec<KeyWithModifier>,
+        key_format: Option<&str>,
+        desc_format: Option<&str>,
+        config: &BTreeMap<String, String>,
+    ) -> String {
+        let mode_info = ModeInfo {
+            nested_ascend_keys: ascend_keys,
+            ..Default::default()
+        };
+        let colors = Styling::default();
+        let hint_order = HintOrder::default();
+        let style = HintStyle {
+            colors: &colors,
+            dim: 0.0,
+            key_format,
+            desc_format,
+            spacer: None,
+            discover: false,
+            direction_keys: DirectionKeys::default(),
+            key_order: KeyOrder::Unsorted,
+            mode: "normal",
+            hint_order: &hint_order,
+            limit: None,
+            wide_ambiguous: false,
+            drop_indicator: None,
+            precedence: HintPrecedence::default(),
+            shared: &[],
+            config,
+        };
+        render_descended_indicator(&mode_info, &style)
+    }
+
+    fn ascend_keys() -> Vec<KeyWithModifier> {
+        vec![
+            KeyWithModifier::new(BareKey::Char('o')).with_ctrl_modifier(),
+            KeyWithModifier::new(BareKey::Char(']')),
+        ]
+    }
+
+    #[test]
+    fn descended_indicator_is_empty_without_ascend_keys() {
+        assert_eq!(
+            rendered_descended_indicator(vec![], None, None, &BTreeMap::new()),
+            ""
+        );
+    }
+
+    #[test]
+    fn descended_indicator_names_the_ascend_keys_in_order() {
+        // Unsorted key_order: these are a press-this-then-that sequence, not
+        // an alternative-key set a hint's usual sort_keys should reorder.
+        let styled = rendered_descended_indicator(
+            ascend_keys(),
+            Some("{key}"),
+            Some("{desc}"),
+            &BTreeMap::new(),
+        );
+        assert_eq!(styled, "Ctrl o ]return to host");
+    }
+
+    #[test]
+    fn descended_indicator_is_styled_not_plain_text() {
+        // Regression test: this used to be printed as bare, unstyled text,
+        // the only thing on either bar that didn't carry the theme's
+        // colors, and the one thing that visibly didn't fade when
+        // dim_when_unfocused grayed everything else out around it.
+        let styled = rendered_descended_indicator(ascend_keys(), None, None, &BTreeMap::new());
+
+        assert!(styled.contains("return to host"));
+        assert!(styled.contains('\u{1b}'), "expected ANSI escape codes");
+    }
+
+    #[test]
+    fn descended_indicator_honors_key_format_and_desc_format() {
+        // Rendered as an ordinary hint, so the same key_format/desc_format
+        // that style the curated hints style this one too.
+        let styled = rendered_descended_indicator(
+            ascend_keys(),
+            Some("#[fg=#ff0000]<{key}>"),
+            Some("#[fg=#00ff00]({desc})"),
+            &BTreeMap::new(),
+        );
+        assert_eq!(
+            styled,
+            "\u{1b}[38;2;255;0;0m<Ctrl o ]>\u{1b}[38;2;0;255;0m(return to host)\u{1b}[0m"
+        );
+    }
+
+    #[test]
+    fn descended_indicator_honors_a_per_hint_desc_format_override() {
+        // label_descended/desc_format_descended/keys_descended all apply
+        // via the normal hint_override machinery, same as any other hint.
+        let config = BTreeMap::from([("desc_format_descended".to_owned(), "{desc}!".to_owned())]);
+        let styled =
+            rendered_descended_indicator(ascend_keys(), Some("{key}"), Some("{desc}"), &config);
+        assert_eq!(styled, "Ctrl o ]return to host!");
+    }
+
+    #[test]
+    fn mode_prefix_defaults_to_the_ribbon_selected_pill() {
+        let colors = Styling::default();
+        let parts = render_mode_prefix(InputMode::Pane, &colors, None, &BTreeMap::new(), 0.0);
+        let rendered = ANSIStrings(&parts).to_string();
+
+        assert!(rendered.contains("PANE"));
+        assert!(rendered.contains('\u{1b}'), "expected ANSI escape codes");
+    }
+
+    #[test]
+    fn mode_prefix_honors_a_custom_format() {
+        let colors = Styling::default();
+        let parts = render_mode_prefix(
+            InputMode::Locked,
+            &colors,
+            Some("#[fg=#ff0000]<{mode}>"),
+            &BTreeMap::new(),
+            0.0,
+        );
+        let rendered = ANSIStrings(&parts).to_string();
+
+        assert!(rendered.contains("<LOCKED>"));
+    }
+
+    #[test]
+    fn mode_prefix_per_mode_override_wins_over_the_global_format() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([(
+            "mode_format_locked".to_owned(),
+            "[locked: {mode}]".to_owned(),
+        )]);
+
+        // Locked has its own override, so it ignores the global format...
+        let locked = render_mode_prefix(InputMode::Locked, &colors, Some("<{mode}>"), &config, 0.0);
+        assert_eq!(ANSIStrings(&locked).to_string(), "[locked: LOCKED]");
+
+        // ...while a mode without its own override still falls back to it.
+        let pane = render_mode_prefix(InputMode::Pane, &colors, Some("<{mode}>"), &config, 0.0);
+        assert_eq!(ANSIStrings(&pane).to_string(), "<PANE>");
+    }
+
+    #[test]
+    fn mode_prefix_custom_format_dims_the_same_as_the_default_pill() {
+        // The bug this guards: a custom mode_format resolves its own literal
+        // colors through format::render_template, which used to ignore the
+        // dim amount entirely, so a hand-styled mode pill stayed at full
+        // brightness while everything else around it dimmed.
+        let colors = Styling::default();
+        let parts = render_mode_prefix(
+            InputMode::Normal,
+            &colors,
+            Some("#[fg=#ff0000]{mode}"),
+            &BTreeMap::new(),
+            1.0,
+        );
+        let rendered = ANSIStrings(&parts).to_string();
+
+        // Full dim strength on pure red lands on the same dark gray
+        // dim_color/dim_rgb produce elsewhere (see dim_color_blends_rgb_toward_gray).
+        assert!(rendered.contains("\u{1b}[38;2;23;23;23m"));
+    }
+
+    #[test]
+    fn mode_config_suffix_matches_zjstatus_naming() {
+        assert_eq!(mode_config_suffix(InputMode::Normal), "normal");
+        assert_eq!(mode_config_suffix(InputMode::EnterSearch), "enter_search");
+        assert_eq!(mode_config_suffix(InputMode::RenameTab), "rename_tab");
+        assert_eq!(mode_config_suffix(InputMode::RenamePane), "rename_pane");
     }
 }

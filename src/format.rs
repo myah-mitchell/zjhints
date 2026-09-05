@@ -38,23 +38,32 @@ use std::collections::BTreeMap;
 /// `{name}` placeholder in `values` with its plain-text value beforehand.
 ///
 /// `config` is the plugin configuration, used to resolve `$alias` colors via
-/// `color_<alias>` keys (the same mechanism zjstatus uses).
+/// `color_<alias>` keys (the same mechanism zjstatus uses). `dim` fades any
+/// resolved RGB color toward gray by that amount (`0.0` = unchanged, `1.0` =
+/// fully dimmed) the same way `dim_when_unfocused` dims the theme palette, so
+/// a custom format string dims along with everything else rather than
+/// staying at fixed brightness regardless of focus. See `dim_rgb`.
 pub fn render_template(
     template: &str,
     values: &[(&str, &str)],
     config: &BTreeMap<String, String>,
+    dim: f32,
 ) -> Vec<ANSIString<'static>> {
     let mut substituted = template.to_string();
     for (name, value) in values {
         substituted = substituted.replace(&format!("{{{}}}", name), value);
     }
-    parse_format(&substituted, config)
+    parse_format(&substituted, config, dim)
 }
 
 /// Parse a format string into styled segments. Text before the first `#[...]`
 /// block is emitted unstyled; each block sets the style for the text following
 /// it, up to the next block.
-fn parse_format(template: &str, config: &BTreeMap<String, String>) -> Vec<ANSIString<'static>> {
+fn parse_format(
+    template: &str,
+    config: &BTreeMap<String, String>,
+    dim: f32,
+) -> Vec<ANSIString<'static>> {
     let mut parts: Vec<ANSIString<'static>> = vec![];
 
     for (idx, segment) in template.split("#[").enumerate() {
@@ -69,7 +78,7 @@ fn parse_format(template: &str, config: &BTreeMap<String, String>) -> Vec<ANSISt
         // `segment` is `<directives>]<text>`. A missing `]` means the block has
         // no trailing text (just directives), which we simply drop.
         if let Some((directives, text)) = segment.split_once(']') {
-            let style = parse_style(directives, config);
+            let style = parse_style(directives, config, dim);
             if !text.is_empty() {
                 parts.push(style.paint(text.to_string()));
             }
@@ -80,7 +89,7 @@ fn parse_format(template: &str, config: &BTreeMap<String, String>) -> Vec<ANSISt
 }
 
 /// Parse the comma-separated directives inside a `#[...]` block into a style.
-fn parse_style(directives: &str, config: &BTreeMap<String, String>) -> Style {
+fn parse_style(directives: &str, config: &BTreeMap<String, String>, dim: f32) -> Style {
     let mut style = Style::new();
 
     for directive in directives.split(',') {
@@ -90,11 +99,11 @@ fn parse_style(directives: &str, config: &BTreeMap<String, String>) -> Style {
         }
 
         if let Some(color) = directive.strip_prefix("fg=") {
-            if let Some(color) = parse_color(color, config) {
+            if let Some(color) = parse_color(color, config, dim) {
                 style = style.fg(color);
             }
         } else if let Some(color) = directive.strip_prefix("bg=") {
-            if let Some(color) = parse_color(color, config) {
+            if let Some(color) = parse_color(color, config, dim) {
                 style = style.on(color);
             }
         } else if directive.starts_with("us=") {
@@ -125,8 +134,11 @@ fn apply_effect(style: Style, effect: &str) -> Style {
     }
 }
 
-/// Parse a color string using the same rules as zjstatus.
-fn parse_color(color: &str, config: &BTreeMap<String, String>) -> Option<Colour> {
+/// Parse a color string using the same rules as zjstatus. `dim` fades a
+/// resolved RGB color toward gray (see `dim_rgb`); indexed and named ANSI
+/// colors pass through unchanged, since they're indices into a
+/// terminal-defined palette rather than RGB triples this can fade.
+fn parse_color(color: &str, config: &BTreeMap<String, String>, dim: f32) -> Option<Colour> {
     let color = color.trim();
 
     // `$alias` resolves to the `color_<alias>` configuration value.
@@ -137,7 +149,7 @@ fn parse_color(color: &str, config: &BTreeMap<String, String>) -> Option<Colour>
     };
 
     if let Some(hex) = color.strip_prefix('#') {
-        return hex_to_rgb(hex);
+        return hex_to_rgb(hex, dim);
     }
 
     if let Some(named) = color_by_name(color) {
@@ -155,15 +167,46 @@ fn parse_color(color: &str, config: &BTreeMap<String, String>) -> Option<Colour>
     None
 }
 
-/// Parse a `RRGGBB` hex string (without a leading `#`) into an RGB color.
-fn hex_to_rgb(hex: &str) -> Option<Colour> {
+/// Parse a `RRGGBB` hex string (without a leading `#`) into an RGB color,
+/// dimmed by `dim` (`0.0` = unchanged).
+fn hex_to_rgb(hex: &str, dim: f32) -> Option<Colour> {
     if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
     let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
     let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    let (r, g, b) = dim_rgb(r, g, b, dim);
     Some(RGB(r, g, b))
+}
+
+/// A fully dimmed color sits at this fraction of its own brightness: dimmed
+/// output should read as visibly darker, not just the same brightness with
+/// the hue washed out. Mirrors the constant of the same name in `main.rs`
+/// and the matching one in the zjstatus fork, so a custom format string
+/// dims by the same amount as the theme-palette styling next to it.
+const DIM_BRIGHTNESS: f32 = 0.3;
+
+/// Fades an `(r, g, b)` triple toward a dark, desaturated gray by `strength`
+/// (`0.0` = unchanged, `1.0` = fully dimmed). Each channel moves toward
+/// `DIM_BRIGHTNESS` of the color's own perceived luminance (ITU-R BT.601 luma
+/// weights) rather than toward a fixed midpoint or toward the color's own
+/// unchanged brightness, so the color fades out its hue while also
+/// darkening, ending at a dim neutral gray. See `main.rs`'s `dim_color` for
+/// the same blend applied to the theme palette.
+pub(crate) fn dim_rgb(r: u8, g: u8, b: u8, strength: f32) -> (u8, u8, u8) {
+    if strength <= 0.0 {
+        return (r, g, b);
+    }
+    let luminance = 0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32;
+    let target = luminance * DIM_BRIGHTNESS;
+    let blend = |channel: u8| -> u8 {
+        let channel = channel as f32;
+        (channel + (target - channel) * strength)
+            .round()
+            .clamp(0.0, 255.0) as u8
+    };
+    (blend(r), blend(g), blend(b))
 }
 
 /// Map a named color to an `ansi_term` color, matching zjstatus's names.
@@ -205,21 +248,24 @@ mod tests {
     #[test]
     fn parses_hex_and_named_and_indexed_colors() {
         let config = cfg(&[]);
-        assert_eq!(parse_color("#010203", &config), Some(RGB(1, 2, 3)));
-        assert_eq!(parse_color("red", &config), Some(Colour::Red));
-        assert_eq!(parse_color("magenta", &config), Some(Colour::Purple));
-        assert_eq!(parse_color("bright_black", &config), Some(Fixed(8)));
-        assert_eq!(parse_color("5", &config), Some(Fixed(5)));
-        assert_eq!(parse_color("colour200", &config), Some(Fixed(200)));
-        assert_eq!(parse_color("nonsense", &config), None);
-        assert_eq!(parse_color("#12", &config), None);
+        assert_eq!(parse_color("#010203", &config, 0.0), Some(RGB(1, 2, 3)));
+        assert_eq!(parse_color("red", &config, 0.0), Some(Colour::Red));
+        assert_eq!(parse_color("magenta", &config, 0.0), Some(Colour::Purple));
+        assert_eq!(parse_color("bright_black", &config, 0.0), Some(Fixed(8)));
+        assert_eq!(parse_color("5", &config, 0.0), Some(Fixed(5)));
+        assert_eq!(parse_color("colour200", &config, 0.0), Some(Fixed(200)));
+        assert_eq!(parse_color("nonsense", &config, 0.0), None);
+        assert_eq!(parse_color("#12", &config, 0.0), None);
     }
 
     #[test]
     fn resolves_color_aliases() {
         let config = cfg(&[("color_accent", "#89b4fa")]);
-        assert_eq!(parse_color("$accent", &config), Some(RGB(0x89, 0xb4, 0xfa)));
-        assert_eq!(parse_color("$missing", &config), None);
+        assert_eq!(
+            parse_color("$accent", &config, 0.0),
+            Some(RGB(0x89, 0xb4, 0xfa))
+        );
+        assert_eq!(parse_color("$missing", &config, 0.0), None);
     }
 
     #[test]
@@ -229,6 +275,7 @@ mod tests {
             "#[fg=red,bold] {key} #[fg=white] {desc} ",
             &[("key", "Ctrl + p"), ("desc", "pane")],
             &config,
+            0.0,
         );
         // Rendered ANSI should contain the substituted, styled text.
         let rendered = ansi_term::ANSIStrings(&parts).to_string();
@@ -241,8 +288,21 @@ mod tests {
     #[test]
     fn leading_literal_text_is_unstyled() {
         let config = cfg(&[]);
-        let parts = render_template("x#[fg=red]y", &[], &config);
+        let parts = render_template("x#[fg=red]y", &[], &config, 0.0);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0].to_string(), "x");
+    }
+
+    #[test]
+    fn dim_fades_an_rgb_color_toward_gray_but_leaves_indexed_colors_alone() {
+        let config = cfg(&[]);
+        // Pure red at full dim strength: mirrors main.rs's
+        // dim_color_blends_rgb_toward_gray, same DIM_BRIGHTNESS.
+        assert_eq!(parse_color("#ff0000", &config, 1.0), Some(RGB(23, 23, 23)));
+        assert_eq!(parse_color("#ff0000", &config, 0.0), Some(RGB(255, 0, 0)));
+        // Named and indexed colors have no RGB triple to fade, so they pass
+        // through unchanged regardless of dim strength.
+        assert_eq!(parse_color("red", &config, 1.0), Some(Colour::Red));
+        assert_eq!(parse_color("5", &config, 1.0), Some(Fixed(5)));
     }
 }
