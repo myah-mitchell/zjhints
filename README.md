@@ -31,6 +31,11 @@ behaviour and builds a configuration layer over it:
   pinned order for the hints themselves
 - **[Fitting](docs/fitting.md)** — drop whole hints to fit the terminal as it
   narrows, in an order you choose, with an optional indicator for what was cut
+- **[Nested sessions](docs/nested-sessions.md)**: hide or dim this session's
+  hints while it isn't the one receiving input, so a host and a nested
+  session sharing one layout don't end up with doubled chrome; optionally
+  prefix the line with the current mode, for setups that give this plugin
+  its own pane rather than piping into zjstatus
 - **Zellij 0.45** support
 
 Four options upstream, around two dozen here — the full list is in the
@@ -59,6 +64,22 @@ plugins {
         // E.g. if you have set default_mode to "locked", then
         // you can hide hints in the locked mode by setting this to true
         hide_in_base_mode false // default
+
+        // Render nothing while this session is nested inside another, so
+        // one shared layout can serve both. See docs/nested-sessions.md.
+        hide_when_nested true // default
+        // Dim hints while this session isn't the one receiving input.
+        dim_when_unfocused true // default
+        dim_strength       "0.5" // default, 0.0-1.0 (quoted: Zellij's plugin-config
+                                 // parser only accepts strings, ints, and bools for a
+                                 // node value, so a bare decimal like 0.5 fails to load)
+
+        // Prefix the hints line with the current mode. Useful when this
+        // plugin runs in its own pane rather than piped into zjstatus's
+        // {mode} widget. mode_format_<mode> (e.g. mode_format_normal) gives
+        // a single mode its own icon, the same as zjstatus's mode_normal.
+        // See docs/nested-sessions.md#standing-alone.
+        show_mode false // default
 
         // Also show every other keybinding your config enables, beyond the
         // curated list. See docs/hints.md.
