@@ -72,6 +72,11 @@ jobs:
 
       - name: Describe this build
         id: describe
+        env:
+          # inputs.ref is attacker-controllable by anyone who can trigger this
+          # workflow, so it goes through env rather than straight into the
+          # script, same as the label above.
+          REF_RAW: ${{ inputs.ref }}
         run: |
           set -euo pipefail
           version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
@@ -81,7 +86,7 @@ jobs:
             echo
             echo "| | |"
             echo "|---|---|"
-            echo "| Ref requested | \`${{ inputs.ref }}\` |"
+            echo "| Ref requested | \`$REF_RAW\` |"
             echo "| Commit | \`$(git rev-parse --short HEAD)\` |"
             echo "| Cargo.toml version | \`${version}\` |"
             echo "| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |"

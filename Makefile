@@ -76,14 +76,25 @@ zellij:
 # something to depend on.
 #
 # Usage: make ea LABEL=nested-sessions
+#
+# beta.yml lowercases the label and reduces it to [a-z0-9-] before building
+# the ea-<label> tag, so LABEL is sanitized the same way here — otherwise a
+# label typed back with different casing or punctuation than what was
+# published (e.g. LABEL=Nested-Sessions for a tag actually named
+# ea-nested-sessions) would 404 with no hint why.
 ea:
 	@if [ -z "$(LABEL)" ]; then \
 		echo "Usage: make ea LABEL=nested-sessions   (whatever channel was published)" >&2; \
 		exit 1; \
 	fi
-	@echo "Fetching the EA build '$(LABEL)' from $(REPO)…"
-	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/ea-$(LABEL)/zjstatus-hints.wasm"
-	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
-	@echo "Installed -> $(PLUGIN)"
-	@echo "Start a new Zellij session to load it."
+	@label="$$(echo '$(LABEL)' | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -e 's/^-*//' -e 's/-*$$//')"; \
+	if [ -z "$$label" ]; then \
+		echo "LABEL '$(LABEL)' has no characters left after sanitizing to [a-z0-9-]" >&2; \
+		exit 1; \
+	fi; \
+	echo "Fetching the EA build '$$label' from $(REPO)…"; \
+	curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/ea-$$label/zjstatus-hints.wasm"; \
+	mv "$(PLUGIN).tmp" "$(PLUGIN)"; \
+	echo "Installed -> $(PLUGIN)"; \
+	echo "Start a new Zellij session to load it."
