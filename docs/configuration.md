@@ -29,6 +29,7 @@ Every option the plugin reads, with its default. Follow the links for the detail
 - `key_format_<id>` / `desc_format_<id>`: Format strings for a single hint, overriding the global ones; see [Styling one hint](styling.md#styling-one-hint)
 - `keys_<id>`: Replace a hint's keys with a fixed string (e.g. `keys_go_to_tab "1-9"`); see [Replacing the keys](styling.md#replacing-the-keys)
 - `hide_when_nested`: Render nothing while this session is nested inside another (default: true); see [Nested sessions](nested-sessions.md#hiding-a-nested-sessions-hints)
+- `collapse_when_empty`: Hand this plugin's layout row back to the panes around it while the bar has nothing to draw (default: true); see [Nested sessions](nested-sessions.md#giving-the-row-back)
 - `dim_when_unfocused`: Dim hints while this session isn't the one receiving input (default: true); see [Nested sessions](nested-sessions.md#dimming)
 - `dim_strength`: How strongly to dim, from `0.0` to `1.0` (default: `0.5`); see [Nested sessions](nested-sessions.md#dimming)
 - `show_mode`: Prefix the hints line with the current input mode (default: false); see [Standing alone](nested-sessions.md#standing-alone)

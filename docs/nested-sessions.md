@@ -18,9 +18,10 @@ This plugin picks up two pieces of state Zellij already reports on every
   own signal.
 
 ```kdl
-hide_when_nested   true // default
-dim_when_unfocused true // default
-dim_strength       "0.5" // default, clamped to 0.0-1.0
+hide_when_nested    true // default
+collapse_when_empty true // default
+dim_when_unfocused  true // default
+dim_strength        "0.5" // default, clamped to 0.0-1.0
 ```
 
 `dim_strength` has to be quoted. Zellij's own plugin-config parser only has a
@@ -48,6 +49,28 @@ other pane, the host's bars included. Deferring in that second case would
 leave the screen with no hints anywhere, so the nested session takes its
 bar back for as long as it lasts. This needs no configuring, and it comes
 back off when the host leaves that fullscreen.
+
+## Giving the row back
+
+A layout that puts this plugin in its own pane reserves a row for it, and
+that row stays reserved whether or not there is anything on it. A nested
+session with `hide_when_nested` on therefore draws a blank line where its
+hints would have been, wasting a row of the terminal for nothing.
+
+`collapse_when_empty` (default: true) hands that row to the panes around it
+whenever the bar has nothing to draw, and takes it back the moment it does.
+The pane keeps its place in the layout the whole time, so the row that comes
+back is the exact one the layout asked for rather than an approximation of
+it. Set it to `false` to keep the row reserved unconditionally, for a layout
+whose proportions should not shift.
+
+This is not specific to nesting. `hide_in_base_mode` empties the bar too,
+and so does any configuration that leaves nothing to show, and the row goes
+away in those cases as well.
+
+It needs the `set_self_collapsed` plugin command, which is not in a
+released Zellij yet. On a Zellij without it the setting does nothing and
+the row stays where it is.
 
 ## Dimming
 
