@@ -22,6 +22,14 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# Two runs for the same label would race to move the same ea-<label> tag and
+# publish/update the same release; queue them instead. A newer request for a
+# channel supersedes whatever the previous run was building, so it is safe to
+# cancel rather than let the old one finish first.
+concurrency:
+  group: beta-${{ inputs.label }}
+  cancel-in-progress: true
+
 jobs:
   beta:
     name: beta
@@ -37,9 +45,9 @@ jobs:
         id: tag
         run: |
           set -euo pipefail
-          label="$(echo "$LABEL_RAW" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -e 's/^-*//' -e 's/-*$//')"
+          label="$(printf '%s\n' "$LABEL_RAW" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -e 's/^-*//' -e 's/-*$//')"
           if [ -z "$label" ]; then
-            echo "::error::label '$LABEL_RAW' has no characters left after sanitizing to [a-z0-9-]" >&2
+            printf '::error::label "%s" has no characters left after sanitizing to [a-z0-9-]\n' "$LABEL_RAW" >&2
             exit 1
           fi
           echo "label=$label" >> "$GITHUB_OUTPUT"
@@ -93,7 +101,7 @@ jobs:
             echo
             echo "\`$(git log -1 --pretty=%s)\`"
             echo
-            echo "> Not a stable release — see"
+            echo "> Not a stable release; see"
             echo "> [the latest release](../../releases/latest) for that. If this"
             echo "> ref depends on an unreleased upstream fix via"
             echo "> \`[patch.crates-io]\`, see"
