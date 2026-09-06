@@ -586,6 +586,20 @@ impl State {
         !self.mode_info.session_ancestry.is_empty()
     }
 
+    /// Whether the host has expanded this session's pane over its whole
+    /// display, taking its own status bar off the screen with it.
+    ///
+    /// Zellij has two fullscreens. The ordinary one (`ToggleFocusFullscreen`)
+    /// expands a pane over the viewport only, so the host's tab bar and status
+    /// bar stay where they are; Zellij does not report that one here at all.
+    /// The other (`ToggleFocusNoUiFullscreen`) expands over the whole display
+    /// and hides every other pane, the host's bars included, and that is the
+    /// one this reports. It is set only for a nested session, since it arrives
+    /// from a host.
+    fn host_ui_is_covered(&self) -> bool {
+        self.mode_info.host_fullscreen == Some(true)
+    }
+
     /// Whether this session currently has its own focus deferred to a
     /// nested child it is hosting, regardless of whether this session is
     /// itself also nested inside something else. Independent of the
@@ -781,7 +795,11 @@ impl State {
     /// and the same reasoning already kept the descended-into indicator
     /// showing regardless of it.
     fn bar_subject(&self) -> BarSubject<'_> {
-        if self.is_nested() && self.hide_when_nested {
+        if self.is_nested() && self.hide_when_nested && !self.host_ui_is_covered() {
+            // `hide_when_nested` hides this bar because the host is drawing one
+            // just below it. Once the host has covered its own bar to give this
+            // session the whole display, that is no longer true, and staying
+            // hidden would leave the screen with no hints on it at all.
             BarSubject::Nothing
         } else if let Some(guest_mode_info) = self.descended_guest_mode_info() {
             // Descended into a nested session that has told us its mode and
@@ -4837,6 +4855,61 @@ mod tests {
 
         // A session in the middle of a chain has no bar at all, so there is
         // nowhere to put the hints of the session below it either.
+        assert_eq!(rendered_bar(&state), "");
+    }
+
+    #[test]
+    fn covering_the_host_s_bar_gives_a_nested_session_its_own_back() {
+        let mut state = State {
+            mode_info: ModeInfo {
+                session_ancestry: vec!["host".to_string()],
+                keybinds: guest_keybinds(),
+                ..Default::default()
+            },
+            hide_when_nested: true,
+            ..Default::default()
+        };
+
+        // The host is drawing a bar of its own just below this one, which is
+        // what `hide_when_nested` defers to.
+        assert_eq!(rendered_bar(&state), "");
+
+        // The host has expanded this session over its whole display and taken
+        // its own bar off the screen, so deferring to it would leave no hints
+        // anywhere.
+        state.mode_info.host_fullscreen = Some(true);
+        assert!(rendered_bar(&state).contains("pane"));
+    }
+
+    #[test]
+    fn covering_the_host_s_bar_surfaces_the_hints_of_the_session_below() {
+        let mut state = state_descended_into_guest();
+        state.mode_info.session_ancestry = vec!["host".to_string()];
+        state.mode_info.host_fullscreen = Some(true);
+        state.hide_when_nested = true;
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
+        state.update(guest_keybinds_event(GUEST_PANE));
+
+        // This session is the only one left with a bar, and the keys the user
+        // is pressing belong to the session below it, so that is what it draws.
+        assert!(rendered_bar(&state).contains("close"));
+    }
+
+    #[test]
+    fn an_ordinary_fullscreen_in_the_host_leaves_a_nested_bar_hidden() {
+        let state = State {
+            mode_info: ModeInfo {
+                session_ancestry: vec!["host".to_string()],
+                keybinds: guest_keybinds(),
+                // Zellij reports nothing here for the fullscreen that expands a
+                // pane over the viewport only: the host's bar is still up.
+                host_fullscreen: None,
+                ..Default::default()
+            },
+            hide_when_nested: true,
+            ..Default::default()
+        };
+
         assert_eq!(rendered_bar(&state), "");
     }
 

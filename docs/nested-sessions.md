@@ -38,6 +38,17 @@ nested session: point both at the same config, and the nested session's
 copy renders empty while the host's keeps working normally. Set it to
 `false` if you would rather a nested session kept showing its own hints.
 
+The one time a nested session draws its bar anyway is when the host has
+taken its own off the screen. Zellij has two fullscreens: the ordinary one
+(`ToggleFocusFullscreen`, `Ctrl p` then `f`) expands a pane over the
+viewport only, so the host's status bar and tab bar stay put and there is
+still a bar below to defer to. The other (`ToggleFocusNoUiFullscreen`,
+`Ctrl p` then `Shift f`) expands over the whole display and hides every
+other pane, the host's bars included. Deferring in that second case would
+leave the screen with no hints anywhere, so the nested session takes its
+bar back for as long as it lasts. This needs no configuring, and it comes
+back off when the host leaves that fullscreen.
+
 ## Dimming
 
 `dim_when_unfocused` blends colors toward neutral gray by `dim_strength`
@@ -108,7 +119,9 @@ in its base mode still gets its hints shown, because descending is itself
 the out-of-the-ordinary state that option exists to keep off the bar.
 `hide_when_nested` still wins over both: a session in the middle of a chain
 renders nothing at all, so there is nowhere to put the hints of the session
-below it either.
+below it either. Unless its own host has covered its bar, that is, in which
+case this is the only bar left on the screen and it shows the hints of the
+session it has descended into, the same as any other host would.
 
 ## A known gap: headless plugins don't see any of this
 
