@@ -624,23 +624,27 @@ impl State {
     /// Record what a nested session reported about itself, asking it for its
     /// keybindings the first time it speaks.
     ///
-    /// Returns whether anything changed, so callers can skip a redraw that
-    /// would produce the same bar. The keybinding request is what makes
-    /// `descended_guest` eventually renderable: mode reports arrive on their
-    /// own, keybindings only on request.
+    /// `update` applies the report and says whether it changed anything, which
+    /// becomes the return value so callers can skip a redraw that would produce
+    /// the same bar. It reports that itself rather than being diffed here,
+    /// because diffing would mean copying a whole keybinding table on every
+    /// mode change to compare against.
+    ///
+    /// The keybinding request is what makes `descended_guest` eventually
+    /// renderable: mode reports arrive on their own, keybindings only on
+    /// request.
     fn record_nested_guest(
         &mut self,
         pane_id: PaneId,
-        update: impl FnOnce(&mut NestedGuest),
+        update: impl FnOnce(&mut NestedGuest) -> bool,
     ) -> bool {
         let guest = self.nested_guests.entry(pane_id).or_default();
-        let before = guest.clone();
-        update(guest);
+        let changed = update(guest);
         if !guest.keybinds_requested {
             guest.keybinds_requested = true;
             request_nested_session_keybinds(pane_id);
         }
-        *guest != before
+        changed
     }
 
     /// Forget nested sessions whose panes are gone, so a pane id Zellij later
@@ -1150,9 +1154,13 @@ impl ZellijPlugin for State {
                 base_mode,
             } => {
                 should_render |= self.record_nested_guest(pane_id, |guest| {
+                    let changed = guest.session_name != session_name
+                        || guest.mode != mode
+                        || guest.base_mode != base_mode;
                     guest.session_name = session_name;
                     guest.mode = mode;
                     guest.base_mode = base_mode;
+                    changed
                 });
             }
             // A nested session answering the keybinding request that
@@ -1163,8 +1171,10 @@ impl ZellijPlugin for State {
                 keybinds,
             } => {
                 should_render |= self.record_nested_guest(pane_id, |guest| {
+                    let changed = guest.session_name != session_name || guest.keybinds != keybinds;
                     guest.session_name = session_name;
                     guest.keybinds = keybinds;
+                    changed
                 });
             }
             // Answered, or granted from the cache. Either way the prompt is
