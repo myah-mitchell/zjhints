@@ -3,7 +3,7 @@ WASM    := target/$(TARGET)/release/zjstatus-hints.wasm
 PLUGIN  := $(HOME)/.local/share/zellij/plugins/zjstatus-hints.wasm
 REPO    := myah-mitchell/zjstatus-hints
 
-.PHONY: build install dev test check nightly latest zellij
+.PHONY: build install dev test check nightly latest zellij ea
 
 # Build the release wasm.
 build:
@@ -66,6 +66,24 @@ zellij:
 	@echo "Fetching the newest release for Zellij $(VERSION).x from $(REPO)…"
 	@curl -fsSL -o "$(PLUGIN).tmp" \
 		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/zjstatus-hints.wasm"
+	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
+	@echo "Installed -> $(PLUGIN)"
+	@echo "Start a new Zellij session to load it."
+
+# Install an on-demand EA/beta build (see docs/AUTOMATION.md). These come
+# from the beta.yml workflow, not a tagged release, and the channel can be
+# replaced at any time — treat this as trying out in-progress work, not as
+# something to depend on.
+#
+# Usage: make ea LABEL=nested-sessions
+ea:
+	@if [ -z "$(LABEL)" ]; then \
+		echo "Usage: make ea LABEL=nested-sessions   (whatever channel was published)" >&2; \
+		exit 1; \
+	fi
+	@echo "Fetching the EA build '$(LABEL)' from $(REPO)…"
+	@curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/ea-$(LABEL)/zjstatus-hints.wasm"
 	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
 	@echo "Installed -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
