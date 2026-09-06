@@ -51,7 +51,54 @@ struct State {
     /// alongside it. See `render_mode_prefix`.
     show_mode: bool,
     mode_format: Option<String>,
+    /// What each nested session hosted in one of this session's panes reports
+    /// about itself, keyed by the pane it runs in so several of them never
+    /// overwrite each other. Populated from `NestedSessionModeUpdate` and
+    /// `NestedSessionKeybinds`; read back by `descended_guest` while this
+    /// session is descended into one of them.
+    nested_guests: BTreeMap<PaneId, NestedGuest>,
+    /// Which pane holds the focus in each tab, learned from `PaneUpdate`.
+    focus_by_tab: BTreeMap<usize, TabFocus>,
+    /// The focused tab, learned from `TabUpdate`. `None` until the first one
+    /// arrives.
+    active_tab: Option<ActiveTab>,
     config: BTreeMap<String, String>,
+}
+
+/// Where the focus sits in one tab.
+///
+/// Zellij tracks focus per layer, so a tab can have a focused tiled pane and a
+/// focused floating pane at once. Which of the two actually has the keyboard
+/// depends on whether the floating layer is up, and only `TabUpdate` reports
+/// that, so both are kept here and `focused_pane_id` picks between them.
+#[derive(Default, Clone, PartialEq)]
+struct TabFocus {
+    tiled: Option<PaneId>,
+    floating: Option<PaneId>,
+}
+
+/// The focused tab, and whether its floating layer is up.
+#[derive(Default, Clone, Copy, PartialEq)]
+struct ActiveTab {
+    position: usize,
+    floating_panes_visible: bool,
+}
+
+/// What a nested session running in one of this session's panes has told us
+/// about itself.
+///
+/// `mode` and `base_mode` arrive unprompted, once when the nested session first
+/// makes contact and again on every mode change it makes, so they are current
+/// by the time the user descends into it. `keybinds` is the expensive half and
+/// arrives only in answer to a request, which is what `keybinds_requested`
+/// guards: the request goes out once per session, not on every event or render.
+#[derive(Default, Clone, PartialEq)]
+struct NestedGuest {
+    session_name: Option<String>,
+    mode: InputMode,
+    base_mode: Option<InputMode>,
+    keybinds: KeybindsVec,
+    keybinds_requested: bool,
 }
 
 register_plugin!(State);
@@ -74,6 +121,41 @@ const SESSION_PLUGINS: &[(&str, &str, &str)] = &[
     ("zellij:share", "share", "share"),
     ("zellij:layout-manager", "layout_manager", "layouts"),
 ];
+
+/// The pane id Zellij events use to refer to a pane, which `PaneInfo` carries
+/// split across two fields.
+fn pane_id_of(pane: &PaneInfo) -> PaneId {
+    if pane.is_plugin {
+        PaneId::Plugin(pane.id)
+    } else {
+        PaneId::Terminal(pane.id)
+    }
+}
+
+/// Which pane holds the focus in each tab of a pane manifest.
+///
+/// Suppressed panes are skipped: they keep whatever focus flag they had when
+/// they were hidden, and a hidden pane is not where the keyboard goes.
+fn focus_by_tab(manifest: &PaneManifest) -> BTreeMap<usize, TabFocus> {
+    let mut focus_by_tab = BTreeMap::new();
+    for (tab_position, panes) in &manifest.panes {
+        let mut focus = TabFocus::default();
+        for pane in panes
+            .iter()
+            .filter(|pane| pane.is_focused && !pane.is_suppressed)
+        {
+            if pane.is_floating {
+                focus.floating = Some(pane_id_of(pane));
+            } else {
+                focus.tiled = Some(pane_id_of(pane));
+            }
+        }
+        if focus != TabFocus::default() {
+            focus_by_tab.insert(*tab_position, focus);
+        }
+    }
+    focus_by_tab
+}
 
 /// The terminal's width, taken as the right edge of the widest visible pane.
 ///
@@ -513,6 +595,65 @@ impl State {
         self.mode_info.session_dimmed == Some(true)
     }
 
+    /// The pane the keyboard currently goes to, or `None` while either half of
+    /// the picture (`PaneUpdate`, `TabUpdate`) is still missing.
+    fn focused_pane_id(&self) -> Option<PaneId> {
+        let active_tab = self.active_tab?;
+        let focus = self.focus_by_tab.get(&active_tab.position)?;
+        if active_tab.floating_panes_visible {
+            focus.floating.or(focus.tiled)
+        } else {
+            focus.tiled
+        }
+    }
+
+    /// The nested session this one has descended into, when it has descended
+    /// into anything and that session has told us about itself.
+    ///
+    /// Descending hands the keyboard to the session in the focused pane, so
+    /// that pane is what identifies the nested session among the several this
+    /// one may be hosting.
+    fn descended_guest(&self) -> Option<&NestedGuest> {
+        if !self.is_host_descended() {
+            return None;
+        }
+        self.nested_guests.get(&self.focused_pane_id()?)
+    }
+
+    /// Record what a nested session reported about itself, asking it for its
+    /// keybindings the first time it speaks.
+    ///
+    /// Returns whether anything changed, so callers can skip a redraw that
+    /// would produce the same bar. The keybinding request is what makes
+    /// `descended_guest` eventually renderable: mode reports arrive on their
+    /// own, keybindings only on request.
+    fn record_nested_guest(
+        &mut self,
+        pane_id: PaneId,
+        update: impl FnOnce(&mut NestedGuest),
+    ) -> bool {
+        let guest = self.nested_guests.entry(pane_id).or_default();
+        let before = guest.clone();
+        update(guest);
+        if !guest.keybinds_requested {
+            guest.keybinds_requested = true;
+            request_nested_session_keybinds(pane_id);
+        }
+        *guest != before
+    }
+
+    /// Forget nested sessions whose panes are gone, so a pane id Zellij later
+    /// reuses cannot inherit a dead session's hints.
+    fn forget_closed_nested_guests(&mut self, manifest: &PaneManifest) {
+        if self.nested_guests.is_empty() {
+            return;
+        }
+        let live_pane_ids: BTreeSet<PaneId> =
+            manifest.panes.values().flatten().map(pane_id_of).collect();
+        self.nested_guests
+            .retain(|pane_id, _| live_pane_ids.contains(pane_id));
+    }
+
     /// The dim strength to render with right now, in `dim_color`'s
     /// `0.0..=1.0` scale: `0.0` (no change) unless `dim_when_unfocused` is
     /// enabled and this session is currently the dimmed side of a
@@ -607,6 +748,124 @@ fn render_descended_indicator(mode_info: &ModeInfo, style: &HintStyle) -> String
     let mut parts = vec![];
     render_hint(&mut parts, &hint, style);
     ANSIStrings(&parts).to_string()
+}
+
+/// The additions to `State` that describe a nested session rather than this one.
+impl State {
+    /// This session's descended-into nested session, described as a `ModeInfo`
+    /// so the ordinary hint path can render it.
+    ///
+    /// `None` when nothing is descended into, or when the nested session has
+    /// not sent its keybindings yet: with no bindings there is nothing to draw
+    /// hints from, and the caller falls back to the descended-into indicator.
+    /// That covers both the moment between descending and the answer arriving,
+    /// and a nested session running a Zellij too old to answer at all.
+    ///
+    /// The style is this session's own, so a nested session's hints are drawn
+    /// in the colors of the bar they appear in rather than the nested
+    /// session's.
+    fn descended_guest_mode_info(&self) -> Option<ModeInfo> {
+        let guest = self.descended_guest()?;
+        if guest.keybinds.is_empty() {
+            return None;
+        }
+        Some(ModeInfo {
+            mode: guest.mode,
+            base_mode: guest.base_mode,
+            keybinds: guest.keybinds.clone(),
+            style: self.mode_info.style.clone(),
+            session_name: guest.session_name.clone(),
+            ..Default::default()
+        })
+    }
+
+    /// The hint line for one session's mode and keybindings, curated, ordered,
+    /// styled, dimmed and truncated according to this plugin's configuration.
+    ///
+    /// `mode_info` is what is being described, which is this session normally
+    /// and the nested session it has descended into otherwise. Everything else
+    /// comes from this session, because the bar being drawn is this session's.
+    fn render_hint_line(&self, mode_info: &ModeInfo, dim: f32) -> String {
+        let keymap = get_keymap_for_mode(mode_info);
+        // Bindings the base mode already advertises. Every non-base mode
+        // inherits these via Zellij's `shared_except` groups, so listing
+        // them again in each mode is pure repetition.
+        let base_mode = mode_info.base_mode.unwrap_or(InputMode::Normal);
+        let shared = if self.hide_shared_hints && mode_info.mode != base_mode {
+            mode_info.get_keybinds_for_mode(base_mode)
+        } else {
+            vec![]
+        };
+        let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
+        let limit = self.length_limit();
+        let dimmed_colors;
+        let colors: &Styling = if dim > 0.0 {
+            dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+            &dimmed_colors
+        } else {
+            &mode_info.style.colors
+        };
+        let mode_prefix = if self.show_mode {
+            render_mode_prefix(
+                mode_info.mode,
+                colors,
+                self.mode_format.as_deref(),
+                &self.config,
+                dim,
+            )
+        } else {
+            vec![]
+        };
+        let mode_prefix_len =
+            calculate_visible_length(&ANSIStrings(&mode_prefix).to_string(), self.wide_ambiguous);
+
+        // A bare leading space is only wanted when the hints open the
+        // line themselves: it's breathing room against the pane edge.
+        // The mode prefix (when shown) already opens with its own
+        // styled background, so an unstyled space in front of it would
+        // just show up as a gap of default terminal background before
+        // the pill starts.
+        let leading_space: usize = if mode_prefix_len > 0 { 0 } else { 1 };
+        let ctx = HintStyle {
+            colors,
+            dim,
+            key_format: self.key_format.as_deref(),
+            desc_format: self.desc_format.as_deref(),
+            spacer: self.hint_spacer.as_deref(),
+            discover: self.discover_hints,
+            direction_keys: self.direction_keys,
+            key_order: self.key_order,
+            mode: &mode_key,
+            hint_order: &self.hint_order,
+            limit: limit.map(|limit| {
+                limit
+                    .saturating_sub(leading_space)
+                    .saturating_sub(mode_prefix_len)
+            }),
+            wide_ambiguous: self.wide_ambiguous,
+            drop_indicator: self.drop_indicator.as_deref(),
+            precedence: self.hint_precedence,
+            shared: &shared,
+            config: &self.config,
+        };
+        let mut parts = mode_prefix;
+        parts.extend(render_hints_for_mode(mode_info.mode, &keymap, &ctx));
+
+        let ansi_strings = ANSIStrings(&parts);
+        let formatted = if leading_space > 0 {
+            format!(" {}", ansi_strings)
+        } else {
+            ansi_strings.to_string()
+        };
+
+        let visible_len = calculate_visible_length(&formatted, self.wide_ambiguous);
+        match limit {
+            Some(limit) if visible_len > limit => {
+                truncate_ansi_string(&formatted, &self.overflow_str, limit, self.wide_ambiguous)
+            }
+            _ => formatted.to_string(),
+        }
+    }
 }
 
 impl ZellijPlugin for State {
@@ -789,6 +1048,9 @@ impl ZellijPlugin for State {
             EventType::SessionUpdate,
             EventType::PaneUpdate,
             EventType::PermissionRequestResult,
+            EventType::TabUpdate,
+            EventType::NestedSessionModeUpdate,
+            EventType::NestedSessionKeybinds,
         ]);
     }
 
@@ -811,6 +1073,51 @@ impl ZellijPlugin for State {
                     self.terminal_width = width;
                     should_render = true;
                 }
+                let focus = focus_by_tab(&manifest);
+                if focus != self.focus_by_tab {
+                    self.focus_by_tab = focus;
+                    should_render = true;
+                }
+                self.forget_closed_nested_guests(&manifest);
+            }
+            // Which tab is focused, and whether its floating layer is up.
+            // `PaneUpdate` reports focus per tab and per layer, so neither
+            // event on its own says where the keyboard actually goes.
+            Event::TabUpdate(tabs) => {
+                let active_tab = tabs.iter().find(|tab| tab.active).map(|tab| ActiveTab {
+                    position: tab.position,
+                    floating_panes_visible: tab.are_floating_panes_visible,
+                });
+                if active_tab != self.active_tab {
+                    self.active_tab = active_tab;
+                    should_render = true;
+                }
+            }
+            // A nested session in one of this session's panes reporting its
+            // input mode, sent on contact and on every mode change it makes.
+            Event::NestedSessionModeUpdate {
+                pane_id,
+                session_name,
+                mode,
+                base_mode,
+            } => {
+                should_render |= self.record_nested_guest(pane_id, |guest| {
+                    guest.session_name = session_name;
+                    guest.mode = mode;
+                    guest.base_mode = base_mode;
+                });
+            }
+            // A nested session answering the keybinding request that
+            // `record_nested_guest` issued when it first spoke.
+            Event::NestedSessionKeybinds {
+                pane_id,
+                session_name,
+                keybinds,
+            } => {
+                should_render |= self.record_nested_guest(pane_id, |guest| {
+                    guest.session_name = session_name;
+                    guest.keybinds = keybinds;
+                });
             }
             // Answered, or granted from the cache. Either way the prompt is
             // gone and the pane has no further reason to take focus.
@@ -830,6 +1137,13 @@ impl ZellijPlugin for State {
 
         let output = if is_nested && self.hide_when_nested {
             String::new()
+        } else if let Some(guest_mode_info) = self.descended_guest_mode_info() {
+            // Descended into a nested session that has told us its mode and
+            // keybindings: those are the keys the user's typing reaches, so
+            // they are what the bar should describe. Rendered through the same
+            // path as this session's own hints, from a `ModeInfo` describing
+            // the nested session instead of this one.
+            self.render_hint_line(&guest_mode_info, dim)
         } else if self.is_host_descended() {
             // Currently descended into a nested child (regardless of
             // whether this session is itself also nested under something
@@ -893,87 +1207,7 @@ impl ZellijPlugin for State {
         } else if self.hide_in_base_mode && Some(mode_info.mode) == mode_info.base_mode {
             String::new()
         } else {
-            let keymap = get_keymap_for_mode(mode_info);
-            // Bindings the base mode already advertises. Every non-base mode
-            // inherits these via Zellij's `shared_except` groups, so listing
-            // them again in each mode is pure repetition.
-            let base_mode = mode_info.base_mode.unwrap_or(InputMode::Normal);
-            let shared = if self.hide_shared_hints && mode_info.mode != base_mode {
-                mode_info.get_keybinds_for_mode(base_mode)
-            } else {
-                vec![]
-            };
-            let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
-            let limit = self.length_limit();
-            let dimmed_colors;
-            let colors: &Styling = if dim > 0.0 {
-                dimmed_colors = dim_styling(&mode_info.style.colors, dim);
-                &dimmed_colors
-            } else {
-                &mode_info.style.colors
-            };
-            let mode_prefix = if self.show_mode {
-                render_mode_prefix(
-                    mode_info.mode,
-                    colors,
-                    self.mode_format.as_deref(),
-                    &self.config,
-                    dim,
-                )
-            } else {
-                vec![]
-            };
-            let mode_prefix_len = calculate_visible_length(
-                &ANSIStrings(&mode_prefix).to_string(),
-                self.wide_ambiguous,
-            );
-
-            // A bare leading space is only wanted when the hints open the
-            // line themselves: it's breathing room against the pane edge.
-            // The mode prefix (when shown) already opens with its own
-            // styled background, so an unstyled space in front of it would
-            // just show up as a gap of default terminal background before
-            // the pill starts.
-            let leading_space: usize = if mode_prefix_len > 0 { 0 } else { 1 };
-            let ctx = HintStyle {
-                colors,
-                dim,
-                key_format: self.key_format.as_deref(),
-                desc_format: self.desc_format.as_deref(),
-                spacer: self.hint_spacer.as_deref(),
-                discover: self.discover_hints,
-                direction_keys: self.direction_keys,
-                key_order: self.key_order,
-                mode: &mode_key,
-                hint_order: &self.hint_order,
-                limit: limit.map(|limit| {
-                    limit
-                        .saturating_sub(leading_space)
-                        .saturating_sub(mode_prefix_len)
-                }),
-                wide_ambiguous: self.wide_ambiguous,
-                drop_indicator: self.drop_indicator.as_deref(),
-                precedence: self.hint_precedence,
-                shared: &shared,
-                config: &self.config,
-            };
-            let mut parts = mode_prefix;
-            parts.extend(render_hints_for_mode(mode_info.mode, &keymap, &ctx));
-
-            let ansi_strings = ANSIStrings(&parts);
-            let formatted = if leading_space > 0 {
-                format!(" {}", ansi_strings)
-            } else {
-                ansi_strings.to_string()
-            };
-
-            let visible_len = calculate_visible_length(&formatted, self.wide_ambiguous);
-            match limit {
-                Some(limit) if visible_len > limit => {
-                    truncate_ansi_string(&formatted, &self.overflow_str, limit, self.wide_ambiguous)
-                }
-                _ => formatted.to_string(),
-            }
+            self.render_hint_line(mode_info, dim)
         };
 
         // HACK: Because we're not sure when zjstatus will be ready to receive messages,
