@@ -15,14 +15,17 @@ minutes.
  update-deps.yml
    cargo update, nix flake update
    test + build
-   bump patch version
    open pull request  ──────────►  email arrives
                                    wait a day or two
-                                   click Merge        ──────►  merged
-                                   (CI already green)               │
-                                                                    │
- release.yml ◄──────────────────────────────────────────────────────┘
-   sees a new version in Cargo.toml
+                                   click Merge        ──────►  merged,
+                                                                no release yet
+
+                                   ...whenever you decide to release...
+                                   bump `version` in Cargo.toml
+                                   push to main (or push a v*.*.* tag)
+                                                        │
+ release.yml ◄──────────────────────────────────────────┘
+   sees a new version in Cargo.toml (or the pushed tag)
    test + build
    tag v0.2.1
    publish release, becomes `latest`
@@ -41,17 +44,21 @@ minutes.
                                    you upgrade your running Zellij first
                                    confirm hints still render right
                                    click Merge        ──────►  merged,
-                                                                same path as above
+                                                                same path as above:
+                                                                no release until
+                                                                you bump the version
 ```
 
-Your only interaction is the Merge click.
+Merging an automated pull request only ever lands the update on `main`.
+Releasing is a separate, deliberate step you take on your own schedule; see
+[Versioning](#versioning).
 
-> **Why not auto-merge on approval?** GitHub does not let you approve your own
-> pull requests, and the bot's are opened with your token, so it counts them as
-> yours. On a single-maintainer repository a required approval can never be
-> satisfied — only bypassed. Merging by hand is the same one click, and it keeps
-> the pause: auto-merge would have merged the moment CI went green rather than
-> waiting for you to look.
+> **Why not auto-merge on approval?** Automated pull requests are opened by a
+> GitHub App with its own bot identity (see [First-time setup](#first-time-setup)),
+> not your account, so you can review and approve them like anyone else's. The
+> pause is kept anyway: auto-merge would merge the moment CI went green rather
+> than waiting for you to look, and on dependency updates specifically that
+> is a worse trade than one click.
 
 ## Workflows
 
@@ -82,21 +89,26 @@ release for no gain.
 
 ### Versioning
 
-Releases are patch bumps: `update-deps.yml` increments the patch number as part
-of the pull request it opens, so merging one lands a new version on `main` and
-`release.yml` publishes it.
+Every version bump is yours to make, deliberately. Neither `update-deps.yml`
+pull request touches `version` in `Cargo.toml`: the routine one only moves
+`cargo update`/`nix flake update`'s output, and the `zellij-upgrade` one only
+widens the `zellij-tile`/`zellij-tile-utils` requirement. Merging either lands
+the update on `main`; nothing publishes until you decide it should.
 
-Minor and major bumps are yours to make. Edit `version` in `Cargo.toml`, merge
-that to `main`, and the same machinery publishes it — the workflow only asks
-whether the version in `Cargo.toml` has been tagged yet, not how it got there.
+To release: edit `version` in `Cargo.toml` (on the update branch before
+merging it, on a follow-up commit, or directly on `main` if your ruleset
+allows it) and push that to `main`. `release.yml` picks it up from there, and
+only checks whether the version in `Cargo.toml` has been tagged yet, not how
+it got there. Pushing a `v*.*.*` tag yourself works too, and does not require
+touching `Cargo.toml` or waiting on a push to `main` at all.
 
-By convention, a minor bump marks a large feature change and/or a move to a
-new Zellij major/minor (e.g. 0.3.x → 0.4.x alongside zellij-tile 0.44 → 0.45)
-— see [the README's Versioning section](../README.md#versioning). The
-`zellij-upgrade` pull request below still only proposes a patch bump; when
-the Zellij move is what's driving it, bumping to a minor instead — once
-you've confirmed hints render right — is a manual edit on that branch before
-merging.
+Patch, minor, or major is your call each time; see
+[the README's Versioning section](../README.md#versioning) for the convention
+this project uses (a minor bump marks a large feature change and/or a move to
+a new Zellij major/minor, e.g. 0.3.x → 0.4.x alongside zellij-tile 0.44 →
+0.45). A Zellij line move landed via a `zellij-upgrade` pull request is a
+natural candidate for a minor bump specifically; make it while merging, once
+you've confirmed hints render right.
 
 ### How dependencies are chosen
 
@@ -120,9 +132,10 @@ labelled **`needs-zellij-upgrade`** and its title says so too.
 **This one is never safe to merge on a green build alone.** CI passing only
 means the plugin still compiles and its own tests pass — it says nothing about
 whether *your* running Zellij matches. Upgrade Zellij first, confirm hints
-still render right, then merge. Once merged, `release.yml` publishes it as a
-normal release and moves the matching `zellij-<line>` tag (see
-[Tags and releases](#tags-and-releases)) to it.
+still render right, then merge. Merging alone does not publish anything (see
+[Versioning](#versioning)); bump `version` in `Cargo.toml` when you do, and
+`release.yml` publishes it as a normal release and moves the matching
+`zellij-<line>` tag (see [Tags and releases](#tags-and-releases)) to it.
 
 **`flake.lock` moves alongside it.** `nix flake update` has no equivalent
 restraint — Nix flake inputs carry no semver range to stay within, so every
@@ -136,31 +149,42 @@ run instead of landing a broken lock.
 
 ## First-time setup
 
-### 1. Create the automation token
+### 1. Create the automation app
 
 A pull request opened with the built-in `GITHUB_TOKEN` does not start any
 workflows. GitHub does this to prevent loops, but with required status checks
 on `main` it means those checks sit pending forever and the pull request can
-never be merged. A personal access token avoids that.
+never be merged. A token is what avoids that, and a **GitHub App** installation
+token specifically (rather than a personal access token) is what keeps the
+resulting pull requests from being attributed to your own account. An App is
+registered once on your account and can be installed on every repo you
+maintain, so if you already have one from another project, skip to installing
+it on this repo instead of registering a second one.
 
-1. Go to **Settings → Developer settings → Personal access tokens →
-   Fine-grained tokens** (on your account, not the repository).
-2. **Generate new token**.
-3. Name it `zjstatus-hints automation`. Set an expiry you will notice —
-   90 days is reasonable; you will get an email before it lapses.
-4. Under **Repository access**, choose **Only select repositories** and pick
-   `zjstatus-hints`.
+1. Go to **Settings → Developer settings → GitHub Apps** (on your account,
+   not the repository) → **New GitHub App**.
+2. Name it something you'd recognise across repos, e.g. `myah-mitchell-bot`
+   (this becomes its `[bot]` handle on every PR and commit it makes).
+3. Homepage URL: anything works; your GitHub profile is fine.
+4. **Webhook**: untick **Active**; nothing here needs one.
 5. Under **Permissions → Repository permissions**, set:
    - **Contents**: Read and write
    - **Pull requests**: Read and write
-   - **Workflows**: Read and write
-6. Generate it and copy the value — it is shown once.
-7. In the repository: **Settings → Secrets and variables → Actions →
-   New repository secret**. Name it exactly `AUTOMATION_TOKEN`, paste the
-   value, save.
+6. **Where can this GitHub App be installed?**: your choice; **Only on this
+   account** is fine for a personal-repo bot.
+7. **Create GitHub App**. On the app's page, note the **App ID**, then
+   **Generate a private key**, which downloads a `.pem` file, shown once.
+8. **Install App** (left sidebar) → your account → select `zjstatus-hints`
+   (and any other repos you want it on now; add more later from the same
+   page without repeating steps 1–7).
+9. In the repository: **Settings → Secrets and variables → Actions →
+   New repository secret**, twice:
+   - `AUTOMATION_APP_ID`: the App ID from step 7.
+   - `AUTOMATION_APP_PRIVATE_KEY`: the full contents of the `.pem` file.
 
-`update-deps.yml` checks for this first and fails with an explanation if it is
-missing, rather than opening a pull request whose checks can never pass.
+`update-deps.yml` checks for both of these first and fails with an explanation
+if either is missing, rather than opening a pull request whose checks can
+never pass.
 
 ### 2. Let Actions open pull requests
 
@@ -188,11 +212,12 @@ missing, rather than opening a pull request whose checks can never pass.
 > only appear in the picker after a workflow has run once, so push a branch and
 > let CI run before coming back here.
 
-**Required approvals is 0 deliberately.** GitHub will not let you approve your
-own pull requests, and the bot opens its ones with your token, so it treats
-those as yours too. Setting 1 would mean nothing could ever merge without
-bypassing the rule you just wrote. The status checks are the gate that actually
-does work here.
+**Required approvals is 0 here**, but unlike a personal-access-token setup,
+it does not have to be: the app's pull requests belong to its own `[bot]`
+identity, not yours, so GitHub will let you approve them like anyone else's.
+0 is still the default above because the status checks are the gate doing the
+actual work; set it to 1 instead if you want the extra click of an explicit
+approval before merging.
 
 Also decide whether to tick **Do not allow bypassing the above settings**.
 Leaving it unticked lets you push directly to `main` when you need to; ticking
@@ -224,8 +249,9 @@ The email arrives when the nightly finds updates. What to look at:
   passed *before* it was opened, so a red pull request means CI found
   something the update job did not.
 
-Click **Merge**. That publishes the release, moves `latest` (and `zellij-<line>`
-if this was the `zellij-upgrade` pull request), and rebuilds the nightly.
+Click **Merge**. That lands the update on `main`; the next nightly build picks
+it up. It does not publish a release on its own; see [Versioning](#versioning)
+for that step, which is separate and entirely up to you.
 
 Nothing merges on its own, so leaving one open for a few days costs nothing.
 
@@ -261,8 +287,10 @@ gh api repos/<owner>/<repo>/commits/<tag> --jq .sha
 Then replace `@<tag>` with `@<sha> # <tag>`, keeping the version in the
 trailing comment. Dependabot updates the pinned ones monthly.
 
-**Rotate the token** when the expiry email arrives — regenerate and update the
-`AUTOMATION_TOKEN` secret. `update-deps.yml` fails loudly if it lapses.
+**Rotate the private key** if it is ever exposed: on the app's settings page,
+generate a new one, update the `AUTOMATION_APP_PRIVATE_KEY` secret, then
+delete the old key from the app. Unlike a personal access token, this key has
+no expiry to track, so there is nothing to rotate on a schedule.
 
 **Watch for `needs-zellij-upgrade`.** Those accumulate rather than merge, and
 they are the ones that matter.
@@ -271,10 +299,11 @@ they are the ones that matter.
 
 | Symptom | Cause |
 |---|---|
-| Update workflow fails immediately | `AUTOMATION_TOKEN` missing or expired |
-| Pull request opens but no checks run | Opened with `GITHUB_TOKEN`; the token is not being picked up |
+| Update workflow fails immediately | `AUTOMATION_APP_ID`/`AUTOMATION_APP_PRIVATE_KEY` missing, or the app is not installed on this repo |
+| Pull request opens but no checks run | Opened with `GITHUB_TOKEN`; the app token is not being picked up |
 | Merge button is blocked | A required status check has not passed — check the PR's Checks tab |
-| Release does not publish after merge | Version in `Cargo.toml` already tagged — check the run's `Resolve version` step |
+| Release does not publish after merging an update PR | Expected: merging never bumps `version`; see [Versioning](#versioning) |
+| Release does not publish after a version bump | Version in `Cargo.toml` already tagged; check the run's `Resolve version` step |
 | `cargo test` fails to link | OpenSSL headers missing; the workflows install `libssl-dev`, locally use your package manager |
 | Nightly is stale | Check the `nightly.yml` schedule ran; scheduled workflows are paused after 60 days of repository inactivity |
 | `zellij-upgrade` pull request never appears | `zellij_minor_available` only goes true once crates.io has the new `zellij-tile`/`zellij-tile-utils`, which can lag a Zellij release by a day or so |
