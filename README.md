@@ -31,11 +31,12 @@ behaviour and builds a configuration layer over it:
   pinned order for the hints themselves
 - **[Fitting](docs/fitting.md)** — drop whole hints to fit the terminal as it
   narrows, in an order you choose, with an optional indicator for what was cut
-- **[Nested sessions](docs/nested-sessions.md)**: hide or dim this session's
-  hints while it isn't the one receiving input, so a host and a nested
-  session sharing one layout don't end up with doubled chrome; optionally
-  prefix the line with the current mode, for setups that give this plugin
-  its own pane rather than piping into zjstatus
+- **[Nested sessions](docs/nested-sessions.md)**: show the hints of the
+  nested session the keys are actually going to, and hide or dim this
+  session's own while it isn't the one receiving input, so a host and a
+  nested session sharing one layout don't end up with doubled chrome;
+  optionally prefix the line with the current mode, for setups that give
+  this plugin its own pane rather than piping into zjstatus
 - **Zellij 0.45** support
 
 Four options upstream, around two dozen here — the full list is in the
