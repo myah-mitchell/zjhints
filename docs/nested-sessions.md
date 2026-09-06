@@ -75,9 +75,11 @@ with a different theme does not repaint the host's status line.
 
 Nothing needs configuring for this. The plugin asks each nested session for
 its keybindings once, the first time that session reports itself, and
-follows its mode from then on. Nested sessions are tracked separately per
-pane, so a layout hosting several of them shows the hints of the one the
-keys are actually going to.
+follows its mode from then on. A nested session that reloads its config
+sends its new mode and keybindings without being asked again, so the bar
+does not go on describing bindings that session no longer has. Nested
+sessions are tracked separately per pane, so a layout hosting several of
+them shows the hints of the one the keys are actually going to.
 
 This needs Zellij to report the nested session's mode and keybindings,
 which older releases do not do. When there is nothing to draw hints from,
