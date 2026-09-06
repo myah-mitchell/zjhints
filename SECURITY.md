@@ -8,7 +8,7 @@ release; there are no maintenance branches for older ones.
 | Version | Supported |
 |---|---|
 | 0.2.x | Yes |
-| 0.1.x | No — upgrade to 0.2 |
+| 0.1.x | No, upgrade to 0.2 |
 | `nightly` | Built from `main`, unreleased. Fixes land here first. |
 
 ## Reporting a vulnerability
@@ -25,7 +25,7 @@ That opens a private advisory visible only to maintainers, where a fix can be
 discussed and prepared before anything is disclosed.
 
 If you cannot use that, contact the maintainer through their GitHub profile and
-say only that you have a security report — do not include the details in a
+say only that you have a security report. Do not include the details in a
 public channel.
 
 [security]: https://github.com/myah-mitchell/zjstatus-hints/security/advisories/new
@@ -41,9 +41,10 @@ public channel.
 ## What is in scope
 
 This plugin is a WebAssembly module that Zellij runs. It reads your keybindings,
-formats a string, and pipes it to zjstatus. Realistic concerns:
+formats a string, and renders it directly or pipes it to zjstatus. Realistic
+concerns:
 
-- **Malicious configuration causing unsafe behaviour.** Config values are
+- **Malicious configuration causing unsafe behavior.** Config values are
   rendered into the status bar; a crafted value that escapes the intended output
   or causes a crash would be a bug worth reporting.
 - **Terminal escape sequence injection.** The plugin emits ANSI sequences. A way
@@ -56,7 +57,7 @@ formats a string, and pipes it to zjstatus. Realistic concerns:
 
 ## What is not in scope
 
-- **Zellij or zjstatus vulnerabilities.** Report those to their projects —
+- **Zellij or zjstatus vulnerabilities.** Report those to their projects:
   [zellij][zellij-security], [zjstatus][zjstatus-repo].
 - **Your own configuration exposing information you put in it.** The plugin
   displays what your config tells it to.
@@ -69,8 +70,8 @@ formats a string, and pipes it to zjstatus. Realistic concerns:
 
 ## Verifying what you install
 
-Releases are built by GitHub Actions from a tagged commit — see
-[docs/AUTOMATION.md](docs/AUTOMATION.md) — so the build is reproducible from
+Releases are built by GitHub Actions from a tagged commit (see
+[docs/AUTOMATION.md](docs/AUTOMATION.md)), so the build is reproducible from
 public source. If you would rather not trust the published binary, build it
 yourself:
 

@@ -1,6 +1,6 @@
 # Automation
 
-How this repository builds, tests, updates itself and publishes — and the
+How this repository builds, tests, updates itself and publishes, and the
 one-time setup GitHub needs before any of it works.
 
 If you are reading this to get things running, start at
@@ -73,13 +73,13 @@ Releasing is a separate, deliberate step you take on your own schedule; see
 
 ### Tags and releases
 
-- **`vX.Y.Z`** — one per release, permanent. `/releases/latest/download/…`
+- **`vX.Y.Z`**: one per release, permanent. `/releases/latest/download/…`
   resolves to the newest of these.
-- **`nightly`** — a single moving tag, force-updated each night. Published as a
+- **`nightly`**: a single moving tag, force-updated each night. Published as a
   prerelease so it never becomes `latest`.
-- **`zellij-<line>`** — one per Zellij minor this project has ever targeted
+- **`zellij-<line>`**: one per Zellij minor this project has ever targeted
   (e.g. `zellij-0.44`), force-updated by `release.yml` every time a release
-  ships for that line. Not a prerelease — it is a real release, just aliased —
+  ships for that line. Not a prerelease (it is a real release, just aliased),
   but `make_latest: false` keeps it from contending with `latest`. See
   [the README's Versioning section](../README.md#versioning) for why this
   exists.
@@ -123,18 +123,18 @@ but never 0.46.0.
 That is the policy on purpose. **A `zellij-tile` newer than the Zellij you run
 breaks hints silently.** Zellij's plugin boundary decodes a binding's actions
 with `.filter_map(|a| a.try_into().ok())`, so an action the plugin does not
-recognise is dropped and the binding arrives truncated. The plugin builds,
+recognize is dropped and the binding arrives truncated. The plugin builds,
 tests pass, and hints render with wrong labels. There is no error anywhere.
 
 `.github/scripts/check_deps.py` asks crates.io what exists and reports anything
 held back. When a Zellij crate has a new minor, `update-deps.yml`'s second job
-(`zellij-upgrade`) proposes taking it — its own pull request, on its own
+(`zellij-upgrade`) proposes taking it: its own pull request, on its own
 branch (`deps/zellij-upgrade`), widening `zellij-tile`/`zellij-tile-utils`'s
 requirement to the new version and re-resolving just those two crates. It is
-labelled **`needs-zellij-upgrade`** and its title says so too.
+labeled **`needs-zellij-upgrade`** and its title says so too.
 
 **This one is never safe to merge on a green build alone.** CI passing only
-means the plugin still compiles and its own tests pass — it says nothing about
+means the plugin still compiles and its own tests pass: it says nothing about
 whether *your* running Zellij matches. Upgrade Zellij first, confirm hints
 still render right, then merge. Merging alone does not publish anything (see
 [Versioning](#versioning)); bump `version` in `Cargo.toml` when you do, and
@@ -142,11 +142,11 @@ still render right, then merge. Merging alone does not publish anything (see
 `zellij-<line>` tag (see [Tags and releases](#tags-and-releases)) to it.
 
 **`flake.lock` moves alongside it.** `nix flake update` has no equivalent
-restraint — Nix flake inputs carry no semver range to stay within, so every
+restraint: Nix flake inputs carry no semver range to stay within, so every
 input (`nixpkgs`, `rust-overlay`, `crane`, …) always moves to whatever is
 current. The workflow only opens the pull request after confirming
 `nix build .#default` still resolves a toolchain meeting `Cargo.toml`'s
-`rust-version` (see `flake.nix`, and [#11][gh-11]) — a failure there fails the
+`rust-version` (see `flake.nix`, and [#11][gh-11]); a failure there fails the
 run instead of landing a broken lock.
 
 [gh-11]: https://github.com/myah-mitchell/zjstatus-hints/issues/11
@@ -247,7 +247,7 @@ it on this repo instead of registering a second one.
 
 1. Go to **Settings → Developer settings → GitHub Apps** (on your account,
    not the repository) → **New GitHub App**.
-2. Name it something you'd recognise across repos, e.g. `myah-mitchell-bot`
+2. Name it something you'd recognize across repos, e.g. `myah-mitchell-bot`
    (this becomes its `[bot]` handle on every PR and commit it makes).
 3. Homepage URL: anything works; your GitHub profile is fine.
 4. **Webhook**: untick **Active**; nothing here needs one.
@@ -326,7 +326,7 @@ The email arrives when the nightly finds updates. What to look at:
 - The pull request body lists what moved and what was held back.
 - **If it is titled "Zellij … is out"**, this is the `zellij-upgrade` pull
   request, not the routine one. Do not merge it until the Zellij you run
-  matches and you have confirmed hints still render right — its body says the
+  matches and you have confirmed hints still render right. Its body says the
   same. A red Checks tab on this one specifically can mean the plugin needs
   real source changes for the new zellij-tile, not just a version bump.
 - Otherwise, CI runs on the pull request; tests and a release build also
@@ -340,7 +340,7 @@ for that step, which is separate and entirely up to you.
 Nothing merges on its own, so leaving one open for a few days costs nothing.
 
 To stop one: **Close** it. The branch is reused, so the next run reopens with
-whatever is current — nothing is lost by closing one you dislike.
+whatever is current: nothing is lost by closing one you dislike.
 
 ## Installing what is published
 
@@ -361,7 +361,7 @@ locally instead.
 
 ## Maintenance
 
-**Pin the actions.** All of them are pinned to commit SHAs — a version tag can
+**Pin the actions.** All of them are pinned to commit SHAs: a version tag can
 be moved by whoever controls the action, so an unpinned `uses:` is a supply
 chain gap. If a new workflow step adds one without network access to verify a
 SHA, it should carry a `# TODO: pin to a SHA` comment until this fixes it:
@@ -387,13 +387,13 @@ they are the ones that matter.
 |---|---|
 | Update workflow fails immediately | `AUTOMATION_APP_ID`/`AUTOMATION_APP_PRIVATE_KEY` missing, or the app is not installed on this repo |
 | Pull request opens but no checks run | Opened with `GITHUB_TOKEN`; the app token is not being picked up |
-| Merge button is blocked | A required status check has not passed — check the PR's Checks tab |
+| Merge button is blocked | A required status check has not passed; check the PR's Checks tab |
 | Release does not publish after merging an update PR | Expected: merging never bumps `version`; see [Versioning](#versioning) |
 | Release does not publish after a version bump | Version in `Cargo.toml` already tagged; check the run's `Resolve version` step |
 | `cargo test` fails to link | OpenSSL headers missing; the workflows install `libssl-dev`, locally use your package manager |
 | Nightly is stale | Check the `nightly.yml` schedule ran; scheduled workflows are paused after 60 days of repository inactivity |
 | `zellij-upgrade` pull request never appears | `zellij_minor_available` only goes true once crates.io has the new `zellij-tile`/`zellij-tile-utils`, which can lag a Zellij release by a day or so |
-| `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement at that commit — the tag follows whatever line was pinned *at release time*, not the newest one available |
+| `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement at that commit; the tag follows whatever line was pinned *at release time*, not the newest one available |
 | `beta.yml` fails at "Sanitize the label" | The `label` input had no `[a-z0-9-]` characters left after sanitizing; pick a label with at least one letter or digit |
 | `beta.yml`'s build fails to resolve a Zellij crate | The ref you built doesn't have a `[patch.crates-io]` override for a requirement crates.io can't satisfy yet (see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix)) |
 

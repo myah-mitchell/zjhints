@@ -31,8 +31,8 @@ desc_format_quit "#[fg=$red,bg=$bg,bold] {desc} "   // …except quit
 key_format_quit  "#[fg=$red,bg=$bg,bold] {key} "
 ```
 
-Useful for the hints that are not like the others — a destructive action worth
-colouring, or the way out of a mode worth setting apart from the actions in it.
+Useful for the hints that are not like the others: a destructive action worth
+coloring, or the way out of a mode worth setting apart from the actions in it.
 
 Resolution runs most specific first, and can be scoped to a mode exactly as
 [labels](labels.md#per-mode-labels) can:
@@ -41,7 +41,7 @@ Resolution runs most specific first, and can be scoped to a mode exactly as
 2. `key_format_<mode>_<label>`
 3. `key_format_<id>`
 4. `key_format_<label>`
-5. `key_format` — the global setting
+5. `key_format`: the global setting
 6. the theme palette
 
 A hint can be named by its [id](labels.md#ids) or by its label, with spaces written as
@@ -68,7 +68,7 @@ keys_focus     "hjkl/←↓↑→"
 keys_mouse     "🖱"
 ```
 
-For hints better described than enumerated — a long run of keys standing in as
+For hints better described than enumerated: a long run of keys standing in as
 a range, or an action whose real binding says little. The string is used
 verbatim: [key aliases](#key-aliases) and [key ordering](ordering.md#key-order) do not
 apply to it, since there are no keys left to alias or sort.
@@ -88,12 +88,12 @@ included.
 ## Spacing
 
 By default hints sit directly against one another. `hint_spacer` inserts a
-separator **between** consecutive hints — never before the first or after the
-last, so it never leaks into the edges of the piped output:
+separator **between** consecutive hints (never before the first or after the
+last), so it never leaks into the edges of the piped output:
 
 ```kdl
 hint_spacer "  "             // just widen the gap
-hint_spacer "#[fg=$grey] │ " // a styled divider
+hint_spacer "#[fg=$gray] │ " // a styled divider
 ```
 
 It is parsed as a format string like `key_format` and `desc_format` (it just has
@@ -105,19 +105,19 @@ so the spacer adds to that gap rather than replacing it.
 
 Inside `#[...]`, comma-separate any of the following:
 
-- `fg=<color>` — foreground color
-- `bg=<color>` — background color
+- `fg=<color>`: foreground color
+- `bg=<color>`: background color
 - Effects: `bold`, `italic`, `underscore`, `blink`, `dim`, `strikethrough`, `reverse`, `hidden`
 
 ## Colors
 
 `<color>` accepts the same forms as zjstatus:
 
-- `#RRGGBB` — hex RGB (e.g. `#89b4fa`)
+- `#RRGGBB`: hex RGB (e.g. `#89b4fa`)
 - A named color: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`,
   `white`, and their `bright_*` variants
-- `0`–`255` (or `colour<N>`) — an ANSI 256 color index
-- `$name` — a color alias, resolved from the matching `color_<name>` option
+- `0`–`255` (or `colour<N>`): an ANSI 256 color index
+- `$name`: a color alias, resolved from the matching `color_<name>` option
 
 > Note: directives zjstatus supports but the hint renderer cannot express
 > (e.g. `us=` underline colors and the fancy underline variants) are accepted
@@ -127,7 +127,7 @@ Inside `#[...]`, comma-separate any of the following:
 
 By default keys are rendered with their Zellij names (`ENTER`, `ESC`, `TAB`,
 `SPACE`, `←`, …). Replace any of them with a symbol using `key_alias_<name>`
-options — the same per-line alias pattern as `color_<name>`:
+options (the same per-line alias pattern as `color_<name>`):
 
 ```kdl
 key_alias_enter     "↵"
@@ -172,8 +172,8 @@ configuring it.
 ## Chord aliases
 
 If you've remapped a physical key to send an unusual modifier combination as a
-personal leader key — e.g. `Ctrl+Alt+Super+Shift`, chosen because it collides
-with nothing else — spelling that combination out on every hint is excessive.
+personal leader key (e.g. `Ctrl+Alt+Super+Shift`, chosen because it collides
+with nothing else), spelling that combination out on every hint is excessive.
 `chord_mods_<name>` / `chord_alias_<name>` collapse it to one symbol instead:
 
 ```kdl
@@ -184,19 +184,19 @@ chord_alias_leader "&"
 Turning `Ctrl+Alt+Super+Shift p` into `&p`.
 
 - `<name>` is chosen by you, and only pairs a `chord_mods_<name>` with its
-  `chord_alias_<name>` — it isn't shown anywhere.
+  `chord_alias_<name>`; it isn't shown anywhere.
 - List the modifiers in `chord_mods_<name>` separated by `+`, using the same
   four names as [modifier aliases](#modifier-aliases): `ctrl`, `alt`, `shift`,
   `super` (case-insensitive).
-- Matches only the *exact* combination — a hint bound to just part of a chord
+- Matches only the *exact* combination: a hint bound to just part of a chord
   (e.g. `Ctrl` alone) renders normally.
 - Define more than one pair to alias more than one custom chord.
 - A `chord_mods_<name>` with no matching `chord_alias_<name>` has no effect.
 
 ## A complete alias set
 
-A full set using only standard Unicode — no Nerd Font required, and no private-use
-codepoints, so it renders in most terminal fonts:
+A full set using only standard Unicode (no Nerd Font required, and no private-use
+codepoints), so it renders in most terminal fonts:
 
 ```kdl
 // Keys
@@ -225,12 +225,12 @@ mod_alias_super "⌘"
 
 Turning `Ctrl Left` into `^←` and `Alt Shift PgDn` into `⌥⇧⇟`.
 
-Nerd Fonts offer alternatives for several of these — arrows, Home/End, Page
+Nerd Fonts offer alternatives for several of these: arrows, Home/End, Page
 Up/Down and Delete all have glyphs in the private-use area. They look sharper if
 you have the font, but they render as tofu for anyone who doesn't, so the set
 above is the safer default.
 
 > **Width note:** the four arrows and `⇧` are East Asian **Ambiguous**, as are
-> all Nerd Font glyphs — see [Glyph width](fitting.md#glyph-width). If your terminal draws
+> all Nerd Font glyphs; see [Glyph width](fitting.md#glyph-width). If your terminal draws
 > them double-width, set `ambiguous_width 2` or the hints will overflow slightly.
 > The rest of the set above is unambiguously one column.

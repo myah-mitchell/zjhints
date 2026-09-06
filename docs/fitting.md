@@ -2,20 +2,21 @@
 
 The hint line grows with the number of bindings a mode has, and can easily
 exceed the terminal. By default the plugin fits it to the available width,
-**dropping whole hints** rather than cutting one in half — you choose which
+**dropping whole hints** rather than cutting one in half; you choose which
 ones go, and they can be replaced by an indicator:
 
 ```kdl
-auto_width      true // default — fit to the terminal
+auto_width      true // default: fit to the terminal
 reserve_columns 0    // columns to leave for the rest of the bar
 max_length      0    // hard cap; 0 = none
 ```
 
-Width is learned from Zellij's pane geometry, since the plugin runs headless and
-has no view of the status bar itself. It measures the right edge of the widest
-visible tiled pane; floating and suppressed panes are ignored, as neither tracks
-the terminal's real width. Until the first pane update arrives no width is
-assumed, so nothing is cut on a guess.
+Width is learned from Zellij's pane geometry rather than the plugin's own
+`render` dimensions, whether it runs headless behind zjstatus's pipe or in
+its own pane: it measures the right edge of the widest visible tiled pane;
+floating and suppressed panes are ignored, as neither tracks the terminal's
+real width. Until the first pane update arrives no width is assumed, so
+nothing is cut on a guess.
 
 `reserve_columns` is what keeps room for anything sharing the bar. The plugin
 cannot see zjstatus's `format_right`, so if you have one, reserve roughly its
@@ -37,12 +38,12 @@ to ignore the terminal entirely and use the fixed cap alone.
 ## Glyph width
 
 Fitting depends on measuring how many **columns** the hints occupy, which is not
-the same as counting characters — a CJK ideograph or an emoji takes two.
+the same as counting characters: a CJK ideograph or an emoji takes two.
 
 Nerd Font glyphs are East Asian **Ambiguous**: one column by the Unicode
 standard, but two in a terminal actually set up to display them. If you use them
-in `key_alias_*` or `mod_alias_*` and the hints overflow slightly — fitting looks
-right on wide windows and breaks near the edge — set:
+in `key_alias_*` or `mod_alias_*` and the hints overflow slightly (fitting looks
+right on wide windows and breaks near the edge), set:
 
 ```kdl
 ambiguous_width 2
@@ -53,8 +54,8 @@ line fits while the terminal wraps or clips it.
 
 ## What gets dropped
 
-[`hint_order`](ordering.md#hint-order) decides what survives. Unpinned hints — the `*`, the
-ones you never spoke for — are given up first, starting with the rightmost:
+[`hint_order`](ordering.md#hint-order) decides what survives. Unpinned hints (the `*`, the
+ones you never spoke for) are given up first, starting with the rightmost:
 
 ```kdl
 hint_order "*, exit" // exit outlives the hints in the "*"
@@ -87,7 +88,7 @@ A single hint wider than the whole bar survives this and is cut with
 reading like zjstatus's `format_precedence`:
 
 ```kdl
-hint_precedence "tl" // default — trailing kept, leading spent first
+hint_precedence "tl" // default: trailing kept, leading spent first
 hint_precedence "lt" // leading kept, trailing spent first
 ```
 
@@ -114,12 +115,12 @@ precedence is set.
 `drop_indicator` is rendered in place of the dropped run:
 
 ```kdl
-drop_indicator "#[fg=$grey]…"
+drop_indicator "#[fg=$gray]…"
 ```
 
 It is a format string like `hint_spacer`, so it can be styled, and it is spaced
 like a hint so it reads as one. It costs columns of its own, which come out of
-the same budget — a wide indicator forces one more hint to drop rather than
+the same budget: a wide indicator forces one more hint to drop rather than
 pushing the line over the limit.
 
 Left unset, hints are dropped silently.

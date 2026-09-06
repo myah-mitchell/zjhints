@@ -6,7 +6,7 @@ Actions like focus and move are typically bound to both the `hjkl` letters and
 the arrow keys, which makes for a long hint. `direction_keys` picks one family:
 
 ```kdl
-direction_keys "both"    // default — show everything that is bound
+direction_keys "both"    // default: show everything that is bound
 direction_keys "arrows"  // drop hjkl, keep ←↓↑→
 direction_keys "letters" // drop the arrows, keep hjkl
 ```
@@ -19,7 +19,7 @@ unrecognized falls back to `both`.
 
 ## Key order
 
-Zellij reports a hint's keys in an arbitrary order — tab selection can arrive as
+Zellij reports a hint's keys in an arbitrary order: tab selection can arrive as
 `271543689`. They are sorted into a predictable reading order by default;
 `key_order` says which keyboard that order follows:
 
@@ -35,24 +35,24 @@ Within a hint, keys sort by kind so unlike keys never interleave:
 
 | Kind | Order |
 | --- | --- |
-| Function keys | by number — `F1 F2 F3` |
-| Digits | along the digit row — `1234567890`, so `0` comes last |
+| Function keys | by number (`F1 F2 F3`) |
+| Digits | along the digit row (`1234567890`), so `0` comes last |
 | Letters | by layout row, then left to right |
 | Punctuation | likewise, but after all letters |
-| Arrows | `hjkl` order — `←↓↑→` |
+| Arrows | `hjkl` order (`←↓↑→`) |
 | Everything else | roughly physical, starting `Esc Tab Enter` |
 
 Letters and punctuation are separate groups so they don't interleave at row
 boundaries: `o p a s \` sorts to `opas\`, not `op\as`.
 
 Modifiers sort ahead of the key itself, so keys sharing one stay in a single
-run — a hint bound to both `hjkl` and `Ctrl hjkl` renders as `hjkl ^hjkl`, not
+run: a hint bound to both `hjkl` and `Ctrl hjkl` renders as `hjkl ^hjkl`, not
 as an interleaved `h ^h j ^j`. Groups run unmodified first, then `Ctrl`,
 `Super`, `Alt`, `Shift`; a key with several modifiers sorts with the strongest
 it carries, so `Ctrl Shift p` lands in the `Ctrl` group.
 
 Unmodified keys lead because they are the plainest way to reach the action, and
-because a hint too wide to fit is [cut from the right](fitting.md#what-gets-dropped) —
+because a hint too wide to fit is [cut from the right](fitting.md#what-gets-dropped),
 so whatever sorts first is what survives.
 
 This only changes ordering. Which keys appear is decided by `direction_keys`
@@ -66,7 +66,7 @@ positions, `key_order "qwerty"` is likely what you want.
 ### Alphabetical
 
 `key_order "abcdef"` ignores the keyboard entirely and sorts by the character
-itself — digits `0`–`9`, then letters `a`–`z`:
+itself, digits `0`–`9`, then letters `a`–`z`:
 
 ```kdl
 key_order "abcdef"
@@ -77,13 +77,13 @@ layout-independent, so it reads the same on any keyboard.
 
 Two differences from the layout modes:
 
-- `0` comes **first**, not last — this is plain ascending order, not a walk
+- `0` comes **first**, not last: this is plain ascending order, not a walk
   along the digit row.
 - `hjkl` happens to read in order here too, since `h < j < k < l`
   alphabetically, though for an unrelated reason.
 
 Digits, letters and punctuation are still kept in separate groups, and arrows,
-function keys and named keys are unaffected — those never had a layout position
+function keys and named keys are unaffected: those never had a layout position
 to sort by.
 
 Accepted spellings: `abcdef`, `alphabetical`, `alpha`, `abc`.
@@ -107,7 +107,7 @@ entries after it trail, and unlisted hints keep the order the mode built them.
 Leaving `*` out is the same as ending with one.
 
 The list applies to **every mode**, so an id that mode doesn't have is simply
-ignored — `"*, exit"` puts `exit` last wherever it appears and changes nothing
+ignored: `"*, exit"` puts `exit` last wherever it appears and changes nothing
 elsewhere. Naming an id that doesn't exist at all is equally harmless, so a
 typo degrades to no effect rather than an error.
 

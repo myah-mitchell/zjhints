@@ -1,14 +1,14 @@
 # Labels
 
-Every hint is two things: the **keys** it shows, and the **label** — the words
-printed next to them. This section is about changing those words.
+Every hint is two things: the **keys** it shows, and the **label** (the words
+printed next to them). This section is about changing those words.
 
 ## Ids and labels
 
 Each hint has both a label and an **id**:
 
-- The **label** is what you see — `split down`, `focus`, `exit`.
-- The **id** is the hint's permanent name, which is never displayed —
+- The **label** is what you see: `split down`, `focus`, `exit`.
+- The **id** is the hint's permanent name, which is never displayed:
   `split_down`, `focus`, `mode_normal`.
 
 Most ids look like their label with underscores, which makes them easy to guess,
@@ -27,7 +27,7 @@ just matching on the displayed text:
   actions. All four resolve to the id `focus`, so they merge into a single
   `hjkl focus` hint instead of cluttering the bar with four.
 - Pane mode's "new pane" and Tab mode's "new tab" both *display* `new`. Their ids
-  differ (`new_pane`, `new_tab`), so they stay separate — and
+  differ (`new_pane`, `new_tab`), so they stay separate, and
   `label_new_tab "＋"` changes only the tab one.
 
 Matching on displayed text would get the first case right and the second wrong.
@@ -59,7 +59,7 @@ Two cases:
    hint reading `next swap layout` has the id `next_swap_layout`, and
    `label_next_swap_layout "»"` renames it.
 
-That second rule is why nothing is ever unlabelled and every hint is
+That second rule is why nothing is ever unlabeled and every hint is
 addressable, including bindings this plugin has never heard of.
 
 ## Ids
@@ -102,7 +102,7 @@ label_new_pane_down "↓"   // by the action, NewPane "Down"
 More examples: `label_move_focus_left`, `label_resize_increase_left`,
 `label_switch_to_mode_locked`.
 
-Ids are usually the better choice — they are shorter, and some hints are built
+Ids are usually the better choice: they are shorter, and some hints are built
 from several actions at once (`resize` covers four, `mode_normal` gathers every
 key that leaves the mode), so they have no single action name to use. Reach for
 the action form when you already know the Zellij action and would rather not
@@ -122,9 +122,9 @@ label_locked_mode_normal "unlock" // …except Locked, which says "unlock"
 Useful where one action means different things in different modes. Leaving
 Locked is an unlock; leaving Pane mode is just an exit.
 
-Mode names are the lowercased Zellij modes — `normal`, `locked`, `pane`, `tab`,
+Mode names are the lowercased Zellij modes (`normal`, `locked`, `pane`, `tab`,
 `resize`, `move`, `scroll`, `search`, `session`, `renametab`, `renamepane`,
-`tmux`, `prompt` — and the suffix is an id or an action name, both of which work
+`tmux`, `prompt`), and the suffix is an id or an action name, both of which work
 scoped:
 
 ```kdl
@@ -139,7 +139,7 @@ one:
 3. `label_<id>`
 4. `label_<action>`
 
-An empty value still hides, at whichever scope you set it — so
+An empty value still hides, at whichever scope you set it. For example,
 `label_pane_mode_normal ""` drops the hint in Pane mode and leaves it elsewhere.
 The reverse works too: hide globally with `label_mode_normal ""`, then bring it
 back in one mode with `label_locked_mode_normal "unlock"`.
@@ -156,11 +156,11 @@ label_prev_layout "swap layout"   // one hint, both keys
 ```
 
 Next-layout and previous-layout are separate actions with separate ids, so by
-default they are two hints. Labelling both `swap layout` says *treat these as one
+default they are two hints. Labeling both `swap layout` says *treat these as one
 thing*, and they collapse into a single hint carrying both keys.
 
 This applies only to labels **you** set. Hints that merely ship with the same
-built-in label — Pane's `new` and Tab's `new` — stay separate, so a merge is
+built-in label (Pane's `new` and Tab's `new`) stay separate, so a merge is
 always something you asked for rather than an accident of the default table.
 
 One consequence worth knowing: a merged hint's id becomes the label you chose,

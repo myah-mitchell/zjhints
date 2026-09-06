@@ -166,10 +166,12 @@ tab, but never notifies plugins in `background_plugin_subscriptions` (the
 `load_plugins` list) the way Zellij's regular mode-switch path does. It is
 a Zellij core gap, not something either plugin's own code can work around.
 
-If you use the pipe integration today, giving this plugin its own pane
-instead is the only way to get the nested-session behavior above. That
-also means losing zjstatus's own `{mode}` widget on that line, since it
-lives in the other plugin's pane now. `show_mode` fills that gap:
+## Standing alone
+
+Giving this plugin its own pane, rather than piping it through zjstatus, is
+the only way to get the nested-session behavior above, and it needs no
+zjstatus at all. The one thing you give up by dropping the pipe is
+zjstatus's own `{mode}` widget on that line. `show_mode` fills that gap:
 
 ```kdl
 show_mode true // default false
