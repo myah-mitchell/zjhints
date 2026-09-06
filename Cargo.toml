@@ -8,5 +8,5 @@ rust-version = "1.96"
 [dependencies]
 ansi_term = "0.12"
 unicode-width = "0.2"
-zellij-tile = "0.45.0"
-zellij-tile-utils = "0.45.0"
+zellij-tile = "0.46.0"
+zellij-tile-utils = "0.46.0"
