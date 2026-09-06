@@ -27,20 +27,30 @@ jobs:
     steps:
       # A PR opened with the default GITHUB_TOKEN does not start any workflows.
       # With required status checks on main, that leaves the checks pending
-      # forever and the pull request unmergeable. A PAT is what makes them run.
-      - name: Check for the automation token
+      # forever and the pull request unmergeable. An app installation token
+      # makes them run, and it also attributes the PR to the app's own bot
+      # identity instead of whoever generated the token.
+      - name: Check for the automation app credentials
         run: |
-          if [ -z "${{ secrets.AUTOMATION_TOKEN }}" ]; then
-            echo "::error::AUTOMATION_TOKEN is not set. Without it the pull" \
-                 "request opens but CI never runs on it, so its required" \
-                 "checks can never pass. See docs/AUTOMATION.md."
+          if [ -z "${{ secrets.AUTOMATION_APP_ID }}" ] || [ -z "${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}" ]; then
+            echo "::error::AUTOMATION_APP_ID/AUTOMATION_APP_PRIVATE_KEY are" \
+                 "not set. Without them the pull request opens but CI never" \
+                 "runs on it, so its required checks can never pass. See" \
+                 "docs/AUTOMATION.md."
             exit 1
           fi
+
+      - name: Generate an app installation token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: main
-          token: ${{ secrets.AUTOMATION_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@4f647fc679bcd3b11499ccb42104547c83dabe96 # stable
@@ -97,30 +107,6 @@ jobs:
         id: deps
         run: python3 .github/scripts/check_deps.py '${{ steps.before.outputs.versions }}'
 
-      # A flake-only change bumps the version too, same as a dependency
-      # change: it still goes through test + build below before anything
-      # opens, and treating it as a separate, unversioned class of update
-      # would double the branching in every step from here on for little
-      # gain — a rebuild on a newer toolchain is a reasonable thing to
-      # release on its own.
-      - name: Bump patch version
-        if: steps.deps.outputs.changed == 'true' || steps.flake.outputs.changed == 'true'
-        id: bump
-        run: |
-          set -euo pipefail
-          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import re
-          text = open("Cargo.toml").read()
-          match = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', text, re.M)
-          major, minor, patch = (int(g) for g in match.groups())
-          new = f"{major}.{minor}.{patch + 1}"
-          text = text[: match.start()] + f'version = "{new}"' + text[match.end() :]
-          open("Cargo.toml", "w").write(text)
-          print(f"version={new}")
-          EOF
-          # Keep Cargo.lock's own entry in step with Cargo.toml.
-          cargo update --workspace --offline || cargo update --workspace
-
       - name: Ensure OpenSSL headers
         if: steps.deps.outputs.changed == 'true' || steps.flake.outputs.changed == 'true'
         run: |
@@ -143,22 +129,24 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
-          token: ${{ secrets.AUTOMATION_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: ${{ env.BRANCH }}
           delete-branch: true
           base: main
           commit-message: |
-            chore(deps): update dependencies and bump to ${{ steps.bump.outputs.version }}
+            chore(deps): update dependencies
 
             Opened automatically by .github/workflows/update-deps.yml.
             Tests and a release build passed before this was raised.
-          title: "chore(deps): update dependencies (v${{ steps.bump.outputs.version }})"
+          title: "chore(deps): update dependencies"
           labels: |
             dependencies
             ${{ steps.deps.outputs.zellij_minor_available == 'true' && 'needs-zellij-upgrade' || '' }}
           body: |
-            Automated dependency update. Merging publishes
-            **v${{ steps.bump.outputs.version }}** and moves `latest`.
+            Automated dependency update. This does not touch `Cargo.toml`'s
+            `version`, so merging it does not publish anything: bump the
+            version yourself (see [docs/AUTOMATION.md](docs/AUTOMATION.md#versioning))
+            whenever you're ready to cut a release that includes it.
 
             ${{ steps.deps.outputs.summary }}
             ${{ steps.flake.outputs.changed == 'true' && '`flake.lock` was refreshed (`nix flake update`) and confirmed to still build.' || '' }}
@@ -205,17 +193,25 @@ jobs:
       CARGO_TERM_COLOR: always
       BRANCH: deps/zellij-upgrade
     steps:
-      - name: Check for the automation token
+      - name: Check for the automation app credentials
         run: |
-          if [ -z "${{ secrets.AUTOMATION_TOKEN }}" ]; then
-            echo "::error::AUTOMATION_TOKEN is not set. See docs/AUTOMATION.md."
+          if [ -z "${{ secrets.AUTOMATION_APP_ID }}" ] || [ -z "${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}" ]; then
+            echo "::error::AUTOMATION_APP_ID/AUTOMATION_APP_PRIVATE_KEY are" \
+                 "not set. See docs/AUTOMATION.md."
             exit 1
           fi
+
+      - name: Generate an app installation token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: main
-          token: ${{ secrets.AUTOMATION_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@4f647fc679bcd3b11499ccb42104547c83dabe96 # stable
@@ -254,22 +250,6 @@ jobs:
           target="${target:-${{ needs.update.outputs.zellij_tile_utils_latest }}}"
           echo "line=$(echo "$target" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
 
-      - name: Bump patch version
-        id: bump
-        run: |
-          set -euo pipefail
-          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import re
-          text = open("Cargo.toml").read()
-          match = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', text, re.M)
-          major, minor, patch = (int(g) for g in match.groups())
-          new = f"{major}.{minor}.{patch + 1}"
-          text = text[: match.start()] + f'version = "{new}"' + text[match.end() :]
-          open("Cargo.toml", "w").write(text)
-          print(f"version={new}")
-          EOF
-          cargo update --workspace --offline || cargo update --workspace
-
       - name: Ensure OpenSSL headers
         run: |
           if ! pkg-config --exists openssl; then
@@ -288,7 +268,7 @@ jobs:
       - name: Open or update the pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
-          token: ${{ secrets.AUTOMATION_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: ${{ env.BRANCH }}
           delete-branch: true
           base: main
@@ -316,10 +296,13 @@ jobs:
             with the wrong label, not an error. See
             [CONTRIBUTING.md](CONTRIBUTING.md#keeping-zellij-tile-in-step-with-zellij).
 
-            Once merged, `release.yml` publishes this as a normal patch
-            release and moves the `zellij-${{ steps.zellij.outputs.line }}`
-            compatibility tag to it - see
-            [docs/AUTOMATION.md](docs/AUTOMATION.md).
+            This does not touch `Cargo.toml`'s `version`. Once merged, bump
+            it yourself when you're ready to release (a minor bump is the
+            convention for a Zellij line move), and pushing that bump to
+            `main` (or tagging it) is what makes `release.yml` publish and
+            moves the `zellij-${{ steps.zellij.outputs.line }}` compatibility
+            tag. See
+            [docs/AUTOMATION.md](docs/AUTOMATION.md#versioning).
 
             <details>
             <summary>What ran before this was opened</summary>

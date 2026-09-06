@@ -55,14 +55,17 @@ jobs:
             echo
             echo "| | |"
             echo "|---|---|"
-            echo "| Version | \`${version}\` (unreleased) |"
+            echo "| Version | \`${version}\` |"
             echo "| Commit | \`$(git rev-parse --short HEAD)\` |"
             echo "| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |"
             echo
             echo "\`$(git log -1 --pretty=%s)\`"
             echo
-            echo "> Not a stable release. For that, see the"
-            echo "> [latest release](../../releases/latest)."
+            echo "> Version bumps are manual, so this may sit on the same"
+            echo "> number as the latest release while still carrying commits"
+            echo "> that number has not shipped. The commit above is the real"
+            echo "> answer to \"what's in this build\". Not a stable release;"
+            echo "> for that, see the [latest release](../../releases/latest)."
           } > NIGHTLY.md
 
       # The tag is moved rather than added to, so `nightly` always names the
