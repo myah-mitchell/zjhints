@@ -8,15 +8,17 @@ If the change belongs upstream more than here, consider opening it there instead
 
 You need Rust 1.96.0 with the `wasm32-wasip1` target. The toolchain is pinned in `rust-toolchain.toml`, so rustup will fetch the right one automatically.
 
-```sh
+```bash
 git clone https://github.com/myah-mitchell/zjstatus-hints
 cd zjstatus-hints
 make build
 ```
 
-**Tests need OpenSSL headers.** They build for the host rather than wasm, which pulls in `zellij-utils` → `isahc` → `curl` → `openssl-sys`. Wasm builds exclude that chain entirely, so this only bites when you run tests:
+### Tests need OpenSSL headers
 
-```sh
+Tests build for the host rather than wasm, which pulls in `zellij-utils -> isahc -> curl -> openssl-sys`. Wasm builds exclude that chain entirely, so this only bites when you run tests:
+
+```bash
 sudo apt install libssl-dev    # Debian/Ubuntu
 sudo dnf install openssl-devel # Fedora
 ```
@@ -25,15 +27,15 @@ The first host build compiles all of `zellij-utils` and takes a while. After tha
 
 ## The loop
 
-```sh
+```bash
 make dev       # build + install into ~/.local/share/zellij/plugins/
 ```
 
-Then **start a new Zellij session**. Zellij caches plugins per session, and detaching and reattaching does not reload, so the change simply will not appear.
+Then start a new Zellij session. Zellij caches plugins per session, and detaching and reattaching does not reload, so the change simply will not appear.
 
 Before pushing:
 
-```sh
+```bash
 make check     # fmt, clippy, tests, release build (what CI runs)
 ```
 
@@ -41,19 +43,25 @@ make check     # fmt, clippy, tests, release build (what CI runs)
 
 `zellij-tile` and `zellij-tile-utils` must match the Zellij you are running. This is not a nicety, and getting it wrong does not fail the build.
 
-Zellij decodes a binding's actions at the plugin boundary with `.filter_map(|a| a.try_into().ok())`. An action the plugin's older `zellij-tile` does not recognize is silently **dropped**, and the binding arrives truncated. The symptom is a hint showing the wrong label: everything compiles, tests pass, and nothing logs an error.
+Zellij decodes a binding's actions at the plugin boundary with `.filter_map(|a| a.try_into().ok())`. An action the plugin's older `zellij-tile` does not recognize is silently dropped, and the binding arrives truncated. The symptom is a hint showing the wrong label: everything compiles, tests pass, and nothing logs an error.
 
 So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes this as its own pull request once a new Zellij minor is out, but deliberately never merges it for you. See [docs/automation.md](docs/automation.md).
 
 ## What good changes look like
 
-**Tests.** There are 81 and they run in CI. Anything with logic worth reasoning about (ordering, fitting, label resolution) should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+### Tests
 
-**Comments that explain why.** The codebase leans toward explaining reasoning rather than restating the code. If something looks odd but is deliberate, say what would go wrong otherwise: several of the stranger-looking decisions here exist because of Zellij behavior that is invisible from the code.
+There are 81 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
 
-**Conventional commit subjects.** Release notes are generated from them by git-cliff, so the prefix decides where a change lands in the changelog:
+### Comments that explain why
 
-```
+The codebase leans toward explaining reasoning rather than restating the code. If something looks odd but is deliberate, say what would go wrong otherwise. Several of the stranger-looking decisions here exist because of Zellij behavior that is invisible from the code.
+
+### Conventional commit subjects
+
+Release notes are generated from them by git-cliff, so the prefix decides where a change lands in the changelog:
+
+```text
 feat(hints): add a thing
 fix: stop the bar bleeding color past a truncation
 docs: explain the curated list
@@ -62,7 +70,9 @@ ci: pin actions to SHAs
 chore(deps): bump unicode-width
 ```
 
-**Documentation.** New config options need a bullet in the README's Configuration list *and* a prose section explaining them. The list is checked against the options the code actually reads.
+### Documentation
+
+New config options need a bullet in the README's Configuration list and a prose section explaining them. The list is checked against the options the code actually reads.
 
 ## Pull requests
 

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-file MD041 (this is a body fragment GitHub inlines, not a document) -->
 <!--
 Thanks for the pull request. The sections below are a prompt, not a form:
 delete what does not apply. For a one-line fix, the summary alone is fine.
@@ -24,7 +25,7 @@ actually observed helps.
 -->
 
 - [ ] `make check` passes (fmt, clippy, tests, release build)
-- [ ] Tried it in a **new** Zellij session: plugins are cached per session, so detach/reattach does not reload
+- [ ] Tried it in a new Zellij session: plugins are cached per session, so detach/reattach does not reload
 - [ ] Added or updated tests for anything with logic worth reasoning about
 
 Modes exercised, if the change affects rendering:
@@ -33,7 +34,7 @@ Modes exercised, if the change affects rendering:
 
 ## Documentation
 
-- [ ] New config options have a bullet in the README's Configuration list **and** a prose section
+- [ ] New config options have a bullet in the README's Configuration list and a prose section
 - [ ] Not applicable
 
 ## Anything else
