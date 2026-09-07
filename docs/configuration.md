@@ -10,6 +10,8 @@ Options are grouped by topic, and each group names the page carrying the detail 
 | `<mode>` | A Zellij mode name, giving `key_format_locked` |
 | `<name>` | An alias name you choose, giving `color_blue` |
 
+For a filled-in config rather than a list of options, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
+
 ## Fitting
 
 The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fitting.md).

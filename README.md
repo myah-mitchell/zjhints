@@ -249,6 +249,8 @@ The plugin works with no configuration, so this section is only for changing som
 | [Labels](docs/labels.md) | Renaming, hiding, merging, and per-mode labels |
 | [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane |
 
+For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
+
 Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
 
 For how the repository builds, tests and releases itself, see [docs/automation.md](docs/automation.md).
