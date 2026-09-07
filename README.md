@@ -1,16 +1,8 @@
 # zjstatus-hints
 
-A [Zellij](https://github.com/zellij-org/zellij) plugin that displays
-context-aware key bindings for the current mode, styled and configured to
-match the rest of your status bar. It runs standalone in its own pane, or
-pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for
-setups that already use it. See [Installation](#installation).
+A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
 
-> **A fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints)** by
-> Maddison Cohodas. The original shows a curated set of hints piped to
-> zjstatus; this fork keeps that, adds a standalone mode that needs no
-> zjstatus at all, and builds a configuration layer on top of both. See
-> [What this fork adds](#what-this-fork-adds).
+> **A fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints)** by Maddison Cohodas. The original shows a curated set of hints piped to zjstatus; this fork keeps that, adds a standalone mode that needs no zjstatus at all, and builds a configuration layer on top of both. See [What this fork adds](#what-this-fork-adds).
 
 ![zjstatus-hints example](docs/zjstatus-hints-example.png)
 
@@ -18,46 +10,26 @@ https://github.com/user-attachments/assets/940a31a0-86de-469d-89e2-dab18a1aaca8
 
 ## Rationale
 
-Zellij's built-in status bar shows keybinding hints for your current mode,
-but you lose them the moment you replace it with something else. This
-plugin restores that functionality as its own independent piece: run it in
-its own pane for a drop-in replacement, or, if you already run
-[zjstatus](https://github.com/dj95/zjstatus), pipe the hints into it instead
-of standing up a separate pane.
+Zellij's built-in status bar shows keybinding hints for your current mode, but you lose them the moment you replace it with something else. This plugin restores that functionality as its own independent piece: run it in its own pane for a drop-in replacement, or, if you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into it instead of standing up a separate pane.
 
 ## What this fork adds
 
-The original shows a [curated list](docs/hints.md#the-curated-list) of hints and
-pipes it to zjstatus, with four configuration options. This fork keeps that
-behavior and builds a configuration layer over it:
+The original shows a [curated list](docs/hints.md#the-curated-list) of hints and pipes it to zjstatus, with four configuration options. This fork keeps that behavior and builds a configuration layer over it:
 
-- **[Standing alone](docs/nested-sessions.md#standing-alone)**: run in its
-  own pane, with the current mode prefixed onto the line, no zjstatus required
-- **[Styling](docs/styling.md)**: global and per-hint format strings, colors,
-  and key/modifier aliases, so `Ctrl Left` can read `^←`
-- **[Discovery](docs/hints.md#discovered-hints)**: optionally surface **every**
-  keybinding your config enables, not just the curated set
-- **[Labels](docs/labels.md)**: rename, hide, merge, or reorder any hint,
-  globally or in a single mode
-- **[Ordering](docs/ordering.md)**: keyboard-layout-aware key order, and a
-  pinned order for the hints themselves
-- **[Fitting](docs/fitting.md)**: drop whole hints to fit the terminal as it
-  narrows, in an order you choose, with an optional indicator for what was cut
-- **[Nested sessions](docs/nested-sessions.md)**: show the hints of the
-  nested session the keys are actually going to, and hide or dim this
-  session's own while it isn't the one receiving input, so a host and a
-  nested session sharing one layout don't end up with doubled chrome,
-  giving the layout row back rather than leaving a blank line behind
+- **[Standing alone](docs/nested-sessions.md#standing-alone)**: run in its own pane, with the current mode prefixed onto the line, no zjstatus required
+- **[Styling](docs/styling.md)**: global and per-hint format strings, colors, and key/modifier aliases, so `Ctrl Left` can read `^←`
+- **[Discovery](docs/hints.md#discovered-hints)**: optionally surface **every** keybinding your config enables, not just the curated set
+- **[Labels](docs/labels.md)**: rename, hide, merge, or reorder any hint, globally or in a single mode
+- **[Ordering](docs/ordering.md)**: keyboard-layout-aware key order, and a pinned order for the hints themselves
+- **[Fitting](docs/fitting.md)**: drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
+- **[Nested sessions](docs/nested-sessions.md)**: show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it isn't the one receiving input, so a host and a nested session sharing one layout don't end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
 - **Zellij 0.45** support
 
-Four options upstream, around two dozen here. The full list is in the
-[configuration reference](docs/configuration.md).
+Four options upstream, around two dozen here. The full list is in the [configuration reference](docs/configuration.md).
 
 ## Installation
 
-Add zjstatus-hints to your Zellij configuration and give it a pane of its
-own; no zjstatus required. See [Displaying the hints](#displaying-the-hints)
-below to pipe it into zjstatus instead.
+Add zjstatus-hints to your Zellij configuration and give it a pane of its own; no zjstatus required. See [Displaying the hints](#displaying-the-hints) below to pipe it into zjstatus instead.
 
 ```kdl
 plugins {
@@ -180,9 +152,7 @@ Four channels are published:
 | `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`. |
 | `ea-<label>` | An on-demand build of any ref, published on request. Prerelease; see [docs/AUTOMATION.md](docs/AUTOMATION.md#eabeta-releases). |
 
-Zellij caches remote plugins by URL, so pointing the config at the nightly URL
-will keep serving whatever it downloaded first. To track nightlies, fetch into
-the plugin path instead and start a new session:
+Zellij caches remote plugins by URL, so pointing the config at the nightly URL will keep serving whatever it downloaded first. To track nightlies, fetch into the plugin path instead and start a new session:
 
 ```sh
 make nightly   # or: make latest
@@ -190,13 +160,7 @@ make nightly   # or: make latest
 
 #### Matching your Zellij version
 
-`latest` is not always built for the Zellij you run: this plugin's own
-version and the Zellij it targets move independently (see
-[Versioning](#versioning) below). Mixing them is silent, not a build error:
-Zellij's plugin boundary decodes a binding's actions with
-`.filter_map(|a| a.try_into().ok())`, so an action a mismatched plugin does
-not recognize is just dropped, and hints render with the wrong label rather
-than failing to load.
+`latest` is not always built for the Zellij you run: this plugin's own version and the Zellij it targets move independently (see [Versioning](#versioning) below). Mixing them is silent, not a build error: Zellij's plugin boundary decodes a binding's actions with `.filter_map(|a| a.try_into().ok())`, so an action a mismatched plugin does not recognize is just dropped, and hints render with the wrong label rather than failing to load.
 
 Check what your build targets, or fetch one for the Zellij you actually run:
 
@@ -205,53 +169,32 @@ zellij --version                 # e.g. 0.44.3
 make zellij VERSION=0.44         # newest release built for that line
 ```
 
-`zellij-<line>` always resolves to the newest `zjstatus-hints` release built
-for that Zellij minor, however many versions have shipped since (the same
-moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij
-line instead of to everything).
+`zellij-<line>` always resolves to the newest `zjstatus-hints` release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij line instead of to everything).
 
 ### Versioning
 
-Most releases are patch bumps on this fork's own schedule, unrelated to when
-Zellij releases. A **minor** version bump marks something more significant
-(a large feature change, and/or a move to a new Zellij major/minor), so a
-plain bugfix release is never mistaken for one of those.
+Most releases are patch bumps on this fork's own schedule, unrelated to when Zellij releases. A **minor** version bump marks something more significant (a large feature change, and/or a move to a new Zellij major/minor), so a plain bugfix release is never mistaken for one of those.
 
 | `zjstatus-hints` | Targets Zellij |
 |---|---|
 | 0.3.x | 0.44.x |
 | 0.4.x (current) | 0.45.x |
 
-A new row here specifically means the minor bump was a Zellij-line move.
-Bumping past a Zellij minor is deliberately not automatic. See
-[docs/AUTOMATION.md](docs/AUTOMATION.md) for why and how that update is
-proposed instead of applied. The previous line's last compatible release
-stays reachable forever at its own `zellij-<line>` tag.
+A new row here specifically means the minor bump was a Zellij-line move. Bumping past a Zellij minor is deliberately not automatic. See [docs/AUTOMATION.md](docs/AUTOMATION.md) for why and how that update is proposed instead of applied. The previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag.
 
 ### Displaying the hints
 
-Wire the plugin into your default layout (`layouts/default.kdl`) either of
-two ways. Both read the same configuration above.
+Wire the plugin into your default layout (`layouts/default.kdl`) either of two ways. Both read the same configuration above.
 
 #### Option A: its own pane
 
-This is what the installation example above already does: give the plugin a
-pane of its own, referencing the `zjstatus-hints` alias defined in the
-`plugins {}` block, and set `show_mode true` so the line still carries the
-current mode, the way `{mode}` would in zjstatus. See [Standing
-alone](docs/nested-sessions.md#standing-alone) for styling the mode prefix,
-and note that a pane-based plugin (unlike one loaded headless via
-`load_plugins`) is what lets [nested-session](docs/nested-sessions.md)
-hiding and dimming work at all.
+This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjstatus-hints` alias defined in the `plugins {}` block, and set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](docs/nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](docs/nested-sessions.md) hiding and dimming work at all.
 
 #### Option B: piped into zjstatus
 
-If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the
-hints into its bar instead of giving zjstatus-hints a pane of its own. Two
-changes from the layout above:
+If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into its bar instead of giving zjstatus-hints a pane of its own. Two changes from the layout above:
 
-1. Replace the `pane { plugin location="zjstatus-hints" { ... } }` block with
-   a headless load, since a piped plugin draws nothing of its own:
+1. Replace the `pane { plugin location="zjstatus-hints" { ... } }` block with a headless load, since a piped plugin draws nothing of its own:
 
    ```kdl
    load_plugins {
@@ -259,10 +202,7 @@ changes from the layout above:
    }
    ```
 
-2. Add `{pipe_zjstatus_hints}` to zjstatus's own `format_left`,
-   `format_center`, or `format_right` (matching `pipe_name`,
-   `zjstatus_hints` by default), and set `pipe_zjstatus_hints_format
-   "{output}"`; without that, zjstatus won't render the pipe at all:
+2. Add `{pipe_zjstatus_hints}` to zjstatus's own `format_left`, `format_center`, or `format_right` (matching `pipe_name`, `zjstatus_hints` by default), and set `pipe_zjstatus_hints_format "{output}"`; without that, zjstatus won't render the pipe at all:
 
    ```kdl
    pane size=1 borderless=true {
@@ -275,15 +215,11 @@ changes from the layout above:
    }
    ```
 
-`show_mode` and `mode_format` are unnecessary here, since zjstatus's own
-`{mode}` widget already covers that.
+`show_mode` and `mode_format` are unnecessary here, since zjstatus's own `{mode}` widget already covers that.
 
 ## Configuration
 
-The plugin works with no configuration; this section is only if you want to
-change something. Every option and its default is in the **[configuration
-reference](docs/configuration.md)**; the detail behind each group lives in its
-own page:
+The plugin works with no configuration; this section is only if you want to change something. Every option and its default is in the **[configuration reference](docs/configuration.md)**; the detail behind each group lives in its own page:
 
 | Topic | What it covers |
 |---|---|
@@ -293,45 +229,22 @@ own page:
 | **[Hints](docs/hints.md)** | The curated list, discovery, and shared bindings |
 | **[Labels](docs/labels.md)** | Renaming, hiding, merging, and per-mode labels |
 
-For how the repository builds, tests and releases itself, see
-[docs/AUTOMATION.md](docs/AUTOMATION.md).
+For how the repository builds, tests and releases itself, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
 ## TODO
 
-- [ ] shed the unmaintained transitive crates, once Zellij allows it. Five
-      RUSTSEC advisories are open, all warning-level (unmaintained / unsound
-      reads, no vulnerabilities) and none reachable in the actual wasm plugin:
-      `ansi_term` (RUSTSEC-2021-0139) via `zellij-tile-utils`; `atty`
-      (RUSTSEC-2021-0145, RUSTSEC-2024-0375) and `proc-macro-error`
-      (RUSTSEC-2024-0370) via `clap 3`/`clap_derive` in `zellij-utils`
-      (`proc-macro-error` is a proc-macro crate, so it never ships in any
-      compiled output, wasm or host); and `event-listener` (RUSTSEC-2026-0221)
-      via `isahc` in `zellij-utils`; that whole chain (`isahc` → `curl` →
-      `openssl-sys`) is absent from the `wasm32-wasip1` dependency graph
-      entirely, only appearing on the host target that `cargo test` builds.
-      **None is removable from here**: swapping our own `ansi_term` for
-      `nu-ansi-term` only adds a second ANSI crate, since `zellij-tile-utils`
-      still pulls `ansi_term`, and the `clap 3`/`isahc` advisories only leave
-      when Zellij moves off them. They clear when Zellij updates; `cargo
-      audit` already passes, as these are warnings, not vulnerabilities.
+- [ ] shed the unmaintained transitive crates, once Zellij allows it. Five RUSTSEC advisories are open, all warning-level (unmaintained / unsound reads, no vulnerabilities) and none reachable in the actual wasm plugin: `ansi_term` (RUSTSEC-2021-0139) via `zellij-tile-utils`; `atty` (RUSTSEC-2021-0145, RUSTSEC-2024-0375) and `proc-macro-error` (RUSTSEC-2024-0370) via `clap 3`/`clap_derive` in `zellij-utils` (`proc-macro-error` is a proc-macro crate, so it never ships in any compiled output, wasm or host); and `event-listener` (RUSTSEC-2026-0221) via `isahc` in `zellij-utils`; that whole chain (`isahc` → `curl` → `openssl-sys`) is absent from the `wasm32-wasip1` dependency graph entirely, only appearing on the host target that `cargo test` builds. **None is removable from here**: swapping our own `ansi_term` for `nu-ansi-term` only adds a second ANSI crate, since `zellij-tile-utils` still pulls `ansi_term`, and the `clap 3`/`isahc` advisories only leave when Zellij moves off them. They clear when Zellij updates; `cargo audit` already passes, as these are warnings, not vulnerabilities.
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md)
-for the development loop, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for
-expected conduct. Security problems should go through
-[SECURITY.md](SECURITY.md) rather than a public issue.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for expected conduct. Security problems should go through [SECURITY.md](SECURITY.md) rather than a public issue.
 
-How this repository builds, tests and releases itself is described in
-[docs/AUTOMATION.md](docs/AUTOMATION.md).
+How this repository builds, tests and releases itself is described in [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
 ## License
 
-&copy; 2026 Myah Mitchell
-&copy; 2025 Maddison Cohodas
+&copy; 2026 Myah Mitchell &copy; 2025 Maddison Cohodas
 
-A fork of [zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison
-Cohodas, itself adapted from the built-in Zellij status-bar plugin by
-Brooks J Rady.
+A fork of [zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, itself adapted from the built-in Zellij status-bar plugin by Brooks J Rady.
 
 MIT License
