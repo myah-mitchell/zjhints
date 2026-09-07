@@ -10,11 +10,11 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 > [!NOTE]
 > zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
-![zjhints example](docs/img/zjhints-example.png)
+![zjhints example](docs/img/zjhints-v0.5.0.png)
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->
 <!-- markdownlint-disable-next-line MD034 -->
-https://github.com/user-attachments/assets/940a31a0-86de-469d-89e2-dab18a1aaca8
+https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
 
 ## Zellij support
 
