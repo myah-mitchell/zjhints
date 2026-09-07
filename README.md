@@ -14,16 +14,17 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->
 <!-- markdownlint-disable-next-line MD034 -->
+
 https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
 
 ## Zellij support
 
 Two features in this release need plugin APIs that are not in a released Zellij yet. Both are open pull requests against Zellij, expected to land in its next minor:
 
-| Zellij PR | What it gives zjhints |
-| --- | --- |
+| Zellij PR                                               | What it gives zjhints                                                                                                                                                                                       |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session) |
-| [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses |
+| [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                   |
 
 Until they are released, a Zellij build carrying both is published as [fork-v0.46.1](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.1). That is the build zjhints is compiled against, so it is the way to see these two features working today.
 
@@ -51,12 +52,12 @@ Every option is listed under [Configuration](#configuration) below.
 
 Some option names and tag names below are families rather than fixed strings. Each family's variable part is written in angle brackets.
 
-| Placeholder | You replace it with |
-| --- | --- |
-| `<mode>` | A lowercased Zellij mode name, giving `mode_format_locked` |
-| `<name>` | An alias name you choose, giving `color_blue` |
-| `<line>` | A Zellij minor, giving the tag `zellij-0.46` |
-| `<label>` | An EA channel name, giving the tag `ea-nested-sessions` |
+| Placeholder | You replace it with                                        |
+| ----------- | ---------------------------------------------------------- |
+| `<mode>`    | A lowercased Zellij mode name, giving `mode_format_locked` |
+| `<name>`    | An alias name you choose, giving `color_blue`              |
+| `<line>`    | A Zellij minor, giving the tag `zellij-0.46`               |
+| `<label>`   | An EA channel name, giving the tag `ea-nested-sessions`    |
 
 ## Installation
 
@@ -177,12 +178,12 @@ layout {
 
 Four channels are published:
 
-| Channel | Contents |
-| --- | --- |
-| `latest` | Tagged releases. What the URL above resolves to. |
-| `nightly` | Rebuilt from `main` every night, tests green. Prerelease. |
-| `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`. |
-| `ea-<label>` | An on-demand build of any ref, published on request. Prerelease; see [docs/automation.md](docs/automation.md#eabeta-releases). |
+| Channel         | Contents                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `latest`        | Tagged releases. What the URL above resolves to.                                                                               |
+| `nightly`       | Rebuilt from `main` every night, tests green. Prerelease.                                                                      |
+| `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`.                                                         |
+| `ea-<label>`    | An on-demand build of any ref, published on request. Prerelease; see [docs/automation.md](docs/automation.md#eabeta-releases). |
 
 Zellij caches remote plugins by URL, so pointing the config at the nightly URL will keep serving whatever it downloaded first. To track nightlies, fetch into the plugin path instead and start a new session:
 
@@ -207,11 +208,11 @@ make zellij VERSION=0.44         # newest release built for that line
 
 Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
 
-| zjhints | Targets Zellij |
-| --- | --- |
-| 0.3.x | 0.44.x |
-| 0.4.x | 0.45.x |
-| 0.5.x (current release) | 0.46.x |
+| zjhints                 | Targets Zellij |
+| ----------------------- | -------------- |
+| 0.3.x                   | 0.44.x         |
+| 0.4.x                   | 0.45.x         |
+| 0.5.x (current release) | 0.46.x         |
 
 A new row means the Zellij line moved. The reverse does not hold: a minor bump that added functionality keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
 
@@ -258,14 +259,14 @@ If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints 
 
 The plugin works with no configuration, so this section is only for changing something. Every option and its default is in the [configuration reference](docs/configuration.md), and the detail behind each group lives in its own page:
 
-| Topic | What it covers |
-| --- | --- |
-| [Styling](docs/styling.md) | Format strings, colors, per-hint styling, key and modifier aliases |
-| [Keys and ordering](docs/ordering.md) | Which keys show for a hint, and the order of keys and of hints |
-| [Fitting the bar](docs/fitting.md) | Fitting to the terminal, dropping hints, the drop indicator |
-| [Hints](docs/hints.md) | The curated list, discovery, and shared bindings |
-| [Labels](docs/labels.md) | Renaming, hiding, merging, and per-mode labels |
-| [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane |
+| Topic                                      | What it covers                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| [Styling](docs/styling.md)                 | Format strings, colors, per-hint styling, key and modifier aliases |
+| [Keys and ordering](docs/ordering.md)      | Which keys show for a hint, and the order of keys and of hints     |
+| [Fitting the bar](docs/fitting.md)         | Fitting to the terminal, dropping hints, the drop indicator        |
+| [Hints](docs/hints.md)                     | The curated list, discovery, and shared bindings                   |
+| [Labels](docs/labels.md)                   | Renaming, hiding, merging, and per-mode labels                     |
+| [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane            |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
 
@@ -277,12 +278,12 @@ For how the repository builds, tests and releases itself, see [docs/automation.m
 
 Five RUSTSEC advisories are open against the dependency tree. All are warning-level, covering unmaintained or unsound crates rather than vulnerabilities, and none is reachable in the wasm plugin that actually ships. `cargo audit` passes because these are warnings.
 
-| Advisory | Crate | Reaches this project via |
-| --- | --- | --- |
-| RUSTSEC-2021-0139 | `ansi_term` | `zellij-tile-utils` |
-| RUSTSEC-2021-0145, RUSTSEC-2024-0375 | `atty` | `clap 3` and `clap_derive` in `zellij-utils` |
-| RUSTSEC-2024-0370 | `proc-macro-error` | `clap 3` and `clap_derive` in `zellij-utils` |
-| RUSTSEC-2026-0221 | `event-listener` | `isahc` in `zellij-utils` |
+| Advisory                             | Crate              | Reaches this project via                     |
+| ------------------------------------ | ------------------ | -------------------------------------------- |
+| RUSTSEC-2021-0139                    | `ansi_term`        | `zellij-tile-utils`                          |
+| RUSTSEC-2021-0145, RUSTSEC-2024-0375 | `atty`             | `clap 3` and `clap_derive` in `zellij-utils` |
+| RUSTSEC-2024-0370                    | `proc-macro-error` | `clap 3` and `clap_derive` in `zellij-utils` |
+| RUSTSEC-2026-0221                    | `event-listener`   | `isahc` in `zellij-utils`                    |
 
 Being a proc-macro crate, proc-macro-error never ships in any compiled output, wasm or host. The `isahc -> curl -> openssl-sys` chain is absent from the `wasm32-wasip1` dependency graph entirely, and appears only on the host target that `cargo test` builds.
 
@@ -293,6 +294,12 @@ None of them can be shed from here. Swapping this project's own ansi_term for nu
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for expected conduct. Security problems should go through [SECURITY.md](SECURITY.md) rather than a public issue.
 
 How this repository builds, tests and releases itself is described in [docs/automation.md](docs/automation.md).
+
+## From the maintainer
+
+I, Myah, can't speak for any of the other contributors but much of the code, tests, and documentation from my work were completed with AI assistance. I review every line and every change is built and tested before anything is released. For any bugs or issues that may make it into a release, whether I fully wrote every line or if AI was used, the responsibility is on myself as the maintainer and not the tools I used to complete the work.
+
+I complete understand how some feel about the use of AI software, and I do share a number of those same views. However, for a project like this, I would have never even considered approaching it with my limited amount of free time. I share my work in the hope that someone else finds it as useful as I do.
 
 ## License
 
