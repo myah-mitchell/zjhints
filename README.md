@@ -231,6 +231,8 @@ If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints 
    }
    ```
 
+   Left unset, `pipe_name` also publishes on `zjstatus_hints`, the name this plugin used before it was renamed, so an existing zjstatus config reading `{pipe_zjstatus_hints}` keeps working as it is.
+
 `show_mode` and `mode_format` are unnecessary here, since zjstatus's own `{mode}` widget already covers that.
 
 ## Configuration

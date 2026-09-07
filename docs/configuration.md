@@ -96,3 +96,5 @@ How the bar behaves when one Zellij session runs inside another, and when the pl
 | `pipe_name` | `zjhints` | Name of the pipe zjstatus reads the hints from |
 
 `pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](../README.md#displaying-the-hints).
+
+Left unset, the hints also go out on `zjstatus_hints`, the name this plugin published on before it was renamed, so a zjstatus config written against `{pipe_zjstatus_hints}` keeps rendering untouched. Setting `pipe_name` publishes on that name alone.

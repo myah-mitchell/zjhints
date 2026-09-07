@@ -16,7 +16,9 @@ mod format;
 #[derive(Default)]
 struct State {
     initialized: bool,
-    pipe_name: String,
+    /// The zjstatus pipe names each render is published on. See
+    /// [`pipe_names_from_config`].
+    pipe_names: Vec<String>,
     mode_info: ModeInfo,
     base_mode_is_locked: bool,
     max_length: usize,
@@ -194,7 +196,11 @@ const ANSI_RESET: &str = "\u{1b}[0m";
 
 const DEFAULT_MAX_LENGTH: usize = 0;
 const DEFAULT_OVERFLOW_STR: &str = "...";
-const DEFAULT_PIPE_NAME: &str = "zjstatus_hints";
+const DEFAULT_PIPE_NAME: &str = "zjhints";
+/// The name this plugin published on before it was renamed. Still published
+/// to alongside the current default, so a zjstatus config written against
+/// `{pipe_zjstatus_hints}` keeps rendering without being touched.
+const LEGACY_PIPE_NAME: &str = "zjstatus_hints";
 
 const CONFIG_KEY_FORMAT: &str = "key_format";
 const CONFIG_DESC_FORMAT: &str = "desc_format";
@@ -977,6 +983,19 @@ impl State {
     }
 }
 
+/// The zjstatus pipe names to publish each render on.
+///
+/// An explicit `pipe_name` is used on its own: someone who has named their
+/// pipe has a zjstatus config reading that name and no other. Left unset,
+/// both the current default and the pre-rename one go out, so a config
+/// written against either keeps rendering.
+fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<String> {
+    match configuration.get("pipe_name") {
+        Some(name) => vec![name.clone()],
+        None => vec![DEFAULT_PIPE_NAME.to_string(), LEGACY_PIPE_NAME.to_string()],
+    }
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.initialized = false;
@@ -990,10 +1009,7 @@ impl ZellijPlugin for State {
             .get("overflow_str")
             .cloned()
             .unwrap_or_else(|| DEFAULT_OVERFLOW_STR.to_string());
-        self.pipe_name = configuration
-            .get("pipe_name")
-            .cloned()
-            .unwrap_or_else(|| DEFAULT_PIPE_NAME.to_string());
+        self.pipe_names = pipe_names_from_config(&configuration);
         self.hide_in_base_mode = configuration
             .get("hide_in_base_mode")
             .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(false))
@@ -1331,10 +1347,12 @@ impl ZellijPlugin for State {
 
         self.sync_collapsed(output.is_empty());
 
-        pipe_message_to_plugin(MessageToPlugin::new("pipe").with_payload(format!(
-            "zjstatus::pipe::pipe_{}::{}",
-            self.pipe_name, output
-        )));
+        for pipe_name in &self.pipe_names {
+            pipe_message_to_plugin(
+                MessageToPlugin::new("pipe")
+                    .with_payload(format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output)),
+            );
+        }
         print!("{}", output);
     }
 }
@@ -5051,5 +5069,37 @@ mod tests {
 
         assert!(state.nested_guests.is_empty());
         assert_eq!(rendered_bar(&state), before);
+    }
+
+    /// Build a plugin configuration from `key = value` pairs.
+    fn config(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn an_unconfigured_pipe_publishes_on_both_the_current_and_the_old_name() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[])),
+            vec!["zjhints".to_string(), "zjstatus_hints".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_named_pipe_publishes_on_that_name_alone() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[("pipe_name", "hints")])),
+            vec!["hints".to_string()]
+        );
+    }
+
+    #[test]
+    fn naming_the_old_pipe_explicitly_does_not_publish_it_twice() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[("pipe_name", "zjstatus_hints")])),
+            vec!["zjstatus_hints".to_string()]
+        );
     }
 }

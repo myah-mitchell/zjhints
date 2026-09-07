@@ -49,7 +49,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-There are 129 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+There are 132 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
 
 ### Comments that explain why
 
