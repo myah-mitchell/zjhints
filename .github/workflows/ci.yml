@@ -85,7 +85,7 @@ jobs:
           key: wasm
       - run: cargo build --release --target=wasm32-wasip1
       - name: Report artifact size
-        run: ls -lh target/wasm32-wasip1/release/zjstatus-hints.wasm
+        run: ls -lh target/wasm32-wasip1/release/zjhints.wasm
 
   # flake.nix resolves its toolchain via rust-bin.stable.latest, which is only
   # as new as whatever the *locked* rust-overlay revision knew about. If

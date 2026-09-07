@@ -129,7 +129,7 @@ jobs:
           prerelease: false
           make_latest: true
           files: |
-            ./target/wasm32-wasip1/release/zjstatus-hints.wasm
+            ./target/wasm32-wasip1/release/zjhints.wasm
 
       # `latest` tracks this release, which is not always built for the
       # Zellij a given user runs - zellij-tile only moves past a minor
@@ -137,7 +137,7 @@ jobs:
       # gives every Zellij line its own stable pointer: `make zellij
       # VERSION=0.44` (see the Makefile) always resolves to the newest
       # release built for that line, however many versions of
-      # zjstatus-hints itself have shipped since.
+      # zjhints itself have shipped since.
       - name: Determine the Zellij compatibility line
         if: steps.version.outputs.proceed == 'true'
         id: zellij
@@ -168,13 +168,13 @@ jobs:
           tag_name: "zellij-${{ steps.zellij.outputs.line }}"
           name: "Zellij ${{ steps.zellij.outputs.line }}.x"
           body: |
-            Always the newest zjstatus-hints release built against Zellij
+            Always the newest zjhints release built against Zellij
             ${{ steps.zellij.outputs.line }}.x. Currently
             **${{ steps.version.outputs.tag }}**.
 
             Not a distinct release - an alias, moved here each time a new
             ${{ steps.zellij.outputs.line }}.x-compatible version ships. See
-            [docs/AUTOMATION.md](https://github.com/${{ github.repository }}/blob/main/docs/AUTOMATION.md).
+            [docs/automation.md](https://github.com/${{ github.repository }}/blob/main/docs/automation.md).
           # Not `latest`, deliberately - this is a compatibility pointer, and
           # `make_latest: true` here would fight the real latest release for
           # what `/releases/latest/` resolves to.
@@ -182,4 +182,4 @@ jobs:
           prerelease: false
           make_latest: false
           files: |
-            ./target/wasm32-wasip1/release/zjstatus-hints.wasm
+            ./target/wasm32-wasip1/release/zjhints.wasm

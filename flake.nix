@@ -49,14 +49,14 @@
 
       craneLib = (crane.mkLib pkgs).overrideToolchain rustWithWasiTarget;
 
-      zjstatus-hints = craneLib.buildPackage {
+      zjhints = craneLib.buildPackage {
         src = craneLib.cleanCargoSource (craneLib.path ./.);
         cargoExtraArgs = "--target wasm32-wasip1";
         doCheck = false;
         doNotSign = true;
       };
     in {
-      packages.default = zjstatus-hints;
+      packages.default = zjhints;
 
       devShells.default = craneLib.devShell {
         packages = with pkgs; [

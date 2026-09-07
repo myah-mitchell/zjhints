@@ -105,7 +105,7 @@ jobs:
             echo "> [the latest release](../../releases/latest) for that. If this"
             echo "> ref depends on an unreleased upstream fix via"
             echo "> \`[patch.crates-io]\`, see"
-            echo "> [docs/AUTOMATION.md](https://github.com/${{ github.repository }}/blob/main/docs/AUTOMATION.md#depending-on-an-unreleased-upstream-fix)."
+            echo "> [docs/automation.md](https://github.com/${{ github.repository }}/blob/main/docs/automation.md#depending-on-an-unreleased-upstream-fix)."
           } > EA.md
 
       # Moved rather than added to, so re-running a channel (e.g. after
@@ -132,4 +132,4 @@ jobs:
           prerelease: true
           make_latest: false
           files: |
-            ./target/wasm32-wasip1/release/zjstatus-hints.wasm
+            ./target/wasm32-wasip1/release/zjhints.wasm

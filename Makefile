@@ -1,7 +1,14 @@
 TARGET  := wasm32-wasip1
-WASM    := target/$(TARGET)/release/zjstatus-hints.wasm
-PLUGIN  := $(HOME)/.local/share/zellij/plugins/zjstatus-hints.wasm
-REPO    := myah-mitchell/zjstatus-hints
+ASSET   := zjhints.wasm
+WASM    := target/$(TARGET)/release/$(ASSET)
+PLUGIN  := $(HOME)/.local/share/zellij/plugins/$(ASSET)
+REPO    := myah-mitchell/zjhints
+
+# The asset name every release before 0.5.0 was published under. The fetch
+# targets below try the current name and fall back to this one, so the older
+# `zellij-<line>` tags and any EA channel carrying it stay installable. Drop
+# it once nothing worth fetching carries the old name.
+LEGACY_ASSET := zjstatus-hints.wasm
 
 .PHONY: build install dev test check nightly latest zellij ea
 
@@ -19,7 +26,7 @@ install: build
 dev: install
 
 # Tests build for the host, not wasm, and need OpenSSL headers
-# (libssl-dev). See docs/AUTOMATION.md if this fails to link.
+# (libssl-dev). See docs/automation.md if this fails to link.
 test:
 	cargo test --all-features
 
@@ -37,7 +44,9 @@ check: test
 nightly:
 	@echo "Fetching nightly from $(REPO)…"
 	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/nightly/zjstatus-hints.wasm"
+		"https://github.com/$(REPO)/releases/download/nightly/$(ASSET)" \
+		|| curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/nightly/$(LEGACY_ASSET)"
 	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
 	@echo "Installed nightly -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
@@ -46,14 +55,16 @@ nightly:
 latest:
 	@echo "Fetching latest release from $(REPO)…"
 	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/latest/download/zjstatus-hints.wasm"
+		"https://github.com/$(REPO)/releases/latest/download/$(ASSET)" \
+		|| curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/latest/download/$(LEGACY_ASSET)"
 	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
 	@echo "Installed latest -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
 
-# `latest` tracks the newest zjstatus-hints, which is not always the newest
+# `latest` tracks the newest zjhints, which is not always the newest
 # release built for the Zellij you actually run — zellij-tile only moves past
-# a minor deliberately (see docs/AUTOMATION.md). `zellij-<line>` is a tag that
+# a minor deliberately (see docs/automation.md). `zellij-<line>` is a tag that
 # always points at the newest release built for that Zellij minor, so this
 # fetches the right one regardless of what `latest` currently is.
 #
@@ -65,12 +76,14 @@ zellij:
 	fi
 	@echo "Fetching the newest release for Zellij $(VERSION).x from $(REPO)…"
 	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/zjstatus-hints.wasm"
+		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/$(ASSET)" \
+		|| curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/$(LEGACY_ASSET)"
 	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
 	@echo "Installed -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
 
-# Install an on-demand EA/beta build (see docs/AUTOMATION.md). These come
+# Install an on-demand EA/beta build (see docs/automation.md). These come
 # from the beta.yml workflow, not a tagged release, and the channel can be
 # replaced at any time: treat this as trying out in-progress work, not as
 # something to depend on.
@@ -94,7 +107,9 @@ ea:
 	fi; \
 	echo "Fetching the EA build '$$label' from $(REPO)…"; \
 	curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/ea-$$label/zjstatus-hints.wasm"; \
+		"https://github.com/$(REPO)/releases/download/ea-$$label/$(ASSET)" \
+		|| curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/ea-$$label/$(LEGACY_ASSET)"; \
 	mv "$(PLUGIN).tmp" "$(PLUGIN)"; \
 	echo "Installed -> $(PLUGIN)"; \
 	echo "Start a new Zellij session to load it."

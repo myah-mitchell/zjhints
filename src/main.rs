@@ -16,7 +16,9 @@ mod format;
 #[derive(Default)]
 struct State {
     initialized: bool,
-    pipe_name: String,
+    /// The zjstatus pipe names each render is published on. See
+    /// [`pipe_names_from_config`].
+    pipe_names: Vec<String>,
     mode_info: ModeInfo,
     base_mode_is_locked: bool,
     max_length: usize,
@@ -194,7 +196,11 @@ const ANSI_RESET: &str = "\u{1b}[0m";
 
 const DEFAULT_MAX_LENGTH: usize = 0;
 const DEFAULT_OVERFLOW_STR: &str = "...";
-const DEFAULT_PIPE_NAME: &str = "zjstatus_hints";
+const DEFAULT_PIPE_NAME: &str = "zjhints";
+/// The name this plugin published on before it was renamed. Still published
+/// to alongside the current default, so a zjstatus config written against
+/// `{pipe_zjstatus_hints}` keeps rendering without being touched.
+const LEGACY_PIPE_NAME: &str = "zjstatus_hints";
 
 const CONFIG_KEY_FORMAT: &str = "key_format";
 const CONFIG_DESC_FORMAT: &str = "desc_format";
@@ -239,9 +245,12 @@ const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
 const DESCENDED_HINT_ID: &str = "descended";
 const DESCENDED_HINT_LABEL: &str = "return to host";
 
-// The curated list alone is the readable default; discovery is comprehensive but
-// long, and on a narrow bar the extra hints are the first to be dropped anyway.
-const DEFAULT_DISCOVER_HINTS: bool = false;
+// Discovery is on by default, so the bar names every binding the mode accepts
+// rather than only the ones the curated list knows about. The curated list
+// still runs first and supplies the order, the grouped concepts and the
+// hand-written labels; turning discovery off leaves that alone, which is the
+// shorter and more readable bar.
+const DEFAULT_DISCOVER_HINTS: bool = true;
 const DEFAULT_HIDE_SHARED_HINTS: bool = true;
 // A nested session gets no bottom bar by default, so hints for it show up in
 // the host's bar instead (see `is_nested`) rather than doubling up.
@@ -977,6 +986,19 @@ impl State {
     }
 }
 
+/// The zjstatus pipe names to publish each render on.
+///
+/// An explicit `pipe_name` is used on its own: someone who has named their
+/// pipe has a zjstatus config reading that name and no other. Left unset,
+/// both the current default and the pre-rename one go out, so a config
+/// written against either keeps rendering.
+fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<String> {
+    match configuration.get("pipe_name") {
+        Some(name) => vec![name.clone()],
+        None => vec![DEFAULT_PIPE_NAME.to_string(), LEGACY_PIPE_NAME.to_string()],
+    }
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.initialized = false;
@@ -990,10 +1012,7 @@ impl ZellijPlugin for State {
             .get("overflow_str")
             .cloned()
             .unwrap_or_else(|| DEFAULT_OVERFLOW_STR.to_string());
-        self.pipe_name = configuration
-            .get("pipe_name")
-            .cloned()
-            .unwrap_or_else(|| DEFAULT_PIPE_NAME.to_string());
+        self.pipe_names = pipe_names_from_config(&configuration);
         self.hide_in_base_mode = configuration
             .get("hide_in_base_mode")
             .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(false))
@@ -1331,10 +1350,12 @@ impl ZellijPlugin for State {
 
         self.sync_collapsed(output.is_empty());
 
-        pipe_message_to_plugin(MessageToPlugin::new("pipe").with_payload(format!(
-            "zjstatus::pipe::pipe_{}::{}",
-            self.pipe_name, output
-        )));
+        for pipe_name in &self.pipe_names {
+            pipe_message_to_plugin(
+                MessageToPlugin::new("pipe")
+                    .with_payload(format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output)),
+            );
+        }
         print!("{}", output);
     }
 }
@@ -3417,7 +3438,9 @@ mod tests {
                 .map(String::as_str)
                 .or(Some("{desc}")),
             spacer: Some("|"),
-            discover: config.get("discover_hints").map_or(true, |v| v == "true"),
+            discover: config
+                .get("discover_hints")
+                .map_or(DEFAULT_DISCOVER_HINTS, |v| v == "true"),
             direction_keys: DirectionKeys::from_config(
                 config.get("direction_keys").map_or("both", |v| v),
             ),
@@ -3604,9 +3627,25 @@ mod tests {
     }
 
     #[test]
+    fn discovery_is_on_unless_it_is_turned_off() {
+        // `z` is bound to an action the curated Pane list does not name, so
+        // "pin" reaches the bar only through discovery. Nothing in the config
+        // asks for it either way.
+        let keymap = vec![
+            (key(BareKey::Char('x')), vec![Action::CloseFocus, TO_NORMAL]),
+            (key(BareKey::Char('z')), vec![Action::TogglePanePinned]),
+            (key(BareKey::Esc), vec![TO_NORMAL]),
+        ];
+        assert!(rendered(InputMode::Pane, &keymap, &[]).contains("pin"));
+        assert!(
+            !rendered(InputMode::Pane, &keymap, &[("discover_hints", "false")]).contains("pin")
+        );
+    }
+
+    #[test]
     fn a_mode_keeps_its_exit_hint_without_discovery() {
-        // The curated list has to carry the escape hatch itself, since discovery
-        // is off by default.
+        // The curated list has to carry the escape hatch itself, since with
+        // discovery off there is nothing else to find it.
         let keymap = vec![
             (key(BareKey::Char('x')), vec![Action::CloseFocus, TO_NORMAL]),
             (key(BareKey::Esc), vec![TO_NORMAL]),
@@ -5051,5 +5090,37 @@ mod tests {
 
         assert!(state.nested_guests.is_empty());
         assert_eq!(rendered_bar(&state), before);
+    }
+
+    /// Build a plugin configuration from `key = value` pairs.
+    fn config(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn an_unconfigured_pipe_publishes_on_both_the_current_and_the_old_name() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[])),
+            vec!["zjhints".to_string(), "zjstatus_hints".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_named_pipe_publishes_on_that_name_alone() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[("pipe_name", "hints")])),
+            vec!["hints".to_string()]
+        );
+    }
+
+    #[test]
+    fn naming_the_old_pipe_explicitly_does_not_publish_it_twice() {
+        assert_eq!(
+            pipe_names_from_config(&config(&[("pipe_name", "zjstatus_hints")])),
+            vec!["zjstatus_hints".to_string()]
+        );
     }
 }

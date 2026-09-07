@@ -1,0 +1,19 @@
+{
+  "default": true,
+  // Prose is unwrapped by design; the editor soft-wraps it.
+  "MD013": false,
+  // Repeated headings are fine under different parents.
+  "MD024": { "siblings_only": true },
+  // No trailing punctuation in headings.
+  "MD026": { "punctuation": ".,;:!" },
+  // Numbered runbook step headings are allowed; nothing else is.
+  "MD036": true,
+  // First line must be a top-level heading.
+  "MD041": true,
+  // Fenced code blocks only, always with a language.
+  "MD040": true,
+  "MD046": { "style": "fenced" },
+  // House marker style: *italic*, **bold**.
+  "MD049": { "style": "asterisk" },
+  "MD050": { "style": "asterisk" }
+}
