@@ -66,7 +66,7 @@ All complaints will be reviewed and investigated promptly and fairly. All
 maintainers are obligated to respect the privacy and security of the reporter of
 any incident.
 
-[advisory]: https://github.com/myah-mitchell/zjstatus-hints/security/advisories/new
+[advisory]: https://github.com/myah-mitchell/zjhints/security/advisories/new
 
 ## Enforcement guidelines
 

@@ -8,7 +8,7 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 <!-- Separates the two alerts; adjacent blockquotes would merge into one. -->
 
 > [!NOTE]
-> zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
+> zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
 ![zjhints example](docs/img/zjhints-example.png)
 
@@ -64,7 +64,7 @@ Add zjhints to your Zellij configuration and give it a pane of its own; no zjsta
 
 ```kdl
 plugins {
-    zjhints location="https://github.com/myah-mitchell/zjstatus-hints/releases/latest/download/zjhints.wasm" {
+    zjhints location="https://github.com/myah-mitchell/zjhints/releases/latest/download/zjhints.wasm" {
         // Hard cap on the width of the hint line, in columns
         max_length 0 // 0 = unlimited
         // Fit the hints to the terminal, dropping trailing hints as it

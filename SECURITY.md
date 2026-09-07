@@ -25,7 +25,7 @@ That opens a private advisory visible only to maintainers, where a fix can be di
 
 If you cannot use that, contact the maintainer through their GitHub profile and say only that you have a security report. Do not include the details in a public channel.
 
-[security]: https://github.com/myah-mitchell/zjstatus-hints/security/advisories/new
+[security]: https://github.com/myah-mitchell/zjhints/security/advisories/new
 
 ### What to expect
 

@@ -2,12 +2,12 @@ TARGET  := wasm32-wasip1
 ASSET   := zjhints.wasm
 WASM    := target/$(TARGET)/release/$(ASSET)
 PLUGIN  := $(HOME)/.local/share/zellij/plugins/$(ASSET)
-REPO    := myah-mitchell/zjstatus-hints
+REPO    := myah-mitchell/zjhints
 
 # The asset name every release before 0.5.0 was published under. The fetch
 # targets below try the current name and fall back to this one, so the older
-# `zellij-<line>` tags and any EA channel published before the rename stay
-# installable. Drop it once nothing worth fetching carries the old name.
+# `zellij-<line>` tags and any EA channel carrying it stay installable. Drop
+# it once nothing worth fetching carries the old name.
 LEGACY_ASSET := zjstatus-hints.wasm
 
 .PHONY: build install dev test check nightly latest zellij ea

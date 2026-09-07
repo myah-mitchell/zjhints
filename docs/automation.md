@@ -125,7 +125,7 @@ That pull request is never safe to merge on a green build alone. CI passing only
 
 `nix flake update` has no equivalent restraint: Nix flake inputs carry no semver range to stay within, so every input always moves to whatever is current, `nixpkgs`, `rust-overlay` and `crane` included. The workflow only opens the pull request after confirming `nix build .#default` still resolves a toolchain meeting `Cargo.toml`'s `rust-version`; a failure there fails the run instead of landing a broken lock. See `flake.nix` and [issue #11][gh-11].
 
-[gh-11]: https://github.com/myah-mitchell/zjstatus-hints/issues/11
+[gh-11]: https://github.com/myah-mitchell/zjhints/issues/11
 
 ### Depending on an unreleased upstream fix
 
@@ -192,7 +192,7 @@ An App is registered once on your account and can be installed on every repo you
 5. Under *Permissions > Repository permissions*, set *Contents* to **Read and write**, and *Pull requests* to **Read and write**.
 6. Under *Where can this GitHub App be installed?*, choose **Only on this account** for a personal-repo bot, or the wider option if you prefer.
 7. Click **Create GitHub App**. On the app's page, note the *App ID*, then click **Generate a private key**, which downloads a `.pem` file shown only once.
-8. Click **Install App** in the left sidebar, choose your account, and select `zjstatus-hints`. You can add more repos later from the same page without repeating steps 1 to 7.
+8. Click **Install App** in the left sidebar, choose your account, and select `zjhints`. You can add more repos later from the same page without repeating steps 1 to 7.
 9. In the repository, open *Settings > Secrets and variables > Actions* and click **New repository secret** twice: once for `AUTOMATION_APP_ID`, holding the App ID from step 7, and once for `AUTOMATION_APP_PRIVATE_KEY`, holding the full contents of the `.pem` file.
 
 `update-deps.yml` checks for both secrets first and fails with an explanation if either is missing, rather than opening a pull request whose checks can never pass.

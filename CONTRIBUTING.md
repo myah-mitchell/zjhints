@@ -7,8 +7,8 @@ Thanks for taking a look. zjhints is maintained for personal use, so it moves wh
 You need Rust 1.96.0 with the `wasm32-wasip1` target. The toolchain is pinned in `rust-toolchain.toml`, so rustup will fetch the right one automatically.
 
 ```bash
-git clone https://github.com/myah-mitchell/zjstatus-hints
-cd zjstatus-hints
+git clone https://github.com/myah-mitchell/zjhints
+cd zjhints
 make build
 ```
 
