@@ -26,7 +26,7 @@ The original shows a [curated list](docs/hints.md#the-curated-list) of hints and
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
-- Zellij 0.46 support, from 0.5.x
+- Zellij 0.46 support
 
 Four options upstream, around two dozen here. The full list is in the [configuration reference](docs/configuration.md).
 
@@ -192,8 +192,8 @@ Most releases are patch bumps on this fork's own schedule, unrelated to when Zel
 | `zjstatus-hints` | Targets Zellij |
 | --- | --- |
 | 0.3.x | 0.44.x |
-| 0.4.x (current release) | 0.45.x |
-| 0.5.x (next, unreleased) | 0.46.x |
+| 0.4.x | 0.45.x |
+| 0.5.x (current release) | 0.46.x |
 
 A new row means the Zellij line moved. The reverse does not hold: a minor bump that added functionality keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
 

@@ -35,7 +35,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
  release.yml <------------------------------------------+
    sees a new version in Cargo.toml (or the pushed tag)
    test + build
-   tag v0.4.1
+   tag v0.5.0
    publish release, becomes `latest`
    move the `zellij-<line>` tag to it too
 
