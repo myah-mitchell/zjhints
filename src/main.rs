@@ -245,9 +245,12 @@ const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
 const DESCENDED_HINT_ID: &str = "descended";
 const DESCENDED_HINT_LABEL: &str = "return to host";
 
-// The curated list alone is the readable default; discovery is comprehensive but
-// long, and on a narrow bar the extra hints are the first to be dropped anyway.
-const DEFAULT_DISCOVER_HINTS: bool = false;
+// Discovery is on by default, so the bar names every binding the mode accepts
+// rather than only the ones the curated list knows about. The curated list
+// still runs first and supplies the order, the grouped concepts and the
+// hand-written labels; turning discovery off leaves that alone, which is the
+// shorter and more readable bar.
+const DEFAULT_DISCOVER_HINTS: bool = true;
 const DEFAULT_HIDE_SHARED_HINTS: bool = true;
 // A nested session gets no bottom bar by default, so hints for it show up in
 // the host's bar instead (see `is_nested`) rather than doubling up.
@@ -3435,7 +3438,9 @@ mod tests {
                 .map(String::as_str)
                 .or(Some("{desc}")),
             spacer: Some("|"),
-            discover: config.get("discover_hints").map_or(true, |v| v == "true"),
+            discover: config
+                .get("discover_hints")
+                .map_or(DEFAULT_DISCOVER_HINTS, |v| v == "true"),
             direction_keys: DirectionKeys::from_config(
                 config.get("direction_keys").map_or("both", |v| v),
             ),
@@ -3622,9 +3627,25 @@ mod tests {
     }
 
     #[test]
+    fn discovery_is_on_unless_it_is_turned_off() {
+        // `z` is bound to an action the curated Pane list does not name, so
+        // "pin" reaches the bar only through discovery. Nothing in the config
+        // asks for it either way.
+        let keymap = vec![
+            (key(BareKey::Char('x')), vec![Action::CloseFocus, TO_NORMAL]),
+            (key(BareKey::Char('z')), vec![Action::TogglePanePinned]),
+            (key(BareKey::Esc), vec![TO_NORMAL]),
+        ];
+        assert!(rendered(InputMode::Pane, &keymap, &[]).contains("pin"));
+        assert!(
+            !rendered(InputMode::Pane, &keymap, &[("discover_hints", "false")]).contains("pin")
+        );
+    }
+
+    #[test]
     fn a_mode_keeps_its_exit_hint_without_discovery() {
-        // The curated list has to carry the escape hatch itself, since discovery
-        // is off by default.
+        // The curated list has to carry the escape hatch itself, since with
+        // discovery off there is nothing else to find it.
         let keymap = vec![
             (key(BareKey::Char('x')), vec![Action::CloseFocus, TO_NORMAL]),
             (key(BareKey::Esc), vec![TO_NORMAL]),
