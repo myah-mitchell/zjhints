@@ -44,6 +44,15 @@ struct State {
     /// shared layout gives nested sessions no bottom bar without a second
     /// layout file.
     hide_when_nested: bool,
+    /// Hand this plugin's row back to the panes around it whenever there is
+    /// nothing to draw on it, so a layout that reserves a row for hints does
+    /// not leave a blank one behind when they are hidden. Turn it off to keep
+    /// the row reserved no matter what.
+    collapse_when_empty: bool,
+    /// What Zellij was last told about this pane, so the collapse is only sent
+    /// when it changes rather than on every render. Starts out matching how
+    /// Zellij places the pane, which is expanded.
+    collapsed: bool,
     dim_when_unfocused: bool,
     /// How strongly to dim, in `dim_color`'s `0.0..=1.0` scale.
     dim_strength: f32,
@@ -210,6 +219,7 @@ const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
 const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
 const CONFIG_HIDE_SHARED_HINTS: &str = "hide_shared_hints";
 const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
+const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_SHOW_MODE: &str = "show_mode";
@@ -236,6 +246,7 @@ const DEFAULT_HIDE_SHARED_HINTS: bool = true;
 // A nested session gets no bottom bar by default, so hints for it show up in
 // the host's bar instead (see `is_nested`) rather than doubling up.
 const DEFAULT_HIDE_WHEN_NESTED: bool = true;
+const DEFAULT_COLLAPSE_WHEN_EMPTY: bool = true;
 const DEFAULT_DIM_WHEN_UNFOCUSED: bool = true;
 // Matches the zjstatus fork's default, so a shared layout's two bars dim in
 // step. See that fork's `dim_color` for the same blend-toward-gray formula.
@@ -822,6 +833,34 @@ impl State {
         }
     }
 
+    /// Tell Zellij whether this pane's row is worth keeping, when the answer
+    /// has changed since the last time it was told.
+    ///
+    /// A collapsed pane hands its row to the panes around it but keeps its
+    /// place in the layout, so expanding gives back the exact row the layout
+    /// asked for. Zellij ignores this for a plugin that has no tiled pane, so
+    /// running as a zjstatus pipe source alone costs nothing.
+    ///
+    /// Turning `collapse_when_empty` off expands again on the next render
+    /// rather than waiting for the bar to fill up on its own.
+    fn sync_collapsed(&mut self, output_is_empty: bool) {
+        if let Some(collapsed) = self.next_collapsed(output_is_empty) {
+            set_self_collapsed(collapsed);
+        }
+    }
+
+    /// What this render has to say about the pane's row, or `None` when it
+    /// says the same thing the last one did and there is no point repeating
+    /// it. Records the answer as the new last word.
+    fn next_collapsed(&mut self, output_is_empty: bool) -> Option<bool> {
+        let should_collapse = self.collapse_when_empty && output_is_empty;
+        if self.collapsed == should_collapse {
+            return None;
+        }
+        self.collapsed = should_collapse;
+        Some(should_collapse)
+    }
+
     /// This session's descended-into nested session, described as a `ModeInfo`
     /// so the ordinary hint path can render it.
     ///
@@ -970,6 +1009,16 @@ impl ZellijPlugin for State {
                     .unwrap_or(DEFAULT_HIDE_WHEN_NESTED)
             })
             .unwrap_or(DEFAULT_HIDE_WHEN_NESTED);
+        // Give the row back to the panes around it while there is nothing on
+        // it, rather than drawing a blank one. See `sync_collapsed`.
+        self.collapse_when_empty = configuration
+            .get(CONFIG_COLLAPSE_WHEN_EMPTY)
+            .map(|s| {
+                s.to_lowercase()
+                    .parse::<bool>()
+                    .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY)
+            })
+            .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY);
         // Dim hints when this session isn't the one currently receiving
         // input (host descended into a nested child, or a nested session
         // not yet ascended into). See `dim_amount`.
@@ -1279,6 +1328,8 @@ impl ZellijPlugin for State {
         if !output.is_empty() && Some(mode_info.mode) != mode_info.base_mode {
             self.initialized = true;
         }
+
+        self.sync_collapsed(output.is_empty());
 
         pipe_message_to_plugin(MessageToPlugin::new("pipe").with_payload(format!(
             "zjstatus::pipe::pipe_{}::{}",
@@ -4911,6 +4962,58 @@ mod tests {
         };
 
         assert_eq!(rendered_bar(&state), "");
+    }
+
+    #[test]
+    fn an_empty_bar_gives_its_row_back_and_a_filled_one_takes_it_again() {
+        let mut state = State {
+            collapse_when_empty: true,
+            ..Default::default()
+        };
+
+        assert_eq!(state.next_collapsed(true), Some(true));
+        assert_eq!(state.next_collapsed(false), Some(false));
+    }
+
+    #[test]
+    fn the_row_is_only_spoken_for_when_the_answer_changes() {
+        let mut state = State {
+            collapse_when_empty: true,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            state.next_collapsed(false),
+            None,
+            "Zellij already places the pane expanded, so the first full bar has nothing to say"
+        );
+        assert_eq!(state.next_collapsed(true), Some(true));
+        assert_eq!(state.next_collapsed(true), None);
+    }
+
+    #[test]
+    fn keeping_the_row_reserved_leaves_an_empty_bar_alone() {
+        let mut state = State {
+            collapse_when_empty: false,
+            ..Default::default()
+        };
+
+        assert_eq!(state.next_collapsed(true), None);
+    }
+
+    #[test]
+    fn turning_the_setting_off_hands_the_row_back_without_waiting_for_hints() {
+        let mut state = State {
+            collapse_when_empty: true,
+            ..Default::default()
+        };
+        assert_eq!(state.next_collapsed(true), Some(true));
+
+        // A reconfigure while the bar is still empty. Leaving the row collapsed
+        // until something happened to fill it would look like the setting had
+        // been ignored.
+        state.collapse_when_empty = false;
+        assert_eq!(state.next_collapsed(true), Some(false));
     }
 
     #[test]

@@ -34,7 +34,8 @@ behaviour and builds a configuration layer over it:
 - **[Nested sessions](docs/nested-sessions.md)**: show the hints of the
   nested session the keys are actually going to, and hide or dim this
   session's own while it isn't the one receiving input, so a host and a
-  nested session sharing one layout don't end up with doubled chrome;
+  nested session sharing one layout don't end up with doubled chrome,
+  giving the layout row back rather than leaving a blank line behind;
   optionally prefix the line with the current mode, for setups that give
   this plugin its own pane rather than piping into zjstatus
 - **Zellij 0.45** support
@@ -69,6 +70,10 @@ plugins {
         // Render nothing while this session is nested inside another, so
         // one shared layout can serve both. See docs/nested-sessions.md.
         hide_when_nested true // default
+        // Hand this plugin's layout row back to the panes around it while
+        // the bar has nothing to draw, rather than leaving a blank line.
+        // See docs/nested-sessions.md#giving-the-row-back.
+        collapse_when_empty true // default
         // Dim hints while this session isn't the one receiving input.
         dim_when_unfocused true // default
         dim_strength       "0.5" // default, 0.0-1.0 (quoted: Zellij's plugin-config
