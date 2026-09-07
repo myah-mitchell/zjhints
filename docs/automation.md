@@ -35,7 +35,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
  release.yml <------------------------------------------+
    sees a new version in Cargo.toml (or the pushed tag)
    test + build
-   tag v0.2.1
+   tag v0.4.1
    publish release, becomes `latest`
    move the `zellij-<line>` tag to it too
 
@@ -297,4 +297,4 @@ Pull requests labeled `needs-zellij-upgrade` accumulate rather than merge, and t
 | `beta.yml` fails at "Sanitize the label" | The `label` input had no `[a-z0-9-]` characters left after sanitizing; pick a label with at least one letter or digit |
 | `beta.yml`'s build fails to resolve a Zellij crate | The ref you built does not have a `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet (see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix)) |
 
-That last one is worth knowing: GitHub disables scheduled workflows in repositories with no activity for 60 days, and emails you when it does. Any push re-enables them.
+The stale-nightly row above is worth knowing in full: GitHub disables scheduled workflows in repositories with no activity for 60 days, and emails you when it does. Any push re-enables them.

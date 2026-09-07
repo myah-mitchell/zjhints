@@ -8,8 +8,8 @@ This is a personal fork maintained on a rolling basis. Fixes go to the latest re
 
 | Version | Supported |
 | --- | --- |
-| 0.2.x | Yes |
-| 0.1.x | No, upgrade to 0.2 |
+| 0.4.x | Yes |
+| 0.3.x and older | No, upgrade to 0.4 |
 | `nightly` | Built from `main`, unreleased. Fixes land here first. |
 
 ## Reporting a vulnerability
@@ -56,7 +56,7 @@ This plugin is a WebAssembly module that Zellij runs. It reads your keybindings,
 Releases are built by GitHub Actions from a tagged commit (see [docs/automation.md](docs/automation.md)), so the build is reproducible from public source. If you would rather not trust the published binary, build it yourself:
 
 ```bash
-git checkout v0.2.1
+git checkout v0.4.1
 make build
 ```
 

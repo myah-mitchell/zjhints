@@ -51,7 +51,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-There are 81 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+There are 129 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
 
 ### Comments that explain why
 
@@ -72,7 +72,7 @@ chore(deps): bump unicode-width
 
 ### Documentation
 
-New config options need a bullet in the README's Configuration list and a prose section explaining them. The list is checked against the options the code actually reads.
+New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. The reference is checked against the options the code actually reads.
 
 ## Pull requests
 

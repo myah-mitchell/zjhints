@@ -34,7 +34,7 @@ Modes exercised, if the change affects rendering:
 
 ## Documentation
 
-- [ ] New config options have a bullet in the README's Configuration list and a prose section
+- [ ] New config options have a row in docs/configuration.md and a prose section on the page for that topic
 - [ ] Not applicable
 
 ## Anything else

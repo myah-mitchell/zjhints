@@ -26,7 +26,7 @@ The original shows a [curated list](docs/hints.md#the-curated-list) of hints and
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
-- Zellij 0.45 support
+- Zellij 0.46 support, from 0.5.x
 
 Four options upstream, around two dozen here. The full list is in the [configuration reference](docs/configuration.md).
 
@@ -187,14 +187,17 @@ make zellij VERSION=0.44         # newest release built for that line
 
 ### Versioning
 
-Most releases are patch bumps on this fork's own schedule, unrelated to when Zellij releases. A minor version bump marks something more significant: a large feature change, a move to a new Zellij line, or both. A plain bugfix release is therefore never mistaken for one of those.
+Most releases are patch bumps on this fork's own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
 
 | `zjstatus-hints` | Targets Zellij |
 | --- | --- |
 | 0.3.x | 0.44.x |
-| 0.4.x (current) | 0.45.x |
+| 0.4.x (current release) | 0.45.x |
+| 0.5.x (next, unreleased) | 0.46.x |
 
-A new row here specifically means the minor bump was a Zellij-line move. Bumping past a Zellij minor is deliberately not automatic. See [docs/automation.md](docs/automation.md) for why and how that update is proposed instead of applied. The previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag.
+A new row means the Zellij line moved. The reverse does not hold: a minor bump that added functionality keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
+
+Bumping past a Zellij minor is deliberately not automatic, and the previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag. See [docs/automation.md](docs/automation.md) for why and how that update is proposed instead of applied.
 
 ### Displaying the hints
 

@@ -105,7 +105,7 @@ Each mode can also have its own format, the same way zjstatus's own `mode_normal
 ```kdl
 mode_format_normal "#[bg=blue,bold] NORMAL #[bg=blue,fg=black,bold] 󰌌 #[fg=blue]"
 mode_format_locked "#[bg=red,bold] LOCKED #[bg=red,fg=black,bold] 󰌾 #[fg=red]"
-mode_format_pane   "#[bg=sky,bold]  PANE  #[bg=sky,fg=black,bold] 󰯌 #[fg=sky]"
+mode_format_pane   "#[bg=cyan,bold]  PANE  #[bg=cyan,fg=black,bold] 󰯌 #[fg=cyan]"
 ```
 
 The suffix after `mode_format_` matches zjstatus's own per-mode config keys exactly:
