@@ -52,7 +52,7 @@ This plugin is a WebAssembly module that Zellij runs. It reads your keybindings,
 
 ## Verifying what you install
 
-Releases are built by GitHub Actions from a tagged commit (see [docs/AUTOMATION.md](docs/AUTOMATION.md)), so the build is reproducible from public source. If you would rather not trust the published binary, build it yourself:
+Releases are built by GitHub Actions from a tagged commit (see [docs/automation.md](docs/automation.md)), so the build is reproducible from public source. If you would rather not trust the published binary, build it yourself:
 
 ```sh
 git checkout v0.2.1

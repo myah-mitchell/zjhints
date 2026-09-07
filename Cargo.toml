@@ -14,7 +14,7 @@ zellij-tile-utils = "0.46.0"
 # EA/beta override: myah-mitchell/zellij's fork-v0.46.1 carries a nested-
 # session/headless-plugin fix not yet published to crates.io. Remove this
 # block once zellij-tile/zellij-tile-utils ship it upstream (see
-# docs/AUTOMATION.md#depending-on-an-unreleased-upstream-fix).
+# docs/automation.md#depending-on-an-unreleased-upstream-fix).
 [patch.crates-io]
 zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.1" }
 zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.1" }

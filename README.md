@@ -4,7 +4,7 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 
 > **A fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints)** by Maddison Cohodas. The original shows a curated set of hints piped to zjstatus; this fork keeps that, adds a standalone mode that needs no zjstatus at all, and builds a configuration layer on top of both. See [What this fork adds](#what-this-fork-adds).
 
-![zjstatus-hints example](docs/zjstatus-hints-example.png)
+![zjstatus-hints example](docs/img/zjstatus-hints-example.png)
 
 https://github.com/user-attachments/assets/940a31a0-86de-469d-89e2-dab18a1aaca8
 
@@ -150,7 +150,7 @@ Four channels are published:
 | `latest` | Tagged releases. What the URL above resolves to. |
 | `nightly` | Rebuilt from `main` every night, tests green. Prerelease. |
 | `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`. |
-| `ea-<label>` | An on-demand build of any ref, published on request. Prerelease; see [docs/AUTOMATION.md](docs/AUTOMATION.md#eabeta-releases). |
+| `ea-<label>` | An on-demand build of any ref, published on request. Prerelease; see [docs/automation.md](docs/automation.md#eabeta-releases). |
 
 Zellij caches remote plugins by URL, so pointing the config at the nightly URL will keep serving whatever it downloaded first. To track nightlies, fetch into the plugin path instead and start a new session:
 
@@ -180,7 +180,7 @@ Most releases are patch bumps on this fork's own schedule, unrelated to when Zel
 | 0.3.x | 0.44.x |
 | 0.4.x (current) | 0.45.x |
 
-A new row here specifically means the minor bump was a Zellij-line move. Bumping past a Zellij minor is deliberately not automatic. See [docs/AUTOMATION.md](docs/AUTOMATION.md) for why and how that update is proposed instead of applied. The previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag.
+A new row here specifically means the minor bump was a Zellij-line move. Bumping past a Zellij minor is deliberately not automatic. See [docs/automation.md](docs/automation.md) for why and how that update is proposed instead of applied. The previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag.
 
 ### Displaying the hints
 
@@ -229,7 +229,7 @@ The plugin works with no configuration; this section is only if you want to chan
 | **[Hints](docs/hints.md)** | The curated list, discovery, and shared bindings |
 | **[Labels](docs/labels.md)** | Renaming, hiding, merging, and per-mode labels |
 
-For how the repository builds, tests and releases itself, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
+For how the repository builds, tests and releases itself, see [docs/automation.md](docs/automation.md).
 
 ## TODO
 
@@ -239,7 +239,7 @@ For how the repository builds, tests and releases itself, see [docs/AUTOMATION.m
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for expected conduct. Security problems should go through [SECURITY.md](SECURITY.md) rather than a public issue.
 
-How this repository builds, tests and releases itself is described in [docs/AUTOMATION.md](docs/AUTOMATION.md).
+How this repository builds, tests and releases itself is described in [docs/automation.md](docs/automation.md).
 
 ## License
 

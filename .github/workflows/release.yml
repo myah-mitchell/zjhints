@@ -174,7 +174,7 @@ jobs:
 
             Not a distinct release - an alias, moved here each time a new
             ${{ steps.zellij.outputs.line }}.x-compatible version ships. See
-            [docs/AUTOMATION.md](https://github.com/${{ github.repository }}/blob/main/docs/AUTOMATION.md).
+            [docs/automation.md](https://github.com/${{ github.repository }}/blob/main/docs/automation.md).
           # Not `latest`, deliberately - this is a compatibility pointer, and
           # `make_latest: true` here would fight the real latest release for
           # what `/releases/latest/` resolves to.

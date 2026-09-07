@@ -36,7 +36,7 @@ jobs:
             echo "::error::AUTOMATION_APP_ID/AUTOMATION_APP_PRIVATE_KEY are" \
                  "not set. Without them the pull request opens but CI never" \
                  "runs on it, so its required checks can never pass. See" \
-                 "docs/AUTOMATION.md."
+                 "docs/automation.md."
             exit 1
           fi
 
@@ -154,7 +154,7 @@ jobs:
           body: |
             Automated dependency update. This does not touch `Cargo.toml`'s
             `version`, so merging it does not publish anything: bump the
-            version yourself (see [docs/AUTOMATION.md](docs/AUTOMATION.md#versioning))
+            version yourself (see [docs/automation.md](docs/automation.md#versioning))
             whenever you're ready to cut a release that includes it.
 
             ${{ steps.deps.outputs.summary }}
@@ -206,7 +206,7 @@ jobs:
         run: |
           if [ -z "${{ secrets.AUTOMATION_APP_ID }}" ] || [ -z "${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}" ]; then
             echo "::error::AUTOMATION_APP_ID/AUTOMATION_APP_PRIVATE_KEY are" \
-                 "not set. See docs/AUTOMATION.md."
+                 "not set. See docs/automation.md."
             exit 1
           fi
 
@@ -318,7 +318,7 @@ jobs:
             `main` (or tagging it) is what makes `release.yml` publish and
             moves the `zellij-${{ steps.zellij.outputs.line }}` compatibility
             tag. See
-            [docs/AUTOMATION.md](docs/AUTOMATION.md#versioning).
+            [docs/automation.md](docs/automation.md#versioning).
 
             <details>
             <summary>What ran before this was opened</summary>

@@ -43,7 +43,7 @@ make check     # fmt, clippy, tests, release build (what CI runs)
 
 Zellij decodes a binding's actions at the plugin boundary with `.filter_map(|a| a.try_into().ok())`. An action the plugin's older `zellij-tile` does not recognize is silently **dropped**, and the binding arrives truncated. The symptom is a hint showing the wrong label: everything compiles, tests pass, and nothing logs an error.
 
-So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes this as its own pull request once a new Zellij minor is out, but deliberately never merges it for you. See [docs/AUTOMATION.md](docs/AUTOMATION.md).
+So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes this as its own pull request once a new Zellij minor is out, but deliberately never merges it for you. See [docs/automation.md](docs/automation.md).
 
 ## What good changes look like
 

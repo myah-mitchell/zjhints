@@ -19,7 +19,7 @@ install: build
 dev: install
 
 # Tests build for the host, not wasm, and need OpenSSL headers
-# (libssl-dev). See docs/AUTOMATION.md if this fails to link.
+# (libssl-dev). See docs/automation.md if this fails to link.
 test:
 	cargo test --all-features
 
@@ -53,7 +53,7 @@ latest:
 
 # `latest` tracks the newest zjstatus-hints, which is not always the newest
 # release built for the Zellij you actually run — zellij-tile only moves past
-# a minor deliberately (see docs/AUTOMATION.md). `zellij-<line>` is a tag that
+# a minor deliberately (see docs/automation.md). `zellij-<line>` is a tag that
 # always points at the newest release built for that Zellij minor, so this
 # fetches the right one regardless of what `latest` currently is.
 #
@@ -70,7 +70,7 @@ zellij:
 	@echo "Installed -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
 
-# Install an on-demand EA/beta build (see docs/AUTOMATION.md). These come
+# Install an on-demand EA/beta build (see docs/automation.md). These come
 # from the beta.yml workflow, not a tagged release, and the channel can be
 # replaced at any time: treat this as trying out in-progress work, not as
 # something to depend on.
