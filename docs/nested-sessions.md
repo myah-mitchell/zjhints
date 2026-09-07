@@ -38,6 +38,17 @@ nested session: point both at the same config, and the nested session's
 copy renders empty while the host's keeps working normally. Set it to
 `false` if you would rather a nested session kept showing its own hints.
 
+The one time a nested session draws its bar anyway is when the host has
+taken its own off the screen. Zellij has two fullscreens: the ordinary one
+(`ToggleFocusFullscreen`, `Ctrl p` then `f`) expands a pane over the
+viewport only, so the host's status bar and tab bar stay put and there is
+still a bar below to defer to. The other (`ToggleFocusNoUiFullscreen`,
+`Ctrl p` then `Shift f`) expands over the whole display and hides every
+other pane, the host's bars included. Deferring in that second case would
+leave the screen with no hints anywhere, so the nested session takes its
+bar back for as long as it lasts. This needs no configuring, and it comes
+back off when the host leaves that fullscreen.
+
 ## Dimming
 
 `dim_when_unfocused` blends colors toward neutral gray by `dim_strength`
@@ -60,31 +71,57 @@ together rather than one changing and the other staying bright.
 
 Whenever this session's own focus has moved to a nested child it is
 hosting, its own hints would describe a mode it isn't actually receiving
-input in. Rather than show them anyway, the plugin shows a small
-placeholder naming the keys that ascend back out (its own
-`nested_ascend_keys`), styled and configured exactly like any other hint:
-its key part is the ascend keys (`Ctrl o ]`), and its description is
-"return to host". `key_format`/`desc_format` style it the same way they
-style every hint, and its concept id is `descended`, so
-`label_descended`, `key_format_descended`, `desc_format_descended`, and
-`keys_descended` all override it individually the same way they would for
-any other hint (see [Styling one hint](styling.md#styling-one-hint) and
+input in. The keys the user is pressing belong to the nested session, so
+that is what the bar describes: its current mode, and hints built from its
+real keybindings.
+
+The nested session's hints go through exactly the same machinery this
+session's own hints do. Curation, `discover_hints`, `hint_order`,
+`hint_precedence`, `direction_keys`, `key_order`, `hide_shared_hints`,
+`label_<action>` overrides, `key_format`/`desc_format`, `show_mode`,
+dimming, `max_length` and truncation all apply unchanged, so the bar looks
+and behaves the same whichever session it happens to be describing. The
+colors are this session's, since it is this session's bar: a nested session
+with a different theme does not repaint the host's status line.
+
+Nothing needs configuring for this. The plugin asks each nested session for
+its keybindings once, the first time that session reports itself, and
+follows its mode from then on. A nested session that reloads its config
+sends its new mode and keybindings without being asked again, so the bar
+does not go on describing bindings that session no longer has. Nested
+sessions are tracked separately per pane, so a layout hosting several of
+them shows the hints of the one the keys are actually going to.
+
+This needs Zellij to report the nested session's mode and keybindings,
+which older releases do not do. When there is nothing to draw hints from,
+the plugin shows a small placeholder naming the keys that ascend back out
+(its own `nested_ascend_keys`) instead. That happens in the moment between
+descending and the nested session answering, and permanently for a nested
+session running a Zellij too old to answer at all. The placeholder is
+styled and configured exactly like any other hint: its key part is the
+ascend keys (`Ctrl o ]`), and its description is "return to host".
+`key_format`/`desc_format` style it the same way they style every hint, and
+its concept id is `descended`, so `label_descended`,
+`key_format_descended`, `desc_format_descended`, and `keys_descended` all
+override it individually the same way they would for any other hint (see
+[Styling one hint](styling.md#styling-one-hint) and
 [Labels](labels.md#labels)). It is truncated to fit the terminal the same
 way normal hints are.
 
-This check is independent of `dim_when_unfocused`/`dim_strength`, and of
-whether this session is itself also nested under something else: it fires
-whenever `session_dimmed` is set, which Zellij sets on a session's own
-`ModeInfo` the moment its focus defers to a child, host or not. Whether to
-show the placeholder at all isn't a display preference the way dimming is.
+All of this is independent of `dim_when_unfocused`/`dim_strength`, and of
+whether this session is itself also nested under something else: it keys
+off `session_dimmed`, which Zellij sets on a session's own `ModeInfo` the
+moment its focus defers to a child, host or not. What the bar describes
+isn't a display preference the way dimming is.
 
-This is **not** a live view of the nested session's actual mode or hints.
-Zellij's plugin API does not currently expose one session's mode to
-another, so there is no cross-session data this plugin can draw on for
-that. It is a fixed, locally-known hint about how to get back, nothing
-more. A future Zellij release may add the missing piece; until then, the
-nested session's own bar (if `hide_when_nested false`) is the source of
-truth for what mode it is actually in.
+Being descended also outranks `hide_in_base_mode`. A nested session sitting
+in its base mode still gets its hints shown, because descending is itself
+the out-of-the-ordinary state that option exists to keep off the bar.
+`hide_when_nested` still wins over both: a session in the middle of a chain
+renders nothing at all, so there is nowhere to put the hints of the session
+below it either. Unless its own host has covered its bar, that is, in which
+case this is the only bar left on the screen and it shows the hints of the
+session it has descended into, the same as any other host would.
 
 ## A known gap: headless plugins don't see any of this
 
