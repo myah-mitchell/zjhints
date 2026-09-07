@@ -32,7 +32,7 @@ import urllib.request
 PINNED_TO_ZELLIJ = {"zellij-tile", "zellij-tile-utils"}
 
 CRATES_IO = "https://crates.io/api/v1/crates/{}"
-USER_AGENT = "zjstatus-hints-ci (github actions dependency check)"
+USER_AGENT = "zjhints-ci (github actions dependency check)"
 
 
 def direct_dependencies(cargo_toml: str) -> dict[str, str]:

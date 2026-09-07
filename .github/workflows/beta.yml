@@ -132,4 +132,4 @@ jobs:
           prerelease: true
           make_latest: false
           files: |
-            ./target/wasm32-wasip1/release/zjstatus-hints.wasm
+            ./target/wasm32-wasip1/release/zjhints.wasm
