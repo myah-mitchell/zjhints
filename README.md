@@ -17,11 +17,11 @@ Zellij's built-in status bar shows keybinding hints for your current mode, but y
 
 ## What it does
 
-zjhints shows a [curated list](docs/hints.md#the-curated-list) of hints for the mode you are in. A configuration layer sits over that:
+zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.md#the-curated-list) of the ones people reach for most, followed by everything else your config binds. A configuration layer sits over that:
 
 - [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
 - [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
-- [Discovery](docs/hints.md#discovered-hints): optionally surface every keybinding your config enables, not just the curated set
+- [Discovery](docs/hints.md#discovered-hints): name every keybinding your config enables, not just the curated set, or turn it off for a compact bar
 - [Labels](docs/labels.md): rename, hide, merge, or reorder any hint, globally or in a single mode
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
@@ -85,8 +85,9 @@ plugins {
         show_mode true // default false
 
         // Also show every other keybinding your config enables, beyond the
-        // curated list. See docs/hints.md.
-        discover_hints true // default false
+        // curated list. Set it to false for the curated list alone.
+        // See docs/hints.md.
+        discover_hints true // default
         // Hide bindings that every mode inherits from the base mode, so each
         // mode only advertises what is new in it. See docs/hints.md.
         hide_shared_hints true // default

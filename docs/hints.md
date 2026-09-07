@@ -1,16 +1,16 @@
 # Hints
 
-Where the hints come from: a built-in curated set, and optional discovery of everything else your config binds.
+Where the hints come from: a built-in curated set, and discovery of everything else your config binds.
 
 ## The curated list
 
-Hints come from two places, and most of this document refers to both. By default you see only the first: the curated list, a small table built into the plugin naming, for each of the main modes, the actions people reach for most, presented in a deliberate order with short hand-written labels.
+Hints come from two places, and most of this document refers to both. The first is the curated list, a small table built into the plugin naming, for each of the main modes, the actions people reach for most, presented in a deliberate order with short hand-written labels. It runs first whatever else is on, so it is what decides the order the bar opens in.
 
-It exists because a faithful list of your keybindings is not automatically a readable one. Left to itself the plugin would show bindings in whatever order Zellij reports them, labeled from action names: `switch_to_mode_pane` reading as "switch to mode pane". The curated list is what makes Normal mode open as `pane  tab  resize  move  scroll  session  quit` instead.
+It exists because a faithful list of your keybindings is not automatically a readable one. Left to itself the plugin would show bindings in whatever order Zellij reports them, labeled from action names: `switch_to_mode_pane` reading as "switch to mode pane". The curated list is what makes Normal mode open with `pane  tab  resize  move  scroll  session  quit` instead.
 
 What it covers:
 
-- Normal, Pane, Tab, Resize, Move, Scroll, Search and Session have entries. Other modes (Locked, Tmux, RenameTab and friends) have none, so they show only their escape hatch back to Normal unless [discovery](#discovered-hints) is on.
+- Normal, Pane, Tab, Resize, Move, Scroll, Search and Session have entries. Other modes (Locked, Tmux, RenameTab and friends) have none, so with [discovery](#discovered-hints) off they show only their escape hatch back to Normal.
 - Only bindings you actually have. An entry whose action is not bound in your config is skipped, so unbinding something removes its hint rather than leaving a dead one.
 - Grouped concepts that no single action describes, such as the four resize directions as one `resize`, or Session mode's plugin launchers.
 - The way out of each mode. Every key bound to `SwitchToMode "Normal"` (usually Enter and Esc both) forms a single `mode_normal` hint, so a mode always shows how to leave it even with discovery off.
@@ -19,13 +19,13 @@ Nothing about it is fixed: every entry is a normal hint with an [id](labels.md#i
 
 ## Discovered hints
 
-The second source is discovery, off by default and enabled with:
+The second source is discovery, which is on unless you turn it off:
 
 ```kdl
-discover_hints true
+discover_hints false
 ```
 
-With it on, every remaining keybinding enabled in the current mode is found and appended after the curated list. Nothing your config binds is left out: custom binds appear, and so do the many defaults the curated list omits (the `Alt-*` quick keys, `lock` in Normal mode), along with modes like Locked and Tmux that have no curated entries at all.
+While it is on, every remaining keybinding enabled in the current mode is found and appended after the curated list. Nothing your config binds is left out: custom binds appear, and so do the many defaults the curated list omits (the `Alt-*` quick keys, `lock` in Normal mode), along with modes like Locked and Tmux that have no curated entries at all.
 
 Keys resolving to the same [id](labels.md#ids-and-labels) become a single hint, so the four directional focus keys collapse into one `focus` rather than four entries.
 
@@ -33,9 +33,9 @@ Hints are collected before anything is drawn, so the two sources merge rather th
 
 ### Which to use
 
-The curated list is the shorter, more readable default: a handful of hints per mode, worded for scanning. Discovery is the complete one: it will not let a binding go unmentioned, but a mode can easily produce more hints than a status bar has room for, at which point [fitting](fitting.md#fitting-the-bar) starts dropping them again.
+Discovery is on by default because it will not let a binding go unmentioned: the bar becomes a full reference for whatever your config actually does, which is what you want while learning a keymap or one you have just changed. The cost is volume. A mode can easily produce more hints than a status bar has room for, at which point [fitting](fitting.md#fitting-the-bar) starts dropping them, and discovered hints sit at the end of the line, so they are the first to go.
 
-Turn it on if you want the hints to be an exhaustive reference for your config, or while you are learning a keymap you just changed. Leave it off if you want a compact bar that names the things you reach for.
+Turn it off for a compact bar. What is left is the curated list on its own: a handful of hints per mode, worded for scanning, naming the things you reach for rather than everything available.
 
 Everything else works the same either way: discovered hints have [ids](labels.md#ids-and-labels) exactly like curated ones, so they relabel, reorder and hide identically.
 

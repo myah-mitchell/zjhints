@@ -30,7 +30,7 @@ Which bindings become hints in the first place. See [Hints](hints.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `discover_hints` | `false` | Also show every enabled keybinding beyond the curated list |
+| `discover_hints` | `true` | Also show every enabled keybinding beyond the curated list |
 | `hide_shared_hints` | `true` | Hide bindings inherited from the base mode, so each mode shows only what is new in it |
 | `hide_in_base_mode` | `false` | Hide hints in the base mode, whichever mode `default_mode` names |
 
