@@ -4,7 +4,7 @@ This page covers which versions of zjhints receive security fixes, how to report
 
 ## Supported versions
 
-This is a personal fork maintained on a rolling basis. Fixes go to the latest release; there are no maintenance branches for older ones.
+zjhints is maintained on a rolling basis. Fixes go to the latest release; there are no maintenance branches for older ones.
 
 | Version | Supported |
 | --- | --- |

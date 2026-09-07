@@ -3,7 +3,7 @@
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
 
 > [!NOTE]
-> This is a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas. The original shows a curated set of hints piped to zjstatus. This fork keeps that, adds a standalone mode that needs no zjstatus at all, and builds a configuration layer on top of both. See [What this fork adds](#what-this-fork-adds).
+> zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
 ![zjhints example](docs/img/zjhints-example.png)
 
@@ -15,9 +15,9 @@ https://github.com/user-attachments/assets/940a31a0-86de-469d-89e2-dab18a1aaca8
 
 Zellij's built-in status bar shows keybinding hints for your current mode, but you lose them the moment you replace it with something else. This plugin restores that functionality as its own independent piece: run it in its own pane for a drop-in replacement, or, if you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into it instead of standing up a separate pane.
 
-## What this fork adds
+## What it does
 
-The original shows a [curated list](docs/hints.md#the-curated-list) of hints and pipes it to zjstatus, with four configuration options. This fork keeps that behavior and builds a configuration layer over it:
+zjhints shows a [curated list](docs/hints.md#the-curated-list) of hints for the mode you are in, and a configuration layer over it:
 
 - [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
 - [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
@@ -26,9 +26,8 @@ The original shows a [curated list](docs/hints.md#the-curated-list) of hints and
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
-- Zellij 0.46 support
 
-Four options upstream, around two dozen here. The full list is in the [configuration reference](docs/configuration.md).
+Every option is listed under [Configuration](#configuration) below.
 
 ## Placeholders
 
@@ -187,7 +186,7 @@ make zellij VERSION=0.44         # newest release built for that line
 
 ### Versioning
 
-Most releases are patch bumps on this fork's own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
+Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
 
 | `zjhints` | Targets Zellij |
 | --- | --- |

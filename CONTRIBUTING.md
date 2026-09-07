@@ -1,8 +1,6 @@
 # Contributing
 
-Thanks for taking a look. This is a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) maintained for personal use, so it moves when it needs to rather than on a schedule, but issues and pull requests are welcome.
-
-If the change belongs upstream more than here, consider opening it there instead; this fork tracks its own direction and may not take everything.
+Thanks for taking a look. zjhints is maintained for personal use, so it moves when it needs to rather than on a schedule, but issues and pull requests are welcome. It tracks its own direction and may not take everything.
 
 ## Getting set up
 
