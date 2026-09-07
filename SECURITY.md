@@ -1,6 +1,6 @@
 # Security policy
 
-This page covers which versions of zjstatus-hints receive security fixes, how to report a vulnerability privately, and what counts as in scope for this plugin.
+This page covers which versions of zjhints receive security fixes, how to report a vulnerability privately, and what counts as in scope for this plugin.
 
 ## Supported versions
 
@@ -60,4 +60,4 @@ git checkout v0.5.0
 make build
 ```
 
-The result lands at `target/wasm32-wasip1/release/zjstatus-hints.wasm`.
+The result lands at `target/wasm32-wasip1/release/zjhints.wasm`.

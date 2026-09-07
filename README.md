@@ -1,11 +1,11 @@
-# zjstatus-hints
+# zjhints
 
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
 
 > [!NOTE]
 > This is a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas. The original shows a curated set of hints piped to zjstatus. This fork keeps that, adds a standalone mode that needs no zjstatus at all, and builds a configuration layer on top of both. See [What this fork adds](#what-this-fork-adds).
 
-![zjstatus-hints example](docs/img/zjstatus-hints-example.png)
+![zjhints example](docs/img/zjhints-example.png)
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->
 <!-- markdownlint-disable-next-line MD034 -->
@@ -43,11 +43,11 @@ Some option names and tag names below are families rather than fixed strings. Ea
 
 ## Installation
 
-Add zjstatus-hints to your Zellij configuration and give it a pane of its own; no zjstatus required. See [Displaying the hints](#displaying-the-hints) below to pipe it into zjstatus instead.
+Add zjhints to your Zellij configuration and give it a pane of its own; no zjstatus required. See [Displaying the hints](#displaying-the-hints) below to pipe it into zjstatus instead.
 
 ```kdl
 plugins {
-    zjstatus-hints location="https://github.com/myah-mitchell/zjstatus-hints/releases/latest/download/zjstatus-hints.wasm" {
+    zjhints location="https://github.com/myah-mitchell/zjstatus-hints/releases/latest/download/zjhints.wasm" {
         // Hard cap on the width of the hint line, in columns
         max_length 0 // 0 = unlimited
         // Fit the hints to the terminal, dropping trailing hints as it
@@ -59,7 +59,7 @@ plugins {
         // Appended when a single hint is too wide to fit even alone
         overflow_str "..." // default
         // Name of the pipe for zjstatus integration
-        pipe_name "zjstatus_hints" // default
+        pipe_name "zjhints" // default
         // Hide hints in base mode (a.k.a. default mode)
         // E.g. if you have set default_mode to "locked", then
         // you can hide hints in the locked mode by setting this to true
@@ -147,7 +147,7 @@ layout {
     default_tab_template {
         children
         pane size=1 borderless=true {
-            plugin location="zjstatus-hints" {
+            plugin location="zjhints" {
                 show_mode true
             }
         }
@@ -183,13 +183,13 @@ zellij --version                 # e.g. 0.44.3
 make zellij VERSION=0.44         # newest release built for that line
 ```
 
-`zellij-<line>` always resolves to the newest zjstatus-hints release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij line instead of to everything).
+`zellij-<line>` always resolves to the newest zjhints release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij line instead of to everything).
 
 ### Versioning
 
 Most releases are patch bumps on this fork's own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
 
-| `zjstatus-hints` | Targets Zellij |
+| `zjhints` | Targets Zellij |
 | --- | --- |
 | 0.3.x | 0.44.x |
 | 0.4.x | 0.45.x |
@@ -205,29 +205,29 @@ Wire the plugin into your default layout (`layouts/default.kdl`) either of two w
 
 #### Option A: its own pane
 
-This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjstatus-hints` alias defined in the `plugins {}` block. Set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](docs/nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](docs/nested-sessions.md) hiding and dimming work at all.
+This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjhints` alias defined in the `plugins {}` block. Set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](docs/nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](docs/nested-sessions.md) hiding and dimming work at all.
 
 #### Option B: piped into zjstatus
 
-If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into its bar instead of giving zjstatus-hints a pane of its own. Two changes from the layout above:
+If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into its bar instead of giving zjhints a pane of its own. Two changes from the layout above:
 
-1. Replace the `pane { plugin location="zjstatus-hints" { ... } }` block with a headless load, since a piped plugin draws nothing of its own:
+1. Replace the `pane { plugin location="zjhints" { ... } }` block with a headless load, since a piped plugin draws nothing of its own:
 
    ```kdl
    load_plugins {
-       zjstatus-hints
+       zjhints
    }
    ```
 
-2. Add `{pipe_zjstatus_hints}` to whichever of zjstatus's own format options should carry the hints: `format_left`, `format_center` or `format_right`. The placeholder name follows `pipe_name`, which defaults to `zjstatus_hints`. Then set `pipe_zjstatus_hints_format "{output}"`; without it, zjstatus won't render the pipe at all:
+2. Add `{pipe_zjhints}` to whichever of zjstatus's own format options should carry the hints: `format_left`, `format_center` or `format_right`. The placeholder name follows `pipe_name`, which defaults to `zjhints`. Then set `pipe_zjhints_format "{output}"`; without it, zjstatus won't render the pipe at all:
 
    ```kdl
    pane size=1 borderless=true {
        plugin location="zjstatus" {
            format_left  "{mode} {tabs}"
-           format_right "{pipe_zjstatus_hints}{datetime} "
+           format_right "{pipe_zjhints}{datetime} "
 
-           pipe_zjstatus_hints_format "{output}"
+           pipe_zjhints_format "{output}"
        }
    }
    ```

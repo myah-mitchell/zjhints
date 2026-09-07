@@ -72,7 +72,7 @@ Several commands and tag names below take a value you supply, written in angle b
 | `<line>` | A Zellij minor this project has targeted, such as `0.44` |
 | `<label>` | An EA channel name you choose when you run `beta.yml` |
 | `<branch>` | The branch, tag, or commit you want `beta.yml` to build |
-| `<asset>` | A file published on a release, currently only `zjstatus-hints.wasm` |
+| `<asset>` | A file published on a release, currently only `zjhints.wasm` |
 | `<you>` | The GitHub account owning the fork you are patching against |
 | `<tag-or-branch>` | The ref in that fork to build from |
 | `<owner>` | The GitHub account owning an action you are pinning |

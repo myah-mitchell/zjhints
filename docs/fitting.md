@@ -13,7 +13,7 @@ Width is learned from Zellij's pane geometry rather than the plugin's own `rende
 `reserve_columns` is what keeps room for anything sharing the bar. The plugin cannot see zjstatus's `format_right`, so if you have one, reserve roughly its width:
 
 ```kdl
-format_left  "{pipe_zjstatus_hints}"
+format_left  "{pipe_zjhints}"
 format_right "{command_user}@{command_host}:{session}" // about 30 columns
 ```
 

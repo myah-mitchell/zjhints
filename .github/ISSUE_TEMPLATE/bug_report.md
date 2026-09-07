@@ -32,11 +32,11 @@ If applicable, add screenshots to help explain your problem.
 - OS: [e.g. iOS]
 - Zellij version:
 - zjstatus version:
-- zjstatus-hints version:
+- zjhints version:
 
 ## Config
 
-How have you configured zellij, zjstatus, and zjstatus-hints?
+How have you configured zellij, zjstatus, and zjhints?
 
 ```kdl
 // layout goes here <--

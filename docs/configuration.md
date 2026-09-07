@@ -93,6 +93,6 @@ How the bar behaves when one Zellij session runs inside another, and when the pl
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `pipe_name` | `zjstatus_hints` | Name of the pipe zjstatus reads the hints from |
+| `pipe_name` | `zjhints` | Name of the pipe zjstatus reads the hints from |
 
 `pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](../README.md#displaying-the-hints).

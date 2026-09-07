@@ -85,7 +85,7 @@ Being descended also outranks `hide_in_base_mode`. A nested session sitting in i
 
 Everything above depends on four fields arriving on this plugin's own `ModeInfo`: `nested_ascend_keys`, and the three under [The state this relies on](#the-state-this-relies-on). Loaded as a real pane, meaning a `pane { plugin location=... }` entry in a layout the way zjstatus itself usually is, those fields arrive normally.
 
-Loaded headless instead, via a top-level `load_plugins` block with no pane of its own and its output reaching the screen only through zjstatus's pipe protocol (`{pipe_zjstatus_hints}`), none of those fields ever arrive. `hide_when_nested`, `dim_when_unfocused` and `dim_strength` all silently do nothing, as does the descended placeholder. `session_ancestry` stays empty forever regardless of actual nesting state.
+Loaded headless instead, via a top-level `load_plugins` block with no pane of its own and its output reaching the screen only through zjstatus's pipe protocol (`{pipe_zjhints}`), none of those fields ever arrive. `hide_when_nested`, `dim_when_unfocused` and `dim_strength` all silently do nothing, as does the descended placeholder. `session_ancestry` stays empty forever regardless of actual nesting state.
 
 This was confirmed against Zellij 0.46: `update_all_clients_nesting_mode_info` in `zellij-server/src/screen.rs` updates `ModeInfo` for every pane in every tab. It never notifies plugins in `background_plugin_subscriptions`, the list a `load_plugins` block builds, the way Zellij's regular mode-switch path does. It is a Zellij core gap, not something either plugin's own code can work around.
 
