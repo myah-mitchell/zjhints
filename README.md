@@ -17,7 +17,7 @@ Zellij's built-in status bar shows keybinding hints for your current mode, but y
 
 ## What it does
 
-zjhints shows a [curated list](docs/hints.md#the-curated-list) of hints for the mode you are in, and a configuration layer over it:
+zjhints shows a [curated list](docs/hints.md#the-curated-list) of hints for the mode you are in. A configuration layer sits over that:
 
 - [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
 - [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
@@ -188,7 +188,7 @@ make zellij VERSION=0.44         # newest release built for that line
 
 Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
 
-| `zjhints` | Targets Zellij |
+| zjhints | Targets Zellij |
 | --- | --- |
 | 0.3.x | 0.44.x |
 | 0.4.x | 0.45.x |
