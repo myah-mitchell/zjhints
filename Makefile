@@ -3,7 +3,7 @@ WASM    := target/$(TARGET)/release/zjstatus-hints.wasm
 PLUGIN  := $(HOME)/.local/share/zellij/plugins/zjstatus-hints.wasm
 REPO    := myah-mitchell/zjstatus-hints
 
-.PHONY: build install dev test check nightly latest zellij
+.PHONY: build install dev test check nightly latest zellij ea
 
 # Build the release wasm.
 build:
@@ -69,3 +69,32 @@ zellij:
 	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
 	@echo "Installed -> $(PLUGIN)"
 	@echo "Start a new Zellij session to load it."
+
+# Install an on-demand EA/beta build (see docs/AUTOMATION.md). These come
+# from the beta.yml workflow, not a tagged release, and the channel can be
+# replaced at any time: treat this as trying out in-progress work, not as
+# something to depend on.
+#
+# Usage: make ea LABEL=nested-sessions
+#
+# beta.yml lowercases the label and reduces it to [a-z0-9-] before building
+# the ea-<label> tag, so LABEL is sanitized the same way here. Otherwise a
+# label typed back with different casing or punctuation than what was
+# published (e.g. LABEL=Nested-Sessions for a tag actually named
+# ea-nested-sessions) would 404 with no hint why.
+ea:
+	@if [ -z "$(LABEL)" ]; then \
+		echo "Usage: make ea LABEL=nested-sessions   (whatever channel was published)" >&2; \
+		exit 1; \
+	fi
+	@label="$$(printf '%s\n' '$(LABEL)' | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -e 's/^-*//' -e 's/-*$$//')"; \
+	if [ -z "$$label" ]; then \
+		echo "LABEL '$(LABEL)' has no characters left after sanitizing to [a-z0-9-]" >&2; \
+		exit 1; \
+	fi; \
+	echo "Fetching the EA build '$$label' from $(REPO)…"; \
+	curl -fsSL -o "$(PLUGIN).tmp" \
+		"https://github.com/$(REPO)/releases/download/ea-$$label/zjstatus-hints.wasm"; \
+	mv "$(PLUGIN).tmp" "$(PLUGIN)"; \
+	echo "Installed -> $(PLUGIN)"; \
+	echo "Start a new Zellij session to load it."

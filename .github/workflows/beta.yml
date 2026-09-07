@@ -1,0 +1,135 @@
+---
+name: Beta
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to build"
+        required: true
+        type: string
+      label:
+        description: >-
+          Short label for this channel, e.g. "nested-sessions" or
+          "zellij-0.46". Becomes the tag ea-<label>; re-running with the
+          same label replaces that channel's release rather than adding a
+          new one.
+        required: true
+        type: string
+
+permissions:
+  contents: write # move a tag, publish a release
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Two runs for the same label would race to move the same ea-<label> tag and
+# publish/update the same release; queue them instead. A newer request for a
+# channel supersedes whatever the previous run was building, so it is safe to
+# cancel rather than let the old one finish first.
+concurrency:
+  group: beta-${{ inputs.label }}
+  cancel-in-progress: true
+
+jobs:
+  beta:
+    name: beta
+    runs-on: ubuntu-latest
+    env:
+      LABEL_RAW: ${{ inputs.label }}
+    steps:
+      # inputs.label is attacker-controllable by anyone who can trigger this
+      # workflow, so it is read out of `env` rather than spliced straight into
+      # a `run:` script, and reduced to a safe character set before it is
+      # used to build a tag name.
+      - name: Sanitize the label into a tag name
+        id: tag
+        run: |
+          set -euo pipefail
+          label="$(printf '%s\n' "$LABEL_RAW" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed -e 's/^-*//' -e 's/-*$//')"
+          if [ -z "$label" ]; then
+            printf '::error::label "%s" has no characters left after sanitizing to [a-z0-9-]\n' "$LABEL_RAW" >&2
+            exit 1
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "tag=ea-$label" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@4f647fc679bcd3b11499ccb42104547c83dabe96 # stable
+        with:
+          toolchain: "1.96.0"
+          target: wasm32-wasip1
+
+      # Same rationale as release.yml: an EA build is handed to early
+      # testers, so it is built and tested from scratch rather than from a
+      # cache that might be stale for whatever ref was requested.
+      - name: Ensure OpenSSL headers
+        run: |
+          if ! pkg-config --exists openssl; then
+            sudo apt-get update && sudo apt-get install -y libssl-dev
+          fi
+
+      - name: Test
+        run: cargo test --all-features
+
+      - name: Build release binary
+        run: cargo build --release --target=wasm32-wasip1
+
+      - name: Describe this build
+        id: describe
+        env:
+          # inputs.ref is attacker-controllable by anyone who can trigger this
+          # workflow, so it goes through env rather than straight into the
+          # script, same as the label above.
+          REF_RAW: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          {
+            echo "EA/beta build, channel \`${{ steps.tag.outputs.label }}\`."
+            echo "Replaced whenever this channel is rebuilt; not \`latest\`."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Ref requested | \`$REF_RAW\` |"
+            echo "| Commit | \`$(git rev-parse --short HEAD)\` |"
+            echo "| Cargo.toml version | \`${version}\` |"
+            echo "| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |"
+            echo
+            echo "\`$(git log -1 --pretty=%s)\`"
+            echo
+            echo "> Not a stable release; see"
+            echo "> [the latest release](../../releases/latest) for that. If this"
+            echo "> ref depends on an unreleased upstream fix via"
+            echo "> \`[patch.crates-io]\`, see"
+            echo "> [docs/AUTOMATION.md](https://github.com/${{ github.repository }}/blob/main/docs/AUTOMATION.md#depending-on-an-unreleased-upstream-fix)."
+          } > EA.md
+
+      # Moved rather than added to, so re-running a channel (e.g. after
+      # pushing a fix to the branch it tracks) replaces its release instead
+      # of accumulating one tag per run.
+      - name: Move the ea-<label> tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "${{ steps.tag.outputs.tag }}"
+          git push -f origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Publish the EA/beta release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "EA: ${{ steps.tag.outputs.label }}"
+          body_path: EA.md
+          # Prerelease keeps this out of /releases/latest/, and make_latest
+          # stays false so it never contends with the real latest release.
+          prerelease: true
+          make_latest: false
+          files: |
+            ./target/wasm32-wasip1/release/zjstatus-hints.wasm

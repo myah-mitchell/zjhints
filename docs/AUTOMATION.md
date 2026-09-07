@@ -68,6 +68,7 @@ Releasing is a separate, deliberate step you take on your own schedule; see
 | `update-deps.yml` | 04:00 UTC daily, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
 | `nightly.yml` | 05:00 UTC daily, pushes to `main`, or manually | rebuilds `main`, moves the `nightly` release |
 | `release.yml` | pushes to `main`, `v*.*.*` tags, or manually | publishes a release when `Cargo.toml` names an untagged version |
+| `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
 | `cleanup-caches.yml` | a pull request closes | deletes that PR's Actions caches |
 
 ### Tags and releases
@@ -82,6 +83,9 @@ Releasing is a separate, deliberate step you take on your own schedule; see
   but `make_latest: false` keeps it from contending with `latest`. See
   [the README's Versioning section](../README.md#versioning) for why this
   exists.
+- **`ea-<label>`**: one per EA/beta channel you've ever named, force-updated
+  by `beta.yml` each time you run it with that label. Always a prerelease.
+  See [EA/beta releases](#eabeta-releases).
 
 There is deliberately no tag named `latest`. GitHub already tracks the newest
 release, and a real tag by that name would have to be force-pushed on every
@@ -146,6 +150,86 @@ current. The workflow only opens the pull request after confirming
 run instead of landing a broken lock.
 
 [gh-11]: https://github.com/myah-mitchell/zjstatus-hints/issues/11
+
+### Depending on an unreleased upstream fix
+
+Sometimes a branch needs a `zellij-tile`/`zellij-tile-utils` fix that exists
+in a fork or an unmerged upstream PR but has not shipped to crates.io yet.
+Widening the `[dependencies]` requirement to a version crates.io does not
+have yet just fails the build (`cargo` reports "candidate versions found"
+and lists everything *but* the one you asked for). Lowering it back defeats
+the point of taking the fix at all.
+
+Instead, add a `[patch.crates-io]` block at the end of `Cargo.toml`, pointing
+the affected crate(s) at the fork/branch that has the fix, and leave the
+`[dependencies]` requirement exactly as it already is:
+
+```toml
+[patch.crates-io]
+zellij-tile = { git = "https://github.com/<you>/zellij", tag = "<tag-or-branch>" }
+zellij-tile-utils = { git = "https://github.com/<you>/zellij", tag = "<tag-or-branch>" }
+```
+
+This only works if the crate's *own* declared version (in its `Cargo.toml`,
+or `[workspace.package].version` for a workspace like zellij's) still
+satisfies the requirement your `Cargo.toml` already has: Cargo patches the
+*source* a requirement resolves from, not the requirement itself. If the
+fork bumped its version past what you require, widen the requirement to
+match at the same time.
+
+Then regenerate the lock against the new source and confirm it builds:
+
+```sh
+cargo update -p zellij-tile -p zellij-tile-utils
+make check && cargo test --all-features
+```
+
+`zellij-utils` does not need its own patch entry: zellij's workspace
+depends on it via a path (see `zellij-utils = { path = "zellij-utils/",
+version = "..." }` in zellij's `Cargo.toml`), so it resolves from the same
+git checkout automatically.
+
+**This does not disturb the normal pipeline.** `release.yml`'s
+Zellij-compatibility-line logic and `check_deps.py` both read the version
+*requirement* string in `[dependencies]`, never the patch, so tags, the
+release job, and versioning all keep working unmodified while a patch is
+active. `check_deps.py`/the `zellij-upgrade` job in `update-deps.yml` will
+go quiet for the patched crate specifically: the locked version already
+looks at or ahead of whatever crates.io has, so there is nothing for it to
+propose. That is expected, not a sign the check is broken.
+
+**Removing it once the fix ships:** delete the `[patch.crates-io]` block,
+confirm `[dependencies]`'s requirement still matches (or widen it to the
+real published version if the fork was ahead), then
+`cargo update -p zellij-tile -p zellij-tile-utils` to move the lock back
+onto crates.io. From there it is a normal dependency again, and a normal
+release once you bump `version` (see [Versioning](#versioning)).
+
+### EA/beta releases
+
+`beta.yml` builds and tests whatever ref you give it and publishes it as a
+prerelease, without touching `Cargo.toml`'s `version` or going anywhere
+near `release.yml`. Use it to hand an early build to testers: a branch
+that still needs a `[patch.crates-io]` override like the one above, or any
+other work in progress not ready for a real release.
+
+Run it from **Actions → Beta → Run workflow**, or `gh workflow run beta.yml
+-f ref=<branch> -f label=<short-name>`. Two inputs:
+
+- **`ref`**: the branch, tag, or commit to build.
+- **`label`**: names the channel. The tag becomes `ea-<label>`, force-moved
+  each time you run it with that label, the same way `nightly` is moved
+  each night. Reuse a label to replace that channel's release (e.g. after
+  pushing a fix); pick a new one to keep two EA builds around side by side
+  (`ea-nested-sessions`, `ea-zellij-0.46`, …).
+
+Install one with `make ea LABEL=<short-name>` (see [Installing what is
+published](#installing-what-is-published)).
+
+Because it only runs on `workflow_dispatch`, nothing about this competes
+with `nightly.yml` or `release.yml`: it is a side channel you reach for
+on demand, and the same recipe works for the next unreleased-dependency
+situation, not just this one.
 
 ## First-time setup
 
@@ -264,10 +348,12 @@ whatever is current — nothing is lost by closing one you dislike.
 make latest              # newest tagged release
 make nightly             # tonight's build of main
 make zellij VERSION=0.44 # newest release built for that Zellij line
+make ea LABEL=<name>     # a specific EA/beta channel someone published
 ```
 
-All three fetch straight into the Zellij plugin path. Start a new session to
-load it — Zellij caches plugins per session, and detaching does not reload.
+All of these fetch straight into the Zellij plugin path. Start a new session
+to load it: Zellij caches plugins per session, and detaching does not
+reload.
 
 Pointing your Zellij config at a nightly URL does not work well: Zellij caches
 remote plugins by URL, so it keeps serving whatever it downloaded first. Fetch
@@ -308,6 +394,8 @@ they are the ones that matter.
 | Nightly is stale | Check the `nightly.yml` schedule ran; scheduled workflows are paused after 60 days of repository inactivity |
 | `zellij-upgrade` pull request never appears | `zellij_minor_available` only goes true once crates.io has the new `zellij-tile`/`zellij-tile-utils`, which can lag a Zellij release by a day or so |
 | `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement at that commit — the tag follows whatever line was pinned *at release time*, not the newest one available |
+| `beta.yml` fails at "Sanitize the label" | The `label` input had no `[a-z0-9-]` characters left after sanitizing; pick a label with at least one letter or digit |
+| `beta.yml`'s build fails to resolve a Zellij crate | The ref you built doesn't have a `[patch.crates-io]` override for a requirement crates.io can't satisfy yet (see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix)) |
 
 That last one is worth knowing: **GitHub disables scheduled workflows in
 repositories with no activity for 60 days**, and emails you when it does. Any

@@ -147,13 +147,14 @@ load_plugins {
 
 ### Release channels
 
-Three channels are published:
+Four channels are published:
 
 | Channel | Contents |
 |---|---|
 | `latest` | Tagged releases. What the URL above resolves to. |
 | `nightly` | Rebuilt from `main` every night, tests green. Prerelease. |
 | `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`. |
+| `ea-<label>` | An on-demand build of any ref, published on request. Prerelease; see [docs/AUTOMATION.md](docs/AUTOMATION.md#eabeta-releases). |
 
 Zellij caches remote plugins by URL, so pointing the config at the nightly URL
 will keep serving whatever it downloaded first. To track nightlies, fetch into
