@@ -66,9 +66,13 @@ struct State {
     /// What each nested session hosted in one of this session's panes reports
     /// about itself, keyed by the pane it runs in so several of them never
     /// overwrite each other. Populated from `NestedSessionModeUpdate` and
-    /// `NestedSessionKeybinds`; read back by `descended_guest` while this
-    /// session is descended into one of them.
+    /// the keybindings `fetch_keybinds` returns; read back by
+    /// `descended_guest` while this session is descended into one of them.
     nested_guests: BTreeMap<PaneId, NestedGuest>,
+    /// How a nested session's keybindings are fetched. Always
+    /// `get_nested_session_keybinds` in the plugin; tests swap in a fake,
+    /// because the real one blocks on a reply from the host.
+    fetch_keybinds: KeybindsFetcher,
     /// Which pane holds the focus in each tab, learned from `PaneUpdate`.
     focus_by_tab: BTreeMap<usize, TabFocus>,
     /// The focused tab, learned from `TabUpdate`. `None` until the first one
@@ -102,15 +106,33 @@ struct ActiveTab {
 /// `mode` and `base_mode` arrive unprompted, once when the nested session first
 /// makes contact and again on every mode change it makes, so they are current
 /// by the time the user descends into it. `keybinds` is the expensive half and
-/// arrives only in answer to a request, which is what `keybinds_requested`
-/// guards: the request goes out once per session, not on every event or render.
+/// is fetched on request. Every report carries a `keybinds_generation` that
+/// changes whenever the bindings behind it may have, including when a nested
+/// session that is itself descended moves between its own bindings and a
+/// deeper session's. `fetched_generation` is the generation last fetched (or
+/// last tried), so a fetch happens once per generation rather than on every
+/// event or render.
 #[derive(Default, Clone, PartialEq)]
 struct NestedGuest {
-    session_name: Option<String>,
+    /// The chain of sessions this report describes, outermost first: the
+    /// nested session in the pane, then whichever session it is descended
+    /// into, and so on down. The last one is whose mode and bindings these are.
+    session_path: Vec<String>,
     mode: InputMode,
     base_mode: Option<InputMode>,
     keybinds: KeybindsVec,
-    keybinds_requested: bool,
+    fetched_generation: Option<u64>,
+}
+
+/// The function `State` fetches a nested session's keybindings with. A wrapper
+/// only so `State` can keep deriving `Default`.
+#[derive(Clone, Copy)]
+struct KeybindsFetcher(fn(PaneId) -> NestedSessionKeybindsResponse);
+
+impl Default for KeybindsFetcher {
+    fn default() -> Self {
+        KeybindsFetcher(get_nested_session_keybinds)
+    }
 }
 
 register_plugin!(State);
@@ -655,30 +677,64 @@ impl State {
         self.nested_guests.get(&self.focused_pane_id()?)
     }
 
-    /// Record what a nested session reported about itself, asking it for its
-    /// keybindings the first time it speaks.
+    /// Record a nested session's mode report, fetching its keybindings when
+    /// the report's generation says the ones held (if any) are stale.
     ///
-    /// `update` applies the report and says whether it changed anything, which
-    /// becomes the return value so callers can skip a redraw that would produce
-    /// the same bar. It reports that itself rather than being diffed here,
-    /// because diffing would mean copying a whole keybinding table on every
-    /// mode change to compare against.
+    /// Returns whether anything changed, so the caller can skip a redraw that
+    /// would produce the same bar.
     ///
-    /// The keybinding request is what makes `descended_guest` eventually
-    /// renderable: mode reports arrive on their own, keybindings only on
-    /// request.
+    /// The fetch blocks until the host answers, which it bounds at about a
+    /// second. A failed fetch still marks the generation as tried: a nested
+    /// session that cannot answer now will not answer on its next mode change
+    /// either, and retrying would stall the plugin each time. A new generation
+    /// gets a fresh try.
     fn record_nested_guest(
         &mut self,
         pane_id: PaneId,
-        update: impl FnOnce(&mut NestedGuest) -> bool,
+        session_path: Vec<String>,
+        mode: InputMode,
+        base_mode: Option<InputMode>,
+        keybinds_generation: u64,
     ) -> bool {
         let guest = self.nested_guests.entry(pane_id).or_default();
-        let changed = update(guest);
-        if !guest.keybinds_requested {
-            guest.keybinds_requested = true;
-            request_nested_session_keybinds(pane_id);
+        let mut changed = guest.session_path != session_path
+            || guest.mode != mode
+            || guest.base_mode != base_mode;
+        guest.session_path = session_path;
+        guest.mode = mode;
+        guest.base_mode = base_mode;
+        if guest.fetched_generation != Some(keybinds_generation) {
+            guest.fetched_generation = Some(keybinds_generation);
+            changed |= self.fetch_nested_keybinds(pane_id);
         }
         changed
+    }
+
+    /// Fetch one nested session's keybindings and store what comes back.
+    ///
+    /// A reply describes the session as it is when answering, which may be a
+    /// generation past the report that prompted the fetch, so its generation
+    /// is the one recorded. The mode it carries is left alone: mode reports
+    /// keep arriving on their own, and the next one brings it. Errors that mean
+    /// the pane no longer holds a nested session drop it; the rest keep
+    /// whatever bindings were already held, or none, which renders as the
+    /// descended-into indicator.
+    fn fetch_nested_keybinds(&mut self, pane_id: PaneId) -> bool {
+        match (self.fetch_keybinds.0)(pane_id) {
+            Ok(reply) => {
+                let Some(guest) = self.nested_guests.get_mut(&pane_id) else {
+                    return false;
+                };
+                guest.keybinds = reply.keybinds;
+                guest.fetched_generation = Some(reply.keybinds_generation);
+                true
+            }
+            Err(NestedSessionKeybindsError::NotANestedSession)
+            | Err(NestedSessionKeybindsError::GuestGone) => {
+                self.nested_guests.remove(&pane_id).is_some()
+            }
+            Err(_) => false,
+        }
     }
 
     /// Forget nested sessions whose panes are gone, so a pane id Zellij later
@@ -892,7 +948,7 @@ impl State {
             base_mode: guest.base_mode,
             keybinds: guest.keybinds.clone(),
             style: self.mode_info.style,
-            session_name: guest.session_name.clone(),
+            session_name: guest.session_path.last().cloned(),
             ..Default::default()
         })
     }
@@ -1188,7 +1244,7 @@ impl ZellijPlugin for State {
             EventType::PermissionRequestResult,
             EventType::TabUpdate,
             EventType::NestedSessionModeUpdate,
-            EventType::NestedSessionKeybinds,
+            EventType::NestedSessionEnded,
         ]);
     }
 
@@ -1233,35 +1289,28 @@ impl ZellijPlugin for State {
             }
             // A nested session in one of this session's panes reporting its
             // input mode, sent on contact and on every mode change it makes.
+            // A nested session that is itself descended reports the mode of
+            // the session it is descended into, however deep that goes.
             Event::NestedSessionModeUpdate {
                 pane_id,
-                session_name,
+                session_path,
                 mode,
                 base_mode,
+                keybinds_generation,
             } => {
-                should_render |= self.record_nested_guest(pane_id, |guest| {
-                    let changed = guest.session_name != session_name
-                        || guest.mode != mode
-                        || guest.base_mode != base_mode;
-                    guest.session_name = session_name;
-                    guest.mode = mode;
-                    guest.base_mode = base_mode;
-                    changed
-                });
+                should_render |= self.record_nested_guest(
+                    pane_id,
+                    session_path,
+                    mode,
+                    base_mode,
+                    keybinds_generation,
+                );
             }
-            // A nested session answering the keybinding request that
-            // `record_nested_guest` issued when it first spoke.
-            Event::NestedSessionKeybinds {
-                pane_id,
-                session_name,
-                keybinds,
-            } => {
-                should_render |= self.record_nested_guest(pane_id, |guest| {
-                    let changed = guest.session_name != session_name || guest.keybinds != keybinds;
-                    guest.session_name = session_name;
-                    guest.keybinds = keybinds;
-                    changed
-                });
+            // The nested session exited, or stopped answering. Either way its
+            // hints can no longer be trusted, and a later session in the same
+            // pane will make contact afresh.
+            Event::NestedSessionEnded { pane_id, .. } => {
+                should_render |= self.nested_guests.remove(&pane_id).is_some();
             }
             // Answered, or granted from the cache. Either way the prompt is
             // gone and the pane has no further reason to take focus.
@@ -3168,6 +3217,7 @@ fn get_keymap_for_mode(mode_info: &ModeInfo) -> Vec<(KeyWithModifier, Vec<Action
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
     use std::collections::HashMap;
 
     /// Sort a string of characters as if they were the keys of one hint, so an
@@ -4722,7 +4772,7 @@ mod tests {
                 session_dimmed: Some(true),
                 ..Default::default()
             },
-            ..Default::default()
+            ..nested_host()
         };
         state.update(Event::TabUpdate(vec![only_tab()]));
         state.update(Event::PaneUpdate(manifest(vec![
@@ -4732,20 +4782,63 @@ mod tests {
         state
     }
 
-    fn guest_mode_update(pane_id: PaneId, mode: InputMode) -> Event {
-        Event::NestedSessionModeUpdate {
-            pane_id,
-            session_name: Some("guest".to_string()),
-            mode,
+    thread_local! {
+        /// Every pane a fake fetcher was asked about, in order.
+        static FETCHES: RefCell<Vec<PaneId>> = const { RefCell::new(Vec::new()) };
+    }
+
+    fn fetches() -> Vec<PaneId> {
+        FETCHES.with(|fetches| fetches.borrow().clone())
+    }
+
+    /// A nested session that answers with `guest_keybinds` at generation 1.
+    fn answering_fetch(pane_id: PaneId) -> NestedSessionKeybindsResponse {
+        FETCHES.with(|fetches| fetches.borrow_mut().push(pane_id));
+        Ok(NestedSessionKeybinds {
+            session_path: vec!["guest".to_string()],
+            mode: InputMode::Normal,
             base_mode: Some(InputMode::Normal),
+            keybinds: guest_keybinds(),
+            keybinds_generation: 1,
+        })
+    }
+
+    /// A nested session too old to report its keybindings.
+    fn unsupported_fetch(pane_id: PaneId) -> NestedSessionKeybindsResponse {
+        FETCHES.with(|fetches| fetches.borrow_mut().push(pane_id));
+        Err(NestedSessionKeybindsError::NotSupported)
+    }
+
+    /// Only `GUEST_PANE` answers; `OTHER_GUEST_PANE` never does.
+    fn only_guest_pane_answers(pane_id: PaneId) -> NestedSessionKeybindsResponse {
+        if pane_id == GUEST_PANE {
+            answering_fetch(pane_id)
+        } else {
+            FETCHES.with(|fetches| fetches.borrow_mut().push(pane_id));
+            Err(NestedSessionKeybindsError::Timeout)
         }
     }
 
-    fn guest_keybinds_event(pane_id: PaneId) -> Event {
-        Event::NestedSessionKeybinds {
+    /// A session whose nested sessions answer through `answering_fetch`. The
+    /// real fetcher would block on a host that is not there.
+    fn nested_host() -> State {
+        State {
+            fetch_keybinds: KeybindsFetcher(answering_fetch),
+            ..Default::default()
+        }
+    }
+
+    fn guest_mode_update(pane_id: PaneId, mode: InputMode) -> Event {
+        guest_mode_update_at(pane_id, mode, 1)
+    }
+
+    fn guest_mode_update_at(pane_id: PaneId, mode: InputMode, keybinds_generation: u64) -> Event {
+        Event::NestedSessionModeUpdate {
             pane_id,
-            session_name: Some("guest".to_string()),
-            keybinds: guest_keybinds(),
+            session_path: vec!["guest".to_string()],
+            mode,
+            base_mode: Some(InputMode::Normal),
+            keybinds_generation,
         }
     }
 
@@ -4770,45 +4863,109 @@ mod tests {
     }
 
     #[test]
-    fn a_nested_session_is_asked_for_its_keybindings_only_once() {
-        let mut state = State::default();
+    fn a_nested_session_s_keybindings_are_fetched_once_per_generation() {
+        let mut state = nested_host();
         state.update(guest_mode_update(GUEST_PANE, InputMode::Normal));
-        assert!(
-            state.nested_guests[&GUEST_PANE].keybinds_requested,
-            "the first word from a nested session should trigger the request"
+        assert_eq!(
+            fetches(),
+            vec![GUEST_PANE],
+            "the first word from a nested session should trigger a fetch"
         );
+        assert!(!state.nested_guests[&GUEST_PANE].keybinds.is_empty());
 
-        // Every later event from the same session finds the flag already set,
-        // so nothing asks again however much that session talks.
+        // Mode changes within the same generation reuse what was fetched.
         for mode in [InputMode::Pane, InputMode::Tab, InputMode::Normal] {
             state.update(guest_mode_update(GUEST_PANE, mode));
         }
-        state.update(guest_keybinds_event(GUEST_PANE));
-        assert_eq!(state.nested_guests.len(), 1);
-        assert!(state.nested_guests[&GUEST_PANE].keybinds_requested);
+        assert_eq!(fetches().len(), 1);
+
+        // A new generation means the bindings behind the report may differ.
+        state.update(guest_mode_update_at(GUEST_PANE, InputMode::Normal, 2));
+        assert_eq!(fetches().len(), 2);
+    }
+
+    #[test]
+    fn a_failed_fetch_is_not_retried_until_the_generation_moves() {
+        let mut state = State {
+            fetch_keybinds: KeybindsFetcher(unsupported_fetch),
+            ..Default::default()
+        };
+        for mode in [InputMode::Normal, InputMode::Pane, InputMode::Tab] {
+            state.update(guest_mode_update(GUEST_PANE, mode));
+        }
+        assert_eq!(
+            fetches().len(),
+            1,
+            "each retry would stall the plugin for nothing"
+        );
+        assert!(state.nested_guests[&GUEST_PANE].keybinds.is_empty());
+
+        state.update(guest_mode_update_at(GUEST_PANE, InputMode::Tab, 2));
+        assert_eq!(fetches().len(), 2);
+    }
+
+    #[test]
+    fn a_pane_that_holds_no_nested_session_is_dropped_on_fetch() {
+        fn not_nested(_: PaneId) -> NestedSessionKeybindsResponse {
+            Err(NestedSessionKeybindsError::NotANestedSession)
+        }
+        let mut state = State {
+            fetch_keybinds: KeybindsFetcher(not_nested),
+            ..Default::default()
+        };
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Normal));
+        assert!(state.nested_guests.is_empty());
     }
 
     #[test]
     fn two_nested_sessions_are_kept_apart_by_their_panes() {
-        let mut state = State::default();
+        let mut state = State {
+            fetch_keybinds: KeybindsFetcher(only_guest_pane_answers),
+            ..Default::default()
+        };
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
         state.update(guest_mode_update(OTHER_GUEST_PANE, InputMode::Tab));
 
         assert_eq!(state.nested_guests[&GUEST_PANE].mode, InputMode::Pane);
         assert_eq!(state.nested_guests[&OTHER_GUEST_PANE].mode, InputMode::Tab);
-        // Keybindings went to one session only; the other's are still pending.
+        // Only one session answered with keybindings.
         assert!(!state.nested_guests[&GUEST_PANE].keybinds.is_empty());
         assert!(state.nested_guests[&OTHER_GUEST_PANE].keybinds.is_empty());
+    }
+
+    #[test]
+    fn the_deepest_session_on_the_path_names_the_hints() {
+        let mut state = state_descended_into_guest();
+        state.update(Event::NestedSessionModeUpdate {
+            pane_id: GUEST_PANE,
+            session_path: vec!["middle".to_string(), "lower".to_string()],
+            mode: InputMode::Pane,
+            base_mode: Some(InputMode::Normal),
+            keybinds_generation: 1,
+        });
+        let mode_info = state
+            .descended_guest_mode_info()
+            .expect("the descended-into session's hints");
+        assert_eq!(mode_info.session_name.as_deref(), Some("lower"));
+    }
+
+    #[test]
+    fn a_nested_session_that_ends_is_forgotten() {
+        let mut state = state_descended_into_guest();
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
+        assert!(state.update(Event::NestedSessionEnded {
+            pane_id: GUEST_PANE,
+            reason: NestedSessionEndReason::Unresponsive,
+        }));
+        assert!(state.nested_guests.is_empty());
+        assert!(state.descended_guest_mode_info().is_none());
     }
 
     #[test]
     fn the_descended_into_session_is_the_one_in_the_focused_pane() {
         let mut state = state_descended_into_guest();
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
         state.update(guest_mode_update(OTHER_GUEST_PANE, InputMode::Tab));
-        state.update(guest_keybinds_event(OTHER_GUEST_PANE));
 
         let descended = state.descended_guest().expect("a descended-into session");
         assert_eq!(descended.mode, InputMode::Pane);
@@ -4860,7 +5017,6 @@ mod tests {
     fn descending_renders_the_nested_session_s_own_hints() {
         let mut state = state_descended_into_guest();
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
 
         // The nested session's Pane-mode binding, which this session's own
         // (empty) keybindings could not have produced.
@@ -4874,8 +5030,6 @@ mod tests {
     #[test]
     fn the_nested_session_s_mode_decides_which_of_its_hints_show() {
         let mut state = state_descended_into_guest();
-        state.update(guest_keybinds_event(GUEST_PANE));
-
         state.update(guest_mode_update(GUEST_PANE, InputMode::Normal));
         let normal = rendered_bar(&state);
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
@@ -4890,7 +5044,6 @@ mod tests {
     fn ascending_returns_the_bar_to_this_session_s_own_hints() {
         let mut state = state_descended_into_guest();
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
         assert!(state.descended_guest_mode_info().is_some());
 
         // Ascending is this session no longer being the dimmed side. The
@@ -4904,8 +5057,9 @@ mod tests {
     #[test]
     fn a_nested_session_with_no_keybindings_yet_falls_back_to_the_indicator() {
         let mut state = state_descended_into_guest();
-        // Mode reported, keybinding request still in flight (or never going to
-        // be answered, by a nested session running an older Zellij).
+        state.fetch_keybinds = KeybindsFetcher(unsupported_fetch);
+        // Mode reported, keybindings refused by a nested session running a
+        // Zellij that cannot report them.
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
 
         assert!(
@@ -4927,7 +5081,6 @@ mod tests {
         let mut state = state_descended_into_guest();
         state.hide_in_base_mode = true;
         state.update(guest_mode_update(GUEST_PANE, InputMode::Normal));
-        state.update(guest_keybinds_event(GUEST_PANE));
 
         // The nested session sits in its base mode, and so does this one. Being
         // descended is the out-of-the-ordinary state the option is there to
@@ -4941,7 +5094,6 @@ mod tests {
         state.mode_info.session_ancestry = vec!["host".to_string()];
         state.hide_when_nested = true;
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
 
         // A session in the middle of a chain has no bar at all, so there is
         // nowhere to put the hints of the session below it either.
@@ -4978,7 +5130,6 @@ mod tests {
         state.mode_info.host_fullscreen = Some(true);
         state.hide_when_nested = true;
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
 
         // This session is the only one left with a bar, and the keys the user
         // is pressing belong to the session below it, so that is what it draws.
@@ -5059,7 +5210,6 @@ mod tests {
     fn a_nested_session_is_forgotten_when_its_pane_closes() {
         let mut state = state_descended_into_guest();
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
-        state.update(guest_keybinds_event(GUEST_PANE));
 
         state.update(Event::PaneUpdate(manifest(vec![guest_pane(
             OTHER_GUEST_PANE,
