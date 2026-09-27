@@ -63,13 +63,15 @@ The colors are this session's, since it is this session's bar. A nested session 
 
 ### Nothing needs configuring
 
-The plugin asks each nested session for its keybindings once, the first time that session reports itself, and follows its mode from then on. A nested session that reloads its config sends its new mode and keybindings without being asked again, so the bar does not go on describing bindings that session no longer has.
+The plugin follows each nested session's mode as it changes, and fetches its keybindings the first time that session reports itself. Every report says whether the keybindings behind it may have changed since, for instance because the nested session reloaded its config, and the plugin fetches them again only then. So the bar does not go on describing bindings that session no longer has, and it does not ask for them on every mode change either.
 
 Nested sessions are tracked separately per pane, so a layout hosting several of them shows the hints of the one the keys are actually going to.
 
+This works however deep the nesting goes. With a host, a middle session inside it and a lower session inside that, descending all the way down puts the lower session's hints on the host's bar: the middle session passes up whatever the session it is descended into reports, and the plugin names the hints after the deepest session in that chain.
+
 ### When the nested session cannot answer
 
-This needs Zellij to report the nested session's mode and keybindings, which older releases do not do. When there is nothing to draw hints from, the plugin shows a small placeholder naming the keys that ascend back out, its own `nested_ascend_keys`. That happens in the moment between descending and the nested session answering, and permanently for a nested session running a Zellij too old to answer at all.
+This needs Zellij to report the nested session's mode and keybindings, which older releases do not do. When there is nothing to draw hints from, the plugin shows a small placeholder naming the keys that ascend back out, its own `nested_ascend_keys`. That happens for a nested session running a Zellij too old to report its keybindings, and for one that did not answer in time; the plugin tries again the next time that session's keybindings change. A nested session that exits, or stops responding altogether, is forgotten, and one started later in the same pane is picked up afresh.
 
 The placeholder is styled and configured exactly like any other hint. Its key part is the ascend keys (`Ctrl o ]`), and its description is "return to host". Its concept id is `descended`, so every option ending in `_descended` overrides it individually, and it is truncated to fit the terminal the same way normal hints are. See [Styling one hint](styling.md#styling-one-hint) and [Labels](labels.md#ids-and-labels).
 
