@@ -768,6 +768,23 @@ impl State {
             0.0
         }
     }
+
+    /// The dim strength for the hints of the nested session this one has
+    /// descended into.
+    ///
+    /// Those hints describe the session the keyboard is reaching, so having
+    /// descended (`session_dimmed`) is no reason to fade them: with
+    /// `hide_when_nested` the nested session draws no bar of its own, and
+    /// this is the only place its hints appear. They still fade when this
+    /// session is itself nested and its host has ascended out of it, since
+    /// then nothing below this session is receiving input either.
+    fn descended_guest_dim_amount(&self) -> f32 {
+        if self.dim_when_unfocused && self.mode_info.session_ascended == Some(true) {
+            self.dim_strength
+        } else {
+            0.0
+        }
+    }
 }
 
 /// Fades a `PaletteColor` toward a dark, desaturated gray by `strength`
@@ -1329,7 +1346,16 @@ impl ZellijPlugin for State {
 
         let output = match self.bar_subject() {
             BarSubject::Nothing => String::new(),
-            BarSubject::Hints(subject) => self.render_hint_line(&subject, dim),
+            BarSubject::Hints(subject) => {
+                // An owned subject is the descended-into session's, built by
+                // `descended_guest_mode_info`. A borrowed one is this
+                // session's own.
+                let dim = match subject {
+                    Cow::Owned(_) => self.descended_guest_dim_amount(),
+                    Cow::Borrowed(_) => dim,
+                };
+                self.render_hint_line(&subject, dim)
+            }
             BarSubject::DescendedIndicator => {
                 let dimmed_colors;
                 let colors: &Styling = if dim > 0.0 {
@@ -4507,6 +4533,23 @@ mod tests {
         assert_eq!(
             state_with_dim(true, 0.7, None, Some(true)).dim_amount(),
             0.7
+        );
+    }
+
+    #[test]
+    fn descended_guest_hints_are_not_dimmed_by_descending() {
+        let state = state_with_dim(true, 0.5, None, Some(true));
+        assert_eq!(state.dim_amount(), 0.5);
+        assert_eq!(state.descended_guest_dim_amount(), 0.0);
+    }
+
+    #[test]
+    fn descended_guest_hints_dim_when_this_session_is_not_ascended_into() {
+        let state = state_with_dim(true, 0.7, Some(true), Some(true));
+        assert_eq!(state.descended_guest_dim_amount(), 0.7);
+        assert_eq!(
+            state_with_dim(false, 0.7, Some(true), Some(true)).descended_guest_dim_amount(),
+            0.0
         );
     }
 
