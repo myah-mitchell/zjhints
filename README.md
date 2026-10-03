@@ -26,7 +26,7 @@ Two features in this release need plugin APIs that are not in a released Zellij 
 | [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session) |
 | [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                   |
 
-Until they are released, a Zellij build carrying both is published as [fork-v0.46.2](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.2). That is the build zjhints is compiled against, so it is the way to see these two features working today.
+Until they are released, a Zellij build carrying both is published as [fork-v0.46.3](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.3). That is the build zjhints is compiled against, so it is the way to see these two features working today.
 
 Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the two features above are absent rather than broken. See [Versioning](#versioning) for which zjhints line targets which Zellij.
 
