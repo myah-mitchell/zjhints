@@ -21,6 +21,12 @@ struct State {
     pipe_names: Vec<String>,
     mode_info: ModeInfo,
     base_mode_is_locked: bool,
+    /// Whether Zellij delivers this session's keybindings through
+    /// `InitialKeybinds`. Once it does, every `ModeUpdate` arrives with an
+    /// empty table and the one already held has to be carried over. A Zellij
+    /// too old to know the event keeps attaching them to `ModeUpdate`, and
+    /// this stays false.
+    keybinds_arrive_separately: bool,
     max_length: usize,
     auto_width: bool,
     reserve_columns: usize,
@@ -768,6 +774,23 @@ impl State {
             0.0
         }
     }
+
+    /// The dim strength for the hints of the nested session this one has
+    /// descended into.
+    ///
+    /// Those hints describe the session the keyboard is reaching, so having
+    /// descended (`session_dimmed`) is no reason to fade them: with
+    /// `hide_when_nested` the nested session draws no bar of its own, and
+    /// this is the only place its hints appear. They still fade when this
+    /// session is itself nested and its host has ascended out of it, since
+    /// then nothing below this session is receiving input either.
+    fn descended_guest_dim_amount(&self) -> f32 {
+        if self.dim_when_unfocused && self.mode_info.session_ascended == Some(true) {
+            self.dim_strength
+        } else {
+            0.0
+        }
+    }
 }
 
 /// Fades a `PaletteColor` toward a dark, desaturated gray by `strength`
@@ -1239,6 +1262,9 @@ impl ZellijPlugin for State {
         // silent, so the event always comes.
         subscribe(&[
             EventType::ModeUpdate,
+            // Has Zellij send the keybindings once, and again when they are
+            // reconfigured, rather than attached to every `ModeUpdate`.
+            EventType::InitialKeybinds,
             EventType::SessionUpdate,
             EventType::PaneUpdate,
             EventType::PermissionRequestResult,
@@ -1251,12 +1277,29 @@ impl ZellijPlugin for State {
     fn update(&mut self, event: Event) -> bool {
         let mut should_render = !self.initialized;
         match event {
-            Event::ModeUpdate(mode_info) => {
+            Event::ModeUpdate(mut mode_info) => {
+                // Taken out before comparing, so the comparison is between two
+                // reports that both lack the table.
+                let kept_keybinds = (self.keybinds_arrive_separately
+                    && mode_info.keybinds.is_empty())
+                .then(|| std::mem::take(&mut self.mode_info.keybinds));
                 if self.mode_info != mode_info {
                     should_render = true;
                 }
+                if let Some(keybinds) = kept_keybinds {
+                    mode_info.keybinds = keybinds;
+                }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
+            }
+            // Sent once this plugin subscribes, and again whenever the
+            // keybindings are reconfigured.
+            Event::InitialKeybinds(keybinds) => {
+                self.keybinds_arrive_separately = true;
+                if self.mode_info.keybinds != keybinds {
+                    self.mode_info.keybinds = keybinds;
+                    should_render = true;
+                }
             }
             // The plugin runs headless, so its own `render` dimensions say
             // nothing about the status bar. Pane geometry is the only view of
@@ -1329,7 +1372,16 @@ impl ZellijPlugin for State {
 
         let output = match self.bar_subject() {
             BarSubject::Nothing => String::new(),
-            BarSubject::Hints(subject) => self.render_hint_line(&subject, dim),
+            BarSubject::Hints(subject) => {
+                // An owned subject is the descended-into session's, built by
+                // `descended_guest_mode_info`. A borrowed one is this
+                // session's own.
+                let dim = match subject {
+                    Cow::Owned(_) => self.descended_guest_dim_amount(),
+                    Cow::Borrowed(_) => dim,
+                };
+                self.render_hint_line(&subject, dim)
+            }
             BarSubject::DescendedIndicator => {
                 let dimmed_colors;
                 let colors: &Styling = if dim > 0.0 {
@@ -4511,6 +4563,23 @@ mod tests {
     }
 
     #[test]
+    fn descended_guest_hints_are_not_dimmed_by_descending() {
+        let state = state_with_dim(true, 0.5, None, Some(true));
+        assert_eq!(state.dim_amount(), 0.5);
+        assert_eq!(state.descended_guest_dim_amount(), 0.0);
+    }
+
+    #[test]
+    fn descended_guest_hints_dim_when_this_session_is_not_ascended_into() {
+        let state = state_with_dim(true, 0.7, Some(true), Some(true));
+        assert_eq!(state.descended_guest_dim_amount(), 0.7);
+        assert_eq!(
+            state_with_dim(false, 0.7, Some(true), Some(true)).descended_guest_dim_amount(),
+            0.0
+        );
+    }
+
+    #[test]
     fn dim_amount_respects_the_config_toggle() {
         assert_eq!(
             state_with_dim(false, 0.5, Some(true), Some(true)).dim_amount(),
@@ -4860,6 +4929,78 @@ mod tests {
             }
         }
         visible
+    }
+
+    fn quit_table(key: char) -> KeybindsVec {
+        vec![(
+            InputMode::Normal,
+            vec![(KeyWithModifier::new(BareKey::Char(key)), vec![Action::Quit])],
+        )]
+    }
+
+    fn mode_update(mode: InputMode, keybinds: KeybindsVec) -> Event {
+        Event::ModeUpdate(ModeInfo {
+            mode,
+            keybinds,
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn keybindings_sent_once_survive_later_mode_updates() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        assert!(state.update(Event::InitialKeybinds(quit_table('q'))));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        // With the subscription in place Zellij strips the table from every
+        // mode report.
+        assert!(state.update(mode_update(InputMode::Pane, vec![])));
+        assert_eq!(state.mode_info.mode, InputMode::Pane);
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        assert!(
+            !state.update(mode_update(InputMode::Pane, vec![])),
+            "a repeated report should not look like a change"
+        );
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+    }
+
+    #[test]
+    fn reconfigured_keybindings_replace_the_held_table() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        state.update(Event::InitialKeybinds(quit_table('q')));
+        assert!(!state.update(Event::InitialKeybinds(quit_table('q'))));
+        assert!(state.update(Event::InitialKeybinds(quit_table('x'))));
+        state.update(mode_update(InputMode::Normal, vec![]));
+        assert_eq!(state.mode_info.keybinds, quit_table('x'));
+    }
+
+    #[test]
+    fn keybindings_arriving_ahead_of_the_first_mode_report_are_kept() {
+        let mut state = State::default();
+        state.update(Event::InitialKeybinds(quit_table('q')));
+        state.update(mode_update(InputMode::Normal, vec![]));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+    }
+
+    #[test]
+    fn a_zellij_without_initial_keybinds_still_supplies_them_per_mode_update() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        state.update(mode_update(InputMode::Normal, quit_table('q')));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        // Nothing arrived separately, so an empty table is taken at its word.
+        assert!(state.update(mode_update(InputMode::Normal, vec![])));
+        assert!(state.mode_info.keybinds.is_empty());
     }
 
     #[test]

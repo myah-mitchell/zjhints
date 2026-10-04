@@ -57,7 +57,9 @@ Whenever this session's own focus has moved to a nested child it is hosting, its
 
 ### Everything applies unchanged
 
-The nested session's hints go through exactly the same machinery this session's own hints do. Every option in the [configuration reference](configuration.md) applies unchanged, from curation and ordering through styling, dimming and truncation, so the bar looks and behaves the same whichever session it happens to be describing.
+The nested session's hints go through exactly the same machinery this session's own hints do. Every option in the [configuration reference](configuration.md) applies unchanged, from curation and ordering through styling and truncation, so the bar looks and behaves the same whichever session it happens to be describing.
+
+Dimming is the one exception. Descending dims this session's other chrome, but the nested session's hints describe the session the keyboard is reaching, so they are drawn at full brightness. They fade only when this session is itself nested and its own host has ascended out of it.
 
 The colors are this session's, since it is this session's bar. A nested session with a different theme does not repaint the host's status line.
 
