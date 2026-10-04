@@ -21,6 +21,12 @@ struct State {
     pipe_names: Vec<String>,
     mode_info: ModeInfo,
     base_mode_is_locked: bool,
+    /// Whether Zellij delivers this session's keybindings through
+    /// `InitialKeybinds`. Once it does, every `ModeUpdate` arrives with an
+    /// empty table and the one already held has to be carried over. A Zellij
+    /// too old to know the event keeps attaching them to `ModeUpdate`, and
+    /// this stays false.
+    keybinds_arrive_separately: bool,
     max_length: usize,
     auto_width: bool,
     reserve_columns: usize,
@@ -1256,6 +1262,9 @@ impl ZellijPlugin for State {
         // silent, so the event always comes.
         subscribe(&[
             EventType::ModeUpdate,
+            // Has Zellij send the keybindings once, and again when they are
+            // reconfigured, rather than attached to every `ModeUpdate`.
+            EventType::InitialKeybinds,
             EventType::SessionUpdate,
             EventType::PaneUpdate,
             EventType::PermissionRequestResult,
@@ -1268,12 +1277,29 @@ impl ZellijPlugin for State {
     fn update(&mut self, event: Event) -> bool {
         let mut should_render = !self.initialized;
         match event {
-            Event::ModeUpdate(mode_info) => {
+            Event::ModeUpdate(mut mode_info) => {
+                // Taken out before comparing, so the comparison is between two
+                // reports that both lack the table.
+                let kept_keybinds = (self.keybinds_arrive_separately
+                    && mode_info.keybinds.is_empty())
+                .then(|| std::mem::take(&mut self.mode_info.keybinds));
                 if self.mode_info != mode_info {
                     should_render = true;
                 }
+                if let Some(keybinds) = kept_keybinds {
+                    mode_info.keybinds = keybinds;
+                }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
+            }
+            // Sent once this plugin subscribes, and again whenever the
+            // keybindings are reconfigured.
+            Event::InitialKeybinds(keybinds) => {
+                self.keybinds_arrive_separately = true;
+                if self.mode_info.keybinds != keybinds {
+                    self.mode_info.keybinds = keybinds;
+                    should_render = true;
+                }
             }
             // The plugin runs headless, so its own `render` dimensions say
             // nothing about the status bar. Pane geometry is the only view of
@@ -4903,6 +4929,78 @@ mod tests {
             }
         }
         visible
+    }
+
+    fn quit_table(key: char) -> KeybindsVec {
+        vec![(
+            InputMode::Normal,
+            vec![(KeyWithModifier::new(BareKey::Char(key)), vec![Action::Quit])],
+        )]
+    }
+
+    fn mode_update(mode: InputMode, keybinds: KeybindsVec) -> Event {
+        Event::ModeUpdate(ModeInfo {
+            mode,
+            keybinds,
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn keybindings_sent_once_survive_later_mode_updates() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        assert!(state.update(Event::InitialKeybinds(quit_table('q'))));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        // With the subscription in place Zellij strips the table from every
+        // mode report.
+        assert!(state.update(mode_update(InputMode::Pane, vec![])));
+        assert_eq!(state.mode_info.mode, InputMode::Pane);
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        assert!(
+            !state.update(mode_update(InputMode::Pane, vec![])),
+            "a repeated report should not look like a change"
+        );
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+    }
+
+    #[test]
+    fn reconfigured_keybindings_replace_the_held_table() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        state.update(Event::InitialKeybinds(quit_table('q')));
+        assert!(!state.update(Event::InitialKeybinds(quit_table('q'))));
+        assert!(state.update(Event::InitialKeybinds(quit_table('x'))));
+        state.update(mode_update(InputMode::Normal, vec![]));
+        assert_eq!(state.mode_info.keybinds, quit_table('x'));
+    }
+
+    #[test]
+    fn keybindings_arriving_ahead_of_the_first_mode_report_are_kept() {
+        let mut state = State::default();
+        state.update(Event::InitialKeybinds(quit_table('q')));
+        state.update(mode_update(InputMode::Normal, vec![]));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+    }
+
+    #[test]
+    fn a_zellij_without_initial_keybinds_still_supplies_them_per_mode_update() {
+        let mut state = State {
+            initialized: true,
+            ..Default::default()
+        };
+        state.update(mode_update(InputMode::Normal, quit_table('q')));
+        assert_eq!(state.mode_info.keybinds, quit_table('q'));
+
+        // Nothing arrived separately, so an empty table is taken at its word.
+        assert!(state.update(mode_update(InputMode::Normal, vec![])));
+        assert!(state.mode_info.keybinds.is_empty());
     }
 
     #[test]
