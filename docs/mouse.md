@@ -52,11 +52,22 @@ When even a single hint does not fit and the line is cut short, `overflow_str` o
 
 ## While descended into a nested session
 
-The hints of a [nested session you have descended into](nested-sessions.md#while-descended-into-a-nested-session) cannot be clicked. Their keys reach the nested session, while actions this plugin runs reach the session it belongs to, so a click would do the wrong thing in the wrong place. The "return to host" indicator cannot be clicked either: ascending is a key sequence Zellij handles itself, with no action behind it for a plugin to run. Right-click still opens the context menu in both cases.
+While you are [descended into a nested session](nested-sessions.md#while-descended-into-a-nested-session), the bar shows that session's hints, or a "return to host" indicator until it has sent them. Their keys mean something to the nested session, not to the one this plugin runs in, so by default neither can be clicked. Right-click still opens the context menu.
+
+Turn on `mouse_nested` as well to make them clickable:
+
+```kdl
+mouse true
+mouse_nested true
+```
+
+A click then types the hint's key into the nested session's pane, exactly as pressing it would, rather than running anything in this session. Hints whose keys do different things open the same menu as above, and choosing an entry types one of that entry's keys. Clicking "return to host" types the nested session's ascend keys, which it acts on by returning you to the host.
+
+Keys are sent the way the nested session's pane expects them: re-encoded by Zellij for a pane using the kitty keyboard protocol, which Zellij asks for, and as plain terminal bytes otherwise. A few keys, such as Caps Lock, have no plain encoding and do nothing in a pane that does not use the kitty protocol.
 
 ## Permissions
 
-Turning `mouse` on asks for three permissions on top of the ones the plugin always needs:
+`mouse_nested` needs no permission of its own. Turning `mouse` on asks for three permissions on top of the ones the plugin always needs:
 
 | Permission | Used for |
 | --- | --- |

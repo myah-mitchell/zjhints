@@ -98,6 +98,7 @@ Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
 | Option | Default | What it does |
 | --- | --- | --- |
 | `mouse` | `false` | Right-click for Zellij's context menu, left-click a hint to run it, and click the drop indicator or `overflow_str` for the hints that did not fit |
+| `mouse_nested` | `false` | With `mouse` on, also click a descended-into nested session's hints and its "return to host" indicator, which types their keys into that session |
 
 ## Integration
 
