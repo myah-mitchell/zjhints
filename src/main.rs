@@ -529,9 +529,13 @@ struct HintStyle<'a> {
     dim: f32,
     key_format: Option<&'a str>,
     desc_format: Option<&'a str>,
-    /// Rendered between consecutive hints (never before the first or after the
-    /// last). `None` when unset, leaving hints adjacent as before.
+    /// Rendered between consecutive hints, and before the first when
+    /// `spacer_after_prefix` is set, never after the last. `None` when unset,
+    /// leaving hints adjacent as before.
     spacer: Option<&'a str>,
+    /// Whether the mode prefix is drawn in front of the hints, so `spacer`
+    /// separates it from the first hint as it separates hints from each other.
+    spacer_after_prefix: bool,
     discover: bool,
     direction_keys: DirectionKeys,
     key_order: KeyOrder,
@@ -1093,6 +1097,7 @@ impl State {
                     key_format: self.key_format.as_deref(),
                     desc_format: self.desc_format.as_deref(),
                     spacer: None,
+                    spacer_after_prefix: false,
                     discover: false,
                     direction_keys: DirectionKeys::default(),
                     // A sequence ("press Ctrl o, then ]"), not the alternative
@@ -1119,7 +1124,13 @@ impl State {
                         &self.config,
                         dim,
                     );
-                    ANSIStrings(&mode_prefix).to_string()
+                    // Spaced from the prefix as the first hint would be.
+                    let spacer = self
+                        .hint_spacer
+                        .as_deref()
+                        .map(|spacer| format::render_template(spacer, &[], &self.config, dim))
+                        .unwrap_or_default();
+                    format!("{}{}", ANSIStrings(&mode_prefix), ANSIStrings(&spacer))
                 };
                 // Ascending is the nested session's own binding, which it acts
                 // on when its keys reach it, so clicking types them into it.
@@ -1232,6 +1243,7 @@ impl State {
             key_format: self.key_format.as_deref(),
             desc_format: self.desc_format.as_deref(),
             spacer: self.hint_spacer.as_deref(),
+            spacer_after_prefix: mode_prefix_len > 0,
             discover: self.discover_hints,
             direction_keys: self.direction_keys,
             key_order: self.key_order,
@@ -2886,11 +2898,19 @@ fn lay_out_hints_for_mode(
         .map(|indicator| format::render_template(indicator, &[], style.config, style.dim))
         .unwrap_or_default();
 
+    let spacer_width = visible_width(&spacer, style.wide_ambiguous);
+    // The spacer after the mode prefix is there whatever is dropped, so it
+    // comes off the budget up front.
+    let leading_spacer = if style.spacer_after_prefix {
+        spacer_width
+    } else {
+        0
+    };
     let gap = style.limit.and_then(|limit| {
         drop_to_fit(
             &mut pieces,
-            visible_width(&spacer, style.wide_ambiguous),
-            limit,
+            spacer_width,
+            limit.saturating_sub(leading_spacer),
             visible_width(&indicator, style.wide_ambiguous),
             style.precedence,
         )
@@ -2924,11 +2944,10 @@ fn lay_out_hints_for_mode(
         );
     }
 
-    let spacer_width = visible_width(&spacer, style.wide_ambiguous);
     let mut parts = vec![];
     let mut segments = vec![];
     for (idx, (piece, content)) in rendered.into_iter().enumerate() {
-        if idx > 0 {
+        if idx > 0 || style.spacer_after_prefix {
             parts.extend(spacer.iter().cloned());
             segments.push(LineSegment {
                 width: spacer_width,
@@ -3876,6 +3895,7 @@ mod tests {
                 .map(String::as_str)
                 .or(Some("{desc}")),
             spacer: Some("|"),
+            spacer_after_prefix: false,
             discover: config
                 .get("discover_hints")
                 .map_or(DEFAULT_DISCOVER_HINTS, |v| v == "true"),
@@ -4969,6 +4989,7 @@ mod tests {
             key_format,
             desc_format,
             spacer: None,
+            spacer_after_prefix: false,
             discover: false,
             direction_keys: DirectionKeys::default(),
             key_order: KeyOrder::Unsorted,
@@ -5263,7 +5284,12 @@ mod tests {
             BarSubject::Nothing => String::new(),
             BarSubject::DescendedIndicator => DESCENDED_HINT_LABEL.to_string(),
         };
-        let mut parser = AnsiParser::new(&text);
+        strip_ansi(&text)
+    }
+
+    /// `text` with the styling stripped out.
+    fn strip_ansi(text: &str) -> String {
+        let mut parser = AnsiParser::new(text);
         let mut visible = String::new();
         while let Some(segment) = parser.next_segment() {
             if let AnsiSegment::VisibleChar(ch) = segment {
@@ -5853,6 +5879,39 @@ mod tests {
     }
 
     #[test]
+    fn the_spacer_separates_the_mode_prefix_from_the_first_hint() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("M".to_string());
+        assert_eq!(
+            rendered_bar(&state),
+            "M|a close|b fullscreen|c frames|d pin"
+        );
+        assert_eq!(left_click(&state, 1), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, 2),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+    }
+
+    #[test]
+    fn fitting_pays_for_the_spacer_after_the_mode_prefix() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("M".to_string());
+        state.drop_indicator = Some("…".to_string());
+        // "M|a close|b fullscreen|…" would be 24 columns, one too many.
+        state.max_length = 23;
+        assert_eq!(rendered_bar(&state), "M|a close|…");
+    }
+
+    #[test]
+    fn without_the_mode_prefix_the_first_hint_has_no_spacer() {
+        let state = clickable_state(InputMode::Pane, four_hints());
+        assert_eq!(rendered_bar(&state), " a close|b fullscreen|c frames|d pin");
+    }
+
+    #[test]
     fn click_columns_count_wide_ambiguous_characters_as_two() {
         let mut state = clickable_state(InputMode::Pane, four_hints());
         state.hint_spacer = Some("│".to_string());
@@ -6045,6 +6104,30 @@ mod tests {
         assert_eq!(left_click(&state, 0), MouseOutcome::Nothing);
         assert_eq!(
             left_click(&state, "MODE ".len()),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
+    }
+
+    #[test]
+    fn the_spacer_separates_the_mode_prefix_from_the_descended_indicator() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.show_mode = true;
+        state.mode_format = Some("MODE".to_string());
+        state.hint_spacer = Some("|".to_string());
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        let (line, _) = state.draw_bar();
+        assert!(
+            strip_ansi(&line).starts_with("MODE|"),
+            "{:?}",
+            strip_ansi(&line)
+        );
+        assert_eq!(left_click(&state, "MODE".len()), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, "MODE|".len()),
             MouseOutcome::Run(keypress::press_keys(&ascend_keys))
         );
     }

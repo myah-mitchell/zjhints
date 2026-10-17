@@ -54,7 +54,7 @@ Colors, format strings, and the symbols keys are drawn with. See [Styling](styli
 | --- | --- | --- |
 | `key_format` | unset | Format string for the keybinding portion of each hint, theme palette when unset |
 | `desc_format` | unset | Format string for the description portion of each hint, theme palette when unset |
-| `hint_spacer` | unset | Format string drawn between consecutive hints, adjacent when unset |
+| `hint_spacer` | unset | Format string drawn between consecutive hints and after the mode prefix, adjacent when unset |
 | `key_format_<id>` | unset | Format string for one hint's keys, overriding `key_format` |
 | `desc_format_<id>` | unset | Format string for one hint's description, overriding `desc_format` |
 | `keys_<id>` | unset | Replace a hint's keys with a fixed string, as in `keys_go_to_tab "1-9"` |
