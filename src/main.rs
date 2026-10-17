@@ -12,6 +12,7 @@ use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 
 mod format;
+mod keypress;
 mod mouse;
 
 use mouse::{
@@ -94,6 +95,10 @@ struct State {
     /// left-click to run a hint, and a menu of the hints that did not fit.
     /// Off by default, since it asks for permission to run actions.
     mouse: bool,
+    /// With `mouse` on, also make a descended-into nested session's hints and
+    /// the way back out of it clickable, by typing their keys into the pane
+    /// that session runs in.
+    mouse_nested: bool,
     /// Which columns of the line last drawn hold which hint.
     click_map: ClickMap,
     /// Menus shown and not yet answered, by prompt request id.
@@ -120,6 +125,25 @@ struct TabFocus {
 struct ActiveTab {
     position: usize,
     floating_panes_visible: bool,
+}
+
+/// What clicking the descended-into indicator does: press the nested
+/// session's ascend keys, in order, in the pane it runs in.
+fn descended_indicator_target(
+    mode_info: &ModeInfo,
+    config: &BTreeMap<String, String>,
+) -> HintTarget {
+    let label = menu_label(
+        &compose_key_text(&mode_info.nested_ascend_keys, config),
+        DESCENDED_HINT_LABEL,
+    );
+    HintTarget {
+        label: label.clone(),
+        choices: vec![HintChoice {
+            label,
+            actions: keypress::press_keys(&mode_info.nested_ascend_keys),
+        }],
+    }
 }
 
 /// What a nested session running in one of this session's panes has told us
@@ -275,6 +299,7 @@ const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_SHOW_MODE: &str = "show_mode";
 const CONFIG_MODE_FORMAT: &str = "mode_format";
 const CONFIG_MOUSE: &str = "mouse";
+const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 // Per-mode override of the mode prefix, e.g. `mode_format_normal`. Matches
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
@@ -311,6 +336,9 @@ const DEFAULT_SHOW_MODE: bool = false;
 // Off by default: clicks need permission to run actions as the user, which a
 // bar that only shows hints has no reason to ask for.
 const DEFAULT_MOUSE: bool = false;
+// Off by default: a click on a nested session's bar types keys into it, which
+// is less obviously what clicking a bar does than running a binding here.
+const DEFAULT_MOUSE_NESTED: bool = false;
 // Drawn where hints were dropped when mouse support is on and no
 // `drop_indicator` is configured, so the hints that did not fit always have
 // something to click.
@@ -526,6 +554,19 @@ struct HintStyle<'a> {
     /// Empty when `hide_shared_hints` is off or when rendering the base mode.
     shared: &'a [(KeyWithModifier, Vec<Action>)],
     config: &'a BTreeMap<String, String>,
+    /// What clicking one of the hints does.
+    click: ClickBehavior,
+}
+
+/// What clicking a hint does.
+#[derive(Clone, Copy, PartialEq)]
+enum ClickBehavior {
+    /// Run the actions its keys are bound to, here. For this session's own
+    /// hints.
+    RunActions,
+    /// Press one of its keys in the focused pane. For a descended-into nested
+    /// session's hints, whose keys mean something only to that session.
+    PressKeys,
 }
 
 const NORMAL_MODE_ACTIONS: &[ActionLabel] = &[
@@ -1005,9 +1046,11 @@ impl State {
 
     /// The line to draw and what clicking each of its columns does.
     ///
-    /// Only this session's own hints can be clicked: a nested session's hints
-    /// describe keys that reach the nested session, while the actions this
-    /// plugin runs reach this one.
+    /// This session's own hints run their bindings when clicked. A nested
+    /// session's hints describe keys that reach the nested session, not this
+    /// one, so they and the way back out of it can only be clicked with
+    /// `mouse_nested`, which types their keys into the focused pane, the one
+    /// the descended-into session runs in.
     fn draw_bar(&self) -> (String, ClickMap) {
         let mode_info = &self.mode_info;
         let dim = self.dim_amount();
@@ -1020,11 +1063,18 @@ impl State {
                 // session's own.
                 match subject {
                     Cow::Owned(_) => {
-                        let (line, _) =
-                            self.render_hint_line(&subject, self.descended_guest_dim_amount());
-                        (line, ClickMap::default())
+                        let guest_dim = self.descended_guest_dim_amount();
+                        let (line, click_map) =
+                            self.render_hint_line(&subject, guest_dim, ClickBehavior::PressKeys);
+                        if self.mouse_nested {
+                            (line, click_map)
+                        } else {
+                            (line, ClickMap::default())
+                        }
                     }
-                    Cow::Borrowed(_) => self.render_hint_line(&subject, dim),
+                    Cow::Borrowed(_) => {
+                        self.render_hint_line(&subject, dim, ClickBehavior::RunActions)
+                    }
                 }
             }
             BarSubject::DescendedIndicator => {
@@ -1056,11 +1106,12 @@ impl State {
                     precedence: HintPrecedence::default(),
                     shared: &[],
                     config: &self.config,
+                    click: ClickBehavior::RunActions,
                 };
                 let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
-                let styled = if styled_indicator.is_empty() {
+                let prefix = if styled_indicator.is_empty() || !self.show_mode {
                     String::new()
-                } else if self.show_mode {
+                } else {
                     let mode_prefix = render_mode_prefix(
                         mode_info.mode,
                         colors,
@@ -1068,24 +1119,23 @@ impl State {
                         &self.config,
                         dim,
                     );
-                    format!("{}{}", ANSIStrings(&mode_prefix), styled_indicator)
+                    ANSIStrings(&mode_prefix).to_string()
+                };
+                // Ascending is the nested session's own binding, which it acts
+                // on when its keys reach it, so clicking types them into it.
+                let segments = if self.mouse_nested && !styled_indicator.is_empty() {
+                    vec![LineSegment {
+                        width: calculate_visible_length(&styled_indicator, self.wide_ambiguous),
+                        content: SegmentContent::Hint(descended_indicator_target(
+                            mode_info,
+                            &self.config,
+                        )),
+                    }]
                 } else {
-                    styled_indicator
+                    vec![]
                 };
-                let limit = self.length_limit();
-                let visible_len = calculate_visible_length(&styled, self.wide_ambiguous);
-                let line = match limit {
-                    Some(limit) if visible_len > limit => truncate_ansi_string(
-                        &styled,
-                        &self.overflow_str,
-                        limit,
-                        self.wide_ambiguous,
-                    ),
-                    _ => styled,
-                };
-                // Ascending is a key sequence the client handles, with no
-                // action behind it for a plugin to run.
-                (line, ClickMap::default())
+                let start = calculate_visible_length(&prefix, self.wide_ambiguous);
+                self.fit_line(format!("{prefix}{styled_indicator}"), segments, start)
             }
         }
     }
@@ -1129,8 +1179,13 @@ impl State {
     /// comes from this session, because the bar being drawn is this session's.
     ///
     /// Also returns which columns of the line hold which hint, for mouse
-    /// clicks.
-    fn render_hint_line(&self, mode_info: &ModeInfo, dim: f32) -> (String, ClickMap) {
+    /// clicks, which do what `click` says.
+    fn render_hint_line(
+        &self,
+        mode_info: &ModeInfo,
+        dim: f32,
+        click: ClickBehavior,
+    ) -> (String, ClickMap) {
         let keymap = get_keymap_for_mode(mode_info);
         // Bindings the base mode already advertises. Every non-base mode
         // inherits these via Zellij's `shared_except` groups, so listing
@@ -1192,6 +1247,7 @@ impl State {
             precedence: self.hint_precedence,
             shared: &shared,
             config: &self.config,
+            click,
         };
         let (hint_parts, segments) = lay_out_hints_for_mode(mode_info.mode, &keymap, &ctx);
         let mut parts = mode_prefix;
@@ -1204,16 +1260,22 @@ impl State {
             ansi_strings.to_string()
         };
 
-        let visible_len = calculate_visible_length(&formatted, self.wide_ambiguous);
-        let hints_start = leading_space + mode_prefix_len;
-        match limit {
+        self.fit_line(formatted, segments, leading_space + mode_prefix_len)
+    }
+
+    /// Cut `line` down to `max_length` when it is longer, and say which of its
+    /// columns hold what. `segments` are laid out from column `start`.
+    fn fit_line(
+        &self,
+        line: String,
+        segments: Vec<LineSegment>,
+        start: usize,
+    ) -> (String, ClickMap) {
+        let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
+        match self.length_limit() {
             Some(limit) if visible_len > limit => {
-                let truncated = truncate_ansi_string(
-                    &formatted,
-                    &self.overflow_str,
-                    limit,
-                    self.wide_ambiguous,
-                );
+                let truncated =
+                    truncate_ansi_string(&line, &self.overflow_str, limit, self.wide_ambiguous);
                 // Measured from what was drawn rather than worked out from
                 // `limit`, since the cut keeps whole characters and a wide one
                 // can leave it short of the limit.
@@ -1224,12 +1286,9 @@ impl State {
                     at: shown - marker,
                     overflow: shown - marker..shown,
                 };
-                (
-                    truncated,
-                    ClickMap::lay_out(segments, hints_start, Some(cut)),
-                )
+                (truncated, ClickMap::lay_out(segments, start, Some(cut)))
             }
-            _ => (formatted, ClickMap::lay_out(segments, hints_start, None)),
+            _ => (line, ClickMap::lay_out(segments, start, None)),
         }
     }
 }
@@ -1385,6 +1444,16 @@ impl ZellijPlugin for State {
         // Marks where hints were dropped to fit the window. Also a format
         // string, so it can be a styled glyph rather than bare text.
         self.drop_indicator = drop_indicator_from_config(&configuration, self.mouse);
+        // Clicks on a nested session's bar, which need `mouse` for the rest.
+        self.mouse_nested = self.mouse
+            && configuration
+                .get(CONFIG_MOUSE_NESTED)
+                .map(|s| {
+                    s.to_lowercase()
+                        .parse::<bool>()
+                        .unwrap_or(DEFAULT_MOUSE_NESTED)
+                })
+                .unwrap_or(DEFAULT_MOUSE_NESTED);
         // When enabled (the default), every enabled keybinding in a mode is
         // shown, not just the curated set. See `add_discovered_hints`.
         self.discover_hints = configuration
@@ -2927,9 +2996,15 @@ fn hint_target(
             let description = primary.map_or_else(String::new, |action| {
                 action_signature(action).replace('_', " ")
             });
+            let actions = match style.click {
+                ClickBehavior::RunActions => actions.to_vec(),
+                // Any one of the group's keys does it; the first is the one
+                // shown first.
+                ClickBehavior::PressKeys => keypress::press_keys(&group_keys[..1]),
+            };
             HintChoice {
                 label: menu_label(&compose_key_text(group_keys, style.config), &description),
-                actions: actions.to_vec(),
+                actions,
             }
         })
         .collect();
@@ -3821,6 +3896,7 @@ mod tests {
                 .unwrap_or(false),
             shared: &[],
             config: &config,
+            click: ClickBehavior::RunActions,
         };
         let (parts, _) = lay_out_hints_for_mode(mode, keymap, &style);
         let text = format!("{}", ANSIStrings(&parts));
@@ -4904,6 +4980,7 @@ mod tests {
             precedence: HintPrecedence::default(),
             shared: &[],
             config,
+            click: ClickBehavior::RunActions,
         };
         render_descended_indicator(&mode_info, &style)
     }
@@ -5178,7 +5255,11 @@ mod tests {
     /// against the state's own fields instead.
     fn rendered_bar(state: &State) -> String {
         let text = match state.bar_subject() {
-            BarSubject::Hints(subject) => state.render_hint_line(&subject, 0.0).0,
+            BarSubject::Hints(subject) => {
+                state
+                    .render_hint_line(&subject, 0.0, ClickBehavior::RunActions)
+                    .0
+            }
             BarSubject::Nothing => String::new(),
             BarSubject::DescendedIndicator => DESCENDED_HINT_LABEL.to_string(),
         };
@@ -5897,7 +5978,7 @@ mod tests {
     }
 
     #[test]
-    fn a_nested_session_s_hints_are_not_clickable() {
+    fn a_nested_session_s_hints_are_not_clickable_without_mouse_nested() {
         let mut state = state_descended_into_guest();
         state.mouse = true;
         state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
@@ -5908,13 +5989,64 @@ mod tests {
     }
 
     #[test]
-    fn the_descended_indicator_is_not_clickable() {
+    fn the_descended_indicator_is_not_clickable_without_mouse_nested() {
         let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
         state.mode_info.session_dimmed = Some(true);
         state.mode_info.nested_ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
         let (line, click_map) = state.draw_bar();
         assert!(!line.is_empty());
         assert_eq!(click_map, ClickMap::default());
+    }
+
+    #[test]
+    fn with_mouse_nested_a_nested_session_s_hint_presses_its_key() {
+        let mut state = state_descended_into_guest();
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
+        let outcome = left_click(&state, column_of(&state, "close"));
+        // The guest's key, typed into its pane, rather than the guest's
+        // binding run in this session.
+        assert_eq!(
+            outcome,
+            MouseOutcome::Run(keypress::press_keys(&[key(BareKey::Char('x'))]))
+        );
+    }
+
+    #[test]
+    fn with_mouse_nested_the_descended_indicator_presses_the_ascend_keys() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        assert_eq!(
+            left_click(&state, 0),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
+        // Past the end of the indicator does nothing.
+        let (line, _) = state.draw_bar();
+        let width = calculate_visible_length(&line, false);
+        assert_eq!(left_click(&state, width), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn with_mouse_nested_the_mode_prefix_before_the_indicator_does_nothing() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.show_mode = true;
+        state.mode_format = Some("MODE ".to_string());
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        assert_eq!(left_click(&state, 0), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, "MODE ".len()),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
     }
 
     #[test]
