@@ -23,7 +23,7 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `reserve_columns` | `0` | Columns to leave free for the rest of the status bar |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
-| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset |
+| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
@@ -90,6 +90,14 @@ How the bar behaves when one Zellij session runs inside another, and when the pl
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
 
 `dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
+
+## Mouse
+
+Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mouse` | `false` | Right-click for Zellij's context menu, left-click a hint to run it, and click the drop indicator or `overflow_str` for the hints that did not fit |
 
 ## Integration
 
