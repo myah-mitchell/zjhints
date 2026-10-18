@@ -73,7 +73,7 @@ LaunchOrFocusPlugin "zjhints" {
 
 The screen has two sides. The sidebar on the left lists the groups, the same ones as the [configuration reference](configuration.md), with *Other* last. The list on the right shows the options of the group selected in the sidebar. A group holding unsaved edits is marked with `●` in the sidebar.
 
-Each row of the list shows an option and its value. An option you have not set shows its default, dimmed. When the selected [theme](themes.md) sets that option, the theme's value shows instead, dimmed and followed by *(theme)*. A value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
+Each row of the list shows an option and its value. An option you have not set shows its default, dimmed. When the selected [theme](themes.md) sets that option, the theme's value shows instead, dimmed and followed by *(theme)*. A value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal. The line under the list describes the selected option and its default.
 
 | Key | What it does |
 | --- | --- |
