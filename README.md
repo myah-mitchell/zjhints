@@ -48,6 +48,7 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
 - [Mouse](docs/mouse.md): right-click for Zellij's context menu, click a hint to run it, and click the drop indicator for the hints that did not fit
 - [Settings screen](docs/settings.md): edit every option in a floating pane, see each change on the bar as you make it, and save it to your config file
+- [Hiding the bar](docs/hiding.md): hide and show it from a keybinding, giving its row back while hidden
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
 
 Every option is listed under [Configuration](#configuration) below.
@@ -86,6 +87,9 @@ plugins {
         // E.g. if you have set default_mode to "locked", then
         // you can hide hints in the locked mode by setting this to true
         hide_in_base_mode false // default
+        // Start with the bar hidden. A keybinding sending zjhints::toggle
+        // or zjhints::show brings it back. See docs/hiding.md.
+        hidden false // default
 
         // Render nothing while this session is nested inside another, so
         // one shared layout can serve both. See docs/nested-sessions.md.
@@ -295,6 +299,7 @@ The plugin works with no configuration, so this section is only for changing som
 | [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane            |
 | [Mouse](docs/mouse.md)                     | Right-click menu, clickable hints, menus of hints that did not fit |
 | [Settings screen](docs/settings.md)        | Editing the options in a floating pane, with live preview          |
+| [Hiding the bar](docs/hiding.md)           | Hiding and showing the bar from a keybinding or a shell            |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
 
