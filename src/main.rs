@@ -22,7 +22,7 @@ use settings::screen::SettingsScreen;
 
 use mouse::{
     ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
-    SegmentContent,
+    Preview, PreviewAction, PreviewMemory, PreviewPopup, PreviewStep, SegmentContent,
 };
 
 #[derive(Default)]
@@ -30,6 +30,9 @@ struct State {
     /// Set when this instance runs as the settings screen rather than the bar.
     /// It then handles every event itself and the bar's fields go unused.
     settings: Option<SettingsScreen>,
+    /// Set when this instance runs as the popup of a hover preview rather than
+    /// as the bar. It handles every event itself, like the settings screen.
+    hover_preview: Option<PreviewPopup>,
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
     /// The URL this bar's pane reports, which is the alias name when the bar
@@ -137,6 +140,11 @@ struct State {
     pending_menus: BTreeMap<u64, Vec<MenuEntry>>,
     /// Clicked actions not yet run, started one at a time.
     action_queue: ActionQueue,
+    /// The hover preview open over the bar, if any.
+    preview_memory: PreviewMemory,
+    /// How many rows the bar's pane had when it was last drawn, which is
+    /// where a hover preview starts below it.
+    pane_rows: usize,
     config: BTreeMap<String, String>,
 }
 
@@ -1244,6 +1252,60 @@ impl State {
         }
     }
 
+    /// Keep the hover preview in step with a mouse event on the bar: a hover
+    /// shows, keeps or closes it, and a click closes it before the click acts.
+    fn follow_mouse_with_preview(&mut self, mouse: &Mouse) {
+        let step = match mouse {
+            Mouse::Hover(..) => self.preview_memory.hover(&self.click_map, mouse),
+            Mouse::LeftClick(..) | Mouse::RightClick(..) => self
+                .preview_memory
+                .dismiss()
+                .map_or(PreviewStep::Keep, PreviewStep::Close),
+            _ => PreviewStep::Keep,
+        };
+        match step {
+            PreviewStep::Keep => {}
+            PreviewStep::Close(generation) => self.close_preview(generation),
+            PreviewStep::Show {
+                close,
+                generation,
+                preview,
+            } => {
+                if let Some(previous) = close {
+                    self.close_preview(previous);
+                }
+                self.show_preview(generation, &preview);
+            }
+        }
+    }
+
+    /// Open the popup for preview number `generation`. The timer is set
+    /// whether or not the popup can be, since the memory counts on one firing
+    /// for each preview it shows.
+    fn show_preview(&mut self, generation: u64, preview: &Preview) {
+        schedule_preview_expiry(mouse::PREVIEW_MEMORY_SECONDS);
+        let Some(url) = self.own_url.clone() else {
+            self.preview_memory.dismiss();
+            return;
+        };
+        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
+        let (width, height) = mouse::preview_size(&preview.entries, self.wide_ambiguous);
+        open_preview_popup(
+            &url,
+            mouse::preview_configuration(&tag, &preview.entries, self.wide_ambiguous),
+            self.pane_rows.max(1),
+            preview.columns.start,
+            width,
+            height,
+        );
+    }
+
+    /// Close preview number `generation` of this bar.
+    fn close_preview(&self, generation: u64) {
+        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
+        close_preview_popup(&tag);
+    }
+
     /// The hint line for one session's mode and keybindings, curated, ordered,
     /// styled, dimmed and truncated according to this plugin's configuration.
     ///
@@ -1610,7 +1672,7 @@ const BAR_PERMISSIONS: [PermissionType; 2] = [
 pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
     // Running a clicked hint's actions.
     PermissionType::RunActionsAsUser,
-    // Opening Zellij's context menu.
+    // Opening Zellij's context menu and the popup of a hover preview.
     PermissionType::ChangeApplicationState,
     // Showing the menus of hints and keys, which are prompts.
     PermissionType::OpenTerminalsOrPlugins,
@@ -1628,10 +1690,12 @@ fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
 }
 
 /// The events `mouse` needs beyond what the bar always subscribes to.
-const MOUSE_EVENTS: [EventType; 3] = [
+const MOUSE_EVENTS: [EventType; 4] = [
     EventType::Mouse,
     EventType::PromptResult,
     EventType::ActionComplete,
+    // Forgetting a hover preview that has closed itself.
+    EventType::Timer,
 ];
 
 /// The pipe message that opens the settings screen, or brings it up.
@@ -1704,6 +1768,65 @@ fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
         .get(CONFIG_HIDDEN)
         .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
 }
+
+/// Open a hover preview below the bar's `line` and at its `column`, `width` by
+/// `height`. Both are relative to the bar's pane, which is what Zellij adds
+/// the pane's own position to, and Zellij keeps the popup on screen: below
+/// the bar, or above it when the bar is at the bottom and the popup would not
+/// fit. The popup does not take the focus. `url` is the bar's own, so the
+/// popup is this plugin again, and is not granted permissions of its own.
+#[cfg(not(test))]
+fn open_preview_popup(
+    url: &str,
+    configuration: BTreeMap<String, String>,
+    line: usize,
+    column: usize,
+    width: usize,
+    height: usize,
+) {
+    open_plugin_popup_with_options(
+        url,
+        configuration,
+        line,
+        column,
+        width,
+        height,
+        PopupOptions {
+            focused: false,
+            corner: None,
+        },
+    );
+}
+
+#[cfg(test)]
+fn open_preview_popup(
+    _url: &str,
+    _configuration: BTreeMap<String, String>,
+    _line: usize,
+    _column: usize,
+    _width: usize,
+    _height: usize,
+) {
+}
+
+/// Tell the preview named `tag` to close.
+#[cfg(not(test))]
+fn close_preview_popup(tag: &str) {
+    pipe_message_to_plugin(MessageToPlugin::new(mouse::PREVIEW_CLOSE_MESSAGE).with_payload(tag));
+}
+
+#[cfg(test)]
+fn close_preview_popup(_tag: &str) {}
+
+/// Have a timer fire in `seconds`, when the bar should forget the preview it
+/// just opened.
+#[cfg(not(test))]
+fn schedule_preview_expiry(seconds: f64) {
+    set_timeout(seconds);
+}
+
+#[cfg(test)]
+fn schedule_preview_expiry(_seconds: f64) {}
 
 /// Open the settings screen as a floating pane, or reach the one already
 /// open. `zellij:OWN_URL` stands for this plugin's own location, and a
@@ -1863,6 +1986,15 @@ impl State {
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        // A preview popup asks for no permissions: it shares its location,
+        // and so its cached grants, with the bar, and a request would
+        // replace them. It needs none for what it does.
+        if let Some(popup) = PreviewPopup::from_configuration(&configuration) {
+            self.hover_preview = Some(popup);
+            subscribe(&[EventType::Mouse, EventType::Timer]);
+            set_timeout(mouse::PREVIEW_IDLE_SECONDS);
+            return;
+        }
         if configuration.get("settings").map(String::as_str) == Some("true") {
             let mut screen = SettingsScreen::default();
             screen.load(&configuration);
@@ -1905,6 +2037,17 @@ impl ZellijPlugin for State {
     }
 
     fn update(&mut self, event: Event) -> bool {
+        if let Some(popup) = &mut self.hover_preview {
+            let action = match event {
+                Event::Mouse(mouse) => popup.on_mouse(&mouse),
+                Event::Timer(_) => popup.on_timer(),
+                _ => PreviewAction::Stay,
+            };
+            if action == PreviewAction::Close {
+                close_self();
+            }
+            return false;
+        }
         if let Some(screen) = &mut self.settings {
             return screen.update(event);
         }
@@ -2011,8 +2154,14 @@ impl ZellijPlugin for State {
             // Still subscribed after `mouse` is turned off by a preview, so
             // checked here as well.
             Event::Mouse(mouse) if self.mouse => {
+                self.follow_mouse_with_preview(&mouse);
                 let outcome = mouse::click_outcome(&self.click_map, &mouse);
                 self.perform_mouse_outcome(outcome);
+            }
+            Event::Timer(_) => {
+                if let Some(generation) = self.preview_memory.timer_fired() {
+                    self.close_preview(generation);
+                }
             }
             Event::PromptResult(request_id, result) => {
                 let entries = self.pending_menus.remove(&request_id);
@@ -2029,6 +2178,14 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
+        if let Some(popup) = &self.hover_preview {
+            if message.name == mouse::PREVIEW_CLOSE_MESSAGE
+                && popup.on_close_message(message.payload.as_deref()) == PreviewAction::Close
+            {
+                close_self();
+            }
+            return false;
+        }
         if self.settings.is_some() {
             // Clicking the mode prefix again while the screen is hidden.
             if message.name == OPEN_SETTINGS_MESSAGE {
@@ -2057,6 +2214,12 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
+        if let Some(popup) = &self.hover_preview {
+            for (row, line) in popup.lines(rows, cols).into_iter().enumerate() {
+                print_text_with_coordinates(Text::from(&line), 0, row, None, None);
+            }
+            return;
+        }
         if let Some(screen) = &mut self.settings {
             screen.render(rows, cols);
             return;
@@ -2081,7 +2244,14 @@ impl ZellijPlugin for State {
             );
         }
         print!("{}", output);
+        // A preview of a hint that is no longer there would mislead.
+        if click_map != self.click_map {
+            if let Some(generation) = self.preview_memory.dismiss() {
+                self.close_preview(generation);
+            }
+        }
         self.click_map = click_map;
+        self.pane_rows = rows;
     }
 }
 
