@@ -2343,8 +2343,9 @@ fn truncate_ansi_string(
     wide_ambiguous: bool,
 ) -> String {
     let visible_len = calculate_visible_length(text, wide_ambiguous);
-    // Width on screen, not bytes: an overflow marker like `…` is one column.
-    let overflow_len = overflow_str.chars().count();
+    // Columns on screen, not characters or bytes: `…` is one column, or two
+    // where ambiguous characters are wide.
+    let overflow_len = calculate_visible_length(overflow_str, wide_ambiguous);
 
     if visible_len <= max_len {
         return text.to_string();
@@ -2353,7 +2354,16 @@ fn truncate_ansi_string(
     // Too narrow for even the marker, so show as much of it as fits rather than
     // overshooting the limit the caller asked for.
     if max_len <= overflow_len {
-        return overflow_str.chars().take(max_len).collect();
+        let mut shown = String::new();
+        let mut columns = 0;
+        for ch in overflow_str.chars() {
+            columns += char_width(ch, wide_ambiguous);
+            if columns > max_len {
+                break;
+            }
+            shown.push(ch);
+        }
+        return shown;
     }
 
     let target_len = max_len - overflow_len;
@@ -2367,11 +2377,14 @@ fn truncate_ansi_string(
                 result.push_str(&seq);
             }
             AnsiSegment::VisibleChar(ch) => {
-                if visible_count >= target_len {
+                // A wide character that would cross the limit is left out
+                // whole, so the cut can fall a column short of it.
+                let width = char_width(ch, wide_ambiguous);
+                if visible_count + width > target_len {
                     break;
                 }
                 result.push(ch);
-                visible_count += 1;
+                visible_count += width;
             }
         }
     }
@@ -4750,6 +4763,35 @@ mod tests {
                 truncated
             );
         }
+    }
+
+    #[test]
+    fn truncating_counts_wide_characters_as_two_columns() {
+        let line = "漢字テスト";
+        // Five columns leave four for the text and one for the marker.
+        let truncated = truncate_ansi_string(line, "…", 6, false);
+        assert_eq!(truncated, format!("漢字…{ANSI_RESET}"));
+        // A character that would cross the limit is left out, not split.
+        let truncated = truncate_ansi_string(line, "…", 7, false);
+        assert_eq!(truncated, format!("漢字テ…{ANSI_RESET}"));
+        for limit in 0..=10 {
+            for wide_ambiguous in [false, true] {
+                let truncated = truncate_ansi_string(line, "…", limit, wide_ambiguous);
+                assert!(
+                    calculate_visible_length(&truncated, wide_ambiguous) <= limit,
+                    "limit {limit} produced {truncated:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_ambiguous_marker_takes_two_columns_where_they_are_wide() {
+        // `…` is two columns, so a three-column cut keeps one of the text.
+        let truncated = truncate_ansi_string("abcdef", "…", 3, true);
+        assert_eq!(truncated, format!("a…{ANSI_RESET}"));
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, true), "");
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, false), "…");
     }
 
     #[test]

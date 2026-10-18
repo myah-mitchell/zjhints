@@ -1420,6 +1420,21 @@ mod tests {
     }
 
     #[test]
+    fn a_popup_cuts_wide_characters_without_breaking_its_frame() {
+        let popup = popup(&["漢字漢字"]);
+        for cols in 7..=11 {
+            for line in popup.lines(3, cols) {
+                assert_eq!(
+                    crate::calculate_visible_length(&line, false),
+                    cols,
+                    "{line:?} in {cols} columns"
+                );
+            }
+        }
+        assert_eq!(popup.lines(3, 10)[1], "│ 漢字…\u{1b}[0m  │");
+    }
+
+    #[test]
     fn a_popup_with_no_room_for_a_frame_draws_nothing() {
         let popup = popup(&["a"]);
         assert!(popup.lines(2, 20).is_empty());
