@@ -104,6 +104,20 @@ plugins {
         // a single mode its own icon, the same as zjstatus's mode_normal.
         // See docs/nested-sessions.md#standing-alone.
         show_mode true // default false
+        // Style the mode prefix with a format string; {mode} is the mode's
+        // name. Unset uses the theme's ribbon colors.
+        mode_format "#[fg=$black,bg=$blue,bold] {mode} "
+        // Give one mode its own prefix, falling back to mode_format.
+        mode_format_locked "#[fg=$black,bg=$fg,bold] 🔒 "
+
+        // Right-click the bar for Zellij's context menu, click a hint to run
+        // it, and click the drop indicator for the hints that did not fit.
+        // Needs the plugin in its own pane and asks for extra permissions.
+        // See docs/mouse.md.
+        mouse true // default false
+        // With mouse on, also make the hints of a nested session you have
+        // descended into clickable; a click types their keys into it.
+        mouse_nested false // default
 
         // Also show every other keybinding your config enables, beyond the
         // curated list. Set it to false for the curated list alone.
@@ -132,7 +146,14 @@ plugins {
         // See docs/styling.md for the full syntax.
         key_format  "#[fg=$black,bg=$blue,bold] {key} "
         desc_format "#[fg=$fg,bg=$bg] {desc} "
-        // Drawn between hints (never before the first or after the last).
+        // Style a single hint differently by its concept id, overriding
+        // key_format and desc_format for that hint only.
+        key_format_quit  "#[fg=$black,bg=$fg,bold] {key} "
+        desc_format_quit "#[fg=$fg,bg=$bg,italic] {desc} "
+        // Show a fixed string in place of a hint's keys.
+        keys_go_to_tab "1-9"
+        // Drawn between hints, and between the mode prefix and the first
+        // hint; never after the last.
         // Also a format string, so it can be a styled glyph, not just space.
         hint_spacer "#[fg=$fg] │ "
         // Shown where hints were dropped because the window is too narrow.
