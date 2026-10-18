@@ -3,14 +3,17 @@
 The hint line grows with the number of bindings a mode has, and can easily exceed the terminal. By default the plugin fits it to the available width, dropping whole hints rather than cutting one in half; you choose which ones go, and they can be replaced by an indicator:
 
 ```kdl
-auto_width      true // default: fit to the terminal
-reserve_columns 0    // columns to leave for the rest of the bar
+auto_width      true // default: fit to the bar's pane, or the terminal
+reserve_columns 0    // columns to leave beside the hints in zjstatus
 max_length      0    // hard cap; 0 = none
 ```
 
-Width is learned from Zellij's pane geometry rather than the plugin's own `render` dimensions, whether it runs headless behind zjstatus's pipe or in its own pane: it measures the right edge of the widest visible tiled pane. Floating and suppressed panes are ignored, as neither tracks the terminal's real width. Until the first pane update arrives no width is assumed, so nothing is cut on a guess.
+Where the width comes from depends on how the bar is shown:
 
-`reserve_columns` is what keeps room for anything sharing the bar. The plugin cannot see zjstatus's `format_right`, so if you have one, reserve roughly its width:
+- In a pane of its own, the bar fits that pane's width as Zellij reports it, and re-fits when the pane is resized. Nothing else shares the pane, so the whole width goes to the hints and `reserve_columns` is not used.
+- Feeding zjstatus, the bar is loaded with `load_plugins` and runs in a hidden pane whose size has nothing to do with the status bar, so it measures the terminal from Zellij's pane geometry instead: the right edge of the widest visible tiled pane. Floating and suppressed panes are ignored, as neither tracks the terminal's real width. Until the first pane update arrives no width is assumed, so nothing is cut on a guess.
+
+`reserve_columns` keeps room for whatever shares zjstatus's bar, and applies only when feeding zjstatus. The plugin cannot see zjstatus's `format_right`, so if you have one, reserve roughly its width:
 
 ```kdl
 format_left  "{pipe_zjhints}"
@@ -21,7 +24,7 @@ format_right "{command_user}@{command_host}:{session}" // about 30 columns
 reserve_columns 32
 ```
 
-`max_length` acts as a hard cap alongside this. With both set the smaller wins, so an explicit cap is never exceeded on a wide terminal. Set `auto_width false` to ignore the terminal entirely and use the fixed cap alone.
+`max_length` acts as a hard cap alongside this. With both set the smaller wins, so an explicit cap is never exceeded on a wide terminal. Set `auto_width false` to ignore the pane and the terminal entirely and use the fixed cap alone.
 
 ## Glyph width
 

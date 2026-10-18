@@ -73,10 +73,11 @@ plugins {
     zjhints location="https://github.com/myah-mitchell/zjhints/releases/latest/download/zjhints.wasm" {
         // Hard cap on the width of the hint line, in columns
         max_length 0 // 0 = unlimited
-        // Fit the hints to the terminal, dropping trailing hints as it
-        // narrows. Reserve columns for whatever shares the bar.
+        // Fit the hints to the bar, dropping hints as it narrows. In its own
+        // pane the bar uses the pane's width; feeding zjstatus, it uses the
+        // terminal's, less reserve_columns for whatever shares the bar.
         auto_width true // default
-        reserve_columns 0 // default
+        reserve_columns 0 // default, used only when feeding zjstatus
         // Set to 2 if your terminal draws Nerd Font glyphs double-width.
         ambiguous_width 1 // default
         // Appended when a single hint is too wide to fit even alone
