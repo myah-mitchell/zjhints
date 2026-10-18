@@ -39,7 +39,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
    publish release, becomes `latest`
    move the `zellij-<line>` tag to it too
 
- nightly.yml (05:00 UTC, and on every push to main)
+ nightly.yml (05:00 UTC, or run by hand)
    build main
    move the `nightly` tag
    replace the nightly prerelease
@@ -84,9 +84,9 @@ Several commands and tag names below take a value you supply, written in angle b
 
 | File | Runs on | Does |
 | --- | --- | --- |
-| `ci.yml` | every push and pull request | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
+| `ci.yml` | pull requests and pushes to `main` | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
 | `update-deps.yml` | 04:00 UTC daily, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
-| `nightly.yml` | 05:00 UTC daily, pushes to `main`, or manually | rebuilds `main`, moves the `nightly` release |
+| `nightly.yml` | 05:00 UTC daily, or manually | rebuilds `main`, moves the `nightly` release |
 | `release.yml` | pushes to `main`, `v*.*.*` tags, or manually | publishes a release when `Cargo.toml` names an untagged version |
 | `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
 | `cleanup-caches.yml` | a pull request closes | deletes that PR's Actions caches |
