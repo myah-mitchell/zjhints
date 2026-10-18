@@ -1327,18 +1327,11 @@ fn drop_indicator_from_config(
 /// pipe has a zjstatus config reading that name and no other. Left unset,
 /// both the current default and the pre-rename one go out, so a config
 /// written against either keeps rendering.
-fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<String> {
-    match configuration.get("pipe_name") {
-        Some(name) => vec![name.clone()],
-        None => vec![DEFAULT_PIPE_NAME.to_string(), LEGACY_PIPE_NAME.to_string()],
-    }
-}
-
-impl ZellijPlugin for State {
-    fn load(&mut self, configuration: BTreeMap<String, String>) {
-        self.initialized = false;
-
-        // TODO: configuration validation
+impl State {
+    /// Read every option from `configuration`, as `load` does and as a live
+    /// update from the settings screen does, so a value behaves the same
+    /// whichever way it arrived.
+    fn apply_configuration(&mut self, configuration: BTreeMap<String, String>) {
         self.max_length = configuration
             .get("max_length")
             .and_then(|s| s.parse().ok())
@@ -1512,6 +1505,20 @@ impl ZellijPlugin for State {
         // Retained so `$alias` colors and `label_<action>` overrides can be
         // resolved from the raw configuration.
         self.config = configuration;
+    }
+}
+
+fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<String> {
+    match configuration.get("pipe_name") {
+        Some(name) => vec![name.clone()],
+        None => vec![DEFAULT_PIPE_NAME.to_string(), LEGACY_PIPE_NAME.to_string()],
+    }
+}
+
+impl ZellijPlugin for State {
+    fn load(&mut self, configuration: BTreeMap<String, String>) {
+        self.initialized = false;
+        self.apply_configuration(configuration);
 
         let mut permissions = vec![
             PermissionType::ReadApplicationState,
