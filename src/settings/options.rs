@@ -6,11 +6,20 @@
 
 /// A heading the options are grouped under, in the order they are shown. The
 /// same headings, in the same order, as the configuration reference.
+///
+/// A group may hold fixed options, families, or both. Adding one takes its
+/// name here, a heading in the reference, and its options or families naming
+/// it as their group.
 pub const GROUPS: &[&str] = &[
     "Fitting",
     "Hints",
     "Keys and ordering",
     "Styling",
+    "Colors",
+    "Key aliases",
+    "Modifier aliases",
+    "Labels",
+    "Mode prefix",
     "Nested sessions",
     "Mouse",
     "Integration",
@@ -27,8 +36,18 @@ pub enum Kind {
     Integer,
     /// A number from 0.0 to 1.0, typed.
     Fraction,
-    /// Anything, typed. Format strings and the like.
+    /// Anything, typed.
     Text,
+    /// A zjstatus-style format string, typed. Shown rendered in the list
+    /// unless the raw text is asked for.
+    Format,
+}
+
+impl Kind {
+    /// Whether the value is free text, which the list always shows quoted.
+    pub fn is_text(self) -> bool {
+        matches!(self, Kind::Text | Kind::Format)
+    }
 }
 
 /// One option with a fixed name.
@@ -49,7 +68,32 @@ pub struct OptionSpec {
 pub struct FamilySpec {
     /// The name as the reference writes it, placeholder included.
     pub pattern: &'static str,
+    pub group: &'static str,
+    pub kind: Kind,
     pub description: &'static str,
+}
+
+impl FamilySpec {
+    /// The part of the name before the first placeholder, such as `color_`.
+    pub fn prefix(&self) -> &'static str {
+        self.pattern
+            .split_once('<')
+            .map_or(self.pattern, |(prefix, _)| prefix)
+    }
+}
+
+const fn family(
+    pattern: &'static str,
+    group: &'static str,
+    kind: Kind,
+    description: &'static str,
+) -> FamilySpec {
+    FamilySpec {
+        pattern,
+        group,
+        kind,
+        description,
+    }
 }
 
 const fn option(
@@ -107,7 +151,7 @@ pub const OPTIONS: &[OptionSpec] = &[
     option(
         "drop_indicator",
         "Fitting",
-        Kind::Text,
+        Kind::Format,
         None,
         "Format string marking where hints were dropped (… when mouse is on)",
     ),
@@ -170,21 +214,21 @@ pub const OPTIONS: &[OptionSpec] = &[
     option(
         "key_format",
         "Styling",
-        Kind::Text,
+        Kind::Format,
         None,
         "Format string for each hint's keys, theme palette when unset",
     ),
     option(
         "desc_format",
         "Styling",
-        Kind::Text,
+        Kind::Format,
         None,
         "Format string for each hint's description, theme palette when unset",
     ),
     option(
         "hint_spacer",
         "Styling",
-        Kind::Text,
+        Kind::Format,
         None,
         "Format string drawn between hints and after the mode prefix",
     ),
@@ -218,15 +262,15 @@ pub const OPTIONS: &[OptionSpec] = &[
     ),
     option(
         "show_mode",
-        "Nested sessions",
+        "Mode prefix",
         Kind::Bool,
         Some("false"),
         "Prefix the hints line with the current input mode",
     ),
     option(
         "mode_format",
-        "Nested sessions",
-        Kind::Text,
+        "Mode prefix",
+        Kind::Format,
         None,
         "Format string for the mode prefix, with a {mode} placeholder",
     ),
@@ -254,50 +298,72 @@ pub const OPTIONS: &[OptionSpec] = &[
 ];
 
 pub const FAMILIES: &[FamilySpec] = &[
-    FamilySpec {
-        pattern: "key_format_<id>",
-        description: "Format string for one hint's keys",
-    },
-    FamilySpec {
-        pattern: "desc_format_<id>",
-        description: "Format string for one hint's description",
-    },
-    FamilySpec {
-        pattern: "keys_<id>",
-        description: "A fixed string in place of a hint's keys",
-    },
-    FamilySpec {
-        pattern: "color_<name>",
-        description: "A color alias, used as $name in format strings",
-    },
-    FamilySpec {
-        pattern: "key_alias_<name>",
-        description: "A symbol in place of a key's name",
-    },
-    FamilySpec {
-        pattern: "mod_alias_<name>",
-        description: "A symbol in place of a modifier's name",
-    },
-    FamilySpec {
-        pattern: "chord_mods_<name>",
-        description: "The modifiers of a chord alias",
-    },
-    FamilySpec {
-        pattern: "chord_alias_<name>",
-        description: "The symbol shown for a chord alias",
-    },
-    FamilySpec {
-        pattern: "label_<id>",
-        description: "A hint's label; empty hides the hint",
-    },
-    FamilySpec {
-        pattern: "label_<mode>_<id>",
-        description: "A hint's label in one mode; empty hides it",
-    },
-    FamilySpec {
-        pattern: "mode_format_<mode>",
-        description: "The mode prefix's format string for one mode",
-    },
+    family(
+        "key_format_<id>",
+        "Styling",
+        Kind::Format,
+        "Format string for one hint's keys",
+    ),
+    family(
+        "desc_format_<id>",
+        "Styling",
+        Kind::Format,
+        "Format string for one hint's description",
+    ),
+    family(
+        "keys_<id>",
+        "Styling",
+        Kind::Text,
+        "A fixed string in place of a hint's keys",
+    ),
+    family(
+        "color_<name>",
+        "Colors",
+        Kind::Text,
+        "A color alias, used as $name in format strings",
+    ),
+    family(
+        "key_alias_<name>",
+        "Key aliases",
+        Kind::Text,
+        "A symbol in place of a key's name",
+    ),
+    family(
+        "mod_alias_<name>",
+        "Modifier aliases",
+        Kind::Text,
+        "A symbol in place of a modifier's name",
+    ),
+    family(
+        "chord_mods_<name>",
+        "Modifier aliases",
+        Kind::Text,
+        "The modifiers of a chord alias",
+    ),
+    family(
+        "chord_alias_<name>",
+        "Modifier aliases",
+        Kind::Text,
+        "The symbol shown for a chord alias",
+    ),
+    family(
+        "label_<id>",
+        "Labels",
+        Kind::Text,
+        "A hint's label; empty hides the hint",
+    ),
+    family(
+        "label_<mode>_<id>",
+        "Labels",
+        Kind::Text,
+        "A hint's label in one mode; empty hides it",
+    ),
+    family(
+        "mode_format_<mode>",
+        "Mode prefix",
+        Kind::Format,
+        "The mode prefix's format string for one mode",
+    ),
 ];
 
 /// Options of the settings screen itself, read only when it is opened. They
@@ -374,6 +440,22 @@ pub fn family_of(key: &str) -> Option<&'static FamilySpec> {
         .max_by_key(|family| (family.pattern.find('<'), family.pattern.contains("<mode>")))
 }
 
+/// The group a key is listed under: its option's, or its family's. `None`
+/// for a key that is neither, which the screen lists under "Other".
+pub fn group_of(key: &str) -> Option<&'static str> {
+    find(key)
+        .map(|option| option.group)
+        .or_else(|| family_of(key).map(|family| family.group))
+}
+
+/// The kind of value a key takes: its option's, or its family's, or text.
+pub fn kind_of(key: &str) -> Kind {
+    find(key)
+        .map(|option| option.kind)
+        .or_else(|| family_of(key).map(|family| family.kind))
+        .unwrap_or(Kind::Text)
+}
+
 /// Whether `value` is acceptable for an option of this kind. Text is always
 /// acceptable; an empty value means unset for any kind.
 pub fn validate(kind: Kind, value: &str) -> Result<(), String> {
@@ -393,7 +475,7 @@ pub fn validate(kind: Kind, value: &str) -> Result<(), String> {
             Ok(number) if (0.0..=1.0).contains(&number) => Ok(()),
             _ => Err("a number from 0.0 to 1.0".to_string()),
         },
-        Kind::Text => Ok(()),
+        Kind::Text | Kind::Format => Ok(()),
     }
 }
 
@@ -454,6 +536,10 @@ mod tests {
             );
             assert_eq!(option.group, heading, "group of {}", option.name);
         }
+        for family in FAMILIES {
+            let (_, heading) = &documented[family.pattern];
+            assert_eq!(family.group, heading, "group of {}", family.pattern);
+        }
     }
 
     #[test]
@@ -467,6 +553,9 @@ mod tests {
         assert_eq!(headings, GROUPS);
         for option in OPTIONS {
             assert!(GROUPS.contains(&option.group), "{}", option.name);
+        }
+        for family in FAMILIES {
+            assert!(GROUPS.contains(&family.group), "{}", family.pattern);
         }
     }
 
@@ -493,6 +582,42 @@ mod tests {
         assert_eq!(pattern("mode_format_bogus"), None);
         assert_eq!(pattern("label_"), None);
         assert_eq!(pattern("something_else"), None);
+    }
+
+    #[test]
+    fn keys_outside_the_options_are_sorted_into_their_family_groups() {
+        assert_eq!(group_of("color_blue"), Some("Colors"));
+        assert_eq!(group_of("key_alias_enter"), Some("Key aliases"));
+        assert_eq!(group_of("mod_alias_ctrl"), Some("Modifier aliases"));
+        assert_eq!(group_of("chord_mods_leader"), Some("Modifier aliases"));
+        assert_eq!(group_of("chord_alias_leader"), Some("Modifier aliases"));
+        assert_eq!(group_of("label_split_down"), Some("Labels"));
+        assert_eq!(group_of("label_locked_mode_normal"), Some("Labels"));
+        assert_eq!(group_of("mode_format_locked"), Some("Mode prefix"));
+        assert_eq!(group_of("key_format_quit"), Some("Styling"));
+        assert_eq!(group_of("desc_format_quit"), Some("Styling"));
+        assert_eq!(group_of("keys_go_to_tab"), Some("Styling"));
+        assert_eq!(group_of("mode_format"), Some("Mode prefix"));
+        assert_eq!(group_of("something_else"), None);
+        assert_eq!(group_of("mode_format_bogus"), None);
+    }
+
+    #[test]
+    fn format_strings_are_told_apart_from_plain_text() {
+        assert_eq!(kind_of("key_format"), Kind::Format);
+        assert_eq!(kind_of("key_format_quit"), Kind::Format);
+        assert_eq!(kind_of("mode_format_locked"), Kind::Format);
+        assert_eq!(kind_of("label_quit"), Kind::Text);
+        assert_eq!(kind_of("overflow_str"), Kind::Text);
+        assert_eq!(kind_of("max_length"), Kind::Integer);
+        assert_eq!(kind_of("something_else"), Kind::Text);
+        assert_eq!(
+            FAMILIES
+                .iter()
+                .map(FamilySpec::prefix)
+                .find(|prefix| prefix.starts_with("color")),
+            Some("color_")
+        );
     }
 
     #[test]

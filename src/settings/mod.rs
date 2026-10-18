@@ -6,3 +6,4 @@ pub mod editor;
 pub mod live;
 pub mod options;
 pub mod screen;
+pub mod view;
