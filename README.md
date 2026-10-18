@@ -236,7 +236,7 @@ make zellij VERSION=0.44         # newest release built for that line
 
 ### Versioning
 
-Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. A minor version bump marks one of two things: a move to a new Zellij minor, or added functionality. A plain bugfix release is therefore never mistaken for either.
+Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. They carry fixes, dependency updates and smaller additions. A minor version bump marks one of three things: a move to a new Zellij minor, a breaking change to the configuration, or a major zjhints feature.
 
 | zjhints                 | Targets Zellij |
 | ----------------------- | -------------- |
@@ -244,7 +244,7 @@ Most releases are patch bumps on their own schedule, unrelated to when Zellij re
 | 0.4.x                   | 0.45.x         |
 | 0.5.x (current release) | 0.46.x         |
 
-A new row means the Zellij line moved. The reverse does not hold: a minor bump that added functionality keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
+A new row means the Zellij line moved. The reverse does not hold: a minor bump for a breaking change or a major feature keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
 
 Bumping past a Zellij minor is deliberately not automatic, and the previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag. See [docs/automation.md](docs/automation.md) for why and how that update is proposed instead of applied.
 
