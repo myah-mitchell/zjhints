@@ -94,7 +94,7 @@ This addresses hints the same way `key_format_<id>` does, mode scoping included.
 
 ## Spacing
 
-By default hints sit directly against one another. `hint_spacer` inserts a separator between consecutive hints, never before the first or after the last, so it never leaks into the edges of the piped output:
+By default hints sit directly against one another. `hint_spacer` inserts a separator between consecutive hints, and between the mode prefix and the first hint when [`show_mode`](nested-sessions.md#standing-alone) is on. It never goes after the last hint, or before the first when nothing precedes it, so it never leaks into the edges of the piped output:
 
 ```kdl
 hint_spacer "  "             // just widen the gap

@@ -3,7 +3,7 @@
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
 
 > [!IMPORTANT]
-> Two of this release's features need Zellij APIs that are not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
+> Three of this release's features need Zellij APIs that are not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
 
 <!-- Separates the two alerts; adjacent blockquotes would merge into one. -->
 
@@ -19,16 +19,17 @@ https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
 
 ## Zellij support
 
-Two features in this release need plugin APIs that are not in a released Zellij yet. #5589 is merged and #5590 is still an open pull request; both are expected in Zellij's next minor:
+Three features in this release need plugin APIs that are not in a released Zellij yet. #5589 and #5590 are merged and expected in Zellij's next minor release. #5685 is still an open pull request:
 
 | Zellij PR                                               | What it gives zjhints                                                                                                                                                                                       |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session) |
 | [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                   |
+| [#5685](https://github.com/zellij-org/zellij/pull/5685) | Zellij's context menu and prompt APIs, which [mouse](docs/mouse.md) uses for the right-click menu and the menus of hints                                                                                    |
 
-Until they are released, a Zellij build carrying both is published as [fork-v0.46.3](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.3). That is the build zjhints is compiled against, so it is the way to see these two features working today.
+Until they are released, a Zellij build carrying all three is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
 
-Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the two features above are absent rather than broken. See [Versioning](#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there. See [Versioning](#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 
@@ -44,6 +45,7 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 - [Labels](docs/labels.md): rename, hide, merge, or reorder any hint, globally or in a single mode
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
+- [Mouse](docs/mouse.md): right-click for Zellij's context menu, click a hint to run it, and click the drop indicator for the hints that did not fit
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
 
 Every option is listed under [Configuration](#configuration) below.
@@ -102,6 +104,20 @@ plugins {
         // a single mode its own icon, the same as zjstatus's mode_normal.
         // See docs/nested-sessions.md#standing-alone.
         show_mode true // default false
+        // Style the mode prefix with a format string; {mode} is the mode's
+        // name. Unset uses the theme's ribbon colors.
+        mode_format "#[fg=$black,bg=$blue,bold] {mode} "
+        // Give one mode its own prefix, falling back to mode_format.
+        mode_format_locked "#[fg=$black,bg=$fg,bold] 🔒 "
+
+        // Right-click the bar for Zellij's context menu, click a hint to run
+        // it, and click the drop indicator for the hints that did not fit.
+        // Needs the plugin in its own pane and asks for extra permissions.
+        // See docs/mouse.md.
+        mouse true // default false
+        // With mouse on, also make the hints of a nested session you have
+        // descended into clickable; a click types their keys into it.
+        mouse_nested false // default
 
         // Also show every other keybinding your config enables, beyond the
         // curated list. Set it to false for the curated list alone.
@@ -130,7 +146,14 @@ plugins {
         // See docs/styling.md for the full syntax.
         key_format  "#[fg=$black,bg=$blue,bold] {key} "
         desc_format "#[fg=$fg,bg=$bg] {desc} "
-        // Drawn between hints (never before the first or after the last).
+        // Style a single hint differently by its concept id, overriding
+        // key_format and desc_format for that hint only.
+        key_format_quit  "#[fg=$black,bg=$fg,bold] {key} "
+        desc_format_quit "#[fg=$fg,bg=$bg,italic] {desc} "
+        // Show a fixed string in place of a hint's keys.
+        keys_go_to_tab "1-9"
+        // Drawn between hints, and between the mode prefix and the first
+        // hint; never after the last.
         // Also a format string, so it can be a styled glyph, not just space.
         hint_spacer "#[fg=$fg] │ "
         // Shown where hints were dropped because the window is too narrow.
@@ -267,6 +290,7 @@ The plugin works with no configuration, so this section is only for changing som
 | [Hints](docs/hints.md)                     | The curated list, discovery, and shared bindings                   |
 | [Labels](docs/labels.md)                   | Renaming, hiding, merging, and per-mode labels                     |
 | [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane            |
+| [Mouse](docs/mouse.md)                     | Right-click menu, clickable hints, menus of hints that did not fit |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
 

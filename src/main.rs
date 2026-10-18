@@ -12,6 +12,13 @@ use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 
 mod format;
+mod keypress;
+mod mouse;
+
+use mouse::{
+    ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
+    SegmentContent,
+};
 
 #[derive(Default)]
 struct State {
@@ -84,6 +91,20 @@ struct State {
     /// The focused tab, learned from `TabUpdate`. `None` until the first one
     /// arrives.
     active_tab: Option<ActiveTab>,
+    /// Make the bar clickable: right-click for Zellij's context menu,
+    /// left-click to run a hint, and a menu of the hints that did not fit.
+    /// Off by default, since it asks for permission to run actions.
+    mouse: bool,
+    /// With `mouse` on, also make a descended-into nested session's hints and
+    /// the way back out of it clickable, by typing their keys into the pane
+    /// that session runs in.
+    mouse_nested: bool,
+    /// Which columns of the line last drawn hold which hint.
+    click_map: ClickMap,
+    /// Menus shown and not yet answered, by prompt request id.
+    pending_menus: BTreeMap<u64, Vec<MenuEntry>>,
+    /// Clicked actions not yet run, started one at a time.
+    action_queue: ActionQueue,
     config: BTreeMap<String, String>,
 }
 
@@ -104,6 +125,25 @@ struct TabFocus {
 struct ActiveTab {
     position: usize,
     floating_panes_visible: bool,
+}
+
+/// What clicking the descended-into indicator does: press the nested
+/// session's ascend keys, in order, in the pane it runs in.
+fn descended_indicator_target(
+    mode_info: &ModeInfo,
+    config: &BTreeMap<String, String>,
+) -> HintTarget {
+    let label = menu_label(
+        &compose_key_text(&mode_info.nested_ascend_keys, config),
+        DESCENDED_HINT_LABEL,
+    );
+    HintTarget {
+        label: label.clone(),
+        choices: vec![HintChoice {
+            label,
+            actions: keypress::press_keys(&mode_info.nested_ascend_keys),
+        }],
+    }
 }
 
 /// What a nested session running in one of this session's panes has told us
@@ -258,6 +298,8 @@ const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_SHOW_MODE: &str = "show_mode";
 const CONFIG_MODE_FORMAT: &str = "mode_format";
+const CONFIG_MOUSE: &str = "mouse";
+const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 // Per-mode override of the mode prefix, e.g. `mode_format_normal`. Matches
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
@@ -291,6 +333,19 @@ const DEFAULT_DIM_STRENGTH: f32 = 0.5;
 // Off by default: most setups pair this plugin with zjstatus's own {mode}
 // widget on the same line, so a second mode indicator would be redundant.
 const DEFAULT_SHOW_MODE: bool = false;
+// Off by default: clicks need permission to run actions as the user, which a
+// bar that only shows hints has no reason to ask for.
+const DEFAULT_MOUSE: bool = false;
+// Off by default: a click on a nested session's bar types keys into it, which
+// is less obviously what clicking a bar does than running a binding here.
+const DEFAULT_MOUSE_NESTED: bool = false;
+// Drawn where hints were dropped when mouse support is on and no
+// `drop_indicator` is configured, so the hints that did not fit always have
+// something to click.
+const DEFAULT_MOUSE_DROP_INDICATOR: &str = "…";
+/// Context key marking the actions this plugin runs for a click, so their
+/// `ActionComplete` can be told apart.
+const MOUSE_ACTION_CONTEXT: &str = "zjhints_mouse";
 
 type ActionLabel = (Action, &'static str);
 type ActionSequenceLabel = (&'static [Action], &'static str);
@@ -474,9 +529,13 @@ struct HintStyle<'a> {
     dim: f32,
     key_format: Option<&'a str>,
     desc_format: Option<&'a str>,
-    /// Rendered between consecutive hints (never before the first or after the
-    /// last). `None` when unset, leaving hints adjacent as before.
+    /// Rendered between consecutive hints, and before the first when
+    /// `spacer_after_prefix` is set, never after the last. `None` when unset,
+    /// leaving hints adjacent as before.
     spacer: Option<&'a str>,
+    /// Whether the mode prefix is drawn in front of the hints, so `spacer`
+    /// separates it from the first hint as it separates hints from each other.
+    spacer_after_prefix: bool,
     discover: bool,
     direction_keys: DirectionKeys,
     key_order: KeyOrder,
@@ -499,6 +558,19 @@ struct HintStyle<'a> {
     /// Empty when `hide_shared_hints` is off or when rendering the base mode.
     shared: &'a [(KeyWithModifier, Vec<Action>)],
     config: &'a BTreeMap<String, String>,
+    /// What clicking one of the hints does.
+    click: ClickBehavior,
+}
+
+/// What clicking a hint does.
+#[derive(Clone, Copy, PartialEq)]
+enum ClickBehavior {
+    /// Run the actions its keys are bound to, here. For this session's own
+    /// hints.
+    RunActions,
+    /// Press one of its keys in the focused pane. For a descended-into nested
+    /// session's hints, whose keys mean something only to that session.
+    PressKeys,
 }
 
 const NORMAL_MODE_ACTIONS: &[ActionLabel] = &[
@@ -976,13 +1048,155 @@ impl State {
         })
     }
 
+    /// The line to draw and what clicking each of its columns does.
+    ///
+    /// This session's own hints run their bindings when clicked. A nested
+    /// session's hints describe keys that reach the nested session, not this
+    /// one, so they and the way back out of it can only be clicked with
+    /// `mouse_nested`, which types their keys into the focused pane, the one
+    /// the descended-into session runs in.
+    fn draw_bar(&self) -> (String, ClickMap) {
+        let mode_info = &self.mode_info;
+        let dim = self.dim_amount();
+
+        match self.bar_subject() {
+            BarSubject::Nothing => (String::new(), ClickMap::default()),
+            BarSubject::Hints(subject) => {
+                // An owned subject is the descended-into session's, built by
+                // `descended_guest_mode_info`. A borrowed one is this
+                // session's own.
+                match subject {
+                    Cow::Owned(_) => {
+                        let guest_dim = self.descended_guest_dim_amount();
+                        let (line, click_map) =
+                            self.render_hint_line(&subject, guest_dim, ClickBehavior::PressKeys);
+                        if self.mouse_nested {
+                            (line, click_map)
+                        } else {
+                            (line, ClickMap::default())
+                        }
+                    }
+                    Cow::Borrowed(_) => {
+                        self.render_hint_line(&subject, dim, ClickBehavior::RunActions)
+                    }
+                }
+            }
+            BarSubject::DescendedIndicator => {
+                let dimmed_colors;
+                let colors: &Styling = if dim > 0.0 {
+                    dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+                    &dimmed_colors
+                } else {
+                    &mode_info.style.colors
+                };
+                let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
+                let hint_order = HintOrder::default();
+                let indicator_style = HintStyle {
+                    colors,
+                    dim,
+                    key_format: self.key_format.as_deref(),
+                    desc_format: self.desc_format.as_deref(),
+                    spacer: None,
+                    spacer_after_prefix: false,
+                    discover: false,
+                    direction_keys: DirectionKeys::default(),
+                    // A sequence ("press Ctrl o, then ]"), not the alternative
+                    // keys sort_keys reorders for a normal hint.
+                    key_order: KeyOrder::Unsorted,
+                    mode: &mode_key,
+                    hint_order: &hint_order,
+                    limit: None,
+                    wide_ambiguous: self.wide_ambiguous,
+                    drop_indicator: None,
+                    precedence: HintPrecedence::default(),
+                    shared: &[],
+                    config: &self.config,
+                    click: ClickBehavior::RunActions,
+                };
+                let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
+                let prefix = if styled_indicator.is_empty() || !self.show_mode {
+                    String::new()
+                } else {
+                    let mode_prefix = render_mode_prefix(
+                        mode_info.mode,
+                        colors,
+                        self.mode_format.as_deref(),
+                        &self.config,
+                        dim,
+                    );
+                    // Spaced from the prefix as the first hint would be.
+                    let spacer = self
+                        .hint_spacer
+                        .as_deref()
+                        .map(|spacer| format::render_template(spacer, &[], &self.config, dim))
+                        .unwrap_or_default();
+                    format!("{}{}", ANSIStrings(&mode_prefix), ANSIStrings(&spacer))
+                };
+                // Ascending is the nested session's own binding, which it acts
+                // on when its keys reach it, so clicking types them into it.
+                let segments = if self.mouse_nested && !styled_indicator.is_empty() {
+                    vec![LineSegment {
+                        width: calculate_visible_length(&styled_indicator, self.wide_ambiguous),
+                        content: SegmentContent::Hint(descended_indicator_target(
+                            mode_info,
+                            &self.config,
+                        )),
+                    }]
+                } else {
+                    vec![]
+                };
+                let start = calculate_visible_length(&prefix, self.wide_ambiguous);
+                self.fit_line(format!("{prefix}{styled_indicator}"), segments, start)
+            }
+        }
+    }
+
+    /// Carry out what a click or a menu answer led to. With `run_mouse_action`,
+    /// the only part of mouse support that talks to the host; see the `mouse`
+    /// module for the rest.
+    fn perform_mouse_outcome(&mut self, outcome: MouseOutcome) {
+        match outcome {
+            MouseOutcome::Nothing => {}
+            MouseOutcome::ContextMenu { line, column } => {
+                open_context_menu(ContextMenuTarget::Bar, line, column);
+            }
+            MouseOutcome::Run(actions) => {
+                let first = self.action_queue.enqueue(actions);
+                self.run_mouse_action(first);
+            }
+            MouseOutcome::Menu(entries) => {
+                if !entries.is_empty() {
+                    let request_id = prompt(mouse::menu_request(&entries));
+                    self.pending_menus.insert(request_id, entries);
+                }
+            }
+        }
+    }
+
+    /// Hand one queued action to Zellij, tagged so its completion starts the
+    /// next. See `ActionQueue`.
+    fn run_mouse_action(&self, action: Option<Action>) {
+        if let Some(action) = action {
+            let context = BTreeMap::from([(MOUSE_ACTION_CONTEXT.to_string(), String::new())]);
+            run_action(action, context);
+        }
+    }
+
     /// The hint line for one session's mode and keybindings, curated, ordered,
     /// styled, dimmed and truncated according to this plugin's configuration.
     ///
     /// `mode_info` is what is being described, which is this session normally
     /// and the nested session it has descended into otherwise. Everything else
     /// comes from this session, because the bar being drawn is this session's.
-    fn render_hint_line(&self, mode_info: &ModeInfo, dim: f32) -> String {
+    ///
+    /// Also returns which columns of the line hold which hint, for mouse
+    /// clicks, which do what `click` says.
+    fn render_hint_line(
+        &self,
+        mode_info: &ModeInfo,
+        dim: f32,
+        click: ClickBehavior,
+    ) -> (String, ClickMap) {
         let keymap = get_keymap_for_mode(mode_info);
         // Bindings the base mode already advertises. Every non-base mode
         // inherits these via Zellij's `shared_except` groups, so listing
@@ -1029,6 +1243,7 @@ impl State {
             key_format: self.key_format.as_deref(),
             desc_format: self.desc_format.as_deref(),
             spacer: self.hint_spacer.as_deref(),
+            spacer_after_prefix: mode_prefix_len > 0,
             discover: self.discover_hints,
             direction_keys: self.direction_keys,
             key_order: self.key_order,
@@ -1044,9 +1259,11 @@ impl State {
             precedence: self.hint_precedence,
             shared: &shared,
             config: &self.config,
+            click,
         };
+        let (hint_parts, segments) = lay_out_hints_for_mode(mode_info.mode, &keymap, &ctx);
         let mut parts = mode_prefix;
-        parts.extend(render_hints_for_mode(mode_info.mode, &keymap, &ctx));
+        parts.extend(hint_parts);
 
         let ansi_strings = ANSIStrings(&parts);
         let formatted = if leading_space > 0 {
@@ -1055,14 +1272,53 @@ impl State {
             ansi_strings.to_string()
         };
 
-        let visible_len = calculate_visible_length(&formatted, self.wide_ambiguous);
-        match limit {
+        self.fit_line(formatted, segments, leading_space + mode_prefix_len)
+    }
+
+    /// Cut `line` down to `max_length` when it is longer, and say which of its
+    /// columns hold what. `segments` are laid out from column `start`.
+    fn fit_line(
+        &self,
+        line: String,
+        segments: Vec<LineSegment>,
+        start: usize,
+    ) -> (String, ClickMap) {
+        let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
+        match self.length_limit() {
             Some(limit) if visible_len > limit => {
-                truncate_ansi_string(&formatted, &self.overflow_str, limit, self.wide_ambiguous)
+                let truncated =
+                    truncate_ansi_string(&line, &self.overflow_str, limit, self.wide_ambiguous);
+                // Measured from what was drawn rather than worked out from
+                // `limit`, since the cut keeps whole characters and a wide one
+                // can leave it short of the limit.
+                let shown = calculate_visible_length(&truncated, self.wide_ambiguous);
+                let marker =
+                    calculate_visible_length(&self.overflow_str, self.wide_ambiguous).min(shown);
+                let cut = Cut {
+                    at: shown - marker,
+                    overflow: shown - marker..shown,
+                };
+                (truncated, ClickMap::lay_out(segments, start, Some(cut)))
             }
-            _ => formatted.to_string(),
+            _ => (line, ClickMap::lay_out(segments, start, None)),
         }
     }
+}
+
+/// The marker drawn where hints were dropped to fit, or `None` for none.
+///
+/// Unset leaves the gap unmarked, except with mouse support on: the marker is
+/// what opens the menu of dropped hints, so they get a default one rather than
+/// becoming unreachable.
+fn drop_indicator_from_config(
+    configuration: &BTreeMap<String, String>,
+    mouse: bool,
+) -> Option<String> {
+    configuration
+        .get(CONFIG_DROP_INDICATOR)
+        .filter(|s| !s.is_empty())
+        .cloned()
+        .or_else(|| mouse.then(|| DEFAULT_MOUSE_DROP_INDICATOR.to_string()))
 }
 
 /// The zjstatus pipe names to publish each render on.
@@ -1190,12 +1446,26 @@ impl ZellijPlugin for State {
             .get(CONFIG_HINT_SPACER)
             .filter(|s| !s.is_empty())
             .cloned();
+        // Clickable hints, a right-click context menu, and menus of the hints
+        // that did not fit. Read before `drop_indicator`, whose default
+        // depends on it.
+        self.mouse = configuration
+            .get(CONFIG_MOUSE)
+            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(DEFAULT_MOUSE))
+            .unwrap_or(DEFAULT_MOUSE);
         // Marks where hints were dropped to fit the window. Also a format
         // string, so it can be a styled glyph rather than bare text.
-        self.drop_indicator = configuration
-            .get(CONFIG_DROP_INDICATOR)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.drop_indicator = drop_indicator_from_config(&configuration, self.mouse);
+        // Clicks on a nested session's bar, which need `mouse` for the rest.
+        self.mouse_nested = self.mouse
+            && configuration
+                .get(CONFIG_MOUSE_NESTED)
+                .map(|s| {
+                    s.to_lowercase()
+                        .parse::<bool>()
+                        .unwrap_or(DEFAULT_MOUSE_NESTED)
+                })
+                .unwrap_or(DEFAULT_MOUSE_NESTED);
         // When enabled (the default), every enabled keybinding in a mode is
         // shown, not just the curated set. See `add_discovered_hints`.
         self.discover_hints = configuration
@@ -1243,10 +1513,21 @@ impl ZellijPlugin for State {
         // resolved from the raw configuration.
         self.config = configuration;
 
-        request_permission(&[
+        let mut permissions = vec![
             PermissionType::ReadApplicationState,
             PermissionType::MessageAndLaunchOtherPlugins,
-        ]);
+        ];
+        if self.mouse {
+            permissions.extend([
+                // Running a clicked hint's actions.
+                PermissionType::RunActionsAsUser,
+                // Opening Zellij's context menu.
+                PermissionType::ChangeApplicationState,
+                // Showing the menus of hints and keys, which are prompts.
+                PermissionType::OpenTerminalsOrPlugins,
+            ]);
+        }
+        request_permission(&permissions);
 
         // Deliberately still selectable at this point.
         //
@@ -1272,6 +1553,13 @@ impl ZellijPlugin for State {
             EventType::NestedSessionModeUpdate,
             EventType::NestedSessionEnded,
         ]);
+        if self.mouse {
+            subscribe(&[
+                EventType::Mouse,
+                EventType::PromptResult,
+                EventType::ActionComplete,
+            ]);
+        }
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -1361,85 +1649,27 @@ impl ZellijPlugin for State {
                 set_selectable(false);
                 should_render = true;
             }
+            Event::Mouse(mouse) => {
+                let outcome = mouse::click_outcome(&self.click_map, &mouse);
+                self.perform_mouse_outcome(outcome);
+            }
+            Event::PromptResult(request_id, result) => {
+                let entries = self.pending_menus.remove(&request_id);
+                let outcome = mouse::menu_answer_outcome(entries, &result);
+                self.perform_mouse_outcome(outcome);
+            }
+            Event::ActionComplete(_, _, context) if context.contains_key(MOUSE_ACTION_CONTEXT) => {
+                let next = self.action_queue.completed();
+                self.run_mouse_action(next);
+            }
             _ => {}
         };
         should_render
     }
 
     fn render(&mut self, _rows: usize, _cols: usize) {
+        let (output, click_map) = self.draw_bar();
         let mode_info = &self.mode_info;
-        let dim = self.dim_amount();
-
-        let output = match self.bar_subject() {
-            BarSubject::Nothing => String::new(),
-            BarSubject::Hints(subject) => {
-                // An owned subject is the descended-into session's, built by
-                // `descended_guest_mode_info`. A borrowed one is this
-                // session's own.
-                let dim = match subject {
-                    Cow::Owned(_) => self.descended_guest_dim_amount(),
-                    Cow::Borrowed(_) => dim,
-                };
-                self.render_hint_line(&subject, dim)
-            }
-            BarSubject::DescendedIndicator => {
-                let dimmed_colors;
-                let colors: &Styling = if dim > 0.0 {
-                    dimmed_colors = dim_styling(&mode_info.style.colors, dim);
-                    &dimmed_colors
-                } else {
-                    &mode_info.style.colors
-                };
-                let mode_key = format!("{:?}", mode_info.mode).to_lowercase();
-                let hint_order = HintOrder::default();
-                let indicator_style = HintStyle {
-                    colors,
-                    dim,
-                    key_format: self.key_format.as_deref(),
-                    desc_format: self.desc_format.as_deref(),
-                    spacer: None,
-                    discover: false,
-                    direction_keys: DirectionKeys::default(),
-                    // A sequence ("press Ctrl o, then ]"), not the alternative
-                    // keys sort_keys reorders for a normal hint.
-                    key_order: KeyOrder::Unsorted,
-                    mode: &mode_key,
-                    hint_order: &hint_order,
-                    limit: None,
-                    wide_ambiguous: self.wide_ambiguous,
-                    drop_indicator: None,
-                    precedence: HintPrecedence::default(),
-                    shared: &[],
-                    config: &self.config,
-                };
-                let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
-                let styled = if styled_indicator.is_empty() {
-                    String::new()
-                } else if self.show_mode {
-                    let mode_prefix = render_mode_prefix(
-                        mode_info.mode,
-                        colors,
-                        self.mode_format.as_deref(),
-                        &self.config,
-                        dim,
-                    );
-                    format!("{}{}", ANSIStrings(&mode_prefix), styled_indicator)
-                } else {
-                    styled_indicator
-                };
-                let limit = self.length_limit();
-                let visible_len = calculate_visible_length(&styled, self.wide_ambiguous);
-                match limit {
-                    Some(limit) if visible_len > limit => truncate_ansi_string(
-                        &styled,
-                        &self.overflow_str,
-                        limit,
-                        self.wide_ambiguous,
-                    ),
-                    _ => styled,
-                }
-            }
-        };
 
         // HACK: Because we're not sure when zjstatus will be ready to receive messages,
         // we'll repeatedly send messages until the user has switched to a different mode,
@@ -1458,6 +1688,7 @@ impl ZellijPlugin for State {
             );
         }
         print!("{}", output);
+        self.click_map = click_map;
     }
 }
 
@@ -2227,11 +2458,13 @@ fn render_hint(parts: &mut Vec<ANSIString<'static>>, hint: &Hint, style: &HintSt
     }
 }
 
-fn render_hints_for_mode(
+/// The styled hint line for a mode, and the same line as `LineSegment`s
+/// saying which columns hold which hint, for mouse clicks.
+fn lay_out_hints_for_mode(
     mode: InputMode,
     keymap: &[(KeyWithModifier, Vec<Action>)],
     style: &HintStyle,
-) -> Vec<ANSIString<'static>> {
+) -> (Vec<ANSIString<'static>>, Vec<LineSegment>) {
     let mut hints: Vec<Hint> = vec![];
     // Keys consumed by curated hints, so discovery does not repeat them.
     let mut used: Vec<KeyWithModifier> = vec![];
@@ -2642,13 +2875,15 @@ fn render_hints_for_mode(
     // than the line being cut mid-hint.
     let mut pieces: Vec<HintPiece> = hints
         .iter()
-        .map(|hint| {
+        .enumerate()
+        .map(|(index, hint)| {
             let mut parts = vec![];
             render_hint(&mut parts, hint, style);
             HintPiece {
                 width: visible_width(&parts, style.wide_ambiguous),
                 group: style.hint_order.group(hint),
                 parts,
+                index,
             }
         })
         .collect();
@@ -2663,32 +2898,149 @@ fn render_hints_for_mode(
         .map(|indicator| format::render_template(indicator, &[], style.config, style.dim))
         .unwrap_or_default();
 
+    let spacer_width = visible_width(&spacer, style.wide_ambiguous);
+    // The spacer after the mode prefix is there whatever is dropped, so it
+    // comes off the budget up front.
+    let leading_spacer = if style.spacer_after_prefix {
+        spacer_width
+    } else {
+        0
+    };
     let gap = style.limit.and_then(|limit| {
         drop_to_fit(
             &mut pieces,
-            visible_width(&spacer, style.wide_ambiguous),
-            limit,
+            spacer_width,
+            limit.saturating_sub(leading_spacer),
             visible_width(&indicator, style.wide_ambiguous),
             style.precedence,
         )
     });
 
+    let targets: Vec<HintTarget> = hints
+        .iter()
+        .map(|hint| hint_target(hint, keymap, style))
+        .collect();
+    let kept: BTreeSet<usize> = pieces.iter().map(|piece| piece.index).collect();
+    let dropped: Vec<HintTarget> = targets
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !kept.contains(index))
+        .map(|(_, target)| target.clone())
+        .collect();
+
+    let mut rendered: Vec<(Vec<ANSIString<'static>>, SegmentContent)> = pieces
+        .into_iter()
+        .map(|piece| {
+            let target = targets[piece.index].clone();
+            (piece.parts, SegmentContent::Hint(target))
+        })
+        .collect();
     // The indicator stands in for the dropped run, spaced like a hint so it
     // reads as one.
-    let mut rendered: Vec<Vec<ANSIString<'static>>> =
-        pieces.into_iter().map(|piece| piece.parts).collect();
     if let Some(gap) = gap.filter(|_| !indicator.is_empty()) {
-        rendered.insert(gap.min(rendered.len()), indicator);
+        rendered.insert(
+            gap.min(rendered.len()),
+            (indicator, SegmentContent::Dropped(dropped)),
+        );
     }
 
     let mut parts = vec![];
-    for (idx, piece) in rendered.into_iter().enumerate() {
-        if idx > 0 {
+    let mut segments = vec![];
+    for (idx, (piece, content)) in rendered.into_iter().enumerate() {
+        if idx > 0 || style.spacer_after_prefix {
             parts.extend(spacer.iter().cloned());
+            segments.push(LineSegment {
+                width: spacer_width,
+                content: SegmentContent::Spacer,
+            });
         }
+        segments.push(LineSegment {
+            width: visible_width(&piece, style.wide_ambiguous),
+            content,
+        });
         parts.extend(piece);
     }
-    parts
+    (parts, segments)
+}
+
+/// A hint as a click target: its displayed keys, grouped by what each does in
+/// this mode's keymap.
+///
+/// The keys are the ones the bar shows for it, after `direction_keys`, so a
+/// click never runs a binding the hint was not showing.
+fn hint_target(
+    hint: &Hint,
+    keymap: &[(KeyWithModifier, Vec<Action>)],
+    style: &HintStyle,
+) -> HintTarget {
+    let mut keys = filter_direction_keys(&hint.keys, style.direction_keys);
+    sort_keys(&mut keys, style.key_order);
+
+    let mut grouped: Vec<(Vec<KeyWithModifier>, &Vec<Action>)> = vec![];
+    for key in keys {
+        let Some((_, actions)) = keymap.iter().find(|(bound, _)| *bound == key) else {
+            continue;
+        };
+        match grouped
+            .iter_mut()
+            .find(|(_, existing)| *existing == actions)
+        {
+            Some((group_keys, _)) => group_keys.push(key),
+            None => grouped.push((vec![key], actions)),
+        }
+    }
+
+    // What a hint's own keys look like on the bar, a `keys_<id>` replacement
+    // included, so the menu entry for it reads the same as the hint would.
+    let shown_keys = match hint_override(CONFIG_KEYS_PREFIX, hint, style.mode, style.config) {
+        Some(fixed) => fixed.unwrap_or_default(),
+        None => {
+            let all: Vec<KeyWithModifier> = grouped
+                .iter()
+                .flat_map(|(group_keys, _)| group_keys.iter().cloned())
+                .collect();
+            compose_key_text(&all, style.config)
+        }
+    };
+
+    let choices = grouped
+        .iter()
+        .map(|(group_keys, actions)| {
+            // The hint's label already says what all of its keys have in
+            // common. Telling its keys apart takes naming the action itself.
+            let primary = actions
+                .iter()
+                .find(|action| !is_hidden_action(action))
+                .or(actions.first());
+            let description = primary.map_or_else(String::new, |action| {
+                action_signature(action).replace('_', " ")
+            });
+            let actions = match style.click {
+                ClickBehavior::RunActions => actions.to_vec(),
+                // Any one of the group's keys does it; the first is the one
+                // shown first.
+                ClickBehavior::PressKeys => keypress::press_keys(&group_keys[..1]),
+            };
+            HintChoice {
+                label: menu_label(&compose_key_text(group_keys, style.config), &description),
+                actions,
+            }
+        })
+        .collect();
+
+    HintTarget {
+        label: menu_label(&shown_keys, &hint.label),
+        choices,
+    }
+}
+
+/// A menu entry's text: keys, then what they do, as on the bar.
+fn menu_label(keys: &str, description: &str) -> String {
+    if keys.is_empty() {
+        description.to_string()
+    } else {
+        format!("{}  {}", keys, description)
+    }
 }
 
 /// Where a hint sits relative to the `*` in `hint_order`.
@@ -2707,6 +3059,9 @@ struct HintPiece {
     parts: Vec<ANSIString<'static>>,
     width: usize,
     group: HintGroup,
+    /// Position of the hint this was rendered from, so the hints dropped to
+    /// fit can be told apart from the ones kept.
+    index: usize,
 }
 
 fn visible_width(parts: &[ANSIString<'static>], wide_ambiguous: bool) -> usize {
@@ -3540,6 +3895,7 @@ mod tests {
                 .map(String::as_str)
                 .or(Some("{desc}")),
             spacer: Some("|"),
+            spacer_after_prefix: false,
             discover: config
                 .get("discover_hints")
                 .map_or(DEFAULT_DISCOVER_HINTS, |v| v == "true"),
@@ -3560,8 +3916,9 @@ mod tests {
                 .unwrap_or(false),
             shared: &[],
             config: &config,
+            click: ClickBehavior::RunActions,
         };
-        let parts = render_hints_for_mode(mode, keymap, &style);
+        let (parts, _) = lay_out_hints_for_mode(mode, keymap, &style);
         let text = format!("{}", ANSIStrings(&parts));
         let mut parser = AnsiParser::new(&text);
         let mut visible = String::new();
@@ -4632,6 +4989,7 @@ mod tests {
             key_format,
             desc_format,
             spacer: None,
+            spacer_after_prefix: false,
             discover: false,
             direction_keys: DirectionKeys::default(),
             key_order: KeyOrder::Unsorted,
@@ -4643,6 +5001,7 @@ mod tests {
             precedence: HintPrecedence::default(),
             shared: &[],
             config,
+            click: ClickBehavior::RunActions,
         };
         render_descended_indicator(&mode_info, &style)
     }
@@ -4917,11 +5276,20 @@ mod tests {
     /// against the state's own fields instead.
     fn rendered_bar(state: &State) -> String {
         let text = match state.bar_subject() {
-            BarSubject::Hints(subject) => state.render_hint_line(&subject, 0.0),
+            BarSubject::Hints(subject) => {
+                state
+                    .render_hint_line(&subject, 0.0, ClickBehavior::RunActions)
+                    .0
+            }
             BarSubject::Nothing => String::new(),
             BarSubject::DescendedIndicator => DESCENDED_HINT_LABEL.to_string(),
         };
-        let mut parser = AnsiParser::new(&text);
+        strip_ansi(&text)
+    }
+
+    /// `text` with the styling stripped out.
+    fn strip_ansi(text: &str) -> String {
+        let mut parser = AnsiParser::new(text);
         let mut visible = String::new();
         while let Some(segment) = parser.next_segment() {
             if let AnsiSegment::VisibleChar(ch) = segment {
@@ -5412,6 +5780,372 @@ mod tests {
         assert_eq!(
             pipe_names_from_config(&config(&[("pipe_name", "zjstatus_hints")])),
             vec!["zjstatus_hints".to_string()]
+        );
+    }
+
+    /// A session in `mode` with `keymap` bound there, styled with the minimal
+    /// formats the `rendered` helper uses so columns are easy to count.
+    fn clickable_state(mode: InputMode, keymap: Vec<(KeyWithModifier, Vec<Action>)>) -> State {
+        State {
+            mode_info: ModeInfo {
+                mode,
+                base_mode: Some(InputMode::Normal),
+                keybinds: vec![(mode, keymap)],
+                ..Default::default()
+            },
+            key_format: Some("{key} ".to_string()),
+            desc_format: Some("{desc}".to_string()),
+            hint_spacer: Some("|".to_string()),
+            discover_hints: true,
+            overflow_str: DEFAULT_OVERFLOW_STR.to_string(),
+            mouse: true,
+            ..Default::default()
+        }
+    }
+
+    /// What a left-click on `column` of the bar this state draws would do.
+    fn left_click(state: &State, column: usize) -> MouseOutcome {
+        let (_, click_map) = state.draw_bar();
+        mouse::click_outcome(&click_map, &Mouse::LeftClick(0, column))
+    }
+
+    /// The column `needle` starts at on the drawn bar.
+    fn column_of(state: &State, needle: &str) -> usize {
+        let bar = rendered_bar(state);
+        let byte = bar
+            .find(needle)
+            .unwrap_or_else(|| panic!("{:?} not on the bar {:?}", needle, bar));
+        bar[..byte].chars().count()
+    }
+
+    fn menu_labels(outcome: &MouseOutcome) -> Vec<String> {
+        match outcome {
+            MouseOutcome::Menu(entries) => entries.iter().map(|e| e.label.clone()).collect(),
+            other => panic!("expected a menu, got {:?}", other),
+        }
+    }
+
+    fn choose(outcome: MouseOutcome, index: usize) -> MouseOutcome {
+        let MouseOutcome::Menu(entries) = outcome else {
+            panic!("expected a menu, got {:?}", outcome);
+        };
+        mouse::menu_answer_outcome(
+            Some(entries),
+            &PromptResult::Answered(PromptValue::Choice(index.to_string())),
+        )
+    }
+
+    #[test]
+    fn clicking_a_hint_runs_what_its_key_runs() {
+        let state = clickable_state(InputMode::Pane, four_hints());
+        assert_eq!(rendered_bar(&state), " a close|b fullscreen|c frames|d pin");
+        let run = |action| MouseOutcome::Run(vec![action]);
+        // The leading space and the spacers are not part of any hint.
+        assert_eq!(left_click(&state, 0), MouseOutcome::Nothing);
+        assert_eq!(left_click(&state, 1), run(Action::CloseFocus));
+        assert_eq!(left_click(&state, 7), run(Action::CloseFocus));
+        assert_eq!(left_click(&state, 8), MouseOutcome::Nothing);
+        assert_eq!(left_click(&state, 9), run(Action::ToggleFocusFullscreen));
+        let pin = column_of(&state, "d pin");
+        assert_eq!(left_click(&state, pin + 4), run(Action::TogglePanePinned));
+        assert_eq!(left_click(&state, pin + 5), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn a_click_runs_the_whole_binding_in_order() {
+        let binding = vec![
+            message_plugin(),
+            Action::SwitchToMode {
+                input_mode: InputMode::Normal,
+            },
+        ];
+        let state = clickable_state(InputMode::Locked, vec![(ctrl('g'), binding.clone())]);
+        let column = column_of(&state, "Ctrl g");
+        assert_eq!(left_click(&state, column), MouseOutcome::Run(binding));
+    }
+
+    #[test]
+    fn click_columns_follow_the_mode_prefix() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("<{mode}> ".to_string());
+        let close = column_of(&state, "a close");
+        assert!(close > 1, "the prefix should push the hints right");
+        assert_eq!(left_click(&state, close - 1), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, close),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+    }
+
+    #[test]
+    fn the_spacer_separates_the_mode_prefix_from_the_first_hint() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("M".to_string());
+        assert_eq!(
+            rendered_bar(&state),
+            "M|a close|b fullscreen|c frames|d pin"
+        );
+        assert_eq!(left_click(&state, 1), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, 2),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+    }
+
+    #[test]
+    fn fitting_pays_for_the_spacer_after_the_mode_prefix() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("M".to_string());
+        state.drop_indicator = Some("…".to_string());
+        // "M|a close|b fullscreen|…" would be 24 columns, one too many.
+        state.max_length = 23;
+        assert_eq!(rendered_bar(&state), "M|a close|…");
+    }
+
+    #[test]
+    fn without_the_mode_prefix_the_first_hint_has_no_spacer() {
+        let state = clickable_state(InputMode::Pane, four_hints());
+        assert_eq!(rendered_bar(&state), " a close|b fullscreen|c frames|d pin");
+    }
+
+    #[test]
+    fn click_columns_count_wide_ambiguous_characters_as_two() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.hint_spacer = Some("│".to_string());
+        state.wide_ambiguous = true;
+        // " a close" is columns 0 to 7, the spacer 8 and 9.
+        assert_eq!(left_click(&state, 9), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, 10),
+            MouseOutcome::Run(vec![Action::ToggleFocusFullscreen])
+        );
+    }
+
+    #[test]
+    fn keys_that_all_do_the_same_thing_run_it_directly() {
+        let state = clickable_state(
+            InputMode::Pane,
+            vec![
+                (key(BareKey::Char('x')), vec![Action::CloseFocus]),
+                (key(BareKey::Char('q')), vec![Action::CloseFocus]),
+            ],
+        );
+        assert_eq!(
+            left_click(&state, column_of(&state, "close")),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+    }
+
+    fn focus_keymap() -> Vec<(KeyWithModifier, Vec<Action>)> {
+        let focus = |direction| vec![Action::MoveFocus { direction }];
+        vec![
+            (key(BareKey::Char('h')), focus(Direction::Left)),
+            (key(BareKey::Left), focus(Direction::Left)),
+            (key(BareKey::Char('l')), focus(Direction::Right)),
+        ]
+    }
+
+    #[test]
+    fn keys_that_do_different_things_ask_which_to_run() {
+        let state = clickable_state(InputMode::Pane, focus_keymap());
+        let outcome = left_click(&state, column_of(&state, "focus"));
+        assert_eq!(
+            menu_labels(&outcome),
+            vec!["h←  move focus left", "l  move focus right"]
+        );
+        assert_eq!(
+            choose(outcome, 1),
+            MouseOutcome::Run(vec![Action::MoveFocus {
+                direction: Direction::Right
+            }])
+        );
+    }
+
+    #[test]
+    fn a_click_only_offers_the_keys_the_hint_shows() {
+        let mut state = clickable_state(InputMode::Pane, focus_keymap());
+        state.direction_keys = DirectionKeys::Arrows;
+        assert_eq!(
+            left_click(&state, column_of(&state, "focus")),
+            MouseOutcome::Run(vec![Action::MoveFocus {
+                direction: Direction::Left
+            }])
+        );
+    }
+
+    #[test]
+    fn the_drop_marker_opens_a_menu_of_the_dropped_hints() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.drop_indicator = Some("…".to_string());
+        state.max_length = 23;
+        assert_eq!(rendered_bar(&state), " a close|b fullscreen|…");
+        let outcome = left_click(&state, column_of(&state, "…"));
+        assert_eq!(menu_labels(&outcome), vec!["c  frames", "d  pin"]);
+        assert_eq!(
+            choose(outcome, 0),
+            MouseOutcome::Run(vec![Action::TogglePaneFrames])
+        );
+    }
+
+    #[test]
+    fn a_dropped_hint_with_several_actions_opens_its_own_picker() {
+        let mut keymap = vec![(key(BareKey::Char('a')), vec![Action::CloseFocus])];
+        keymap.extend(focus_keymap());
+        let mut state = clickable_state(InputMode::Pane, keymap);
+        state.drop_indicator = Some("…".to_string());
+        state.max_length = 10;
+        assert_eq!(rendered_bar(&state), " a close|…");
+        let dropped = left_click(&state, column_of(&state, "…"));
+        let picker = choose(dropped, 0);
+        assert_eq!(
+            menu_labels(&picker),
+            vec!["h←  move focus left", "l  move focus right"]
+        );
+    }
+
+    #[test]
+    fn overflow_str_opens_a_menu_of_everything_cut_off() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.drop_indicator = Some("…".to_string());
+        state.max_length = 5;
+        assert_eq!(rendered_bar(&state), " a...");
+        // What is left of the cut hint still runs it.
+        assert_eq!(
+            left_click(&state, 1),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+        // The hint the cut ran through, then the dropped ones.
+        let outcome = left_click(&state, 3);
+        assert_eq!(
+            menu_labels(&outcome),
+            vec!["a  close", "b  fullscreen", "c  frames", "d  pin"]
+        );
+        assert_eq!(left_click(&state, 5), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn a_menu_entry_reads_like_the_hint_including_replaced_keys() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.config = config(&[("keys_frames", "1-9")]);
+        state.drop_indicator = Some("…".to_string());
+        state.max_length = 23;
+        let outcome = left_click(&state, column_of(&state, "…"));
+        assert_eq!(menu_labels(&outcome), vec!["1-9  frames", "d  pin"]);
+    }
+
+    #[test]
+    fn a_nested_session_s_hints_are_not_clickable_without_mouse_nested() {
+        let mut state = state_descended_into_guest();
+        state.mouse = true;
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
+        let bar = rendered_bar(&state);
+        assert!(bar.contains("close"), "expected guest hints, got {:?}", bar);
+        let (_, click_map) = state.draw_bar();
+        assert_eq!(click_map, ClickMap::default());
+    }
+
+    #[test]
+    fn the_descended_indicator_is_not_clickable_without_mouse_nested() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mode_info.session_dimmed = Some(true);
+        state.mode_info.nested_ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        let (line, click_map) = state.draw_bar();
+        assert!(!line.is_empty());
+        assert_eq!(click_map, ClickMap::default());
+    }
+
+    #[test]
+    fn with_mouse_nested_a_nested_session_s_hint_presses_its_key() {
+        let mut state = state_descended_into_guest();
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.update(guest_mode_update(GUEST_PANE, InputMode::Pane));
+        let outcome = left_click(&state, column_of(&state, "close"));
+        // The guest's key, typed into its pane, rather than the guest's
+        // binding run in this session.
+        assert_eq!(
+            outcome,
+            MouseOutcome::Run(keypress::press_keys(&[key(BareKey::Char('x'))]))
+        );
+    }
+
+    #[test]
+    fn with_mouse_nested_the_descended_indicator_presses_the_ascend_keys() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        assert_eq!(
+            left_click(&state, 0),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
+        // Past the end of the indicator does nothing.
+        let (line, _) = state.draw_bar();
+        let width = calculate_visible_length(&line, false);
+        assert_eq!(left_click(&state, width), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn with_mouse_nested_the_mode_prefix_before_the_indicator_does_nothing() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.show_mode = true;
+        state.mode_format = Some("MODE ".to_string());
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        assert_eq!(left_click(&state, 0), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, "MODE ".len()),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
+    }
+
+    #[test]
+    fn the_spacer_separates_the_mode_prefix_from_the_descended_indicator() {
+        let mut state = state_with_ancestry(vec![]);
+        state.mouse = true;
+        state.mouse_nested = true;
+        state.show_mode = true;
+        state.mode_format = Some("MODE".to_string());
+        state.hint_spacer = Some("|".to_string());
+        state.mode_info.session_dimmed = Some(true);
+        let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
+        state.mode_info.nested_ascend_keys = ascend_keys.clone();
+        let (line, _) = state.draw_bar();
+        assert!(
+            strip_ansi(&line).starts_with("MODE|"),
+            "{:?}",
+            strip_ansi(&line)
+        );
+        assert_eq!(left_click(&state, "MODE".len()), MouseOutcome::Nothing);
+        assert_eq!(
+            left_click(&state, "MODE|".len()),
+            MouseOutcome::Run(keypress::press_keys(&ascend_keys))
+        );
+    }
+
+    #[test]
+    fn mouse_support_gives_dropped_hints_a_marker_by_default() {
+        assert_eq!(drop_indicator_from_config(&config(&[]), false), None);
+        assert_eq!(
+            drop_indicator_from_config(&config(&[]), true),
+            Some(DEFAULT_MOUSE_DROP_INDICATOR.to_string())
+        );
+        assert_eq!(
+            drop_indicator_from_config(&config(&[("drop_indicator", "")]), true),
+            Some(DEFAULT_MOUSE_DROP_INDICATOR.to_string())
+        );
+        assert_eq!(
+            drop_indicator_from_config(&config(&[("drop_indicator", "+")]), true),
+            Some("+".to_string())
         );
     }
 }

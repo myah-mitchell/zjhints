@@ -92,4 +92,4 @@ drop_indicator "#[fg=$gray]…"
 
 It is a format string like `hint_spacer`, so it can be styled, and it is spaced like a hint so it reads as one. It costs columns of its own, which come out of the same budget: a wide indicator forces one more hint to drop rather than pushing the line over the limit.
 
-Left unset, hints are dropped silently.
+Left unset, hints are dropped silently, unless [`mouse`](mouse.md#hints-that-did-not-fit) is on: then the gap is marked with `…`, which opens a menu of the dropped hints when clicked.

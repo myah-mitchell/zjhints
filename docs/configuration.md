@@ -23,7 +23,7 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `reserve_columns` | `0` | Columns to leave free for the rest of the status bar |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
-| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset |
+| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
@@ -54,7 +54,7 @@ Colors, format strings, and the symbols keys are drawn with. See [Styling](styli
 | --- | --- | --- |
 | `key_format` | unset | Format string for the keybinding portion of each hint, theme palette when unset |
 | `desc_format` | unset | Format string for the description portion of each hint, theme palette when unset |
-| `hint_spacer` | unset | Format string drawn between consecutive hints, adjacent when unset |
+| `hint_spacer` | unset | Format string drawn between consecutive hints and after the mode prefix, adjacent when unset |
 | `key_format_<id>` | unset | Format string for one hint's keys, overriding `key_format` |
 | `desc_format_<id>` | unset | Format string for one hint's description, overriding `desc_format` |
 | `keys_<id>` | unset | Replace a hint's keys with a fixed string, as in `keys_go_to_tab "1-9"` |
@@ -90,6 +90,15 @@ How the bar behaves when one Zellij session runs inside another, and when the pl
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
 
 `dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
+
+## Mouse
+
+Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mouse` | `false` | Right-click for Zellij's context menu, left-click a hint to run it, and click the drop indicator or `overflow_str` for the hints that did not fit |
+| `mouse_nested` | `false` | With `mouse` on, also click a descended-into nested session's hints and its "return to host" indicator, which types their keys into that session |
 
 ## Integration
 
