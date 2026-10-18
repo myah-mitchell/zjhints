@@ -14,11 +14,12 @@ zellij-tile-utils = "0.46.0"
 # saves through; zellij-tile already builds it, so it adds nothing to compile.
 zellij-utils = "0.46.0"
 
-# EA/beta override: myah-mitchell/zellij's fork-v0.46.4 carries nested-
-# session, plugin-collapse and context menu/prompt APIs not yet published
-# to crates.io. Remove this block once zellij-tile/zellij-tile-utils ship
+# EA/beta override: myah-mitchell/zellij's feat/plugin-settings-entries
+# branch (fork-v0.46.4 plus register_settings_entry) carries nested-session,
+# plugin-collapse, context menu/prompt and settings-entry APIs not yet
+# published to crates.io. Remove this block once zellij-tile/zellij-tile-utils ship
 # them upstream (see docs/automation.md#depending-on-an-unreleased-upstream-fix).
 [patch.crates-io]
-zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }
-zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }
-zellij-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }
+zellij-tile = { git = "https://github.com/myah-mitchell/zellij", branch = "feat/plugin-settings-entries" }
+zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", branch = "feat/plugin-settings-entries" }
+zellij-utils = { git = "https://github.com/myah-mitchell/zellij", branch = "feat/plugin-settings-entries" }

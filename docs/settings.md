@@ -11,7 +11,7 @@ It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://gi
 
 ## Opening it
 
-There are three ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
+There are four ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
 
 The screen opens pinned, so it stays on screen while you click into other panes and type there, and the bars it previews on stay in view beside it. Clicking it again gives it the keyboard back. To let it hide with the other floating panes, unpin it from Zellij's pane menu.
 
@@ -52,6 +52,12 @@ context_menu {
     }
 }
 ```
+
+### From Zellij's settings menu
+
+A running bar adds a *zjhints* item at the end of the left column of Zellij's own settings screen. Select it and press **Enter** to open the zjhints screen in a floating pane. No config is needed for this one.
+
+The item needs a Zellij build from the fork's `feat/plugin-settings-entries` branch, which adds the plugin API behind it. On an older build the bar works as before, and the item is not shown.
 
 ### By clicking the mode prefix
 
@@ -206,4 +212,4 @@ The screen asks for permission to change the configuration and to message other 
 
 A bar granted its own, smaller set afterwards replaces the screen's grant in turn, so the screen can ask again the next time it opens. It is a floating pane, so the prompt can always be answered there.
 
-The bar asks for nothing new for the screen: clicking the mode prefix uses the permission to message plugins the bar already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.
+For the screen, the bar asks for permission to change application state, which adds the item to Zellij's settings menu. Clicking the mode prefix uses the permission to message plugins the bar already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.

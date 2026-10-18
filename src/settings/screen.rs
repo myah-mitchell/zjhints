@@ -101,12 +101,8 @@ impl SettingsScreen {
         // well keeps opening the screen from taking the bars' permissions
         // away. `ReadApplicationState` is also what the failed-write event
         // needs.
-        let mut permissions = vec![
-            PermissionType::Reconfigure,
-            PermissionType::ReadApplicationState,
-            PermissionType::MessageAndLaunchOtherPlugins,
-        ];
-        permissions.extend(crate::MOUSE_PERMISSIONS);
+        let mut permissions = vec![PermissionType::Reconfigure];
+        permissions.extend(crate::bar_permissions(true));
         request_permission(&permissions);
         subscribe(&[
             EventType::Key,
@@ -130,7 +126,7 @@ impl SettingsScreen {
                 // Pinned, the screen stays up when a click lands in another
                 // pane, so it can sit beside the bar it edits without holding
                 // the keyboard. Pinning needs `ChangeApplicationState`, one
-                // of the mouse permissions asked for above.
+                // of the bar's permissions asked for above.
                 set_floating_pane_pinned(PaneId::Plugin(get_plugin_ids().plugin_id), true);
                 self.read();
                 true

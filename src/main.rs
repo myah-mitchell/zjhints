@@ -1683,17 +1683,19 @@ fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<Strin
 }
 
 /// What the bar always asks for.
-const BAR_PERMISSIONS: [PermissionType; 2] = [
+const BAR_PERMISSIONS: [PermissionType; 3] = [
     PermissionType::ReadApplicationState,
     PermissionType::MessageAndLaunchOtherPlugins,
+    // Adding the settings screen to Zellij's own settings menu, and with
+    // `mouse` on, opening Zellij's context menu and the popup of a hover
+    // preview.
+    PermissionType::ChangeApplicationState,
 ];
 
 /// What `mouse` needs beyond what the bar always asks for.
-pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
+const MOUSE_PERMISSIONS: [PermissionType; 2] = [
     // Running a clicked hint's actions.
     PermissionType::RunActionsAsUser,
-    // Opening Zellij's context menu and the popup of a hover preview.
-    PermissionType::ChangeApplicationState,
     // Showing the menus of hints and keys, which are prompts.
     PermissionType::OpenTerminalsOrPlugins,
 ];
@@ -1701,7 +1703,7 @@ pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
 /// Every permission the bar asks for. A grant replaces the plugin's
 /// permissions rather than adding to them, both for the running instance and
 /// in Zellij's cache, so every request has to carry the whole set.
-fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
+pub fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
     let mut permissions = BAR_PERMISSIONS.to_vec();
     if mouse {
         permissions.extend(MOUSE_PERMISSIONS);
@@ -1868,6 +1870,20 @@ fn open_settings(own_url: Option<&str>) {
             .new_plugin_instance_should_have_pane_title("zjhints settings"),
     );
 }
+
+/// The label of the entry the bar adds to Zellij's own settings menu.
+const SETTINGS_ENTRY_LABEL: &str = "zjhints";
+
+/// List the settings screen in Zellij's own settings menu, launched from this
+/// plugin's location. Every bar registers the same entry, which Zellij keeps
+/// once per location and label.
+#[cfg(not(test))]
+fn register_settings_entry_for_screen() {
+    register_settings_entry(SETTINGS_ENTRY_LABEL, None, settings_configuration(None));
+}
+
+#[cfg(test)]
+fn register_settings_entry_for_screen() {}
 
 /// The configuration the settings screen is opened with from a bar running
 /// as `own_url`. See `open_settings`.
@@ -2177,7 +2193,10 @@ impl ZellijPlugin for State {
             }
             // Answered, or granted from the cache. Either way the prompt is
             // gone and the pane has no further reason to take focus.
-            Event::PermissionRequestResult(_) => {
+            Event::PermissionRequestResult(status) => {
+                if status == PermissionStatus::Granted {
+                    register_settings_entry_for_screen();
+                }
                 set_selectable(false);
                 should_render = true;
             }
@@ -7367,5 +7386,13 @@ mod tests {
             assert!(permissions.contains(permission), "{permission:?}");
         }
         assert_eq!(bar_permissions(false), BAR_PERMISSIONS.to_vec());
+        let mut unique = permissions.clone();
+        unique.sort_by_key(|permission| format!("{permission:?}"));
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            permissions.len(),
+            "asked twice: {permissions:?}"
+        );
     }
 }
