@@ -350,6 +350,9 @@ impl Editor {
                 if SCREEN_OPTIONS.contains(&key) {
                     return Outcome::Refused(format!("{key} is read only by the settings screen"));
                 }
+                if crate::popup::INTERNAL_OPTIONS.contains(&key) {
+                    return Outcome::Refused(format!("{key} is used by zjhints itself"));
+                }
                 if RESERVED_KEYS.contains(&key) {
                     return Outcome::Refused(format!("{key} is reserved by Zellij"));
                 }
@@ -586,6 +589,13 @@ mod tests {
             editor.submit(&Field::NewKey, "settings"),
             Outcome::Refused(_)
         ));
+        // Any of them would turn the bar into a hover popup.
+        for key in crate::popup::INTERNAL_OPTIONS {
+            assert!(matches!(
+                editor.submit(&Field::NewKey, key),
+                Outcome::Refused(_)
+            ));
+        }
     }
 
     #[test]
