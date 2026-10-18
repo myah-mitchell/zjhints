@@ -160,7 +160,7 @@ pub fn row_line(editor: &Editor, row: &Row, width: usize, view: FormatView) -> L
                 format!(
                     "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
                     "alias",
-                    editor.alias_name(),
+                    crate::show_controls(editor.alias_name()),
                     editor.alias_count()
                 ),
                 width,
@@ -171,7 +171,7 @@ pub fn row_line(editor: &Editor, row: &Row, width: usize, view: FormatView) -> L
         Row::Key(key) => (key.as_str(), options::kind_of(key), None),
     };
     let config = editor.working();
-    let mut text = format!("  {key:NAME_COLUMNS$} ");
+    let mut text = format!("  {:NAME_COLUMNS$} ", crate::show_controls(key));
     let start = text.chars().count();
     let mut styled = None;
     let mut swatch = None;
@@ -255,10 +255,13 @@ fn add_what(prefix: &str) -> String {
 /// and it reads apart from a number or a choice; anything else is quoted
 /// only when it would otherwise be invisible or ambiguous.
 pub fn show_value(value: &str, kind: Kind) -> String {
+    // Escaped, so an ESC in a value draws as text instead of moving the
+    // cursor or rewriting other rows.
+    let shown = crate::show_controls(value);
     if kind.is_text() || value.is_empty() || value.trim() != value {
-        format!("\"{value}\"")
+        format!("\"{shown}\"")
     } else {
-        value.to_string()
+        shown.into_owned()
     }
 }
 
@@ -279,7 +282,7 @@ pub fn render_sample(
     let parts = format::render_template(template, &samples, config, 0.0);
     let plain: String = parts.iter().map(|part| &**part).collect();
     // A control character, such as a newline or an escape, would break the
-    // line apart; the raw text shows it quoted instead.
+    // line apart; the raw text shows it escaped instead.
     if plain.trim().is_empty() || plain.chars().any(char::is_control) {
         return None;
     }
@@ -405,7 +408,7 @@ pub fn title(editor: &Editor, view: FormatView) -> String {
     };
     let mut title = format!(
         "zjhints settings · alias \"{}\" · formats {shown}",
-        editor.alias_name()
+        crate::show_controls(editor.alias_name())
     );
     if editor.is_dirty() {
         title.push_str("  ● unsaved");
@@ -634,6 +637,36 @@ mod tests {
             assert!(line.text.ends_with('…'));
             assert_eq!(line.edited, None);
             assert_eq!(line.styled, None);
+        }
+    }
+
+    #[test]
+    fn control_characters_in_keys_and_values_show_as_escapes() {
+        let osc = "\u{1b}]52;c;aGk=\u{7}";
+        let editor = editor(&[
+            ("label_quit", osc),
+            ("key_format", osc),
+            ("max_length", "\u{1b}[2J"),
+            ("x\u{1b}[1A", "1"),
+        ]);
+        let shown = "\\u{1b}]52;c;aGk=\\u{7}";
+        for view in [FormatView::Raw, FormatView::Rendered] {
+            let line = |row: &Row| row_line(&editor, row, 80, view);
+            assert_eq!(
+                line(&key_row("label_quit")).text,
+                format!("  {:22}\"{shown}\"", "label_quit")
+            );
+            let format = line(&option_row("key_format"));
+            assert_eq!(format.text, format!("  {:22}\"{shown}\"", "key_format"));
+            assert_eq!(format.styled, None);
+            assert_eq!(
+                line(&option_row("max_length")).text,
+                format!("  {:22}\\u{{1b}}[2J", "max_length")
+            );
+            assert_eq!(
+                line(&key_row("x\u{1b}[1A")).text,
+                format!("  {:22}\"1\"", "x\\u{1b}[1A")
+            );
         }
     }
 

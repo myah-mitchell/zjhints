@@ -2326,6 +2326,25 @@ fn calculate_visible_length(text: &str, wide_ambiguous: bool) -> usize {
     len
 }
 
+/// `text` with every control character written out as an escape, such as
+/// `\u{1b}` for ESC or `\n` for a newline, so that it shows as text instead
+/// of acting on the terminal. For plain text from the config or a nested
+/// session, never for ANSI the plugin styled itself.
+fn show_controls(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(char::is_control) {
+        return Cow::Borrowed(text);
+    }
+    let mut shown = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_control() {
+            shown.extend(ch.escape_default());
+        } else {
+            shown.push(ch);
+        }
+    }
+    Cow::Owned(shown)
+}
+
 fn char_width(ch: char, wide_ambiguous: bool) -> usize {
     let width = if wide_ambiguous {
         ch.width_cjk()
@@ -4763,6 +4782,19 @@ mod tests {
                 truncated
             );
         }
+    }
+
+    #[test]
+    fn control_characters_are_shown_as_escapes() {
+        assert_eq!(
+            show_controls("\u{1b}]52;c;aGk=\u{7}"),
+            "\\u{1b}]52;c;aGk=\\u{7}"
+        );
+        assert_eq!(
+            show_controls("a\nb\tc\u{7f}\u{9b}"),
+            "a\\nb\\tc\\u{7f}\\u{9b}"
+        );
+        assert!(matches!(show_controls("漢字 → ok"), Cow::Borrowed(_)));
     }
 
     #[test]

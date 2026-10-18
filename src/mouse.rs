@@ -520,7 +520,7 @@ fn decode_entries(encoded: &str) -> Vec<String> {
 pub fn preview_size(entries: &[String], wide_ambiguous: bool) -> (usize, usize) {
     let widest = entries
         .iter()
-        .map(|entry| crate::calculate_visible_length(entry, wide_ambiguous))
+        .map(|entry| crate::calculate_visible_length(&crate::show_controls(entry), wide_ambiguous))
         .max()
         .unwrap_or(0);
     (widest + FRAME_COLUMNS, entries.len() + FRAME_ROWS)
@@ -560,9 +560,16 @@ impl PreviewPopup {
                 .get(CONFIG_HOVER_PREVIEW_TAG)
                 .cloned()
                 .unwrap_or_default(),
+            // Entries are plain text, and whoever opened the popup chose
+            // them, so a control character in one is shown, not obeyed.
             entries: configuration
                 .get(CONFIG_HOVER_PREVIEW_ENTRIES)
-                .map(|encoded| decode_entries(encoded))
+                .map(|encoded| {
+                    decode_entries(encoded)
+                        .iter()
+                        .map(|entry| crate::show_controls(entry).into_owned())
+                        .collect()
+                })
                 .unwrap_or_default(),
             wide_ambiguous: configuration
                 .get(crate::CONFIG_AMBIGUOUS_WIDTH)
@@ -1108,7 +1115,10 @@ mod tests {
         );
         let configuration = preview_configuration("7-2", &original, true);
         let popup = PreviewPopup::from_configuration(&configuration).expect("a preview");
-        assert_eq!(popup.entries, original);
+        // The newline arrives, and the popup shows it escaped.
+        let mut shown = original.clone();
+        shown[3] = "two\\nlines".to_string();
+        assert_eq!(popup.entries, shown);
         assert_eq!(popup.tag, "7-2");
         assert!(popup.wide_ambiguous);
         let narrow = preview_configuration("7-2", &original, false);
@@ -1432,6 +1442,18 @@ mod tests {
             }
         }
         assert_eq!(popup.lines(3, 10)[1], "│ 漢字…\u{1b}[0m  │");
+    }
+
+    #[test]
+    fn a_popup_shows_control_characters_instead_of_sending_them() {
+        let labels = entries(&["\u{1b}]52;c;aGk=\u{7}", "a\u{1b}[2Jb"]);
+        let configuration = preview_configuration("7-2", &labels, false);
+        let popup = PreviewPopup::from_configuration(&configuration).expect("a preview");
+        let (width, height) = preview_size(&labels, false);
+        let lines = popup.lines(height, width);
+        assert_eq!(lines[1], "│ \\u{1b}]52;c;aGk=\\u{7} │");
+        assert_eq!(lines[2], "│ a\\u{1b}[2Jb           │");
+        assert!(lines.iter().all(|line| !line.contains('\u{1b}')));
     }
 
     #[test]
