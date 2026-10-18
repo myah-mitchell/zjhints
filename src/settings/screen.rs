@@ -1,21 +1,12 @@
 //! The settings screen as a running plugin: reading the config, turning keys
 //! and clicks into edits, previewing them on the bars, saving, and drawing.
 
-use super::editor::{Editor, Field, Outcome, Row};
+use super::editor::{Editor, Field, Focus, Outcome, Section};
 use super::live;
-use super::options::Kind;
+use super::view::{self, FormatView, Layout, Line, Place, FOOTER_LINES, NAME_COLUMNS};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zellij_utils::input::config_blocks::plugin_aliases_kdl;
-
-/// Lines above the list: the title and a blank line.
-const HEADER_LINES: usize = 2;
-/// Lines below the list: the selected row's description, a status line and
-/// the key help.
-const FOOTER_LINES: usize = 3;
-/// Columns a row's name is padded to, wide enough for the longest option
-/// name. A longer key, such as a label's, pushes its value along.
-const NAME_COLUMNS: usize = 21;
 
 /// A question waiting for an answer before anything else happens.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -51,10 +42,20 @@ pub struct SettingsScreen {
     /// The session's aliases hold edits the file does not, because a save
     /// put them there and did not reach the file.
     runtime_ahead: bool,
+    /// How format strings are shown in the list.
+    view: FormatView,
+    /// Where everything went at the last render, for the clicks after it.
+    layout: Option<Layout>,
+    /// The list, and the sidebar.
     scroll: Option<ScrollView>,
-    /// The row the list was last scrolled to show, so the view follows the
-    /// selection when it moves and the scroll wheel otherwise.
-    shown_selected: Option<usize>,
+    sidebar_scroll: Option<ScrollView>,
+    /// The section and row the list was last scrolled to show, so the view
+    /// follows the selection when it moves and the scroll wheel otherwise.
+    shown_selected: Option<(Section, usize)>,
+    /// The section the sidebar was last scrolled to show.
+    shown_section: Option<Section>,
+    /// What the pointer was last over, so the scroll wheel scrolls that.
+    pointer: Option<Place>,
 }
 
 impl SettingsScreen {
@@ -171,10 +172,13 @@ impl SettingsScreen {
             }
             return false;
         };
-        let page = self
-            .scroll
-            .as_ref()
-            .map_or(10, |scroll| scroll.viewport_height().max(1)) as isize;
+        let collapsed = self.layout.is_some_and(|layout| layout.is_collapsed());
+        let page = match editor.focus {
+            Focus::Sidebar => &self.sidebar_scroll,
+            Focus::List => &self.scroll,
+        }
+        .as_ref()
+        .map_or(10, |scroll| scroll.viewport_height().max(1)) as isize;
         // Ctrl s as well as s: Zellij's default keybindings take Ctrl s
         // for scroll mode, but it reaches the screen in locked mode.
         let is_save = key.bare_key == BareKey::Char('s')
@@ -191,8 +195,21 @@ impl SettingsScreen {
             BareKey::PageDown => editor.move_selection(page),
             BareKey::Home | BareKey::Char('g') => editor.move_selection(isize::MIN / 2),
             BareKey::End | BareKey::Char('G') => editor.move_selection(isize::MAX / 2),
+            // Without a sidebar, the keys that would move to it step
+            // through the sections instead.
+            BareKey::Left | BareKey::Char('h') if collapsed => editor.cycle_section(-1),
+            BareKey::Right | BareKey::Char('l') | BareKey::Tab if collapsed => {
+                editor.cycle_section(1)
+            }
+            BareKey::Left | BareKey::Char('h') => editor.set_focus(Focus::Sidebar),
+            BareKey::Right | BareKey::Char('l') => editor.set_focus(Focus::List),
+            BareKey::Tab => editor.toggle_focus(),
             BareKey::Enter | BareKey::Char(' ') => editor.activate(),
             BareKey::Backspace | BareKey::Delete | BareKey::Char('d') => editor.reset_selected(),
+            BareKey::Char('r') => {
+                self.view = self.view.toggled();
+                return true;
+            }
             BareKey::Esc | BareKey::Char('q') => {
                 if editor.is_dirty() {
                     self.question = Some(Question::DiscardAndClose);
@@ -210,21 +227,68 @@ impl SettingsScreen {
         if self.question.is_some() || self.input.is_some() {
             return false;
         }
-        let (Some(Ok(editor)), Some(scroll)) = (&mut self.editor, &mut self.scroll) else {
+        let (Some(Ok(editor)), Some(layout), Some(scroll), Some(sidebar_scroll)) = (
+            &mut self.editor,
+            self.layout,
+            &mut self.scroll,
+            &mut self.sidebar_scroll,
+        ) else {
             return false;
         };
+        let place = |line: isize, column: usize| {
+            usize::try_from(line)
+                .ok()
+                .and_then(|line| layout.place(line, column))
+        };
         match mouse {
-            Mouse::ScrollUp(lines) => scroll.scroll_by(-(lines as isize)),
-            Mouse::ScrollDown(lines) => scroll.scroll_by(lines as isize),
-            Mouse::LeftClick(line, _) => {
-                let Some(row) = scroll.row_at(line) else {
-                    return false;
-                };
-                // A click selects; a click on the selected row acts on it.
-                let outcome = if row == editor.selected {
-                    editor.activate()
+            Mouse::Hover(line, column) => {
+                self.pointer = place(line, column);
+                false
+            }
+            // The wheel scrolls whichever side the pointer is over, without
+            // moving the selection.
+            Mouse::ScrollUp(lines) | Mouse::ScrollDown(lines) => {
+                let lines = lines as isize;
+                let delta = if matches!(mouse, Mouse::ScrollUp(_)) {
+                    -lines
                 } else {
-                    editor.select(row)
+                    lines
+                };
+                match self.pointer {
+                    Some(Place::Sidebar) => sidebar_scroll.scroll_by(delta),
+                    _ => scroll.scroll_by(delta),
+                }
+            }
+            Mouse::LeftClick(line, column) => {
+                self.pointer = place(line, column);
+                let outcome = match self.pointer {
+                    Some(Place::Sidebar) => {
+                        let Some(index) = sidebar_scroll.row_at(line) else {
+                            return false;
+                        };
+                        let shown = editor.select_section(index);
+                        let focused = editor.set_focus(Focus::Sidebar);
+                        if shown == Outcome::None {
+                            focused
+                        } else {
+                            shown
+                        }
+                    }
+                    Some(Place::List) => {
+                        let Some(row) = scroll.row_at(line) else {
+                            return false;
+                        };
+                        // A click selects; a click on the selected row acts
+                        // on it.
+                        if row == editor.selected && editor.focus == Focus::List {
+                            editor.activate()
+                        } else {
+                            editor.select(row)
+                        }
+                    }
+                    Some(Place::Previous) => editor.cycle_section(-1),
+                    Some(Place::Next) => editor.cycle_section(1),
+                    None => return false,
                 };
                 self.carry_out(outcome)
             }
@@ -377,7 +441,7 @@ impl SettingsScreen {
     }
 
     pub fn render(&mut self, rows: usize, cols: usize) {
-        let editor = match &self.editor {
+        let editor = match &mut self.editor {
             None => {
                 print_text_with_coordinates(
                     Text::from("Waiting for permission…"),
@@ -390,7 +454,7 @@ impl SettingsScreen {
             }
             Some(Err(message)) => {
                 print_text_with_coordinates(
-                    Text::from(truncate(message, cols)).error_color_all(),
+                    Text::from(view::truncate(message, cols)).error_color_all(),
                     0,
                     0,
                     None,
@@ -402,37 +466,98 @@ impl SettingsScreen {
             Some(Ok(editor)) => editor,
         };
 
-        let title = title(editor);
+        let sections = editor.sections();
+        let titles: Vec<&str> = sections.iter().map(|section| section.title()).collect();
+        let layout = Layout::new(rows, cols, &titles);
+        if layout.is_collapsed() {
+            // Nothing to focus but the list without a sidebar.
+            editor.focus = Focus::List;
+        }
+        self.layout = Some(layout);
+        let editor = &*editor;
+
+        let title = view::title(editor, self.view);
         let unsaved_from = title.find('●').map(|byte| title[..byte].chars().count());
-        let mut title_text = Text::from(truncate(&title, cols)).color_range(2, ..);
+        let mut title_text = Text::from(view::truncate(&title, cols)).color_range(2, ..);
         if let Some(from) = unsaved_from {
             title_text = title_text.color_range(1, from..);
         }
         print_text_with_coordinates(title_text, 0, 0, None, None);
 
+        // Made whether or not there is room for the sidebar, so clicks find
+        // both scroll views either way.
+        let sidebar_scroll = self
+            .sidebar_scroll
+            .get_or_insert_with(|| ScrollView::new(0));
+        match layout.sidebar {
+            Some(width) => {
+                let scroll = sidebar_scroll;
+                scroll.set_total_rows(sections.len());
+                scroll.layout(0, layout.body_y, width, layout.body_height);
+                if self.shown_section != Some(editor.section()) {
+                    scroll.ensure_visible(editor.section_index());
+                    self.shown_section = Some(editor.section());
+                }
+                let content = scroll.content_width();
+                for (index, section) in sections.iter().enumerate() {
+                    let Some(y) = scroll.screen_row(index) else {
+                        continue;
+                    };
+                    let line = view::sidebar_line(editor, *section, content);
+                    let mut text = styled(&line);
+                    if *section == editor.section() {
+                        text = match editor.focus {
+                            Focus::Sidebar => text.selected(),
+                            Focus::List => text.color_range(2, ..),
+                        };
+                    }
+                    print_text_with_coordinates(text, 0, y, Some(content), None);
+                }
+                scroll.render_indicators();
+                for y in layout.body_y..layout.body_y + layout.body_height {
+                    print_text_with_coordinates(Text::from("│").dim_all(), width, y, None, None);
+                }
+            }
+            None => {
+                // Bring the section into view again once the sidebar is back.
+                self.shown_section = None;
+                if layout.body_height > 0 {
+                    let line = view::header_line(editor, cols);
+                    let text = styled(&line).color_range(2, ..);
+                    print_text_with_coordinates(text, 0, layout.body_y, None, None);
+                }
+            }
+        }
+
         let list = editor.rows();
-        let height = rows.saturating_sub(HEADER_LINES + FOOTER_LINES);
         let scroll = self.scroll.get_or_insert_with(|| ScrollView::new(0));
         scroll.set_total_rows(list.len());
-        scroll.layout(0, HEADER_LINES, cols, height);
-        // Bring the selection into view when it moves, with the heading over
-        // it when there is one, and leave the view where the wheel put it
+        scroll.layout(
+            layout.list_x,
+            layout.list_y,
+            layout.list_width,
+            layout.list_height,
+        );
+        // Bring the selection into view when it moves, from the top when the
+        // section changed, and leave the view where the wheel put it
         // otherwise.
         let selected = editor.selected;
-        if self.shown_selected != Some(selected) {
-            if selected > 0 && matches!(list[selected - 1], Row::Heading(_)) {
-                scroll.ensure_range_visible(selected - 1, 2);
-            } else {
-                scroll.ensure_visible(selected);
+        let shown = (editor.section(), selected);
+        if self.shown_selected != Some(shown) {
+            if self.shown_selected.map(|(section, _)| section) != Some(editor.section()) {
+                scroll.set_offset(0);
             }
-            self.shown_selected = Some(selected);
+            scroll.ensure_visible(selected);
+            self.shown_selected = Some(shown);
         }
         let width = scroll.content_width().saturating_sub(1);
+        let list_focused = editor.focus == Focus::List;
         let mut editing = self.input.as_mut();
         for (index, row) in list.iter().enumerate() {
             let Some(y) = scroll.screen_row(index) else {
                 continue;
             };
+            let x = layout.list_x;
             if index == selected {
                 if let Some((field, input)) = editing.take() {
                     let name = match field {
@@ -440,40 +565,40 @@ impl SettingsScreen {
                         Field::NewKey => "new key",
                     };
                     let label = format!("  {name:NAME_COLUMNS$} ");
-                    print_text_with_coordinates(Text::from(&label).selected(), 0, y, None, None);
-                    input.render(label.chars().count(), y, width.saturating_sub(label.len()));
+                    let columns = label.chars().count();
+                    print_text_with_coordinates(Text::from(&label).selected(), x, y, None, None);
+                    input.render(x + columns, y, width.saturating_sub(columns));
                     continue;
                 }
             }
-            let line = row_line(editor, row, width);
-            let mut text = Text::from(&line.text);
-            if let Some(range) = line.dim {
-                text = text.dim_range(range);
-            }
-            if let Some(range) = line.edited {
-                text = text.color_range(1, range);
-            }
-            if line.heading {
-                text = text.color_all(2);
-            }
-            if index == selected {
+            let line = view::row_line(editor, row, width, self.view);
+            let mut text = styled(&line);
+            if index == selected && list_focused {
                 text = text.selected();
             }
-            print_text_with_coordinates(text, 0, y, Some(width), None);
+            print_text_with_coordinates(text, x, y, Some(width), None);
+            // Text draws only the theme's palette, so a rendered format
+            // string and a swatch, which need true color, go over the top
+            // as plain ANSI.
+            if let Some((column, ansi)) = &line.styled {
+                print_ansi(x + column, y, ansi);
+            }
+            if let Some((column, color)) = line.swatch {
+                print_ansi(x + column, y, &view::swatch_ansi(color));
+            }
         }
         scroll.render_indicators();
 
         let footer = rows.saturating_sub(FOOTER_LINES);
-        let description = describe(editor.selected_row().as_ref());
         print_text_with_coordinates(
-            Text::from(truncate(&description, cols)).dim_all(),
+            Text::from(view::truncate(&view::describe(editor), cols)).dim_all(),
             0,
             footer,
             None,
             None,
         );
         if let Some((status, is_error)) = &self.status {
-            let text = Text::from(truncate(status, cols));
+            let text = Text::from(view::truncate(status, cols));
             let text = if *is_error {
                 text.error_color_all()
             } else {
@@ -491,13 +616,7 @@ impl SettingsScreen {
                 ("Esc", "cancel"),
             ],
             (None, Some(_)) => vec![("Enter", "set"), ("Esc", "cancel")],
-            (None, None) => vec![
-                ("↑↓", "move"),
-                ("Enter", "change"),
-                ("Del", "reset"),
-                ("s", "save"),
-                ("Esc", "close"),
-            ],
+            (None, None) => view::help_keys(editor.focus, layout.is_collapsed(), self.view),
         };
         if let Some(question) = self.question {
             let prompt = match question {
@@ -505,7 +624,7 @@ impl SettingsScreen {
                 Question::OverwriteOrReload => "The config file changed since it was read.",
             };
             print_text_with_coordinates(
-                Text::from(truncate(prompt, cols)).error_color_all(),
+                Text::from(view::truncate(prompt, cols)).error_color_all(),
                 0,
                 footer + 1,
                 None,
@@ -516,118 +635,21 @@ impl SettingsScreen {
     }
 }
 
-/// The screen's first line: what is being edited and whether it is saved.
-fn title(editor: &Editor) -> String {
-    let mut title = format!("zjhints settings · alias \"{}\"", editor.alias_name());
-    if editor.is_dirty() {
-        title.push_str("  ● unsaved");
+/// A line as a `Text`, with its dimmed part and edited marker colored.
+fn styled(line: &Line) -> Text {
+    let mut text = Text::from(&line.text);
+    if let Some(range) = line.dim.clone() {
+        text = text.dim_range(range);
     }
-    title
+    if let Some(range) = line.edited.clone() {
+        text = text.color_range(1, range);
+    }
+    text
 }
 
-/// One row as text, with the parts to draw differently.
-#[derive(Debug, PartialEq)]
-struct Line {
-    text: String,
-    heading: bool,
-    /// The characters of a value that is not set, so the default shows.
-    dim: Option<std::ops::Range<usize>>,
-    /// The characters of the marker on an edited value.
-    edited: Option<std::ops::Range<usize>>,
-}
-
-fn row_line(editor: &Editor, row: &Row, width: usize) -> Line {
-    let plain = |text: String| Line {
-        text: truncate(&text, width),
-        heading: false,
-        dim: None,
-        edited: None,
-    };
-    let (key, value, default) = match row {
-        Row::Heading(title) => {
-            return Line {
-                text: truncate(title, width),
-                heading: true,
-                dim: None,
-                edited: None,
-            }
-        }
-        Row::Alias => {
-            return plain(format!(
-                "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
-                "alias",
-                editor.alias_name(),
-                editor.alias_count()
-            ))
-        }
-        Row::AddOther => return plain("  + add a key".to_string()),
-        Row::Option(option) => (option.name, editor.value(option.name), option.default),
-        Row::Other(key) => (key.as_str(), editor.value(key), None),
-    };
-    let prefix = format!("  {key:NAME_COLUMNS$} ");
-    let start = prefix.chars().count();
-    let (shown, dim) = match value {
-        Some(value) => (show_value(value), false),
-        None => (
-            match default {
-                Some(default) => format!("{} (default)", show_value(default)),
-                None => "unset".to_string(),
-            },
-            true,
-        ),
-    };
-    let mut text = format!("{prefix}{shown}");
-    let end = text.chars().count();
-    let mut edited = None;
-    if editor.is_edited(key) {
-        text.push_str("  ●");
-        edited = Some(end + 2..end + 3);
-    }
-    let text = truncate(&text, width);
-    let visible = text.chars().count();
-    Line {
-        text,
-        heading: false,
-        dim: dim.then(|| start.min(visible)..end.min(visible)),
-        edited: edited.filter(|range| range.end <= visible),
-    }
-}
-
-/// A value as shown in the list: quoted when it would otherwise be invisible
-/// or ambiguous.
-fn show_value(value: &str) -> String {
-    if value.is_empty() || value.trim() != value {
-        format!("\"{value}\"")
-    } else {
-        value.to_string()
-    }
-}
-
-/// The footer line about the selected row.
-fn describe(row: Option<&Row>) -> String {
-    match row {
-        Some(Row::Option(option)) => {
-            let default = option.default.unwrap_or("unset");
-            let how = match option.kind {
-                Kind::Bool => "Enter toggles".to_string(),
-                Kind::Choice(choices) => format!("Enter cycles {}", choices.join(" / ")),
-                Kind::Integer | Kind::Fraction | Kind::Text => "Enter edits".to_string(),
-            };
-            format!("{}. Default {default}. {how}.", option.description)
-        }
-        Some(Row::Other(key)) => match super::options::family_of(key) {
-            Some(family) => format!(
-                "{} ({}). Del removes it.",
-                family.description, family.pattern
-            ),
-            None => "Not an option zjhints reads. Del removes it.".to_string(),
-        },
-        Some(Row::AddOther) => {
-            "Add a key not listed above, such as label_<id> or color_<name>.".to_string()
-        }
-        Some(Row::Alias) => "The plugins {} alias being edited.".to_string(),
-        Some(Row::Heading(_)) | None => String::new(),
-    }
+/// Draw ANSI at a column and line of the pane, from a clean style.
+fn print_ansi(x: usize, y: usize, ansi: &str) {
+    print!("\u{1b}[{};{}H\u{1b}[0m{ansi}", y + 1, x + 1);
 }
 
 fn help(keys: &[(&str, &str)], cols: usize) -> Text {
@@ -643,7 +665,7 @@ fn help(keys: &[(&str, &str)], cols: usize) -> Text {
         line.push(' ');
         line.push_str(action);
     }
-    let line = truncate(&line, cols);
+    let line = view::truncate(&line, cols);
     let visible = line.chars().count();
     key_ranges
         .into_iter()
@@ -651,112 +673,6 @@ fn help(keys: &[(&str, &str)], cols: usize) -> Text {
         .fold(Text::from(&line), |text, range| text.color_range(3, range))
 }
 
-fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
-    }
-    let mut cut: String = text.chars().take(width.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
-}
-
 fn is_plain(key: &KeyWithModifier, bare: BareKey) -> bool {
     key.bare_key == bare && key.key_modifiers.is_empty()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::settings::options;
-
-    fn editor(configuration: &[(&str, &str)]) -> Editor {
-        Editor::new(
-            vec![PluginAliasEntry {
-                name: "zjhints".to_string(),
-                plugin: PluginEntry {
-                    location: "file:~/zjhints.wasm".to_string(),
-                    cwd: None,
-                    configuration: configuration
-                        .iter()
-                        .map(|(key, value)| (key.to_string(), value.to_string()))
-                        .collect(),
-                },
-            }],
-            None,
-        )
-        .unwrap()
-    }
-
-    fn option_row(name: &str) -> Row {
-        Row::Option(options::find(name).unwrap())
-    }
-
-    #[test]
-    fn an_unset_option_shows_its_default_dimmed() {
-        let line = row_line(&editor(&[]), &option_row("auto_width"), 80);
-        assert_eq!(line.text, format!("  {:22}true (default)", "auto_width"));
-        assert_eq!(line.dim, Some(24..38));
-        assert_eq!(line.edited, None);
-    }
-
-    #[test]
-    fn a_set_option_shows_its_value_plainly() {
-        let line = row_line(
-            &editor(&[("max_length", "40")]),
-            &option_row("max_length"),
-            80,
-        );
-        assert_eq!(line.text, format!("  {:22}40", "max_length"));
-        assert_eq!(line.dim, None);
-    }
-
-    #[test]
-    fn an_edited_value_is_marked() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            " | ",
-        );
-        let line = row_line(&editor, &option_row("hint_spacer"), 80);
-        assert_eq!(line.text, format!("  {:22}\" | \"  ●", "hint_spacer"));
-        assert_eq!(line.edited, Some(31..32));
-        assert!(title(&editor).ends_with("● unsaved"));
-    }
-
-    #[test]
-    fn a_narrow_pane_truncates_rows_and_drops_markers_cut_off() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            "|",
-        );
-        let line = row_line(&editor, &option_row("hint_spacer"), 20);
-        assert_eq!(line.text.chars().count(), 20);
-        assert!(line.text.ends_with('…'));
-        assert_eq!(line.edited, None);
-    }
-
-    #[test]
-    fn a_key_longer_than_the_name_column_keeps_a_space_before_its_value() {
-        let key = "label_locked_switch_to_mode_normal";
-        let line = row_line(
-            &editor(&[(key, "Unlock")]),
-            &Row::Other(key.to_string()),
-            80,
-        );
-        assert_eq!(line.text, format!("  {key} Unlock"));
-    }
-
-    #[test]
-    fn the_footer_explains_the_selected_row() {
-        let text = describe(Some(&option_row("key_order")));
-        assert!(text.starts_with("How keys within a hint are ordered. Default qwerty."));
-        assert!(text.contains("qwerty / dvorak"));
-        let text = describe(Some(&Row::Other("color_blue".to_string())));
-        assert!(text.contains("color_<name>"));
-    }
 }
