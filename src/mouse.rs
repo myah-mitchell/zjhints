@@ -454,10 +454,12 @@ pub fn preview_tag(owner: u32, generation: u64) -> String {
 
 // What marks an instance as a preview popup rather than the bar, and what it
 // shows. Written by `preview_configuration`, read by
-// `PreviewPopup::from_configuration`.
-const CONFIG_HOVER_PREVIEW: &str = "hover_preview";
-const CONFIG_HOVER_PREVIEW_TAG: &str = "hover_preview_tag";
-const CONFIG_HOVER_PREVIEW_ENTRIES: &str = "hover_preview_entries";
+// `PreviewPopup::from_configuration`. Named apart from the options, so a user
+// option that reads like a switch for the feature cannot turn a bar into a
+// popup.
+const CONFIG_HOVER_PREVIEW: &str = "zjhints_internal_preview";
+const CONFIG_HOVER_PREVIEW_TAG: &str = "zjhints_internal_preview_tag";
+const CONFIG_HOVER_PREVIEW_ENTRIES: &str = "zjhints_internal_preview_entries";
 
 /// The configuration a preview popup is opened with.
 pub fn preview_configuration(
@@ -1119,8 +1121,11 @@ mod tests {
         assert!(PreviewPopup::from_configuration(&BTreeMap::new()).is_none());
         let bar = BTreeMap::from([("mouse".to_string(), "true".to_string())]);
         assert!(PreviewPopup::from_configuration(&bar).is_none());
-        let off = BTreeMap::from([("hover_preview".to_string(), "false".to_string())]);
+        let off = BTreeMap::from([(CONFIG_HOVER_PREVIEW.to_string(), "false".to_string())]);
         assert!(PreviewPopup::from_configuration(&off).is_none());
+        // An option a user might set to turn the feature on leaves a bar.
+        let user = BTreeMap::from([("hover_preview".to_string(), "true".to_string())]);
+        assert!(PreviewPopup::from_configuration(&user).is_none());
     }
 
     #[test]
