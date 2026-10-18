@@ -40,7 +40,7 @@ Choosing an entry runs it, and dismissing the menu runs nothing. Keys that do th
 
 Only the keys the hint shows count. With [`direction_keys arrows`](ordering.md#direction-keys), clicking `focus` offers the arrows and not `hjkl`.
 
-The spacers between hints, the mode prefix and the empty end of the line do nothing when clicked.
+Clicking the mode prefix opens the [settings screen](settings.md#by-clicking-the-mode-prefix). The spacers between hints and the empty end of the line do nothing when clicked.
 
 ## Hints that did not fit
 
