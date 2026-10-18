@@ -604,12 +604,13 @@ fn settings_screen(
     }
 
     let width = layout.list_width.saturating_sub(1);
+    let row_lines = view::Rows::new(&editor, FormatView::Rendered);
     for (index, list_row) in editor.rows().iter().enumerate() {
         let y = layout.list_y + index;
         if y >= layout.list_y + layout.list_height {
             break;
         }
-        let line = view::row_line(&editor, list_row, width, FormatView::Rendered);
+        let line = row_lines.line(list_row, width);
         let is_selected = index == editor.selected && editor.focus == Focus::List;
         let pen = if is_selected {
             selected

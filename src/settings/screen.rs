@@ -553,6 +553,7 @@ impl SettingsScreen {
         let width = scroll.content_width().saturating_sub(1);
         let list_focused = editor.focus == Focus::List;
         let mut editing = self.input.as_mut();
+        let row_lines = view::Rows::new(editor, self.view);
         for (index, row) in list.iter().enumerate() {
             let Some(y) = scroll.screen_row(index) else {
                 continue;
@@ -571,7 +572,7 @@ impl SettingsScreen {
                     continue;
                 }
             }
-            let line = view::row_line(editor, row, width, self.view);
+            let line = row_lines.line(row, width);
             let mut text = styled(&line);
             if index == selected && list_focused {
                 text = text.selected();

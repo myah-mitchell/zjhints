@@ -73,7 +73,7 @@ LaunchOrFocusPlugin "zjhints" {
 
 The screen has two sides. The sidebar on the left lists the groups, the same ones as the [configuration reference](configuration.md), with *Other* last. The list on the right shows the options of the group selected in the sidebar. A group holding unsaved edits is marked with `●` in the sidebar.
 
-Each row of the list shows an option and its value. An option you have not set shows its default, dimmed, and a value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
+Each row of the list shows an option and its value. An option you have not set shows its default, dimmed. When the selected [theme](themes.md) sets that option, the theme's value shows instead, dimmed and followed by *(theme)*. A value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
 
 | Key | What it does |
 | --- | --- |
@@ -97,7 +97,7 @@ When the pane is too narrow for the sidebar beside the list, a line over the lis
 
 ### Format strings
 
-Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
 
 The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, and an edit to `desc_format`, marked with `●`, in the selected row:
 
@@ -107,7 +107,7 @@ Press **r** to show every format string as written, and again to go back. The ti
 
 ### Colors
 
-A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it.
+A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it. The alias can be one of yours or one the selected theme defines.
 
 ![The settings screen on the Colors group. Each row names a color alias, such as color_accent with the value #f5c2e7, and ends in a swatch of that color. The color_accent row is selected and marked as edited](img/settings-colors.svg)
 

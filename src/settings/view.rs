@@ -152,89 +152,124 @@ impl Line {
     }
 }
 
-/// A row of the list as a line `width` columns wide.
-pub fn row_line(editor: &Editor, row: &Row, width: usize, view: FormatView) -> Line {
-    let (key, kind, default) = match row {
-        Row::Alias => {
-            return Line::plain(
-                format!(
-                    "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
-                    "alias",
-                    crate::show_controls(editor.alias_name()),
-                    editor.alias_count()
-                ),
-                width,
-            )
+/// What the rows of one render are drawn against: the editor, how format
+/// strings are shown, and the configuration the bar would read, with the
+/// selected theme laid under the user's own values. Made once per render,
+/// since laying the theme copies the configuration.
+pub struct Rows<'a> {
+    editor: &'a Editor,
+    view: FormatView,
+    /// What samples and swatches resolve `$name` aliases against. Only for
+    /// showing: what is saved is `Editor::working`, the user's own values.
+    layered: BTreeMap<String, String>,
+}
+
+impl<'a> Rows<'a> {
+    pub fn new(editor: &'a Editor, view: FormatView) -> Self {
+        Rows {
+            editor,
+            view,
+            layered: crate::theme::layer(editor.working()),
         }
-        Row::Add(prefix) => return Line::plain(format!("  + add {}", add_what(prefix)), width),
-        Row::Option(option) => (option.name, option.kind, option.default),
-        Row::Key(key) => (key.as_str(), options::kind_of(key), None),
-    };
-    let config = editor.working();
-    let mut text = format!("  {:NAME_COLUMNS$} ", crate::show_controls(key));
-    let start = text.chars().count();
-    let mut styled = None;
-    let mut swatch = None;
-    let mut dim = false;
-    match editor.value(key) {
-        Some(value) => {
-            let rendered = (view == FormatView::Rendered && kind == Kind::Format)
-                .then(|| render_sample(key, value, config))
-                .flatten();
-            match rendered {
-                Some((plain, ansi)) => {
-                    text.push_str(&plain);
-                    styled = Some(ansi);
-                }
-                None => text.push_str(&show_value(value, kind)),
+    }
+
+    /// A row of the list as a line `width` columns wide.
+    pub fn line(&self, row: &Row, width: usize) -> Line {
+        let editor = self.editor;
+        let (key, kind, default) = match row {
+            Row::Alias => {
+                return Line::plain(
+                    format!(
+                        "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
+                        "alias",
+                        crate::show_controls(editor.alias_name()),
+                        editor.alias_count()
+                    ),
+                    width,
+                )
             }
-            swatch = swatch_color(value, config);
-        }
-        None => {
-            dim = true;
-            match default {
+            Row::Add(prefix) => return Line::plain(format!("  + add {}", add_what(prefix)), width),
+            Row::Option(option) => (option.name, option.kind, option.default),
+            Row::Key(key) => (key.as_str(), options::kind_of(key), None),
+        };
+        let config = &self.layered;
+        let mut text = format!("  {:NAME_COLUMNS$} ", crate::show_controls(key));
+        let start = text.chars().count();
+        let mut styled = None;
+        let mut swatch = None;
+        // What stands in for a value the user has not set: a theme's value
+        // or the built-in default, dimmed and named as such.
+        let mut fallback = None;
+        let themed = config.get(key).map(String::as_str);
+        let value = match (editor.value(key), themed) {
+            (Some(value), _) => Some(value),
+            (None, Some(value)) => {
+                fallback = Some(" (theme)");
+                Some(value)
+            }
+            (None, None) => None,
+        };
+        match value {
+            Some(value) => {
+                let rendered = (self.view == FormatView::Rendered && kind == Kind::Format)
+                    .then(|| render_sample(key, value, config))
+                    .flatten();
+                match rendered {
+                    Some((plain, ansi)) => {
+                        text.push_str(&plain);
+                        styled = Some(ansi);
+                    }
+                    None => text.push_str(&show_value(value, kind)),
+                }
+                swatch = swatch_color(value, config);
+            }
+            None => match default {
                 Some(default) => {
+                    fallback = Some(" (default)");
                     text.push_str(&show_value(default, kind));
                     swatch = swatch_color(default, config);
                 }
-                None => text.push_str("unset"),
-            }
+                None => {
+                    fallback = Some("");
+                    text.push_str("unset");
+                }
+            },
         }
-    }
-    let value_end = text.chars().count();
-    let swatch = swatch.map(|color| {
-        text.push_str("   ");
-        (value_end + 1, color)
-    });
-    if dim && default.is_some() {
-        text.push_str(" (default)");
-    }
-    let end = text.chars().count();
-    let mut edited = None;
-    if editor.is_edited(key) {
-        text.push_str("  ●");
-        edited = Some(end + 2..end + 3);
-    }
+        let value_end = text.chars().count();
+        let swatch = swatch.map(|color| {
+            text.push_str("   ");
+            (value_end + 1, color)
+        });
+        if let Some(fallback) = fallback {
+            text.push_str(fallback);
+        }
+        let end = text.chars().count();
+        let mut edited = None;
+        if editor.is_edited(key) {
+            text.push_str("  ●");
+            edited = Some(end + 2..end + 3);
+        }
 
-    // What survives the cut: everything, or all but the last column, which
-    // the `…` takes.
-    let full = text.chars().count();
-    let text = truncate(&text, width);
-    let visible = text.chars().count();
-    let shown = if full > width {
-        width.saturating_sub(1)
-    } else {
-        full
-    };
-    Line {
-        text,
-        dim: dim.then(|| start.min(visible)..end.min(visible)),
-        edited: edited.filter(|range| range.end <= visible),
-        styled: styled.and_then(|ansi| {
-            let room = value_end.min(shown).saturating_sub(start);
-            (room > 0).then(|| (start, take_visible(&ansi, room)))
-        }),
-        swatch: swatch.filter(|(column, _)| column + 2 <= shown),
+        // What survives the cut: everything, or all but the last column,
+        // which the `…` takes.
+        let full = text.chars().count();
+        let text = truncate(&text, width);
+        let visible = text.chars().count();
+        let shown = if full > width {
+            width.saturating_sub(1)
+        } else {
+            full
+        };
+        Line {
+            text,
+            dim: fallback.map(|_| start.min(visible)..end.min(visible)),
+            edited: edited.filter(|range| range.end <= visible),
+            styled: styled.and_then(|ansi| {
+                let room = value_end.min(shown).saturating_sub(start);
+                (room > 0).then(|| (start, take_visible(&ansi, room)))
+            }),
+            swatch: swatch.filter(|(column, _)| column + 2 <= shown),
+        }
     }
 }
 
@@ -534,6 +569,11 @@ mod tests {
         .unwrap()
     }
 
+    /// `row` as drawn on its own, laying the theme for it alone.
+    fn row_line(editor: &Editor, row: &Row, width: usize, view: FormatView) -> Line {
+        Rows::new(editor, view).line(row, width)
+    }
+
     fn option_row(name: &str) -> Row {
         Row::Option(options::find(name).unwrap())
     }
@@ -799,6 +839,53 @@ mod tests {
         assert_eq!(line.swatch, Some((32, (0, 0, 255))));
         let line = row_line(&editor, &key_row("color_blue"), 35, FormatView::Raw);
         assert_eq!(line.swatch, None);
+    }
+
+    #[test]
+    fn values_are_drawn_against_the_selected_theme() {
+        let editor = editor(&[
+            ("theme", "tokyo-night"),
+            ("key_format_quit", "#[fg=$bg,bg=$red,bold] {key} "),
+            ("color_accent", "$red"),
+        ]);
+        let themed = crate::theme::layer(editor.working());
+        let red = swatch_color(&themed["color_red"], &themed).expect("a hex red");
+
+        // A `$red` value the theme defines gets its swatch.
+        let line = row_line(&editor, &key_row("color_accent"), 80, FormatView::Raw);
+        assert_eq!(line.swatch.map(|(_, color)| color), Some(red));
+
+        // A format using the theme's aliases renders in its colors.
+        let line = row_line(
+            &editor,
+            &key_row("key_format_quit"),
+            80,
+            FormatView::Rendered,
+        );
+        let (red_r, red_g, red_b) = red;
+        let (_, ansi) = line.styled.expect("a rendered format");
+        assert!(ansi.contains(&format!("48;2;{red_r};{red_g};{red_b}")));
+
+        // What is saved stays the user's own.
+        assert!(!editor.working().contains_key("color_red"));
+    }
+
+    #[test]
+    fn an_unset_option_a_theme_sets_shows_the_themes_value_dimmed() {
+        let editor = editor(&[("theme", "nord")]);
+        let themed = crate::theme::layer(editor.working());
+        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Raw);
+        let shown = show_value(&themed["key_format"], Kind::Format);
+        assert_eq!(line.text, format!("  {:22}{shown} (theme)", "key_format"));
+        assert_eq!(line.dim, Some(24..line.text.chars().count()));
+
+        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Rendered);
+        assert_eq!(line.text, format!("  {:22} Ctrl p  (theme)", "key_format"));
+        assert!(line.styled.is_some());
+
+        // Without a theme the built-in default shows, as before.
+        let line = row_line(&editor, &option_row("max_length"), 80, FormatView::Raw);
+        assert!(!line.text.contains("(theme)"));
     }
 
     #[test]
