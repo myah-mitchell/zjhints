@@ -10,7 +10,7 @@ REPO    := myah-mitchell/zjhints
 # it once nothing worth fetching carries the old name.
 LEGACY_ASSET := zjstatus-hints.wasm
 
-.PHONY: build install dev test check nightly latest zellij ea
+.PHONY: build install dev test images check nightly latest zellij ea
 
 # Build the release wasm.
 build:
@@ -29,6 +29,12 @@ dev: install
 # (libssl-dev). See docs/automation.md if this fails to link.
 test:
 	cargo test --all-features
+
+# Redraw the SVGs in docs/img from the code that draws the bar and the
+# settings screen. Plain `make test` compares against them and fails when
+# they are stale, so run this after a change that alters how either looks.
+images:
+	ZJHINTS_WRITE_IMAGES=1 cargo test --all-features images
 
 # What CI runs, so a red build can be reproduced before pushing.
 check: test

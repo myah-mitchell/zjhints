@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="258" viewBox="0 0 1108 258" role="img">
+<title>The hover preview of a hint, listing what clicking it offers</title>
+<rect width="1108" height="258" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="0" width="54" height="18" fill="#a6e3a1"/>
+<rect x="63" y="0" width="81" height="18" fill="#cdd6f4"/>
+<rect x="144" y="0" width="45" height="18" fill="#181825"/>
+<rect x="198" y="0" width="27" height="18" fill="#cdd6f4"/>
+<rect x="225" y="0" width="63" height="18" fill="#181825"/>
+<rect x="297" y="0" width="27" height="18" fill="#cdd6f4"/>
+<rect x="324" y="0" width="108" height="18" fill="#181825"/>
+<rect x="441" y="0" width="81" height="18" fill="#cdd6f4"/>
+<rect x="522" y="0" width="63" height="18" fill="#181825"/>
+<rect x="594" y="0" width="27" height="18" fill="#cdd6f4"/>
+<rect x="621" y="0" width="63" height="18" fill="#181825"/>
+<rect x="693" y="0" width="27" height="18" fill="#cdd6f4"/>
+<rect x="720" y="0" width="117" height="18" fill="#181825"/>
+<rect x="846" y="0" width="27" height="18" fill="#cdd6f4"/>
+<rect x="873" y="0" width="108" height="18" fill="#181825"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="9 18 27 36 72 90 99 108 126" fill="#181825" font-weight="bold">PANEnAltn</tspan><tspan x="153 162 171" fill="#cdd6f4">new</tspan><tspan x="207" fill="#181825" font-weight="bold">x</tspan><tspan x="234 243 252 261 270" fill="#cdd6f4">close</tspan><tspan x="306" fill="#181825" font-weight="bold">f</tspan><tspan x="333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">fullscreen</tspan><tspan x="450 468 477 486 504" fill="#181825" font-weight="bold">wAltf</tspan><tspan x="531 540 549 558 567" fill="#cdd6f4">float</tspan><tspan x="603" fill="#181825" font-weight="bold">e</tspan><tspan x="630 639 648 657 666" fill="#cdd6f4">embed</tspan><tspan x="702" fill="#181825" font-weight="bold">r</tspan><tspan x="729 738 747 756 765 783 792 801 810 819" fill="#cdd6f4">splitright</tspan><tspan x="855" fill="#181825" font-weight="bold">d</tspan><tspan x="882 891 900 909 918 936 945 954 963 981" fill="#cdd6f4">splitdown…</tspan></text>
+<text y="31"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">┌────────────────────────────────────────┐</tspan></text>
+<text y="49"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│crename│</tspan></text>
+<text y="67"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 837 846 855 864 891 900 909 918 927 1071" fill="#cdd6f4">│h←j↓k↑l→Altj↓k↑focus│</tspan></text>
+<text y="85"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 828 846 873 882 891 900 909 918 1071" fill="#cdd6f4">│ESCENTERCtrlpnormal│</tspan></text>
+<text y="103"><tspan x="702 720 747 756 765 774 783 801 810 819 828 846 855 864 873 1071" fill="#cdd6f4">│;focuslastpane│</tspan></text>
+<text y="121"><tspan x="702 720 747 756 765 774 783 792 801 810 1071" fill="#cdd6f4">│afloating│</tspan></text>
+<text y="139"><tspan x="702 720 729 738 747 756 774 801 810 819 828 837 846 864 873 882 891 900 918 927 945 954 972 981 990 999 1008 1017 1026 1035 1044 1053 1071" fill="#cdd6f4">│Shiftftogglefocusnouifullscreen│</tspan></text>
+<text y="157"><tspan x="702 720 747 756 765 1071" fill="#cdd6f4">│ipin│</tspan></text>
+<text y="175"><tspan x="702 720 747 756 765 774 783 792 810 819 828 837 846 1071" fill="#cdd6f4">│ptogglefocus│</tspan></text>
+<text y="193"><tspan x="702 720 747 756 765 774 783 792 801 1071" fill="#cdd6f4">│sstacked│</tspan></text>
+<text y="211"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│zframes│</tspan></text>
+<text y="229"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">└────────────────────────────────────────┘</tspan></text>
+</g>
+</g>
+</svg>

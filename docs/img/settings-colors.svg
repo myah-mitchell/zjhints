@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="366" viewBox="0 0 928 366" role="img">
+<title>The settings screen on the Colors group, with a swatch beside each color</title>
+<rect width="928" height="366" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="207" y="36" width="306" height="18" fill="#585b70"/>
+<rect x="513" y="36" width="18" height="18" fill="#f5c2e7"/>
+<rect x="531" y="36" width="360" height="18" fill="#585b70"/>
+<rect x="513" y="54" width="18" height="18" fill="#181825"/>
+<rect x="513" y="72" width="18" height="18" fill="#cdd6f4"/>
+<rect x="513" y="90" width="18" height="18" fill="#6c7086"/>
+<rect x="513" y="108" width="18" height="18" fill="#f38ba8"/>
+<rect x="513" y="126" width="18" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 72 81 90 99 108 117 126 135 153 171 180 189 198 207 225 234 243 252 261 270 279 288 297 315 333 342 351 360 369 378 387 405 414 423 432 441 450 459 468" fill="#a6e3a1">zjhintssettings·alias"zjhints"·formatsrendered</tspan><tspan x="495 513 522 531 540 549 558 567" fill="#89dceb">●unsaved</tspan></text>
+<text y="49"><tspan x="18 27 36 45 54 63 72" fill="#cdd6f4">Fitting</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 324 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_accent"#f5c2e7"</tspan><tspan x="549" fill="#89dceb">●</tspan></text>
+<text y="67"><tspan x="18 27 36 45 54" fill="#cdd6f4">Hints</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_bg"#181825"</tspan></text>
+<text y="85"><tspan x="18 27 36 45 63 72 81 99 108 117 126 135 144 153 162" fill="#cdd6f4">Keysandordering</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_fg"#cdd6f4"</tspan></text>
+<text y="103"><tspan x="18 27 36 45 54" fill="#cdd6f4">Theme</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_muted"#6c7086"</tspan></text>
+<text y="121"><tspan x="18 27 36 45 54 63 72" fill="#cdd6f4">Styling</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_red"#f38ba8"</tspan></text>
+<text y="139"><tspan x="0 18 27 36 45 54 63" fill="#a6e3a1">▸Colors</tspan><tspan x="81" fill="#89dceb">●</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 324 333 423 432 441 450 459 468 477 486 495" fill="#cdd6f4">color_surface"#313244"</tspan></text>
+<text y="157"><tspan x="18 27 36 54 63 72 81 90 99 108" fill="#cdd6f4">Keyaliases</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378" fill="#cdd6f4">+addcolor_&lt;name&gt;</tspan></text>
+<text y="175"><tspan x="18 27 36 45 54 63 72 81 99 108 117 126 135 144 153" fill="#cdd6f4">Modifieraliases</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="193"><tspan x="18 27 36 45 54 63" fill="#cdd6f4">Labels</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="211"><tspan x="18 27 36 45 63 72 81 90 99 108" fill="#cdd6f4">Modeprefix</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="229"><tspan x="18 27 36 45 54 63 81 90 99 108 117 126 135 144" fill="#cdd6f4">Nestedsessions</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="247"><tspan x="18 27 36 45 54" fill="#cdd6f4">Mouse</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="265"><tspan x="18 27 36 45 54 63 72 81 90 99 108" fill="#cdd6f4">Integration</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="283"><tspan x="18 27 36 45 54" fill="#cdd6f4">Other</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
+<text y="301"><tspan x="0 18 27 36 45 54 72 81 90 99 108 117 135 144 153 162 180 189 207 216 225 234 243 261 270 288 297 306 315 324 333 351 360 369 378 387 396 405 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 567 576 585 603 612 621 630 639 648 657 675 684 693" fill="#878ca4">Acoloralias,usedas$nameinformatstrings(color_&lt;name&gt;).Delremovesit.</tspan></text>
+<text y="337"><tspan x="0 9" fill="#f5c2e7">↑↓</tspan><tspan x="27 36 45 54" fill="#cdd6f4">move</tspan><tspan x="81" fill="#f5c2e7">←</tspan><tspan x="99 108 117 126 135 144" fill="#cdd6f4">groups</tspan><tspan x="171 180 189 198 207" fill="#f5c2e7">Enter</tspan><tspan x="225 234 243 252 261 270" fill="#cdd6f4">change</tspan><tspan x="297 306 315" fill="#f5c2e7">Del</tspan><tspan x="333 342 351 360 369" fill="#cdd6f4">reset</tspan><tspan x="396" fill="#f5c2e7">r</tspan><tspan x="414 423 432 450 459 468 477 486 495 504" fill="#cdd6f4">rawformats</tspan><tspan x="531" fill="#f5c2e7">s</tspan><tspan x="549 558 567 576" fill="#cdd6f4">save</tspan><tspan x="603 612 621" fill="#f5c2e7">Esc</tspan><tspan x="639 648 657 666 675" fill="#cdd6f4">close</tspan></text>
+</g>
+</g>
+</svg>

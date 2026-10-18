@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="60" viewBox="0 0 1108 60" role="img">
+<title>The zjhints bar in locked mode, with the mode shown</title>
+<rect width="1108" height="60" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="153" y="18" width="72" height="18" fill="#181825"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 63 72 81 90" fill="#878ca4">lockedmode</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54 90 99 108 117 135" fill="#181825" font-weight="bold">LOCKEDCtrlg</tspan><tspan x="162 171 180 189 198 207" fill="#cdd6f4">normal</tspan></text>
+</g>
+</g>
+</svg>
