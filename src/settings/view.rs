@@ -17,6 +17,10 @@ pub const FOOTER_LINES: usize = 3;
 /// Columns a row's name is padded to, wide enough for the longest option
 /// name. A longer key, such as a label's, pushes its value along.
 pub const NAME_COLUMNS: usize = 21;
+/// What starts the header line of a narrow pane, and is clicked for the
+/// previous section. The arrows are not East Asian Ambiguous, so they are one
+/// column in every terminal and the click lands where the arrow is drawn.
+const PREVIOUS: &str = "‹ ";
 /// The fewest columns the list keeps beside the sidebar. A narrower pane
 /// folds the sidebar into a line over the list.
 const MIN_LIST_COLUMNS: usize = 40;
@@ -118,7 +122,7 @@ impl Layout {
         match self.sidebar {
             Some(sidebar) if in_body && column < sidebar => Some(Place::Sidebar),
             Some(_) if in_list && column >= self.list_x => Some(Place::List),
-            None if in_body && column < 2 => Some(Place::Previous),
+            None if in_body && column < columns(PREVIOUS) => Some(Place::Previous),
             None if in_body => Some(Place::Next),
             None if in_list => Some(Place::List),
             _ => None,
@@ -406,7 +410,7 @@ pub fn sidebar_line(editor: &Editor, section: Section, width: usize) -> Line {
 pub fn header_line(editor: &Editor, width: usize) -> Line {
     let sections = editor.sections();
     let section = editor.section();
-    let mut text = format!("◀ {} ▶", section.title());
+    let mut text = format!("{PREVIOUS}{} ›", section.title());
     let end = text.chars().count();
     let mut edited = None;
     if editor.section_is_edited(section) {
@@ -990,9 +994,9 @@ mod tests {
         assert_eq!(layout.place(3, 0), Some(Place::List));
 
         let mut editor = editor(&[("color_blue", "#0000ff")]);
-        assert_eq!(header_line(&editor, 61).text, "◀ Fitting ▶  1 of 14");
+        assert_eq!(header_line(&editor, 61).text, "‹ Fitting ›  1 of 14");
         editor.cycle_section(-1);
-        assert_eq!(header_line(&editor, 61).text, "◀ Other ▶  14 of 14");
+        assert_eq!(header_line(&editor, 61).text, "‹ Other ›  14 of 14");
 
         let keys = help_keys(Focus::List, true, FormatView::Rendered);
         assert!(keys.contains(&("←→", "group")));
