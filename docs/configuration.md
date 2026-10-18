@@ -18,9 +18,9 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `auto_width` | `true` | Fit the hints to the terminal width |
+| `auto_width` | `true` | Fit the hints to the bar's own pane, or to the terminal when feeding zjstatus |
 | `max_length` | `0` | Hard cap on the line's width in columns, `0` for unlimited |
-| `reserve_columns` | `0` | Columns to leave free for the rest of the status bar |
+| `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
 | `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
@@ -33,7 +33,7 @@ Which bindings become hints in the first place. See [Hints](hints.md).
 | Option | Default | What it does |
 | --- | --- | --- |
 | `discover_hints` | `true` | Also show every enabled keybinding beyond the curated list |
-| `hide_shared_hints` | `true` | Hide bindings inherited from the base mode, so each mode shows only what is new in it |
+| `hide_shared_hints` | `true` | Hide bindings inherited from the base mode, so each mode shows only what is new in it; locked mode shows them all |
 | `hide_in_base_mode` | `false` | Hide hints in the base mode, whichever mode `default_mode` names |
 | `hidden` | `false` | Start with the bar hidden, until a `zjhints::show` or `zjhints::toggle` message; see [Hiding the bar](hiding.md) |
 

@@ -33,8 +33,8 @@ struct State {
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
     /// The URL this bar's pane reports, which is the alias name when the bar
-    /// was started from an alias. `None` until seen, and for a bar with no
-    /// pane of its own.
+    /// was started from an alias. A bar loaded to feed zjstatus has a hidden
+    /// pane that reports it too. `None` until the first `PaneUpdate`.
     own_url: Option<String>,
     /// The last `zellij pipe` command a hide or show message came from. See
     /// `ends_a_cli_stream`.
@@ -68,6 +68,10 @@ struct State {
     /// Terminal width in columns, learned from `PaneUpdate`. `None` until the
     /// first one arrives, when auto-fitting stays off rather than guessing.
     terminal_width: Option<usize>,
+    /// Content width of this bar's own pane, from `PaneUpdate`. `None` while
+    /// the bar has no visible pane: a bar loaded with `load_plugins` to feed
+    /// zjstatus runs in a suppressed pane that says nothing about the bar.
+    pane_width: Option<usize>,
     overflow_str: String,
     hide_in_base_mode: bool,
     key_format: Option<String>,
@@ -714,19 +718,26 @@ impl State {
     /// How wide the hint line may be, or `None` for no limit.
     ///
     /// `max_length` is a hard cap the user set; auto-fitting derives one from
-    /// the terminal. With both in play the smaller wins, so an explicit cap is
-    /// never exceeded just because the window is wide.
+    /// the bar's own pane when it has one, and otherwise from the terminal,
+    /// less what zjstatus needs beside it. With both in play the smaller wins,
+    /// so an explicit cap is never exceeded just because the window is wide.
     fn length_limit(&self) -> Option<usize> {
         let explicit = (self.max_length > 0).then_some(self.max_length);
-        let auto = self
-            .auto_width
-            .then_some(self.terminal_width)
-            .flatten()
-            .map(|width| width.saturating_sub(self.reserve_columns));
+        let auto = self.auto_width.then(|| self.auto_width_limit()).flatten();
         match (explicit, auto) {
             (Some(a), Some(b)) => Some(a.min(b)),
             (limit, None) | (None, limit) => limit,
         }
+    }
+
+    /// The width auto-fitting allows: the whole of the bar's own pane, which
+    /// nothing else shares, or for a bar feeding zjstatus, the terminal less
+    /// `reserve_columns`.
+    fn auto_width_limit(&self) -> Option<usize> {
+        self.pane_width.or_else(|| {
+            self.terminal_width
+                .map(|width| width.saturating_sub(self.reserve_columns))
+        })
     }
 
     /// Whether this session is nested inside another Zellij session.
@@ -1251,9 +1262,14 @@ impl State {
         let keymap = get_keymap_for_mode(mode_info);
         // Bindings the base mode already advertises. Every non-base mode
         // inherits these via Zellij's `shared_except` groups, so listing
-        // them again in each mode is pure repetition.
+        // them again in each mode is pure repetition. Locked mode is the
+        // exception: it can last a long time, the base mode's bar is not on
+        // screen meanwhile, and only keys bound there deliberately work in it.
         let base_mode = mode_info.base_mode.unwrap_or(InputMode::Normal);
-        let shared = if self.hide_shared_hints && mode_info.mode != base_mode {
+        let shared = if self.hide_shared_hints
+            && mode_info.mode != base_mode
+            && mode_info.mode != InputMode::Locked
+        {
             mode_info.get_keybinds_for_mode(base_mode)
         } else {
             vec![]
@@ -1729,10 +1745,24 @@ fn own_pane_url(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<Strin
         .and_then(|pane| pane.plugin_url.clone())
 }
 
+/// The content width of plugin `plugin_id`'s own pane, when it has one the
+/// user can see. A collapsed pane, with no width, counts as having none.
+fn own_visible_pane_width(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<usize> {
+    let plugin_id = plugin_id?;
+    manifest
+        .panes
+        .values()
+        .flatten()
+        .find(|pane| pane.is_plugin && pane.id == plugin_id)
+        .filter(|pane| !pane.is_suppressed)
+        .map(|pane| pane.pane_content_columns)
+        .filter(|&columns| columns > 0)
+}
+
 impl State {
     /// Hide or show the bar, when `alias` (a message's payload) is empty or
-    /// names the alias this bar was started from. A bar without a pane takes
-    /// every message, as it does previews. Returns whether anything changed.
+    /// names the alias this bar was started from. A bar that does not know its
+    /// alias yet takes every message, as it does previews. Returns whether anything changed.
     fn change_visibility(&mut self, visibility: Visibility, alias: Option<&str>) -> bool {
         let alias = alias.map(str::trim).filter(|alias| !alias.is_empty());
         if alias.is_some_and(|alias| !live::is_for(alias, self.own_url.as_deref())) {
@@ -1904,13 +1934,19 @@ impl ZellijPlugin for State {
                     should_render = true;
                 }
             }
-            // The plugin runs headless, so its own `render` dimensions say
-            // nothing about the status bar. Pane geometry is the only view of
-            // the terminal's width it gets.
+            // A bar feeding zjstatus runs in a suppressed pane whose size says
+            // nothing about the status bar, so pane geometry is its only view
+            // of the terminal's width. A bar in a visible pane of its own
+            // fits that pane instead.
             Event::PaneUpdate(manifest) => {
                 let width = terminal_width(&manifest);
                 if width.is_some() && width != self.terminal_width {
                     self.terminal_width = width;
+                    should_render = true;
+                }
+                let pane_width = own_visible_pane_width(&manifest, self.plugin_id);
+                if pane_width != self.pane_width {
+                    self.pane_width = pane_width;
                     should_render = true;
                 }
                 let focus = focus_by_tab(&manifest);
@@ -5067,6 +5103,56 @@ mod tests {
     }
 
     #[test]
+    fn a_bar_in_its_own_pane_fits_the_pane_and_reserves_nothing() {
+        let state = State {
+            auto_width: true,
+            reserve_columns: 30,
+            terminal_width: Some(200),
+            pane_width: Some(90),
+            ..Default::default()
+        };
+        assert_eq!(state.length_limit(), Some(90));
+        let capped = State {
+            max_length: 40,
+            ..state
+        };
+        assert_eq!(capped.length_limit(), Some(40));
+    }
+
+    #[test]
+    fn auto_width_off_ignores_the_pane_too() {
+        let state = State {
+            auto_width: false,
+            pane_width: Some(90),
+            ..Default::default()
+        };
+        assert_eq!(state.length_limit(), None);
+    }
+
+    fn own_pane(id: u32, columns: usize, suppressed: bool) -> PaneInfo {
+        PaneInfo {
+            id,
+            is_plugin: true,
+            pane_content_columns: columns,
+            is_suppressed: suppressed,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn only_a_visible_pane_of_its_own_sizes_the_bar() {
+        let visible = manifest(vec![pane(0, 200, false), own_pane(7, 70, false)]);
+        assert_eq!(own_visible_pane_width(&visible, Some(7)), Some(70));
+        // A load_plugins bar runs in a suppressed pane, half the screen wide.
+        let headless = manifest(vec![pane(0, 200, false), own_pane(7, 98, true)]);
+        assert_eq!(own_visible_pane_width(&headless, Some(7)), None);
+        let collapsed = manifest(vec![own_pane(7, 0, false)]);
+        assert_eq!(own_visible_pane_width(&collapsed, Some(7)), None);
+        assert_eq!(own_visible_pane_width(&visible, Some(8)), None);
+        assert_eq!(own_visible_pane_width(&visible, None), None);
+    }
+
+    #[test]
     fn auto_width_off_leaves_only_the_explicit_cap() {
         assert_eq!(limits(0, false, 0, Some(80)), None);
         assert_eq!(limits(40, false, 0, Some(80)), Some(40));
@@ -6160,6 +6246,38 @@ mod tests {
         }
     }
 
+    /// A state in `mode` that binds `Alt h` to focus left both there and in
+    /// the base mode, normal, as a `shared` block does.
+    fn sharing_focus_left(mode: InputMode) -> State {
+        let alt_h = KeyWithModifier::new(BareKey::Char('h')).with_alt_modifier();
+        let binding = (
+            alt_h,
+            vec![Action::MoveFocus {
+                direction: Direction::Left,
+            }],
+        );
+        let mut state = clickable_state(mode, vec![binding.clone()]);
+        state
+            .mode_info
+            .keybinds
+            .push((InputMode::Normal, vec![binding]));
+        state.hide_shared_hints = true;
+        state
+    }
+
+    #[test]
+    fn locked_mode_shows_keys_the_base_mode_shares() {
+        assert!(rendered_bar(&sharing_focus_left(InputMode::Locked)).contains("Alt h"));
+    }
+
+    #[test]
+    fn other_modes_still_hide_keys_the_base_mode_shares() {
+        assert!(!rendered_bar(&sharing_focus_left(InputMode::Scroll)).contains("Alt h"));
+        let mut shown = sharing_focus_left(InputMode::Scroll);
+        shown.hide_shared_hints = false;
+        assert!(rendered_bar(&shown).contains("Alt h"));
+    }
+
     /// What a left-click on `column` of the bar this state draws would do.
     fn left_click(state: &State, column: usize) -> MouseOutcome {
         let (_, click_map) = state.draw_bar();
@@ -6616,7 +6734,7 @@ mod tests {
         assert!(!state.change_visibility(Visibility::Hide, Some("zjhints-nested")));
         assert!(!state.hidden);
         assert!(state.change_visibility(Visibility::Hide, Some("zjhints")));
-        // A bar without a pane cannot tell its alias, so it takes them all.
+        // A bar that does not know its alias yet takes them all.
         let mut headless = drawing_bar();
         assert!(headless.change_visibility(Visibility::Hide, Some("zjhints-nested")));
     }
@@ -6640,7 +6758,7 @@ mod tests {
         state.own_url = Some("zjhints".to_string());
         let from = |id| PipeSource::Plugin(id);
         assert_eq!(state.visibility_asker(&from(5), Some("zjhints")), Some(5));
-        // An asker without a pane cannot name its alias.
+        // An asker that does not know its alias yet cannot name it.
         assert_eq!(state.visibility_asker(&from(5), None), Some(5));
         assert_eq!(
             state.visibility_asker(&from(5), Some("zjhints-nested")),

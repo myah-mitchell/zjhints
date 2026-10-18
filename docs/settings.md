@@ -105,7 +105,7 @@ Closing with **Esc** and choosing to discard puts the bars back to the saved val
 - Bars in this session only. Other sessions pick the saved values up when they start.
 - Keys the alias controls for that bar. A key a layout sets on the bar's own pane, such as `show_mode true`, stays as the layout sets it through every later change to it.
 
-A bar loaded in the background with `load_plugins` to feed zjstatus has no pane to tell which alias it came from, so it takes the previews of every zjhints alias.
+A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so previews reach it by alias like any other bar.
 
 Closing the screen pane any way other than **Esc** or **q**, such as with Zellij's close-pane key, leaves unsaved previews on the bars until the session restarts.
 

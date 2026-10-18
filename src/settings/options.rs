@@ -74,7 +74,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Fitting",
         Kind::Bool,
         Some("true"),
-        "Fit the hints to the terminal width",
+        "Fit the hints to the bar's own pane, or to the terminal when feeding zjstatus",
     ),
     option(
         "max_length",
@@ -88,7 +88,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Fitting",
         Kind::Integer,
         Some("0"),
-        "Columns to leave free for the rest of the status bar",
+        "Columns to leave free beside the hints in zjstatus; unused in the bar's own pane",
     ),
     option(
         "ambiguous_width",
@@ -130,7 +130,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Hints",
         Kind::Bool,
         Some("true"),
-        "Hide bindings inherited from the base mode",
+        "Hide bindings inherited from the base mode, except in locked mode",
     ),
     option(
         "hide_in_base_mode",
