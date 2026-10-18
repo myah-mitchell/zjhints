@@ -215,17 +215,7 @@ pub const OPTIONS: &[OptionSpec] = &[
     option(
         "theme",
         "Theme",
-        Kind::Choice(&[
-            "zellij",
-            "custom",
-            "catppuccin-mocha",
-            "catppuccin-latte",
-            "dracula",
-            "nord",
-            "gruvbox-dark",
-            "tokyo-night",
-            "powerline",
-        ]),
+        Kind::Choice(&crate::theme::CHOICES),
         Some("zellij"),
         "Follow the Zellij theme, style the bar yourself, or use a built-in theme",
     ),

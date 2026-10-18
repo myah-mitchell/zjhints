@@ -125,6 +125,19 @@ const THEMES: [Theme; 7] = [
     },
 ];
 
+/// Every value `theme` takes, in the order the settings screen cycles through
+/// them: the two that add nothing, then the built-ins.
+pub const CHOICES: [&str; THEMES.len() + 2] = {
+    let mut names = [THEME_ZELLIJ; THEMES.len() + 2];
+    names[1] = THEME_CUSTOM;
+    let mut index = 0;
+    while index < THEMES.len() {
+        names[index + 2] = THEMES[index].name;
+        index += 1;
+    }
+    names
+};
+
 /// The theme `configuration` selects, if it names a built-in.
 fn selected(configuration: &BTreeMap<String, String>) -> Option<&'static Theme> {
     let name = requested(configuration)?;
@@ -225,14 +238,16 @@ mod tests {
     }
 
     #[test]
-    fn the_settings_screen_offers_every_theme_and_nothing_else() {
+    fn the_settings_screen_offers_every_theme_starting_from_the_default() {
         let option = crate::settings::options::find(CONFIG_THEME).unwrap();
         let crate::settings::options::Kind::Choice(choices) = option.kind else {
             panic!("theme should be a choice");
         };
-        let mut names = vec![THEME_ZELLIJ, THEME_CUSTOM];
-        names.extend(THEMES.iter().map(|theme| theme.name));
-        assert_eq!(choices, names.as_slice());
+        assert_eq!(&choices[..2], [THEME_ZELLIJ, THEME_CUSTOM]);
+        assert!(THEMES.iter().all(|theme| choices.contains(&theme.name)));
+        assert!(choices
+            .iter()
+            .all(|name| unknown_name(&cfg(&[("theme", name)])).is_none()));
         assert_eq!(option.default, Some(THEME_ZELLIJ));
     }
 
