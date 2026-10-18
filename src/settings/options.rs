@@ -130,7 +130,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Hints",
         Kind::Bool,
         Some("true"),
-        "Hide bindings inherited from the base mode",
+        "Hide bindings inherited from the base mode, except in locked mode",
     ),
     option(
         "hide_in_base_mode",

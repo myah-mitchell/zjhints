@@ -1262,9 +1262,14 @@ impl State {
         let keymap = get_keymap_for_mode(mode_info);
         // Bindings the base mode already advertises. Every non-base mode
         // inherits these via Zellij's `shared_except` groups, so listing
-        // them again in each mode is pure repetition.
+        // them again in each mode is pure repetition. Locked mode is the
+        // exception: it can last a long time, the base mode's bar is not on
+        // screen meanwhile, and only keys bound there deliberately work in it.
         let base_mode = mode_info.base_mode.unwrap_or(InputMode::Normal);
-        let shared = if self.hide_shared_hints && mode_info.mode != base_mode {
+        let shared = if self.hide_shared_hints
+            && mode_info.mode != base_mode
+            && mode_info.mode != InputMode::Locked
+        {
             mode_info.get_keybinds_for_mode(base_mode)
         } else {
             vec![]
@@ -6239,6 +6244,38 @@ mod tests {
             mouse: true,
             ..Default::default()
         }
+    }
+
+    /// A state in `mode` that binds `Alt h` to focus left both there and in
+    /// the base mode, normal, as a `shared` block does.
+    fn sharing_focus_left(mode: InputMode) -> State {
+        let alt_h = KeyWithModifier::new(BareKey::Char('h')).with_alt_modifier();
+        let binding = (
+            alt_h,
+            vec![Action::MoveFocus {
+                direction: Direction::Left,
+            }],
+        );
+        let mut state = clickable_state(mode, vec![binding.clone()]);
+        state
+            .mode_info
+            .keybinds
+            .push((InputMode::Normal, vec![binding]));
+        state.hide_shared_hints = true;
+        state
+    }
+
+    #[test]
+    fn locked_mode_shows_keys_the_base_mode_shares() {
+        assert!(rendered_bar(&sharing_focus_left(InputMode::Locked)).contains("Alt h"));
+    }
+
+    #[test]
+    fn other_modes_still_hide_keys_the_base_mode_shares() {
+        assert!(!rendered_bar(&sharing_focus_left(InputMode::Scroll)).contains("Alt h"));
+        let mut shown = sharing_focus_left(InputMode::Scroll);
+        shown.hide_shared_hints = false;
+        assert!(rendered_bar(&shown).contains("Alt h"));
     }
 
     /// What a left-click on `column` of the bar this state draws would do.

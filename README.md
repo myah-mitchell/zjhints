@@ -132,7 +132,8 @@ plugins {
         // See docs/hints.md.
         discover_hints true // default
         // Hide bindings that every mode inherits from the base mode, so each
-        // mode only advertises what is new in it. See docs/hints.md.
+        // mode only advertises what is new in it. Locked mode still shows
+        // everything that works in it. See docs/hints.md.
         hide_shared_hints true // default
         // When a hint is bound to both hjkl and the arrows, show only one
         // family: "both" (default), "arrows", or "letters".

@@ -45,4 +45,6 @@ Zellij's default config binds the mode switches (pane, tab, session, and the res
 
 `hide_shared_hints` (default `true`) suppresses any discovered binding whose key maps to the same action in the base mode, so each mode shows only what is new in it. It has no effect on the base mode itself, where Normal still lists the globals, and it respects a non-Normal `default_mode` such as `locked`.
 
+Locked mode is exempt when it is not the base mode. You can stay locked for a long time, for example under an autolock plugin while an editor runs, and the base mode's bar is not on screen meanwhile. So a key bound in a `shared` block, which works in locked too, shows there rather than being treated as a repeat.
+
 Set it to `false` to have every mode list everything it accepts.
