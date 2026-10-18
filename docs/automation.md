@@ -93,6 +93,8 @@ Several commands and tag names below take a value you supply, written in angle b
 
 The `cargo test` step of `ci.yml` also checks the images in `docs/img`. It draws each one again from the bar and settings screen code and fails when a file differs, so a change that alters how they look has to commit the regenerated images with it. Run `make images` to write them. See [Images](../CONTRIBUTING.md#images).
 
+`nightly.yml`, `release.yml`, `beta.yml` and `update-deps.yml` run the same `cargo test`, so a stale image also stops a nightly build, a release or an EA build. When one of those fails on `the_images_in_the_docs_are_up_to_date`, run `make images` on the branch it built and merge the result.
+
 ### Tags and releases
 
 - `vX.Y.Z`: one per release, permanent. `/releases/latest/download/<asset>` resolves to the newest of these.
@@ -223,7 +225,7 @@ An App is registered once on your account and can be installed on every repo you
 7. Leave **Require branches to be up to date** unticked, or a busy day means rebasing before every merge.
 
 > [!NOTE]
-> Status check names must match the `name:` of each job in `ci.yml`, and they only appear in the picker after a workflow has run once. Push a branch and let CI run before coming back here.
+> Status check names must match the `name:` of each job in `ci.yml`, and they only appear in the picker after a workflow has run once. Open a pull request and let CI run before coming back here.
 
 Required approvals is 0 above because the status checks are the gate doing the actual work. Unlike a personal-access-token setup it does not have to be: the app's pull requests belong to its own `[bot]` identity, not yours, so GitHub will let you approve them like anyone else's. Set it to 1 instead if you want the extra click of an explicit approval before merging.
 
