@@ -794,9 +794,9 @@ mod tests {
         assert_eq!(layout.place(3, 0), Some(Place::List));
 
         let mut editor = editor(&[("color_blue", "#0000ff")]);
-        assert_eq!(header_line(&editor, 61).text, "◀ Fitting ▶  1 of 13");
+        assert_eq!(header_line(&editor, 61).text, "◀ Fitting ▶  1 of 14");
         editor.cycle_section(-1);
-        assert_eq!(header_line(&editor, 61).text, "◀ Other ▶  13 of 13");
+        assert_eq!(header_line(&editor, 61).text, "◀ Other ▶  14 of 14");
 
         let keys = help_keys(Focus::List, true, FormatView::Rendered);
         assert!(keys.contains(&("←→", "group")));

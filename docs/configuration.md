@@ -47,6 +47,14 @@ Which keys a hint shows, and what order things appear in. See [Keys and ordering
 | `key_order` | `qwerty` | How keys within a hint are ordered, `qwerty`, `dvorak`, `colemak`, `abcdef` or `none` |
 | `hint_order` | unset | Comma-separated hint ids pinned to the start or end of each mode, around a `*` for everything else |
 
+## Theme
+
+A built-in look for the whole bar, laid under your own options. See [Themes](themes.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `theme` | `zellij` | `zellij` follows the Zellij theme, `custom` adds nothing, or a built-in theme name such as `catppuccin-mocha` |
+
 ## Styling
 
 Format strings for each hint, and the fixed strings that stand in for a hint's keys. See [Styling](styling.md).

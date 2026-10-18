@@ -224,6 +224,18 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn the_settings_screen_offers_every_theme_and_nothing_else() {
+        let option = crate::settings::options::find(CONFIG_THEME).unwrap();
+        let crate::settings::options::Kind::Choice(choices) = option.kind else {
+            panic!("theme should be a choice");
+        };
+        let mut names = vec![THEME_ZELLIJ, THEME_CUSTOM];
+        names.extend(THEMES.iter().map(|theme| theme.name));
+        assert_eq!(choices, names.as_slice());
+        assert_eq!(option.default, Some(THEME_ZELLIJ));
+    }
+
     fn themed(name: &str) -> BTreeMap<String, String> {
         layer(&cfg(&[("theme", name)]))
     }
