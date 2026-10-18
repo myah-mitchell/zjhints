@@ -49,7 +49,7 @@ Which keys a hint shows, and what order things appear in. See [Keys and ordering
 
 ## Styling
 
-Colors, format strings, and the symbols keys are drawn with. See [Styling](styling.md).
+Format strings for each hint, and the fixed strings that stand in for a hint's keys. See [Styling](styling.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -59,8 +59,29 @@ Colors, format strings, and the symbols keys are drawn with. See [Styling](styli
 | `key_format_<id>` | unset | Format string for one hint's keys, overriding `key_format` |
 | `desc_format_<id>` | unset | Format string for one hint's description, overriding `desc_format` |
 | `keys_<id>` | unset | Replace a hint's keys with a fixed string, as in `keys_go_to_tab "1-9"` |
+
+## Colors
+
+Named colors for format strings. See [Colors](styling.md#colors).
+
+| Option | Default | What it does |
+| --- | --- | --- |
 | `color_<name>` | unset | Define a color alias referenced as `$name` in any format string |
+
+## Key aliases
+
+Symbols drawn in place of key names. See [Key aliases](styling.md#key-aliases).
+
+| Option | Default | What it does |
+| --- | --- | --- |
 | `key_alias_<name>` | unset | Replace a key's name with a symbol, as in `key_alias_enter "↵"` |
+
+## Modifier aliases
+
+Symbols drawn in place of modifier names, singly or as a combination. See [Modifier aliases](styling.md#modifier-aliases) and [Chord aliases](styling.md#chord-aliases).
+
+| Option | Default | What it does |
+| --- | --- | --- |
 | `mod_alias_<name>` | unset | Replace a modifier's name with a symbol, as in `mod_alias_ctrl "^"` |
 | `chord_mods_<name>` | unset | The modifier combination for a chord alias, as in `chord_mods_leader "ctrl+alt+super+shift"` |
 | `chord_alias_<name>` | unset | The symbol shown instead of that combination, as in `chord_alias_leader "&"` |
@@ -76,6 +97,16 @@ The words printed next to a hint's keys. See [Labels](labels.md).
 
 An empty value hides the hint entirely, at whichever scope it is set.
 
+## Mode prefix
+
+The current input mode, printed before the hints for a bar in its own pane. See [Standing alone](nested-sessions.md#standing-alone).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `show_mode` | `false` | Prefix the hints line with the current input mode |
+| `mode_format` | unset | Format string for the mode prefix, with a `{mode}` placeholder |
+| `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+
 ## Nested sessions
 
 How the bar behaves when one Zellij session runs inside another, and when the plugin has a pane of its own. See [Nested sessions](nested-sessions.md).
@@ -86,9 +117,6 @@ How the bar behaves when one Zellij session runs inside another, and when the pl
 | `collapse_when_empty` | `true` | Hand this plugin's layout row back to the panes around it while the bar has nothing to draw |
 | `dim_when_unfocused` | `true` | Dim hints while this session is not the one receiving input |
 | `dim_strength` | `0.5` | How strongly to dim, from `0.0` to `1.0`, quoted |
-| `show_mode` | `false` | Prefix the hints line with the current input mode |
-| `mode_format` | unset | Format string for the mode prefix, with a `{mode}` placeholder |
-| `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
 
 `dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
 

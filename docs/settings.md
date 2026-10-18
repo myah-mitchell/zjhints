@@ -1,6 +1,6 @@
 # Settings screen
 
-The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It lists every option under the same headings as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
+The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
 It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). It edits the config through plugin APIs that are not in a released Zellij yet (see [Zellij support](../README.md#zellij-support)).
 
@@ -57,7 +57,7 @@ With `mouse` and [`show_mode`](nested-sessions.md#standing-alone) on, left-click
 
 ## Choosing the alias
 
-The screen edits an alias whose plugin location contains `zjhints`. With one such alias it edits that one. With several, the first row reads *alias* and **Enter** on it steps to the next one, once the edits to the current one are saved or discarded.
+The screen edits an alias whose plugin location contains `zjhints`. With one such alias it edits that one. With several, the sidebar starts with *Alias*, whose one row names the alias being edited; **Enter** on that row steps to the next one, once the edits to the current one are saved or discarded.
 
 To open the screen on a particular alias, add `alias` to the launch:
 
@@ -71,25 +71,47 @@ LaunchOrFocusPlugin "zjhints" {
 
 ## Editing
 
-Each row shows an option and its value. An option you have not set shows its default, dimmed, and a value you have changed but not saved is marked with `●`. The line under the list describes the selected option and its default.
+The screen has two sides. The sidebar on the left lists the groups, the same ones as the [configuration reference](configuration.md), with *Other* last. The list on the right shows the options of the group selected in the sidebar. A group holding unsaved edits is marked with `●` in the sidebar.
+
+Each row of the list shows an option and its value. An option you have not set shows its default, dimmed, and a value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
 
 | Key | What it does |
 | --- | --- |
-| `↑` `↓`, `k` `j` | Move between options |
+| `Tab`, `←` `→`, `h` `l` | Move between the sidebar and the list |
+| `↑` `↓`, `k` `j` | Move between groups in the sidebar, or between options in the list |
 | `PageUp` `PageDown` | Move a screen at a time |
 | `Home` `End`, `g` `G` | Move to the first or last row |
-| `Enter` or `Space` | Toggle a true/false option, step through a fixed set of values, or start typing a value |
+| `Enter` or `Space` | In the sidebar, move to the list; in the list, toggle a true/false option, step through a fixed set of values, or start typing a value |
 | `Del`, `Backspace` or `d` | Reset the option to its default by removing it from the alias |
+| `r` | Switch format strings between rendered and raw |
 | `s` | Save; `Ctrl s` also works in locked mode, where Zellij does not take it for scroll mode |
 | `Esc` or `q` | Close, asking first when there are unsaved edits |
 
 While typing a value, **Enter** sets it and **Esc** cancels. Numbers are checked before they are accepted, so `max_length` takes only a whole number and `dim_strength` only a number from 0.0 to 1.0. An empty number resets it; an empty text value is kept, because an empty label hides its hint.
 
-With the mouse, click a row to select it and click it again to change it. The scroll wheel scrolls the list without moving the selection.
+With the mouse, click a group in the sidebar to show it. Click a row in the list to select it and click it again to change it. The scroll wheel scrolls the side under the pointer without moving the selection.
 
-### Other keys
+### In a narrow pane
 
-Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `color_<name>`, are listed under *Other*, with what each family is for shown under the list. Edit them like any other row, and press **Del** on one to remove it. Select *+ add a key* and press **Enter** to add one: type the key, press **Enter**, then type its value.
+When the pane is too narrow for the sidebar beside the list, a line over the list names the group shown instead, between arrows. **←** and **→** (or **h** and **l**, or **Tab** for the next one) step through the groups, and clicking the line does the same: the arrow at its start for the previous group, anywhere else for the next.
+
+### Format strings
+
+Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+
+Press **r** to show every format string as written, and again to go back. The title says which way they are shown, as *formats rendered* or *formats raw*. Editing always starts from the text as written.
+
+### Colors
+
+A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it.
+
+### Keys outside the fixed options
+
+Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `color_<name>`, are listed in the group their family belongs to: `color_blue` under *Colors*, `label_split_down` under *Labels*. What each family is for is shown under the list. Edit them like any other row, and press **Del** on one to remove it.
+
+Each group with families ends in a line per family to add a key, such as *+ add color_\<name\>*. Select it and press **Enter**, and the key starts with the family's prefix: type the rest, press **Enter**, then type its value.
+
+*Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* line starts the key empty, and a key you add there that fits a group is listed in that group.
 
 ## Previewing and saving
 
