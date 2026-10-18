@@ -2197,7 +2197,8 @@ impl ZellijPlugin for State {
     fn pipe(&mut self, message: PipeMessage) -> bool {
         if let Some(popup) = &self.hover_preview {
             if message.name == mouse::PREVIEW_CLOSE_MESSAGE
-                && popup.on_close_message(message.payload.as_deref()) == PreviewAction::Close
+                && popup.on_close_message(&message.source, message.payload.as_deref())
+                    == PreviewAction::Close
             {
                 close_self();
             }

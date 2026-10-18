@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, VecDeque};
 use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::{
-    ChoiceItem, Mouse, PromptPlacement, PromptRequest, PromptResult, PromptValue,
+    ChoiceItem, Mouse, PipeSource, PromptPlacement, PromptRequest, PromptResult, PromptValue,
 };
 
 /// One hint, as something that can be clicked.
@@ -350,7 +350,7 @@ pub const PREVIEW_IDLE_SECONDS: f64 = 3.0;
 pub const PREVIEW_MEMORY_SECONDS: f64 = 4.0;
 
 /// The pipe message that closes previews. Its payload is the tag of the one to
-/// close, and none closes every preview.
+/// close, and none closes every preview of the bar that sent it.
 pub const PREVIEW_CLOSE_MESSAGE: &str = "zjhints::preview_close";
 
 /// Which preview the bar has open, so that hovering the same hint again leaves
@@ -593,13 +593,26 @@ impl PreviewPopup {
         }
     }
 
-    /// A `PREVIEW_CLOSE_MESSAGE` with `payload` closes this popup if it names
-    /// its tag, or names none.
-    pub fn on_close_message(&self, payload: Option<&str>) -> PreviewAction {
+    /// A `PREVIEW_CLOSE_MESSAGE` from `source` with `payload` closes this
+    /// popup if the bar that opened it sent it, naming its tag or none. Any
+    /// plugin or `zellij pipe` can send the message, so one from anywhere
+    /// else is ignored.
+    pub fn on_close_message(&self, source: &PipeSource, payload: Option<&str>) -> PreviewAction {
+        let from_owner = matches!(
+            (source, self.owner()),
+            (PipeSource::Plugin(sender), Some(owner)) if *sender == owner
+        );
         match payload {
+            _ if !from_owner => PreviewAction::Stay,
             Some(tag) if !tag.is_empty() && tag != self.tag => PreviewAction::Stay,
             _ => PreviewAction::Close,
         }
+    }
+
+    /// The plugin id of the bar that opened this popup, which `preview_tag`
+    /// puts first in the tag.
+    fn owner(&self) -> Option<u32> {
+        self.tag.split_once('-')?.0.parse().ok()
     }
 
     /// The popup's rows for a pane of `rows` by `cols`: the entries in a
@@ -1321,11 +1334,38 @@ mod tests {
     #[test]
     fn a_close_message_closes_the_popup_it_names_or_every_popup() {
         let popup = popup(&["a"]);
-        assert_eq!(popup.on_close_message(Some("7-2")), PreviewAction::Close);
-        assert_eq!(popup.on_close_message(None), PreviewAction::Close);
-        assert_eq!(popup.on_close_message(Some("")), PreviewAction::Close);
-        assert_eq!(popup.on_close_message(Some("7-3")), PreviewAction::Stay);
-        assert_eq!(popup.on_close_message(Some("8-2")), PreviewAction::Stay);
+        let owner = PipeSource::Plugin(7);
+        let close = |payload| popup.on_close_message(&owner, payload);
+        assert_eq!(close(Some("7-2")), PreviewAction::Close);
+        assert_eq!(close(None), PreviewAction::Close);
+        assert_eq!(close(Some("")), PreviewAction::Close);
+        assert_eq!(close(Some("7-3")), PreviewAction::Stay);
+        assert_eq!(close(Some("8-2")), PreviewAction::Stay);
+    }
+
+    #[test]
+    fn only_the_bar_that_opened_the_popup_can_close_it() {
+        let popup = popup(&["a"]);
+        for source in [
+            PipeSource::Plugin(8),
+            PipeSource::Cli("pipe".to_string()),
+            PipeSource::Keybind,
+        ] {
+            for payload in [Some("7-2"), None, Some("")] {
+                assert_eq!(
+                    popup.on_close_message(&source, payload),
+                    PreviewAction::Stay,
+                    "{source:?} sending {payload:?}"
+                );
+            }
+        }
+        // A tag that names no bar is closed by no message.
+        let configuration = preview_configuration("stray", &entries(&["a"]), false);
+        let stray = PreviewPopup::from_configuration(&configuration).expect("a preview");
+        assert_eq!(
+            stray.on_close_message(&PipeSource::Plugin(7), None),
+            PreviewAction::Stay
+        );
     }
 
     #[test]
