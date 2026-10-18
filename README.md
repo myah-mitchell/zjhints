@@ -194,6 +194,20 @@ plugins {
     }
 }
 
+// With mouse on, right-clicking the bar offers this item, which opens the
+// settings screen. See docs/settings.md.
+context_menu {
+    bar {
+        item "zjhints settings" {
+            LaunchOrFocusPlugin "zjhints" {
+                floating true
+                move_to_focused_tab true
+                settings true
+            }
+        }
+    }
+}
+
 layout {
     default_tab_template {
         children

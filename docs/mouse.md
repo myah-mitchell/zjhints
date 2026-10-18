@@ -23,6 +23,8 @@ context_menu {
 }
 ```
 
+The bar offers no item of its own there. To open the settings screen from it, add the item in [Settings screen](settings.md#from-the-right-click-menu).
+
 ## Left-click
 
 A hint is a button. Clicking anywhere on it, keys or description, runs what its keys are bound to in the current mode, in order, as if one of them had been pressed. A key bound to `MessagePlugin "autolock"; SwitchToMode "Normal"` runs both.
