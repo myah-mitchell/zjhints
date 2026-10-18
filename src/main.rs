@@ -5,6 +5,7 @@ use ansi_term::{
 };
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
 use unicode_width::UnicodeWidthChar;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::actions::SearchDirection;
@@ -14,6 +15,10 @@ use zellij_tile_utils::palette_match;
 mod format;
 mod keypress;
 mod mouse;
+mod settings;
+
+use settings::live;
+use settings::screen::SettingsScreen;
 
 use mouse::{
     ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
@@ -22,6 +27,18 @@ use mouse::{
 
 #[derive(Default)]
 struct State {
+    /// Set when this instance runs as the settings screen rather than the bar.
+    /// It then handles every event itself and the bar's fields go unused.
+    settings: Option<SettingsScreen>,
+    /// This instance's plugin id, to find its own pane in `PaneUpdate`.
+    plugin_id: Option<u32>,
+    /// The URL this bar's pane reports, which is the alias name when the bar
+    /// was started from an alias. `None` until seen, and for a bar with no
+    /// pane of its own.
+    own_url: Option<String>,
+    /// Keys whose previews this bar ignores, because its value for them came
+    /// from somewhere other than the alias. See `live::apply`.
+    preview_ignored: BTreeSet<String>,
     initialized: bool,
     /// The zjstatus pipe names each render is published on. See
     /// [`pipe_names_from_config`].
@@ -1114,8 +1131,8 @@ impl State {
                     click: ClickBehavior::RunActions,
                 };
                 let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
-                let prefix = if styled_indicator.is_empty() || !self.show_mode {
-                    String::new()
+                let (prefix, prefix_width) = if styled_indicator.is_empty() || !self.show_mode {
+                    (String::new(), 0)
                 } else {
                     let mode_prefix = render_mode_prefix(
                         mode_info.mode,
@@ -1130,7 +1147,14 @@ impl State {
                         .as_deref()
                         .map(|spacer| format::render_template(spacer, &[], &self.config, dim))
                         .unwrap_or_default();
-                    format!("{}{}", ANSIStrings(&mode_prefix), ANSIStrings(&spacer))
+                    let prefix_width = calculate_visible_length(
+                        &ANSIStrings(&mode_prefix).to_string(),
+                        self.wide_ambiguous,
+                    );
+                    (
+                        format!("{}{}", ANSIStrings(&mode_prefix), ANSIStrings(&spacer)),
+                        prefix_width,
+                    )
                 };
                 // Ascending is the nested session's own binding, which it acts
                 // on when its keys reach it, so clicking types them into it.
@@ -1146,7 +1170,17 @@ impl State {
                     vec![]
                 };
                 let start = calculate_visible_length(&prefix, self.wide_ambiguous);
-                self.fit_line(format!("{prefix}{styled_indicator}"), segments, start)
+                let (line, click_map) = self.fit_line(
+                    format!("{prefix}{styled_indicator}"),
+                    segments,
+                    start,
+                    0..prefix_width,
+                );
+                if self.mouse_nested {
+                    (line, click_map)
+                } else {
+                    (line, ClickMap::default())
+                }
             }
         }
     }
@@ -1170,6 +1204,7 @@ impl State {
                     self.pending_menus.insert(request_id, entries);
                 }
             }
+            MouseOutcome::OpenSettings => open_settings(self.own_url.as_deref()),
         }
     }
 
@@ -1272,16 +1307,23 @@ impl State {
             ansi_strings.to_string()
         };
 
-        self.fit_line(formatted, segments, leading_space + mode_prefix_len)
+        self.fit_line(
+            formatted,
+            segments,
+            leading_space + mode_prefix_len,
+            0..mode_prefix_len,
+        )
     }
 
     /// Cut `line` down to `max_length` when it is longer, and say which of its
-    /// columns hold what. `segments` are laid out from column `start`.
+    /// columns hold what. `segments` are laid out from column `start`, and
+    /// the mode prefix, which opens the settings screen, takes `prefix`.
     fn fit_line(
         &self,
         line: String,
         segments: Vec<LineSegment>,
         start: usize,
+        prefix: Range<usize>,
     ) -> (String, ClickMap) {
         let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
         match self.length_limit() {
@@ -1298,9 +1340,14 @@ impl State {
                     at: shown - marker,
                     overflow: shown - marker..shown,
                 };
-                (truncated, ClickMap::lay_out(segments, start, Some(cut)))
+                let prefix = prefix.start..prefix.end.min(cut.at);
+                let map = ClickMap::lay_out(segments, start, Some(cut));
+                (truncated, map.with_settings(prefix))
             }
-            _ => (line, ClickMap::lay_out(segments, start, None)),
+            _ => (
+                line,
+                ClickMap::lay_out(segments, start, None).with_settings(prefix),
+            ),
         }
     }
 }
@@ -1515,26 +1562,132 @@ fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<Strin
     }
 }
 
+/// What the bar always asks for.
+const BAR_PERMISSIONS: [PermissionType; 2] = [
+    PermissionType::ReadApplicationState,
+    PermissionType::MessageAndLaunchOtherPlugins,
+];
+
+/// What `mouse` needs beyond what the bar always asks for.
+pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
+    // Running a clicked hint's actions.
+    PermissionType::RunActionsAsUser,
+    // Opening Zellij's context menu.
+    PermissionType::ChangeApplicationState,
+    // Showing the menus of hints and keys, which are prompts.
+    PermissionType::OpenTerminalsOrPlugins,
+];
+
+/// Every permission the bar asks for. A grant replaces the plugin's
+/// permissions rather than adding to them, both for the running instance and
+/// in Zellij's cache, so every request has to carry the whole set.
+fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
+    let mut permissions = BAR_PERMISSIONS.to_vec();
+    if mouse {
+        permissions.extend(MOUSE_PERMISSIONS);
+    }
+    permissions
+}
+
+/// The events `mouse` needs beyond what the bar always subscribes to.
+const MOUSE_EVENTS: [EventType; 3] = [
+    EventType::Mouse,
+    EventType::PromptResult,
+    EventType::ActionComplete,
+];
+
+/// The pipe message that opens the settings screen, or brings it up.
+const OPEN_SETTINGS_MESSAGE: &str = "zjhints::open_settings";
+
+/// Open the settings screen as a floating pane, or reach the one already
+/// open. `zellij:OWN_URL` stands for this plugin's own location, and a
+/// message addressed by URL goes to a running instance whose configuration
+/// matches exactly, launching one only when there is none.
+///
+/// `own_url` is the clicked bar's URL. When it is an alias name rather than a
+/// location (which always has a scheme, as in `file:`), the screen edits that
+/// alias.
+fn open_settings(own_url: Option<&str>) {
+    pipe_message_to_plugin(
+        MessageToPlugin::new(OPEN_SETTINGS_MESSAGE)
+            .with_plugin_url("zellij:OWN_URL")
+            .with_plugin_config(settings_configuration(own_url))
+            .new_plugin_instance_should_float(true)
+            .new_plugin_instance_should_be_focused()
+            .new_plugin_instance_should_have_pane_title("zjhints settings"),
+    );
+}
+
+/// The configuration the settings screen is opened with from a bar running
+/// as `own_url`. See `open_settings`.
+fn settings_configuration(own_url: Option<&str>) -> BTreeMap<String, String> {
+    let mut configuration = BTreeMap::from([("settings".to_string(), "true".to_string())]);
+    if let Some(alias) = own_url.filter(|url| !url.contains(':')) {
+        configuration.insert("alias".to_string(), alias.to_string());
+    }
+    configuration
+}
+
+/// The URL the pane of plugin `plugin_id` reports, if it has a pane.
+fn own_pane_url(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<String> {
+    let plugin_id = plugin_id?;
+    manifest
+        .panes
+        .values()
+        .flatten()
+        .find(|pane| pane.is_plugin && pane.id == plugin_id)
+        .and_then(|pane| pane.plugin_url.clone())
+}
+
+impl State {
+    /// Take a preview from the settings screen, if it is for this bar.
+    /// Returns whether the bar should redraw.
+    fn take_preview(&mut self, args: &BTreeMap<String, String>) -> bool {
+        let Some((alias, changes)) = live::decode(args) else {
+            return false;
+        };
+        if !live::is_for(&alias, self.own_url.as_deref()) {
+            return false;
+        }
+        let mut configuration = self.config.clone();
+        if !live::apply(&mut configuration, &mut self.preview_ignored, &changes) {
+            return false;
+        }
+        let had_mouse = self.mouse;
+        self.apply_configuration(configuration);
+        if self.mouse && !had_mouse {
+            self.enable_mouse();
+        }
+        true
+    }
+
+    /// Ask for what `mouse` needs after loading without it. The pane is made
+    /// selectable while asking, so the permission prompt in it can be
+    /// answered; the answer makes it unselectable again.
+    #[cfg(not(test))]
+    fn enable_mouse(&self) {
+        set_selectable(true);
+        request_permission(&bar_permissions(true));
+        subscribe(&MOUSE_EVENTS);
+    }
+
+    #[cfg(test)]
+    fn enable_mouse(&self) {}
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        if configuration.get("settings").map(String::as_str) == Some("true") {
+            let mut screen = SettingsScreen::default();
+            screen.load(&configuration);
+            self.settings = Some(screen);
+            return;
+        }
         self.initialized = false;
+        self.plugin_id = Some(get_plugin_ids().plugin_id);
         self.apply_configuration(configuration);
 
-        let mut permissions = vec![
-            PermissionType::ReadApplicationState,
-            PermissionType::MessageAndLaunchOtherPlugins,
-        ];
-        if self.mouse {
-            permissions.extend([
-                // Running a clicked hint's actions.
-                PermissionType::RunActionsAsUser,
-                // Opening Zellij's context menu.
-                PermissionType::ChangeApplicationState,
-                // Showing the menus of hints and keys, which are prompts.
-                PermissionType::OpenTerminalsOrPlugins,
-            ]);
-        }
-        request_permission(&permissions);
+        request_permission(&bar_permissions(self.mouse));
 
         // Deliberately still selectable at this point.
         //
@@ -1561,15 +1714,14 @@ impl ZellijPlugin for State {
             EventType::NestedSessionEnded,
         ]);
         if self.mouse {
-            subscribe(&[
-                EventType::Mouse,
-                EventType::PromptResult,
-                EventType::ActionComplete,
-            ]);
+            subscribe(&MOUSE_EVENTS);
         }
     }
 
     fn update(&mut self, event: Event) -> bool {
+        if let Some(screen) = &mut self.settings {
+            return screen.update(event);
+        }
         let mut should_render = !self.initialized;
         match event {
             Event::ModeUpdate(mut mode_info) => {
@@ -1611,6 +1763,9 @@ impl ZellijPlugin for State {
                     should_render = true;
                 }
                 self.forget_closed_nested_guests(&manifest);
+                if let Some(url) = own_pane_url(&manifest, self.plugin_id) {
+                    self.own_url = Some(url);
+                }
             }
             // Which tab is focused, and whether its floating layer is up.
             // `PaneUpdate` reports focus per tab and per layer, so neither
@@ -1656,7 +1811,9 @@ impl ZellijPlugin for State {
                 set_selectable(false);
                 should_render = true;
             }
-            Event::Mouse(mouse) => {
+            // Still subscribed after `mouse` is turned off by a preview, so
+            // checked here as well.
+            Event::Mouse(mouse) if self.mouse => {
                 let outcome = mouse::click_outcome(&self.click_map, &mouse);
                 self.perform_mouse_outcome(outcome);
             }
@@ -1674,7 +1831,22 @@ impl ZellijPlugin for State {
         should_render
     }
 
-    fn render(&mut self, _rows: usize, _cols: usize) {
+    fn pipe(&mut self, message: PipeMessage) -> bool {
+        if self.settings.is_some() {
+            // Clicking the mode prefix again while the screen is hidden.
+            if message.name == OPEN_SETTINGS_MESSAGE {
+                show_self(true);
+            }
+            return false;
+        }
+        message.name == live::MESSAGE_NAME && self.take_preview(&message.args)
+    }
+
+    fn render(&mut self, rows: usize, cols: usize) {
+        if let Some(screen) = &mut self.settings {
+            screen.render(rows, cols);
+            return;
+        }
         let (output, click_map) = self.draw_bar();
         let mode_info = &self.mode_info;
 
@@ -6058,6 +6230,8 @@ mod tests {
     fn the_descended_indicator_is_not_clickable_without_mouse_nested() {
         let mut state = state_with_ancestry(vec![]);
         state.mouse = true;
+        state.show_mode = true;
+        state.mode_format = Some("MODE ".to_string());
         state.mode_info.session_dimmed = Some(true);
         state.mode_info.nested_ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
         let (line, click_map) = state.draw_bar();
@@ -6099,7 +6273,7 @@ mod tests {
     }
 
     #[test]
-    fn with_mouse_nested_the_mode_prefix_before_the_indicator_does_nothing() {
+    fn with_mouse_nested_the_mode_prefix_before_the_indicator_opens_settings() {
         let mut state = state_with_ancestry(vec![]);
         state.mouse = true;
         state.mouse_nested = true;
@@ -6108,7 +6282,7 @@ mod tests {
         state.mode_info.session_dimmed = Some(true);
         let ascend_keys = vec![ctrl('o'), key(BareKey::Char(']'))];
         state.mode_info.nested_ascend_keys = ascend_keys.clone();
-        assert_eq!(left_click(&state, 0), MouseOutcome::Nothing);
+        assert_eq!(left_click(&state, 0), MouseOutcome::OpenSettings);
         assert_eq!(
             left_click(&state, "MODE ".len()),
             MouseOutcome::Run(keypress::press_keys(&ascend_keys))
@@ -6154,5 +6328,143 @@ mod tests {
             drop_indicator_from_config(&config(&[("drop_indicator", "+")]), true),
             Some("+".to_string())
         );
+    }
+
+    fn preview_args(
+        alias: &str,
+        changes: &[(&str, Option<&str>, Option<&str>)],
+    ) -> BTreeMap<String, String> {
+        let changes: Vec<live::Change> = changes
+            .iter()
+            .map(|(key, was, now)| live::Change {
+                key: key.to_string(),
+                was: was.map(str::to_string),
+                now: now.map(str::to_string),
+            })
+            .collect();
+        live::encode(alias, &changes)
+    }
+
+    fn bar_with(configuration: &[(&str, &str)]) -> State {
+        let mut state = State::default();
+        state.apply_configuration(
+            configuration
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
+        );
+        state
+    }
+
+    #[test]
+    fn a_preview_changes_the_bar_through_the_same_parsing_as_load() {
+        let mut state = bar_with(&[("max_length", "10")]);
+        state.own_url = Some("zjhints".to_string());
+        let args = preview_args(
+            "zjhints",
+            &[
+                ("max_length", Some("10"), Some("30")),
+                ("show_mode", None, Some("true")),
+            ],
+        );
+        assert!(state.take_preview(&args));
+        assert_eq!(state.max_length, 30);
+        assert!(state.show_mode);
+        assert_eq!(
+            state.config.get("show_mode").map(String::as_str),
+            Some("true")
+        );
+    }
+
+    #[test]
+    fn a_preview_leaves_a_key_the_layout_set_alone() {
+        // The layout gave this bar show_mode true; the alias does not set it.
+        let mut state = bar_with(&[("show_mode", "true")]);
+        let args = preview_args("zjhints", &[("show_mode", None, Some("false"))]);
+        assert!(!state.take_preview(&args));
+        assert!(state.show_mode);
+    }
+
+    #[test]
+    fn a_preview_for_another_alias_is_ignored() {
+        let mut state = bar_with(&[]);
+        state.own_url = Some("zjhints-alt".to_string());
+        let args = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
+        assert!(!state.take_preview(&args));
+        assert!(!state.show_mode);
+    }
+
+    #[test]
+    fn a_preview_can_turn_mouse_off() {
+        let mut state = bar_with(&[("mouse", "true")]);
+        assert!(state.take_preview(&preview_args("zjhints", &[("mouse", Some("true"), None)])));
+        assert!(!state.mouse);
+    }
+
+    #[test]
+    fn the_bar_learns_its_alias_from_its_own_pane() {
+        let own = PaneInfo {
+            id: 7,
+            is_plugin: true,
+            plugin_url: Some("zjhints".to_string()),
+            ..Default::default()
+        };
+        let other = PaneInfo {
+            id: 8,
+            is_plugin: true,
+            plugin_url: Some("zellij:tab-bar".to_string()),
+            ..Default::default()
+        };
+        let terminal = PaneInfo {
+            id: 7,
+            is_plugin: false,
+            ..Default::default()
+        };
+        let manifest = manifest(vec![terminal, other, own]);
+        assert_eq!(
+            own_pane_url(&manifest, Some(7)),
+            Some("zjhints".to_string())
+        );
+        assert_eq!(own_pane_url(&manifest, Some(9)), None);
+        assert_eq!(own_pane_url(&manifest, None), None);
+    }
+
+    #[test]
+    fn clicking_the_mode_prefix_opens_settings() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.show_mode = true;
+        state.mode_format = Some("MODE ".to_string());
+        assert_eq!(left_click(&state, 0), MouseOutcome::OpenSettings);
+        assert_eq!(left_click(&state, 4), MouseOutcome::OpenSettings);
+        assert_eq!(
+            left_click(&state, column_of(&state, "a close")),
+            MouseOutcome::Run(vec![Action::CloseFocus])
+        );
+    }
+
+    #[test]
+    fn settings_opened_from_an_alias_bar_edit_that_alias() {
+        let configuration = settings_configuration(Some("zjhints-alt"));
+        assert_eq!(
+            configuration.get("alias").map(String::as_str),
+            Some("zjhints-alt")
+        );
+        assert_eq!(
+            configuration.get("settings").map(String::as_str),
+            Some("true")
+        );
+        // A bar started from a location rather than an alias pins nothing.
+        let configuration = settings_configuration(Some("file:/x/zjhints.wasm"));
+        assert_eq!(configuration.get("alias"), None);
+        assert_eq!(settings_configuration(None).get("alias"), None);
+    }
+
+    #[test]
+    fn asking_for_mouse_keeps_the_permissions_the_bar_always_needs() {
+        let permissions = bar_permissions(true);
+        for permission in BAR_PERMISSIONS.iter().chain(MOUSE_PERMISSIONS.iter()) {
+            assert!(permissions.contains(permission), "{permission:?}");
+        }
+        assert_eq!(bar_permissions(false), BAR_PERMISSIONS.to_vec());
     }
 }
