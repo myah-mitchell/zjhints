@@ -52,6 +52,25 @@ With `mouse` on and no `drop_indicator` set, the gap is marked with `…` so the
 
 When even a single hint does not fit and the line is cut short, `overflow_str` opens the same kind of menu. It lists the hint the cut went through and everything after it, dropped hints included. The part of the cut hint still showing can be clicked as usual.
 
+## Hover preview
+
+Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small read-only popup beside the bar. The popup lists the same entries, written the same way, so you can see what a hint such as `focus` covers before you click it.
+
+```text
+┌──────────────────────┐
+│ h←  move focus left  │
+│ j↓  move focus down  │
+│ k↑  move focus up    │
+│ l→  move focus right │
+└──────────────────────┘
+```
+
+The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
+
+It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu. The popup also closes by itself when the pointer leaves it, and a few seconds after it opens if the pointer never reached it, so a pointer that leaves the bar for another pane cannot strand it.
+
+The popup is this plugin again, opened in a mode that only draws the entries. It asks for no permissions of its own.
+
 ## While descended into a nested session
 
 While you are [descended into a nested session](nested-sessions.md#while-descended-into-a-nested-session), the bar shows that session's hints, or a "return to host" indicator until it has sent them. Their keys mean something to the nested session, not to the one this plugin runs in, so by default neither can be clicked. Right-click still opens the context menu.
@@ -74,7 +93,7 @@ Keys are sent the way the nested session's pane expects them: re-encoded by Zell
 | Permission | Used for |
 | --- | --- |
 | Run actions as the user | Running a clicked hint's actions |
-| Change application state | Opening Zellij's context menu |
+| Change application state | Opening Zellij's context menu and the hover preview |
 | Open terminals or plugins | Showing the menus, which are Zellij prompts |
 
 Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the plugin was already granted its usual permissions asks again for the new ones.
