@@ -11,6 +11,7 @@ The pages in this directory, and what each one is for. Start with the [configura
 | [Styling](styling.md) | Format strings, colors, per-hint styling, and key, modifier and chord aliases |
 | [Fitting the bar](fitting.md) | Fitting the line to the terminal, choosing what gets dropped, and marking the gap |
 | [Mouse](mouse.md) | Right-click for Zellij's context menu, clickable hints, and menus of the hints that did not fit |
+| [Settings screen](settings.md) | Editing the options in a floating pane, with live preview on the bars |
 | [Nested sessions](nested-sessions.md) | Running one Zellij session inside another, and running this plugin in its own pane |
 | [Automation](automation.md) | How the repository builds, tests, updates itself and publishes, and the setup GitHub needs |
 

@@ -109,3 +109,12 @@ Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
 `pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](../README.md#displaying-the-hints).
 
 Left unset, the hints also go out on `zjstatus_hints`, the name this plugin published on before it was renamed, so a zjstatus config written against `{pipe_zjstatus_hints}` keeps rendering untouched. Setting `pipe_name` publishes on that name alone.
+
+## Settings screen
+
+Options of the settings screen itself. They are read only by the instance that runs the screen, not by the bar. See [Settings screen](settings.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `settings` | `false` | Run this instance as the settings screen instead of the bar |
+| `alias` | unset | The `plugins {}` alias to edit, when more than one loads zjhints |

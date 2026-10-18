@@ -10,6 +10,9 @@ ansi_term = "0.12"
 unicode-width = "0.2"
 zellij-tile = "0.46.0"
 zellij-tile-utils = "0.46.0"
+# For the config-file block builders (plugin_aliases_kdl) the settings screen
+# saves through; zellij-tile already builds it, so it adds nothing to compile.
+zellij-utils = "0.46.0"
 
 # EA/beta override: myah-mitchell/zellij's fork-v0.46.4 carries nested-
 # session, plugin-collapse and context menu/prompt APIs not yet published
@@ -18,3 +21,4 @@ zellij-tile-utils = "0.46.0"
 [patch.crates-io]
 zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }
 zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }
+zellij-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.4" }

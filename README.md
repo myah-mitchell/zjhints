@@ -19,17 +19,18 @@ https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
 
 ## Zellij support
 
-Three features in this release need plugin APIs that are not in a released Zellij yet. #5589 and #5590 are merged and expected in Zellij's next minor release. #5685 is still an open pull request:
+Four features in this release need plugin APIs that are not in a released Zellij yet. #5589 and #5590 are merged and expected in Zellij's next minor release. #5685 is still an open pull request, and the config APIs the settings screen uses exist only in the fork so far:
 
 | Zellij PR                                               | What it gives zjhints                                                                                                                                                                                       |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session) |
 | [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                   |
 | [#5685](https://github.com/zellij-org/zellij/pull/5685) | Zellij's context menu and prompt APIs, which [mouse](docs/mouse.md) uses for the right-click menu and the menus of hints                                                                                    |
+| Fork only                                               | Plugin APIs that read, preview and save config blocks, which the [settings screen](docs/settings.md) edits the zjhints alias through                                                                        |
 
-Until they are released, a Zellij build carrying all three is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
+Until they are released, a Zellij build carrying all of them is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
 
-Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there. See [Versioning](#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the fork. See [Versioning](#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 
@@ -46,6 +47,7 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
 - [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
 - [Mouse](docs/mouse.md): right-click for Zellij's context menu, click a hint to run it, and click the drop indicator for the hints that did not fit
+- [Settings screen](docs/settings.md): edit every option in a floating pane, see each change on the bar as you make it, and save it to your config file
 - [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
 
 Every option is listed under [Configuration](#configuration) below.
@@ -113,7 +115,8 @@ plugins {
         // Right-click the bar for Zellij's context menu, click a hint to run
         // it, and click the drop indicator for the hints that did not fit.
         // Needs the plugin in its own pane and asks for extra permissions.
-        // See docs/mouse.md.
+        // With mouse and show_mode on, clicking the mode prefix opens the
+        // settings screen. See docs/mouse.md and docs/settings.md.
         mouse true // default false
         // With mouse on, also make the hints of a nested session you have
         // descended into clickable; a click types their keys into it.
@@ -291,6 +294,7 @@ The plugin works with no configuration, so this section is only for changing som
 | [Labels](docs/labels.md)                   | Renaming, hiding, merging, and per-mode labels                     |
 | [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane            |
 | [Mouse](docs/mouse.md)                     | Right-click menu, clickable hints, menus of hints that did not fit |
+| [Settings screen](docs/settings.md)        | Editing the options in a floating pane, with live preview          |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
 

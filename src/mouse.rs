@@ -89,6 +89,8 @@ pub enum ClickTarget {
     /// A marker standing in for hints that are not on the bar: the
     /// `drop_indicator`, or `overflow_str`.
     HiddenHints(Vec<HintTarget>),
+    /// The mode prefix, which opens the settings screen.
+    Settings,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -146,6 +148,12 @@ impl ClickMap {
         map
     }
 
+    /// Make `columns`, the mode prefix, open the settings screen.
+    pub fn with_settings(mut self, columns: Range<usize>) -> Self {
+        self.push(columns, ClickTarget::Settings);
+        self
+    }
+
     fn push(&mut self, columns: Range<usize>, target: ClickTarget) {
         if !columns.is_empty() {
             self.regions.push(ClickRegion { columns, target });
@@ -173,6 +181,8 @@ pub enum MouseOutcome {
     Run(Vec<Action>),
     /// A menu to show at the mouse.
     Menu(Vec<MenuEntry>),
+    /// Open the settings screen.
+    OpenSettings,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -204,6 +214,7 @@ pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
         Mouse::LeftClick(0, column) => match map.target_at(*column) {
             Some(ClickTarget::Hint(hint)) => hint.activate(),
             Some(ClickTarget::HiddenHints(hints)) => hidden_hints_menu(hints),
+            Some(ClickTarget::Settings) => MouseOutcome::OpenSettings,
             None => MouseOutcome::Nothing,
         },
         _ => MouseOutcome::Nothing,

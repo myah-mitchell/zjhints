@@ -231,7 +231,7 @@ jobs:
           target: wasm32-wasip1
 
       # Widens the requirement itself - the one move `cargo update` cannot
-      # make on its own - then re-resolves just these two crates so
+      # make on its own - then re-resolves just these crates so
       # Cargo.lock picks up the new version within the widened range.
       - name: Bump zellij-tile past the minor
         id: zellij
@@ -243,6 +243,8 @@ jobs:
           targets = {
               "zellij-tile": "${{ needs.update.outputs.zellij_tile_latest }}",
               "zellij-tile-utils": "${{ needs.update.outputs.zellij_tile_utils_latest }}",
+              # Released in lockstep with zellij-tile, which depends on it.
+              "zellij-utils": "${{ needs.update.outputs.zellij_tile_latest }}",
           }
           for crate, version in targets.items():
               if not version:
@@ -251,7 +253,7 @@ jobs:
               text = pattern.sub(f'{crate} = "{version}"', text)
           open("Cargo.toml", "w").write(text)
           EOF
-          cargo update -p zellij-tile -p zellij-tile-utils
+          cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils
           # major.minor of the target version, for the PR body and the
           # compatibility tag release.yml will move once this is merged.
           # Prefer zellij-tile's own version; the two are released in lockstep
@@ -323,7 +325,7 @@ jobs:
             <details>
             <summary>What ran before this was opened</summary>
 
-            - Widened `zellij-tile`/`zellij-tile-utils` to the new version
+            - Widened `zellij-tile`/`zellij-tile-utils`/`zellij-utils` to the new version
             - `cargo test --all-features`
             - `cargo build --release --target=wasm32-wasip1`
 

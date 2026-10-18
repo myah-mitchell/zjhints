@@ -29,7 +29,7 @@ import urllib.request
 
 # Bumping these means matching the running Zellij, so they are never taken
 # past a minor automatically.
-PINNED_TO_ZELLIJ = {"zellij-tile", "zellij-tile-utils"}
+PINNED_TO_ZELLIJ = {"zellij-tile", "zellij-tile-utils", "zellij-utils"}
 
 CRATES_IO = "https://crates.io/api/v1/crates/{}"
 USER_AGENT = "zjhints-ci (github actions dependency check)"

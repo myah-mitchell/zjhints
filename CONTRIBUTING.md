@@ -39,7 +39,7 @@ make check     # fmt, clippy, tests, release build (what CI runs)
 
 ## Keeping zellij-tile in step with Zellij
 
-`zellij-tile` and `zellij-tile-utils` must match the Zellij you are running. This is not a nicety, and getting it wrong does not fail the build.
+`zellij-tile`, `zellij-tile-utils` and `zellij-utils` must match the Zellij you are running. This is not a nicety, and getting it wrong does not fail the build.
 
 Zellij decodes a binding's actions at the plugin boundary with `.filter_map(|a| a.try_into().ok())`. An action the plugin's older `zellij-tile` does not recognize is silently dropped, and the binding arrives truncated. The symptom is a hint showing the wrong label: everything compiles, tests pass, and nothing logs an error.
 

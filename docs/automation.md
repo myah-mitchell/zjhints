@@ -102,7 +102,7 @@ There is deliberately no tag named `latest`. GitHub already tracks the newest re
 
 ### Versioning
 
-Every version bump is yours to make, deliberately. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile and zellij-tile-utils requirement. Merging either lands the update on `main`; nothing publishes until you decide it should.
+Every version bump is yours to make, deliberately. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
 
 To release, edit `version` in `Cargo.toml` and push that to `main`. You can do this on the update branch before merging it, on a follow-up commit, or directly on `main` if your ruleset allows it. `release.yml` picks it up from there, and only checks whether the version in `Cargo.toml` has been tagged yet, not how it got there. Pushing a `v*.*.*` tag yourself works too, and does not require touching `Cargo.toml` or waiting on a push to `main` at all.
 
@@ -117,7 +117,7 @@ That is the policy on purpose.
 > [!WARNING]
 > A zellij-tile newer than the Zellij you run breaks hints silently. Zellij's plugin boundary decodes a binding's actions with `.filter_map(|a| a.try_into().ok())`, so an action the plugin does not recognize is dropped and the binding arrives truncated. The plugin builds, tests pass, hints render with wrong labels, and there is no error anywhere.
 
-`.github/scripts/check_deps.py` asks crates.io what exists and reports anything held back. When a Zellij crate has a new minor, the second job in `update-deps.yml`, named zellij-upgrade, proposes taking it. It opens its own pull request on its own branch, `deps/zellij-upgrade`, widening the zellij-tile and zellij-tile-utils requirement to the new version and re-resolving just those two crates. It is labeled `needs-zellij-upgrade` and its title says so too.
+`.github/scripts/check_deps.py` asks crates.io what exists and reports anything held back. When a Zellij crate has a new minor, the second job in `update-deps.yml`, named zellij-upgrade, proposes taking it. It opens its own pull request on its own branch, `deps/zellij-upgrade`, widening the zellij-tile, zellij-tile-utils and zellij-utils requirements to the new version and re-resolving just those crates. It is labeled `needs-zellij-upgrade` and its title says so too.
 
 That pull request is never safe to merge on a green build alone. CI passing only means the plugin still compiles and its own tests pass; it says nothing about whether the Zellij you run matches. Upgrade Zellij first, confirm hints still render right, then merge. Merging alone does not publish anything (see [Versioning](#versioning)). Bump `version` in `Cargo.toml` when you do. `release.yml` then publishes it as a normal release and moves the matching [`zellij-<line>` tag](#tags-and-releases) to it.
 
@@ -137,6 +137,7 @@ Instead, add a `[patch.crates-io]` block at the end of `Cargo.toml`, pointing th
 [patch.crates-io]
 zellij-tile = { git = "https://github.com/<you>/zellij", tag = "<tag-or-branch>" }
 zellij-tile-utils = { git = "https://github.com/<you>/zellij", tag = "<tag-or-branch>" }
+zellij-utils = { git = "https://github.com/<you>/zellij", tag = "<tag-or-branch>" }
 ```
 
 This only works if the crate's own declared version still satisfies the requirement your `Cargo.toml` already has. Cargo patches the source a requirement resolves from, not the requirement itself. That declared version lives in the crate's own `Cargo.toml`, or in `[workspace.package].version` for a workspace like zellij's. If the fork bumped its version past what you require, widen the requirement to match at the same time.
@@ -144,11 +145,11 @@ This only works if the crate's own declared version still satisfies the requirem
 Then regenerate the lock against the new source and confirm it builds:
 
 ```bash
-cargo update -p zellij-tile -p zellij-tile-utils
+cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils
 make check && cargo test --all-features
 ```
 
-`zellij-utils` does not need its own patch entry. Zellij's workspace depends on it via a path, written as `zellij-utils = { path = "zellij-utils/", version = "..." }` in zellij's `Cargo.toml`, so it resolves from the same git checkout automatically.
+`zellij-utils` needs a patch entry of its own, pointing at the same tag, because zjhints depends on it directly for the settings screen's config-file builders. The workflow that widens `zellij-tile` past a Zellij minor moves `zellij-utils` to the same version.
 
 #### What a patch does not disturb
 
@@ -158,7 +159,7 @@ make check && cargo test --all-features
 
 #### Removing a patch once the fix ships
 
-Delete the `[patch.crates-io]` block, confirm the `[dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you bump `version`. See [Versioning](#versioning).
+Delete the `[patch.crates-io]` block, confirm the `[dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you bump `version`. See [Versioning](#versioning).
 
 ### EA/beta releases
 
