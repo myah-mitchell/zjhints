@@ -7,8 +7,8 @@
 //! left to `State::perform_mouse_outcome` and `State::run_mouse_action`, the
 //! only parts that talk to the host. The hover preview, which lists what a
 //! menu would offer before it is clicked, is split the same way: what to show
-//! and when to close it is decided here, and `State::perform_preview_step`
-//! opens and closes the popup.
+//! and when to close it is decided here, and `State::follow_mouse_with_preview`,
+//! `State::show_preview` and `State::close_preview` open and close the popup.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::ops::Range;
@@ -360,9 +360,8 @@ pub struct PreviewMemory {
     shown: Option<ShownPreview>,
     /// Previews opened so far, which numbers each one.
     opened: u64,
-    /// Timers asked for and timers that have fired. Zellij runs them to
-    /// completion in the order they were set, which is how a firing is
-    /// matched to the preview it was set for.
+    /// Timers asked for and timers that have fired, which is how a firing is
+    /// matched to the preview it was set for (see `timer_fired`).
     timers_set: u64,
     timers_fired: u64,
 }
@@ -422,15 +421,28 @@ impl PreviewMemory {
         self.shown.take().map(|shown| shown.generation)
     }
 
-    /// A timer fired. Returns the number of the preview it was set for if
-    /// that one is still remembered, which is then forgotten.
-    pub fn timer_fired(&mut self) -> Option<u64> {
+    /// A timer fired. Forgets the preview it was set for if that one is still
+    /// remembered, and returns whether it was.
+    ///
+    /// Forgetting is all the timer does. The bar cannot tell whether the
+    /// pointer is on the popup, which is a plugin of its own and gets the
+    /// mouse events there, so the popup is left to close itself: when the
+    /// pointer leaves it, or when its own idle timer finds it never reached.
+    ///
+    /// A firing is matched to its preview by counting, which assumes Zellij
+    /// fires timers of the same length in the order they were set. Should two
+    /// swap, a preview is forgotten one timer early or late, which only means
+    /// hovering its hint again may open it anew.
+    pub fn timer_fired(&mut self) -> bool {
         self.timers_fired += 1;
-        if self.shown.as_ref()?.timer == self.timers_fired {
-            self.dismiss()
-        } else {
-            None
+        let is_own = self
+            .shown
+            .as_ref()
+            .is_some_and(|shown| shown.timer == self.timers_fired);
+        if is_own {
+            self.shown = None;
         }
+        is_own
     }
 }
 
@@ -1193,7 +1205,8 @@ mod tests {
         let PreviewStep::Show { generation, .. } = memory.hover(&map, &hover(5)) else {
             panic!("expected the preview to open");
         };
-        assert_eq!(memory.timer_fired(), Some(generation));
+        assert!(memory.timer_fired());
+        assert_eq!(memory.dismiss(), None, "preview {generation} is forgotten");
         // Forgotten, so the same hint opens it again.
         assert!(matches!(
             memory.hover(&map, &hover(5)),
@@ -1209,13 +1222,14 @@ mod tests {
             memory.hover(&map, &hover(5)),
             PreviewStep::Show { .. }
         ));
-        let PreviewStep::Show { generation, .. } = memory.hover(&map, &hover(10)) else {
-            panic!("expected the preview to be replaced");
-        };
+        assert!(matches!(
+            memory.hover(&map, &hover(10)),
+            PreviewStep::Show { .. }
+        ));
         // The first preview's timer, then the second's.
-        assert_eq!(memory.timer_fired(), None);
-        assert_eq!(memory.timer_fired(), Some(generation));
-        assert_eq!(memory.timer_fired(), None);
+        assert!(!memory.timer_fired());
+        assert!(memory.timer_fired());
+        assert!(!memory.timer_fired());
     }
 
     #[test]
@@ -1228,7 +1242,39 @@ mod tests {
         ));
         assert!(memory.dismiss().is_some());
         assert_eq!(memory.dismiss(), None);
-        assert_eq!(memory.timer_fired(), None);
+        assert!(!memory.timer_fired());
+    }
+
+    #[test]
+    fn a_popup_the_pointer_is_on_outlives_the_bars_timer() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        let PreviewStep::Show {
+            generation,
+            preview,
+            ..
+        } = memory.hover(&map, &hover(5))
+        else {
+            panic!("expected the preview to open");
+        };
+        let tag = preview_tag(7, generation);
+        let mut popup =
+            PreviewPopup::from_configuration(&preview_configuration(&tag, &preview.entries, false))
+                .expect("a preview");
+        // The pointer moves from the hint down into the popup.
+        assert_eq!(popup.on_mouse(&Mouse::Hover(1, 2)), PreviewAction::Stay);
+        // The popup's idle timer, then the bar's, which only forgets it: the
+        // bar has no step that closes it.
+        assert_eq!(popup.on_timer(), PreviewAction::Stay);
+        assert!(memory.timer_fired());
+        assert_eq!(memory.dismiss(), None);
+        // Leaving the popup is what closes it.
+        assert_eq!(popup.on_mouse(&Mouse::Hover(-1, 0)), PreviewAction::Close);
+        // Back on the bar, the same hint opens a new preview.
+        assert!(matches!(
+            memory.hover(&map, &hover(5)),
+            PreviewStep::Show { close: None, .. }
+        ));
     }
 
     #[test]

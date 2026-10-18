@@ -1824,7 +1824,9 @@ fn open_preview_popup(
 ) {
 }
 
-/// Tell the preview named `tag` to close.
+/// Tell the preview named `tag` to close. The message is a broadcast, because
+/// one sent to the popup's URL would launch a new instance when none matches;
+/// the tag keeps it from closing another bar's preview.
 #[cfg(not(test))]
 fn close_preview_popup(tag: &str) {
     pipe_message_to_plugin(MessageToPlugin::new(mouse::PREVIEW_CLOSE_MESSAGE).with_payload(tag));
@@ -2173,10 +2175,10 @@ impl ZellijPlugin for State {
                 let outcome = mouse::click_outcome(&self.click_map, &mouse);
                 self.perform_mouse_outcome(outcome);
             }
+            // Forget the preview, but leave the popup open: the pointer may
+            // be on it, and only the popup can tell. It closes itself.
             Event::Timer(_) => {
-                if let Some(generation) = self.preview_memory.timer_fired() {
-                    self.close_preview(generation);
-                }
+                self.preview_memory.timer_fired();
             }
             Event::PromptResult(request_id, result) => {
                 let entries = self.pending_menus.remove(&request_id);
