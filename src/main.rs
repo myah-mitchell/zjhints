@@ -33,8 +33,8 @@ struct State {
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
     /// The URL this bar's pane reports, which is the alias name when the bar
-    /// was started from an alias. `None` until seen, and for a bar with no
-    /// pane of its own.
+    /// was started from an alias. A bar loaded to feed zjstatus has a hidden
+    /// pane that reports it too. `None` until the first `PaneUpdate`.
     own_url: Option<String>,
     /// The last `zellij pipe` command a hide or show message came from. See
     /// `ends_a_cli_stream`.
@@ -1761,8 +1761,8 @@ fn own_visible_pane_width(manifest: &PaneManifest, plugin_id: Option<u32>) -> Op
 
 impl State {
     /// Hide or show the bar, when `alias` (a message's payload) is empty or
-    /// names the alias this bar was started from. A bar without a pane takes
-    /// every message, as it does previews. Returns whether anything changed.
+    /// names the alias this bar was started from. A bar that does not know its
+    /// alias yet takes every message, as it does previews. Returns whether anything changed.
     fn change_visibility(&mut self, visibility: Visibility, alias: Option<&str>) -> bool {
         let alias = alias.map(str::trim).filter(|alias| !alias.is_empty());
         if alias.is_some_and(|alias| !live::is_for(alias, self.own_url.as_deref())) {
@@ -6734,7 +6734,7 @@ mod tests {
         assert!(!state.change_visibility(Visibility::Hide, Some("zjhints-nested")));
         assert!(!state.hidden);
         assert!(state.change_visibility(Visibility::Hide, Some("zjhints")));
-        // A bar without a pane cannot tell its alias, so it takes them all.
+        // A bar that does not know its alias yet takes them all.
         let mut headless = drawing_bar();
         assert!(headless.change_visibility(Visibility::Hide, Some("zjhints-nested")));
     }
@@ -6758,7 +6758,7 @@ mod tests {
         state.own_url = Some("zjhints".to_string());
         let from = |id| PipeSource::Plugin(id);
         assert_eq!(state.visibility_asker(&from(5), Some("zjhints")), Some(5));
-        // An asker without a pane cannot name its alias.
+        // An asker that does not know its alias yet cannot name it.
         assert_eq!(state.visibility_asker(&from(5), None), Some(5));
         assert_eq!(
             state.visibility_asker(&from(5), Some("zjhints-nested")),

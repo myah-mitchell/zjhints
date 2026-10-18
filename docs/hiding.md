@@ -32,7 +32,7 @@ With no payload, a message reaches every bar in the session, on every tab. Give 
 bind "Alt H" { MessagePlugin { name "zjhints::toggle"; payload "zjhints-nested"; } }
 ```
 
-A bar loaded in the background with `load_plugins` to feed zjstatus has no pane to tell which alias it came from, so it responds to every message, whatever alias the payload names.
+A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so it knows its alias and responds the same way. Only a bar that has just started, before Zellij first reports the panes, cannot tell its alias yet, and it responds to every message in that moment.
 
 ## From the right-click menu
 

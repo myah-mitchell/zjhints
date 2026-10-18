@@ -110,9 +110,9 @@ pub fn apply(
 }
 
 /// Whether a bar running as `own_url` takes previews of `alias`. A bar
-/// started from the alias reports the alias's name as its URL. A bar whose
-/// URL is unknown, such as one loaded in the background to feed zjstatus,
-/// takes every preview.
+/// started from the alias reports the alias's name as its URL, whether its
+/// pane is visible or, loaded to feed zjstatus, hidden. A bar whose URL is
+/// not known yet, before Zellij first reports the panes, takes every preview.
 pub fn is_for(alias: &str, own_url: Option<&str>) -> bool {
     own_url.is_none_or(|url| url == alias)
 }
