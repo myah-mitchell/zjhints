@@ -3,7 +3,7 @@
 
 use super::editor::{Editor, Field, Focus, Outcome, Section};
 use super::live;
-use super::view::{self, FormatView, Layout, Line, Place, FOOTER_LINES, NAME_COLUMNS};
+use super::view::{self, FormatView, Layout, Line, Place, FOOTER_LINES};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zellij_utils::input::config_blocks::plugin_aliases_kdl;
@@ -565,23 +565,25 @@ impl SettingsScreen {
                         Field::Value { key } => key.as_str(),
                         Field::NewKey => "new key",
                     };
-                    let label = format!("  {name:NAME_COLUMNS$} ");
-                    let columns = label.chars().count();
+                    let label = view::name_cell(&crate::show_controls(name));
+                    let columns = view::columns(&label);
                     print_text_with_coordinates(Text::from(&label).selected(), x, y, None, None);
                     input.render(x + columns, y, width.saturating_sub(columns));
                     continue;
                 }
             }
             let line = row_lines.line(row, width);
+            let highlighted = index == selected && list_focused;
             let mut text = styled(&line);
-            if index == selected && list_focused {
+            if highlighted {
                 text = text.selected();
             }
             print_text_with_coordinates(text, x, y, Some(width), None);
             // Text draws only the theme's palette, so a rendered format
             // string and a swatch, which need true color, go over the top
-            // as plain ANSI.
-            if let Some((column, ansi)) = &line.styled {
+            // as plain ANSI. The selected row keeps its sample plain, so the
+            // selection runs unbroken across the value.
+            if let Some((column, ansi)) = line.styled.as_ref().filter(|_| !highlighted) {
                 print_ansi(x + column, y, ansi);
             }
             if let Some((column, color)) = line.swatch {

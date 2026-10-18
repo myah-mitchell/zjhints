@@ -126,8 +126,9 @@ impl Layout {
     }
 }
 
-/// One line as text, with the parts to draw differently. Ranges and columns
-/// count characters from the line's start.
+/// One line as text, with the parts to draw differently. Ranges count
+/// characters from the line's start, as `Text` does; the columns of the
+/// overlays count display columns (see `columns`).
 #[derive(Debug, Default, PartialEq)]
 pub struct Line {
     /// The text as it fits, cut with `…` when it does not.
@@ -137,7 +138,8 @@ pub struct Line {
     /// The characters of the marker on an edited value.
     pub edited: Option<Range<usize>>,
     /// A rendered format string to draw over its plain text: the column it
-    /// starts at, and its ANSI cut to as much as `text` shows of it.
+    /// starts at, and its ANSI cut to as much as `text` shows of it, so it
+    /// never runs past the width the line was made for.
     pub styled: Option<(usize, String)>,
     /// A swatch of a color to draw over the two spaces at this column.
     pub swatch: Option<(usize, Rgb)>,
@@ -180,8 +182,8 @@ impl<'a> Rows<'a> {
             Row::Alias => {
                 return Line::plain(
                     format!(
-                        "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
-                        "alias",
+                        "{}{}  (Enter for the next of {})",
+                        name_cell("alias"),
                         crate::show_controls(editor.alias_name()),
                         editor.alias_count()
                     ),
@@ -193,8 +195,9 @@ impl<'a> Rows<'a> {
             Row::Key(key) => (key.as_str(), options::kind_of(key), None),
         };
         let config = &self.layered;
-        let mut text = format!("  {:NAME_COLUMNS$} ", crate::show_controls(key));
+        let mut text = name_cell(&crate::show_controls(key));
         let start = text.chars().count();
+        let start_column = columns(&text);
         let mut styled = None;
         let mut swatch = None;
         // What stands in for a value the user has not set: a theme's value
@@ -235,7 +238,7 @@ impl<'a> Rows<'a> {
                 }
             },
         }
-        let value_end = text.chars().count();
+        let value_end = columns(&text);
         let swatch = swatch.map(|color| {
             text.push_str("   ");
             (value_end + 1, color)
@@ -250,25 +253,16 @@ impl<'a> Rows<'a> {
             edited = Some(end + 2..end + 3);
         }
 
-        // What survives the cut: everything, or all but the last column,
-        // which the `…` takes.
-        let full = text.chars().count();
-        let text = truncate(&text, width);
-        let visible = text.chars().count();
-        let shown = if full > width {
-            width.saturating_sub(1)
-        } else {
-            full
-        };
+        let cut = Cut::new(&text, width);
         Line {
-            text,
-            dim: fallback.map(|_| start.min(visible)..end.min(visible)),
-            edited: edited.filter(|range| range.end <= visible),
+            dim: fallback.map(|_| start.min(cut.chars)..end.min(cut.chars)),
+            edited: edited.filter(|range| range.end <= cut.kept_chars),
             styled: styled.and_then(|ansi| {
-                let room = value_end.min(shown).saturating_sub(start);
-                (room > 0).then(|| (start, take_visible(&ansi, room)))
+                let room = value_end.min(cut.kept_columns).saturating_sub(start_column);
+                (room > 0).then(|| (start_column, take_visible(&ansi, room)))
             }),
-            swatch: swatch.filter(|(column, _)| column + 2 <= shown),
+            swatch: swatch.filter(|(column, _)| column + 2 <= cut.kept_columns),
+            text: cut.text,
         }
     }
 }
@@ -399,11 +393,10 @@ pub fn sidebar_line(editor: &Editor, section: Section, width: usize) -> Line {
         text.push_str(" ●");
         edited = Some(end + 1..end + 2);
     }
-    let text = truncate(&text, width);
-    let visible = text.chars().count();
+    let cut = Cut::new(&text, width);
     Line {
-        text,
-        edited: edited.filter(|range| range.end <= visible),
+        edited: edited.filter(|range| range.end <= cut.kept_chars),
+        text: cut.text,
         ..Line::default()
     }
 }
@@ -425,11 +418,10 @@ pub fn header_line(editor: &Editor, width: usize) -> Line {
         editor.section_index() + 1,
         sections.len()
     ));
-    let text = truncate(&text, width);
-    let visible = text.chars().count();
+    let cut = Cut::new(&text, width);
     Line {
-        text,
-        edited: edited.filter(|range| range.end <= visible),
+        edited: edited.filter(|range| range.end <= cut.kept_chars),
+        text: cut.text,
         ..Line::default()
     }
 }
@@ -534,14 +526,71 @@ pub fn help_keys(
     }
 }
 
-/// `text` cut to `width` characters, ending in `…` when it was cut.
+/// The display columns `text` takes in the pane. Zellij lays out a plugin's
+/// pane with East Asian Ambiguous characters one column wide, so they are
+/// counted as one here, whatever `ambiguous_width` says for the bar.
+pub fn columns(text: &str) -> usize {
+    text.chars().map(|ch| crate::char_width(ch, false)).sum()
+}
+
+/// `name` padded to `NAME_COLUMNS` display columns after a two-space indent,
+/// and a space: where a row's value starts.
+pub fn name_cell(name: &str) -> String {
+    let padding = NAME_COLUMNS.saturating_sub(columns(name));
+    format!("  {name}{} ", " ".repeat(padding))
+}
+
+/// `text` cut to `width` columns, ending in `…` when it was cut. A wide
+/// character that would cross the edge is left out whole.
 pub fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
+    Cut::new(text, width).text
+}
+
+/// A line cut to a width, and how much of the original survives before the
+/// `…`, for placing what is drawn over it.
+struct Cut {
+    text: String,
+    /// Characters of `text`, the `…` included.
+    chars: usize,
+    /// Characters and columns of the original kept in front of the `…`.
+    kept_chars: usize,
+    kept_columns: usize,
+}
+
+impl Cut {
+    fn new(text: &str, width: usize) -> Self {
+        let full = columns(text);
+        if full <= width {
+            let chars = text.chars().count();
+            return Cut {
+                text: text.to_string(),
+                chars,
+                kept_chars: chars,
+                kept_columns: full,
+            };
+        }
+        let room = width.saturating_sub(1);
+        let mut cut = String::new();
+        let (mut kept_chars, mut kept_columns) = (0, 0);
+        for ch in text.chars() {
+            let width = crate::char_width(ch, false);
+            if kept_columns + width > room {
+                break;
+            }
+            cut.push(ch);
+            kept_chars += 1;
+            kept_columns += width;
+        }
+        if width > 0 {
+            cut.push('…');
+        }
+        Cut {
+            chars: cut.chars().count(),
+            text: cut,
+            kept_chars,
+            kept_columns,
+        }
     }
-    let mut cut: String = text.chars().take(width.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
 }
 
 #[cfg(test)]
@@ -799,6 +848,33 @@ mod tests {
         assert!(ansi.contains("abcde"));
         assert!(!ansi.contains('f'));
         assert!(ansi.ends_with("\u{1b}[0m"));
+    }
+
+    #[test]
+    fn wide_characters_are_cut_and_placed_by_their_columns() {
+        assert_eq!(truncate("漢字漢字", 8), "漢字漢字");
+        assert_eq!(truncate("漢字漢字", 7), "漢字漢…");
+        assert_eq!(truncate("漢字漢字", 6), "漢字…");
+        assert_eq!(truncate("abc", 0), "");
+
+        let editor = editor(&[
+            ("key_format", "#[fg=#ff0000]漢字漢字漢字"),
+            ("color_漢字", "#0000ff"),
+            ("label_漢字", "漢字漢字漢字漢字"),
+        ]);
+        let line = row_line(&editor, &option_row("key_format"), 30, FormatView::Rendered);
+        assert!(columns(&line.text) <= 30, "{:?}", line.text);
+        let (column, ansi) = line.styled.expect("a rendered format");
+        assert_eq!(column, 24);
+        // Four columns of the sample fit before the `…`, and no more.
+        assert!(ansi.contains("漢字") && !ansi.contains("漢字漢"));
+        assert!(column + crate::calculate_visible_length(&ansi, false) <= 30);
+
+        // A wide key still lines its value up with the others.
+        let line = row_line(&editor, &key_row("color_漢字"), 80, FormatView::Raw);
+        assert_eq!(line.swatch, Some((34, (0, 0, 255))));
+        let line = row_line(&editor, &key_row("label_漢字"), 30, FormatView::Raw);
+        assert!(columns(&line.text) <= 30, "{:?}", line.text);
     }
 
     #[test]

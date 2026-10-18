@@ -4,16 +4,15 @@
 <g transform="translate(14 12)">
 <g shape-rendering="crispEdges">
 <rect x="423" y="36" width="72" height="18" fill="#cba6f7"/>
-<rect x="207" y="54" width="216" height="18" fill="#585b70"/>
 <rect x="423" y="54" width="54" height="18" fill="#313244"/>
-<rect x="477" y="54" width="414" height="18" fill="#585b70"/>
+<rect x="207" y="72" width="684" height="18" fill="#585b70"/>
 <rect x="423" y="90" width="72" height="18" fill="#f38ba8"/>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <text y="13"><tspan x="0 9 18 27 36 45 54 72 81 90 99 108 117 126 135 153 171 180 189 198 207 225 234 243 252 261 270 279 288 297 315 333 342 351 360 369 378 387 405 414 423 432 441 450 459 468" fill="#a6e3a1">zjhintssettings·alias"zjhints"·formatsrendered</tspan><tspan x="495 513 522 531 540 549 558 567" fill="#89dceb">●unsaved</tspan></text>
 <text y="49"><tspan x="18 27 36 45 54 63 72" fill="#cdd6f4">Fitting</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306" fill="#cdd6f4">key_format</tspan><tspan x="432 441 450 459 477" fill="#181825" font-weight="bold">Ctrlp</tspan></text>
 <text y="67"><tspan x="18 27 36 45 54" fill="#cdd6f4">Hints</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">desc_format</tspan><tspan x="432 441 450 459" fill="#cdd6f4" font-style="italic">Pane</tspan><tspan x="495" fill="#89dceb">●</tspan></text>
-<text y="85"><tspan x="18 27 36 45 63 72 81 99 108 117 126 135 144 153 162" fill="#cdd6f4">Keysandordering</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">hint_spacer</tspan><tspan x="432" fill="#6c7086">│</tspan></text>
+<text y="85"><tspan x="18 27 36 45 63 72 81 99 108 117 126 135 144 153 162" fill="#cdd6f4">Keysandordering</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 432" fill="#cdd6f4">hint_spacer│</tspan></text>
 <text y="103"><tspan x="18 27 36 45 54" fill="#cdd6f4">Theme</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 324 333 342 351" fill="#cdd6f4">key_format_quit</tspan><tspan x="432 441 450 459 477" fill="#181825" font-weight="bold">Ctrlp</tspan></text>
 <text y="121"><tspan x="0 18 27 36 45 54 63 72" fill="#a6e3a1">▸Styling</tspan><tspan x="90" fill="#89dceb">●</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405" fill="#cdd6f4">+addkey_format_&lt;id&gt;</tspan></text>
 <text y="139"><tspan x="18 27 36 45 54 63" fill="#cdd6f4">Colors</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">+adddesc_format_&lt;id&gt;</tspan></text>
@@ -25,7 +24,7 @@
 <text y="247"><tspan x="18 27 36 45 54" fill="#cdd6f4">Mouse</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
 <text y="265"><tspan x="18 27 36 45 54 63 72 81 90 99 108" fill="#cdd6f4">Integration</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
 <text y="283"><tspan x="18 27 36 45 54" fill="#cdd6f4">Other</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="301"><tspan x="0 9 18 27 36 45 63 72 81 90 99 108 126 135 144 162 171 180 189 207 216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 369 387 396 405 414 423 441 450 459 468 477 486 495 513 522 531 540 558 567 576 585 594 603 621 630 639 648 657 666 675 693 702 711 720 729 738 756 765 774 783 792 810 819 828 837 846 855" fill="#878ca4">Formatstringforeachhint'sdescription,themepalettewhenunset.Defaultunset.Enteredits.</tspan></text>
+<text y="301"><tspan x="0 9 18 27 36 45 63 72 81 90 99 108 126 135 144 153 162 180 189 198 207 216 225 234 252 261 270 279 288 306 315 324 342 351 360 369 378 396 405 414 432 441 450 459 477 486 495 504 513 522 531 549 558 567 576 585 594 603 621 630 639 648 657 666 684 693 702 711 720 738 747 756 765 774 783" fill="#878ca4">Formatstringdrawnbetweenhintsandafterthemodeprefix.Defaultunset.Enteredits.</tspan></text>
 <text y="337"><tspan x="0 9" fill="#f5c2e7">↑↓</tspan><tspan x="27 36 45 54" fill="#cdd6f4">move</tspan><tspan x="81" fill="#f5c2e7">←</tspan><tspan x="99 108 117 126 135 144" fill="#cdd6f4">groups</tspan><tspan x="171 180 189 198 207" fill="#f5c2e7">Enter</tspan><tspan x="225 234 243 252 261 270" fill="#cdd6f4">change</tspan><tspan x="297 306 315" fill="#f5c2e7">Del</tspan><tspan x="333 342 351 360 369" fill="#cdd6f4">reset</tspan><tspan x="396" fill="#f5c2e7">r</tspan><tspan x="414 423 432 450 459 468 477 486 495 504" fill="#cdd6f4">rawformats</tspan><tspan x="531" fill="#f5c2e7">s</tspan><tspan x="549 558 567 576" fill="#cdd6f4">save</tspan><tspan x="603 612 621" fill="#f5c2e7">Esc</tspan><tspan x="639 648 657 666 675" fill="#cdd6f4">close</tspan></text>
 </g>
 </g>

@@ -99,9 +99,11 @@ When the pane is too narrow for the sidebar beside the list, a line over the lis
 
 Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
 
-The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, and an edit to `desc_format`, marked with `●`, in the selected row:
+While the list has focus, the selected row draws its sample in the selection's colors instead of its own, so the selection runs unbroken across the row.
 
-![The settings screen on the Styling group. The sidebar lists the groups from Fitting to Other with Styling marked, and the list shows key_format as a light purple Ctrl p block, desc_format as italic Pane on the selected row with an edit marker, hint_spacer as a vertical bar and key_format_quit as a pink Ctrl p block. The key help runs along the bottom](img/settings-styling.svg)
+The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, an edit to `desc_format` that makes its description italic, marked with `●`, and `hint_spacer` on the selected row:
+
+![The settings screen on the Styling group. The sidebar lists the groups from Fitting to Other with Styling marked, and the list shows key_format as a light purple Ctrl p block, desc_format as italic Pane with an edit marker, hint_spacer as a vertical bar on the selected row and key_format_quit as a pink Ctrl p block. The key help runs along the bottom](img/settings-styling.svg)
 
 Press **r** to show every format string as written, and again to go back. The title says which way they are shown, as *formats rendered* or *formats raw*. Editing always starts from the text as written.
 

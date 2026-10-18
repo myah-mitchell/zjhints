@@ -516,8 +516,9 @@ fn bars(captioned: &[(&str, &[(&str, &str)])], mode: InputMode) -> Screen {
 }
 
 /// The settings screen, `rows` by `columns`, the way `SettingsScreen::render`
-/// lays it out, with `edit` already typed into the alias. The colors are the
-/// palette's, standing in for what Zellij's `Text` draws with.
+/// lays it out, with `edit` already typed into the alias and `select`
+/// selected. The colors are the palette's, standing in for what Zellij's
+/// `Text` draws with.
 fn settings_screen(
     options: &[(&str, &str)],
     select: &str,
@@ -557,6 +558,12 @@ fn settings_screen(
         None,
     )
     .expect("an alias loading zjhints");
+    editor.submit(
+        &Field::Value {
+            key: edit.0.to_string(),
+        },
+        edit.1,
+    );
     let (section, row) = editor.locate(select).expect("a key the screen lists");
     let index = editor
         .sections()
@@ -566,12 +573,6 @@ fn settings_screen(
     editor.select_section(index);
     editor.select(row);
     editor.set_focus(Focus::List);
-    editor.submit(
-        &Field::Value {
-            key: edit.0.to_string(),
-        },
-        edit.1,
-    );
 
     let sections = editor.sections();
     let titles: Vec<&str> = sections.iter().map(|section| section.title()).collect();
@@ -625,7 +626,7 @@ fn settings_screen(
             );
         }
         draw_line(&mut screen, layout.list_x, y, &line, pen, emphasis(1));
-        if let Some((column, ansi)) = &line.styled {
+        if let Some((column, ansi)) = line.styled.as_ref().filter(|_| !is_selected) {
             screen.print(y, layout.list_x + column, ansi);
         }
         if let Some((column, color)) = line.swatch {
@@ -759,7 +760,7 @@ fn images() -> Vec<(&'static str, String)> {
             "settings-styling.svg",
             settings_screen(
                 &SETTINGS_OPTIONS,
-                "key_format",
+                "hint_spacer",
                 ("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} "),
                 19,
                 100,
