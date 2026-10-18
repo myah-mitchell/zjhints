@@ -65,6 +65,10 @@ Resting the pointer on a hint that would open a menu when clicked shows what the
 └──────────────────────┘
 ```
 
+The image shows the preview of the [drop indicator](fitting.md#marking-the-gap) on a bar in pane mode, which lists the hints that did not fit:
+
+![A zjhints bar in pane mode ending in the drop indicator, with a framed popup below it at the right listing the hints that were dropped: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
+
 The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
 
 It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu. The popup also closes by itself when the pointer leaves it, and a few seconds after it opens if the pointer never reached it, so a pointer that leaves the bar for another pane cannot strand it.

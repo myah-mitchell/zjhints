@@ -91,6 +91,8 @@ Several commands and tag names below take a value you supply, written in angle b
 | `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
 | `cleanup-caches.yml` | a pull request closes | deletes that PR's Actions caches |
 
+The `cargo test` step of `ci.yml` also checks the images in `docs/img`. It draws each one again from the bar and settings screen code and fails when a file differs, so a change that alters how they look has to commit the regenerated images with it. Run `make images` to write them. See [Images](../CONTRIBUTING.md#images).
+
 ### Tags and releases
 
 - `vX.Y.Z`: one per release, permanent. `/releases/latest/download/<asset>` resolves to the newest of these.

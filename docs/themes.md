@@ -40,6 +40,10 @@ Names are matched ignoring case and surrounding spaces. A name that is none of t
 | `tokyo-night` | [Tokyo Night](https://github.com/folke/tokyonight.nvim), the night variant | Blue |
 | `powerline` | Catppuccin Mocha, with [Powerline arrows](#powerline-and-nerd-fonts) joining the blocks | Mauve |
 
+The same bar in normal mode with `show_mode` on, drawn in each theme, with the `zellij` theme on top for comparison:
+
+![Eight rows, each a zjhints bar in normal mode under the name of its theme: zellij, catppuccin-mocha, catppuccin-latte, dracula, nord, gruvbox-dark, tokyo-night and powerline. Each shows a green NORMAL block and hints as a key block beside a description block, in that theme's colors; the powerline row joins the blocks with arrows](img/themes.svg)
+
 The flat themes draw each hint as two blocks side by side: the key on the accent color, the description on a darker surface. `powerline` draws the same blocks, each ending in an arrow.
 
 ## What a theme sets

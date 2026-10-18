@@ -99,11 +99,17 @@ When the pane is too narrow for the sidebar beside the list, a line over the lis
 
 Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
 
+The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, and an edit to `desc_format`, marked with `●`, in the selected row:
+
+![The settings screen on the Styling group. The sidebar lists the groups from Fitting to Other with Styling marked, and the list shows key_format as a light purple Ctrl p block, desc_format as italic Pane on the selected row with an edit marker, hint_spacer as a vertical bar and key_format_quit as a pink Ctrl p block. The key help runs along the bottom](img/settings-styling.svg)
+
 Press **r** to show every format string as written, and again to go back. The title says which way they are shown, as *formats rendered* or *formats raw*. Editing always starts from the text as written.
 
 ### Colors
 
 A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it.
+
+![The settings screen on the Colors group. Each row names a color alias, such as color_accent with the value #f5c2e7, and ends in a swatch of that color. The color_accent row is selected and marked as edited](img/settings-colors.svg)
 
 ### Keys outside the fixed options
 
