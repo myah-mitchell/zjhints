@@ -39,7 +39,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
    publish release, becomes `latest`
    move the `zellij-<line>` tag to it too
 
- nightly.yml (05:00 UTC, and on every push to main)
+ nightly.yml (05:00 UTC, or run by hand)
    build main
    move the `nightly` tag
    replace the nightly prerelease
@@ -84,9 +84,9 @@ Several commands and tag names below take a value you supply, written in angle b
 
 | File | Runs on | Does |
 | --- | --- | --- |
-| `ci.yml` | every push and pull request | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
+| `ci.yml` | pull requests and pushes to `main` | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
 | `update-deps.yml` | 04:00 UTC Mondays, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
-| `nightly.yml` | 05:00 UTC daily, pushes to `main`, or manually | rebuilds `main`, moves the `nightly` release |
+| `nightly.yml` | 05:00 UTC daily, or manually | rebuilds `main`, moves the `nightly` release |
 | `release.yml` | pushes to `main`, `v*.*.*` tags, or manually | publishes a release when `Cargo.toml` names an untagged version |
 | `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
 | `cleanup-caches.yml` | a pull request closes | deletes that PR's Actions caches |
@@ -221,7 +221,7 @@ An App is registered once on your account and can be installed on every repo you
 7. Leave **Require branches to be up to date** unticked, or a busy day means rebasing before every merge.
 
 > [!NOTE]
-> Status check names must match the `name:` of each job in `ci.yml`, and they only appear in the picker after a workflow has run once. Push a branch and let CI run before coming back here.
+> Status check names must match the `name:` of each job in `ci.yml`, and they only appear in the picker after a workflow has run once. Open a pull request and let CI run before coming back here.
 
 Required approvals is 0 above because the status checks are the gate doing the actual work. Unlike a personal-access-token setup it does not have to be: the app's pull requests belong to its own `[bot]` identity, not yours, so GitHub will let you approve them like anyone else's. Set it to 1 instead if you want the extra click of an explicit approval before merging.
 
