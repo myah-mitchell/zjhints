@@ -140,6 +140,13 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Hide hints in the base mode, whichever mode default_mode names",
     ),
     option(
+        "hidden",
+        "Hints",
+        Kind::Bool,
+        Some("false"),
+        "Start with the bar hidden; only a zjhints::show or zjhints::toggle keybinding or zellij pipe brings it back",
+    ),
+    option(
         "direction_keys",
         "Keys and ordering",
         Kind::Choice(&["both", "arrows", "letters"]),
