@@ -9,7 +9,7 @@ Zjhints listens for three pipe messages: `zjhints::toggle`, `zjhints::hide` and 
 ```kdl
 keybinds {
     shared_except "locked" {
-        bind "Alt h" { MessagePlugin { name "zjhints::toggle"; } }
+        bind "Alt h" { MessagePlugin { name "zjhints::toggle"; }; }
     }
 }
 ```
@@ -29,7 +29,7 @@ Don't name the plugin in the action, as in `MessagePlugin "zjhints" { ... }`. Ze
 With no payload, a message reaches every bar in the session, on every tab. Give it a payload naming a `plugins {}` alias and only the bars started from that alias respond. This hides a nested session's bar while leaving the host's alone:
 
 ```kdl
-bind "Alt H" { MessagePlugin { name "zjhints::toggle"; payload "zjhints-nested"; } }
+bind "Alt H" { MessagePlugin { name "zjhints::toggle"; payload "zjhints-nested"; }; }
 ```
 
 A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so it knows its alias and responds the same way. Only a bar that has just started, before Zellij first reports the panes, cannot tell its alias yet, and it responds to every message in that moment.
