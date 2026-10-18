@@ -8,9 +8,12 @@
 //! is fixed, the numbers are integers, and each character is placed at its own
 //! column so the font a viewer falls back to cannot shift anything.
 //!
-//! `make images` rewrites `docs/img/*.svg`. Without `ZJHINTS_WRITE_IMAGES`
-//! set, the same test compares what it draws with the files, so `cargo test`
-//! in CI fails when a change to the bar leaves an image out of date.
+//! `make images` rewrites the SVGs in `docs/img` that this module draws, and
+//! removes the ones it drew before but no longer does. It knows its own by
+//! `GENERATED_MARK`, so an SVG made any other way is left alone. Without
+//! `ZJHINTS_WRITE_IMAGES` set, the same test compares what it draws with the
+//! files, so `cargo test` in CI fails when a change to the bar leaves an image
+//! out of date.
 
 use crate::mouse::{self, PreviewPopup};
 use crate::settings::editor::{Editor, Field, Focus};
@@ -26,6 +29,11 @@ use zellij_tile::prelude::{
 };
 use zellij_utils::input::config::Config;
 use zellij_utils::setup::get_default_themes;
+
+/// The comment every SVG drawn here carries, which is how `make images` tells
+/// its own files from ones made by hand.
+const GENERATED_MARK: &str =
+    "<!-- Drawn by src/images.rs: edit the code and run `make images`. -->";
 
 /// Set to rewrite the images instead of comparing against them.
 const WRITE_ENV: &str = "ZJHINTS_WRITE_IMAGES";
@@ -303,6 +311,7 @@ impl Screen {
             svg,
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" role=\"img\">"
         );
+        let _ = writeln!(svg, "{GENERATED_MARK}");
         let _ = writeln!(svg, "<title>{}</title>", escape(title));
         let _ = writeln!(
             svg,
@@ -790,19 +799,28 @@ fn image_directory() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/img")
 }
 
-/// The SVGs in `directory`, by file name.
-fn svgs_in(directory: &Path) -> Vec<String> {
+/// The SVGs in `directory` that this module drew, by file name.
+fn generated_svgs_in(directory: &Path) -> Vec<String> {
     let mut names: Vec<String> = fs::read_dir(directory)
         .map(|entries| {
             entries
                 .filter_map(Result::ok)
                 .map(|entry| entry.file_name().to_string_lossy().into_owned())
                 .filter(|name| name.ends_with(".svg"))
+                .filter(|name| {
+                    fs::read_to_string(directory.join(name)).is_ok_and(|svg| is_generated(&svg))
+                })
                 .collect()
         })
         .unwrap_or_default();
     names.sort();
     names
+}
+
+/// Whether `svg` was drawn here. The mark sits in the first lines, so a
+/// hand-made SVG that quotes it further down is not mistaken for one.
+fn is_generated(svg: &str) -> bool {
+    svg.lines().take(3).any(|line| line == GENERATED_MARK)
 }
 
 #[cfg(test)]
@@ -893,6 +911,17 @@ mod tests {
     }
 
     #[test]
+    fn only_svgs_drawn_here_are_taken_for_generated() {
+        let svg = Screen::new(1, 1).to_svg("t");
+        assert!(is_generated(&svg));
+        assert!(!is_generated(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\">\n<title>by hand</title>\n</svg>\n"
+        ));
+        let quoting = format!("<svg>\n<title>t</title>\n<g/>\n<g/>\n{GENERATED_MARK}\n</svg>\n");
+        assert!(!is_generated(&quoting));
+    }
+
+    #[test]
     fn drawing_the_images_twice_gives_the_same_bytes() {
         assert_eq!(images(), images());
     }
@@ -906,7 +935,7 @@ mod tests {
             for (name, svg) in &images {
                 fs::write(directory.join(name), svg).expect("write an image");
             }
-            for name in svgs_in(&directory) {
+            for name in generated_svgs_in(&directory) {
                 if !images.iter().any(|(image, _)| *image == name) {
                     fs::remove_file(directory.join(name)).expect("remove an orphaned image");
                 }
@@ -921,7 +950,7 @@ mod tests {
             .map(|(name, _)| name.to_string())
             .collect();
         stale.extend(
-            svgs_in(&directory)
+            generated_svgs_in(&directory)
                 .into_iter()
                 .filter(|name| !images.iter().any(|(image, _)| image == name))
                 .map(|name| format!("{name} (no longer generated)")),

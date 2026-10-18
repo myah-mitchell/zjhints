@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1108" height="258" viewBox="0 0 1108 258" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
 <title>The hover preview of a hint, listing what clicking it offers</title>
 <rect width="1108" height="258" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">

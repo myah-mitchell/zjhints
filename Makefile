@@ -31,8 +31,11 @@ test:
 	cargo test --all-features
 
 # Redraw the SVGs in docs/img from the code that draws the bar and the
-# settings screen. Plain `make test` compares against them and fails when
+# settings screen, and remove the ones it no longer draws. SVGs it did not
+# draw are left alone. Plain `make test` compares against them and fails when
 # they are stale, so run this after a change that alters how either looks.
+# The nightly, release and beta workflows run the same tests, so a stale image
+# blocks a release as well as a pull request.
 images:
 	ZJHINTS_WRITE_IMAGES=1 cargo test --all-features images
 

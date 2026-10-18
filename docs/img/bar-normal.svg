@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1108" height="60" viewBox="0 0 1108 60" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
 <title>The zjhints bar in normal mode, with the mode shown</title>
 <rect width="1108" height="60" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
