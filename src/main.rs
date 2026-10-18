@@ -36,6 +36,14 @@ struct State {
     /// was started from an alias. `None` until seen, and for a bar with no
     /// pane of its own.
     own_url: Option<String>,
+    /// The last `zellij pipe` command a hide or show message came from. See
+    /// `ends_a_cli_stream`.
+    last_cli_pipe: Option<String>,
+    /// Whether this bar has asked the running bars if they are hidden, and
+    /// whether it has its answer, or no longer needs one. See
+    /// `ask_visibility`.
+    asked_visibility: bool,
+    visibility_settled: bool,
     /// Keys whose previews this bar ignores, because its value for them came
     /// from somewhere other than the alias. See `live::apply`.
     preview_ignored: BTreeSet<String>,
@@ -85,6 +93,9 @@ struct State {
     /// when it changes rather than on every render. Starts out matching how
     /// Zellij places the pane, which is expanded.
     collapsed: bool,
+    /// Hidden by a `zjhints::hide` or `zjhints::toggle` message, or by the
+    /// `hidden` option: the bar draws nothing and gives its row back.
+    hidden: bool,
     dim_when_unfocused: bool,
     /// How strongly to dim, in `dim_color`'s `0.0..=1.0` scale.
     dim_strength: f32,
@@ -1030,7 +1041,9 @@ impl State {
     /// says the same thing the last one did and there is no point repeating
     /// it. Records the answer as the new last word.
     fn next_collapsed(&mut self, output_is_empty: bool) -> Option<bool> {
-        let should_collapse = self.collapse_when_empty && output_is_empty;
+        // Hiding the bar always frees its row; `collapse_when_empty` is about
+        // a bar left with nothing to draw by itself.
+        let should_collapse = (self.collapse_when_empty || self.hidden) && output_is_empty;
         if self.collapsed == should_collapse {
             return None;
         }
@@ -1073,6 +1086,9 @@ impl State {
     /// `mouse_nested`, which types their keys into the focused pane, the one
     /// the descended-into session runs in.
     fn draw_bar(&self) -> (String, ClickMap) {
+        if self.hidden {
+            return (String::new(), ClickMap::default());
+        }
         let mode_info = &self.mode_info;
         let dim = self.dim_amount();
 
@@ -1379,6 +1395,12 @@ impl State {
     /// update from the settings screen does, so a value behaves the same
     /// whichever way it arrived.
     fn apply_configuration(&mut self, configuration: BTreeMap<String, String>) {
+        // The option sets the state when it changes, on load or in a
+        // preview, and leaves a state a message set alone otherwise.
+        let hidden = parse_hidden(&configuration);
+        if hidden != parse_hidden(&self.config) {
+            self.hidden = hidden;
+        }
         self.max_length = configuration
             .get("max_length")
             .and_then(|s| s.parse().ok())
@@ -1599,6 +1621,74 @@ const MOUSE_EVENTS: [EventType; 3] = [
 /// The pipe message that opens the settings screen, or brings it up.
 const OPEN_SETTINGS_MESSAGE: &str = "zjhints::open_settings";
 
+/// What a hide, show or toggle message asks of the bar.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Visibility {
+    Hide,
+    Show,
+    Toggle,
+}
+
+impl Visibility {
+    /// The request a pipe message named `name` makes, if it is one of these.
+    fn from_message(name: &str) -> Option<Self> {
+        match name {
+            "zjhints::hide" => Some(Self::Hide),
+            "zjhints::show" => Some(Self::Show),
+            "zjhints::toggle" => Some(Self::Toggle),
+            _ => None,
+        }
+    }
+}
+
+const CONFIG_HIDDEN: &str = "hidden";
+
+/// Asked by a bar when it starts, so a bar in a new tab joins the others in
+/// being hidden or shown; the payload is its alias, if it knows it.
+const ASK_VISIBILITY_MESSAGE: &str = "zjhints::ask_visibility";
+/// The answer, sent to the asking bar alone, with a payload of
+/// `VISIBILITY_HIDDEN` or `VISIBILITY_SHOWN`.
+const VISIBILITY_MESSAGE: &str = "zjhints::visibility";
+const VISIBILITY_HIDDEN: &str = "hidden";
+const VISIBILITY_SHOWN: &str = "shown";
+
+/// Ask every running bar whether it is hidden. See `ASK_VISIBILITY_MESSAGE`.
+#[cfg(not(test))]
+fn ask_visibility(alias: Option<&str>) {
+    let mut message = MessageToPlugin::new(ASK_VISIBILITY_MESSAGE);
+    if let Some(alias) = alias {
+        message = message.with_payload(alias);
+    }
+    pipe_message_to_plugin(message);
+}
+
+#[cfg(test)]
+fn ask_visibility(_alias: Option<&str>) {}
+
+/// Tell bar `plugin_id` whether this one is hidden.
+#[cfg(not(test))]
+fn answer_visibility(plugin_id: u32, hidden: bool) {
+    let state = if hidden {
+        VISIBILITY_HIDDEN
+    } else {
+        VISIBILITY_SHOWN
+    };
+    pipe_message_to_plugin(
+        MessageToPlugin::new(VISIBILITY_MESSAGE)
+            .with_destination_plugin_id(plugin_id)
+            .with_payload(state),
+    );
+}
+
+#[cfg(test)]
+fn answer_visibility(_plugin_id: u32, _hidden: bool) {}
+
+fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
+    configuration
+        .get(CONFIG_HIDDEN)
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
+}
+
 /// Open the settings screen as a floating pane, or reach the one already
 /// open. `zellij:OWN_URL` stands for this plugin's own location, and a
 /// message addressed by URL goes to a running instance whose configuration
@@ -1640,6 +1730,72 @@ fn own_pane_url(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<Strin
 }
 
 impl State {
+    /// Hide or show the bar, when `alias` (a message's payload) is empty or
+    /// names the alias this bar was started from. A bar without a pane takes
+    /// every message, as it does previews. Returns whether anything changed.
+    fn change_visibility(&mut self, visibility: Visibility, alias: Option<&str>) -> bool {
+        let alias = alias.map(str::trim).filter(|alias| !alias.is_empty());
+        if alias.is_some_and(|alias| !live::is_for(alias, self.own_url.as_deref())) {
+            return false;
+        }
+        // What the user asks for outranks what another bar said.
+        self.visibility_settled = true;
+        let hidden = match visibility {
+            Visibility::Hide => true,
+            Visibility::Show => false,
+            Visibility::Toggle => !self.hidden,
+        };
+        let changed = hidden != self.hidden;
+        self.hidden = hidden;
+        changed
+    }
+
+    /// The bar to answer, when `source` is another bar asking with `payload`
+    /// whether this one is hidden. Bars of other aliases stay out of it, by
+    /// the same rule as previews.
+    fn visibility_asker(&self, source: &PipeSource, payload: Option<&str>) -> Option<u32> {
+        let PipeSource::Plugin(asker) = *source else {
+            return None;
+        };
+        if Some(asker) == self.plugin_id {
+            return None;
+        }
+        payload
+            .is_none_or(|alias| live::is_for(alias, self.own_url.as_deref()))
+            .then_some(asker)
+    }
+
+    /// Take the first answer to `ask_visibility`. Returns whether anything
+    /// changed.
+    fn take_visibility_answer(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
+        if !matches!(source, PipeSource::Plugin(_)) || self.visibility_settled {
+            return false;
+        }
+        let hidden = match payload {
+            Some(VISIBILITY_HIDDEN) => true,
+            Some(VISIBILITY_SHOWN) => false,
+            _ => return false,
+        };
+        self.visibility_settled = true;
+        let changed = hidden != self.hidden;
+        self.hidden = hidden;
+        changed
+    }
+
+    /// Whether `source` and `payload` are the end of a `zellij pipe` stream
+    /// already seen. With stdin not a terminal, as in a script, the command
+    /// sends its payload, then a message per line of stdin, then one with no
+    /// payload when stdin ends. Taken on its own, that last one would reach
+    /// every bar rather than the alias the payload named.
+    fn ends_a_cli_stream(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
+        let PipeSource::Cli(pipe_id) = source else {
+            return false;
+        };
+        let seen = self.last_cli_pipe.as_deref() == Some(pipe_id.as_str());
+        self.last_cli_pipe = Some(pipe_id.clone());
+        seen && payload.is_none()
+    }
+
     /// Take a preview from the settings screen, if it is for this bar.
     /// Returns whether the bar should redraw.
     fn take_preview(&mut self, args: &BTreeMap<String, String>) -> bool {
@@ -1766,6 +1922,11 @@ impl ZellijPlugin for State {
                 if let Some(url) = own_pane_url(&manifest, self.plugin_id) {
                     self.own_url = Some(url);
                 }
+                // The first pane update is the earliest this bar knows which
+                // alias it runs as, and that it may message other plugins.
+                if !std::mem::replace(&mut self.asked_visibility, true) {
+                    ask_visibility(self.own_url.as_deref());
+                }
             }
             // Which tab is focused, and whether its floating layer is up.
             // `PaneUpdate` reports focus per tab and per layer, so neither
@@ -1838,6 +1999,23 @@ impl ZellijPlugin for State {
                 show_self(true);
             }
             return false;
+        }
+        let payload = message.payload.as_deref();
+        if message.name == ASK_VISIBILITY_MESSAGE {
+            if let Some(asker) = self.visibility_asker(&message.source, payload) {
+                answer_visibility(asker, self.hidden);
+            }
+            return false;
+        }
+        if message.name == VISIBILITY_MESSAGE {
+            return self.take_visibility_answer(&message.source, payload);
+        }
+        if let Some(visibility) = Visibility::from_message(&message.name) {
+            let payload = message.payload.as_deref();
+            if self.ends_a_cli_stream(&message.source, payload) {
+                return false;
+            }
+            return self.change_visibility(visibility, payload);
         }
         message.name == live::MESSAGE_NAME && self.take_preview(&message.args)
     }
@@ -6392,6 +6570,149 @@ mod tests {
         let args = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
         assert!(!state.take_preview(&args));
         assert!(!state.show_mode);
+    }
+
+    /// A bar with something to draw: the mode prefix on its own.
+    fn drawing_bar() -> State {
+        let mut state = state_with_ancestry(vec![]);
+        state.show_mode = true;
+        state.mode_format = Some("MODE".to_string());
+        assert!(!state.draw_bar().0.is_empty());
+        state
+    }
+
+    #[test]
+    fn hide_show_and_toggle_messages_are_recognized() {
+        assert_eq!(
+            Visibility::from_message("zjhints::hide"),
+            Some(Visibility::Hide)
+        );
+        assert_eq!(
+            Visibility::from_message("zjhints::show"),
+            Some(Visibility::Show)
+        );
+        assert_eq!(
+            Visibility::from_message("zjhints::toggle"),
+            Some(Visibility::Toggle)
+        );
+        assert_eq!(Visibility::from_message("zjhints"), None);
+    }
+
+    #[test]
+    fn toggling_hides_then_shows_and_repeats_change_nothing() {
+        let mut state = drawing_bar();
+        assert!(state.change_visibility(Visibility::Toggle, None));
+        assert!(state.hidden);
+        assert!(!state.change_visibility(Visibility::Hide, None));
+        assert!(state.change_visibility(Visibility::Toggle, Some("")));
+        assert!(!state.hidden);
+        assert!(!state.change_visibility(Visibility::Show, None));
+    }
+
+    #[test]
+    fn a_message_naming_an_alias_reaches_only_that_alias_s_bars() {
+        let mut state = drawing_bar();
+        state.own_url = Some("zjhints".to_string());
+        assert!(!state.change_visibility(Visibility::Hide, Some("zjhints-nested")));
+        assert!(!state.hidden);
+        assert!(state.change_visibility(Visibility::Hide, Some("zjhints")));
+        // A bar without a pane cannot tell its alias, so it takes them all.
+        let mut headless = drawing_bar();
+        assert!(headless.change_visibility(Visibility::Hide, Some("zjhints-nested")));
+    }
+
+    #[test]
+    fn the_end_of_a_scripted_zellij_pipe_does_not_reach_every_bar() {
+        let mut state = drawing_bar();
+        let cli = PipeSource::Cli("pipe-1".to_string());
+        assert!(!state.ends_a_cli_stream(&cli, Some("zjhints-nested")));
+        assert!(state.ends_a_cli_stream(&cli, None));
+        // A new command, or one from a keybinding, with no payload is meant
+        // for every bar.
+        assert!(!state.ends_a_cli_stream(&PipeSource::Cli("pipe-2".to_string()), None));
+        assert!(!state.ends_a_cli_stream(&PipeSource::Keybind, None));
+    }
+
+    #[test]
+    fn a_running_bar_answers_another_bar_of_its_alias_asking_if_it_is_hidden() {
+        let mut state = drawing_bar();
+        state.plugin_id = Some(3);
+        state.own_url = Some("zjhints".to_string());
+        let from = |id| PipeSource::Plugin(id);
+        assert_eq!(state.visibility_asker(&from(5), Some("zjhints")), Some(5));
+        // An asker without a pane cannot name its alias.
+        assert_eq!(state.visibility_asker(&from(5), None), Some(5));
+        assert_eq!(
+            state.visibility_asker(&from(5), Some("zjhints-nested")),
+            None
+        );
+        // The question is broadcast, so the asker hears it too.
+        assert_eq!(state.visibility_asker(&from(3), None), None);
+        assert_eq!(state.visibility_asker(&PipeSource::Keybind, None), None);
+    }
+
+    #[test]
+    fn a_new_bar_takes_the_first_answer_only() {
+        let mut state = drawing_bar();
+        let from = PipeSource::Plugin(5);
+        assert!(!state.take_visibility_answer(&PipeSource::Keybind, Some("hidden")));
+        assert!(state.take_visibility_answer(&from, Some("hidden")));
+        assert!(state.hidden);
+        assert!(!state.take_visibility_answer(&from, Some("shown")));
+        assert!(state.hidden);
+    }
+
+    #[test]
+    fn a_hide_or_show_before_the_answer_wins_over_it() {
+        let mut state = drawing_bar();
+        state.change_visibility(Visibility::Show, None);
+        assert!(!state.take_visibility_answer(&PipeSource::Plugin(5), Some("hidden")));
+        assert!(!state.hidden);
+    }
+
+    #[test]
+    fn a_hidden_bar_draws_nothing_and_has_nothing_to_click() {
+        let mut state = drawing_bar();
+        state.mouse = true;
+        state.change_visibility(Visibility::Hide, None);
+        assert_eq!(state.draw_bar(), (String::new(), ClickMap::default()));
+    }
+
+    #[test]
+    fn a_hidden_bar_gives_its_row_back_even_when_keeping_it_reserved() {
+        let mut state = drawing_bar();
+        state.collapse_when_empty = false;
+        state.change_visibility(Visibility::Hide, None);
+        assert_eq!(state.next_collapsed(true), Some(true));
+        state.change_visibility(Visibility::Show, None);
+        assert_eq!(state.next_collapsed(false), Some(false));
+        // Shown again, an empty bar keeps its row as the option says.
+        assert_eq!(state.next_collapsed(true), None);
+    }
+
+    #[test]
+    fn the_hidden_option_sets_the_state_on_load_and_when_it_changes() {
+        let mut state = bar_with(&[("hidden", "true")]);
+        assert!(state.hidden);
+        // A message overrides it, and an unrelated preview keeps that.
+        state.change_visibility(Visibility::Show, None);
+        state.take_preview(&preview_args(
+            "zjhints",
+            &[("max_length", None, Some("40"))],
+        ));
+        assert!(!state.hidden);
+        // Changing the option itself sets the state again.
+        state.take_preview(&preview_args(
+            "zjhints",
+            &[("hidden", Some("true"), Some("false"))],
+        ));
+        assert!(!state.hidden);
+        state.take_preview(&preview_args(
+            "zjhints",
+            &[("hidden", Some("false"), Some("true"))],
+        ));
+        assert!(state.hidden);
+        assert!(!bar_with(&[]).hidden);
     }
 
     #[test]
