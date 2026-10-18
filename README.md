@@ -13,9 +13,11 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 ![zjhints example](docs/img/zjhints-v0.5.0.png)
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->
-<!-- markdownlint-disable-next-line MD034 -->
+<!-- markdownlint-disable MD034 -->
 
 https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
+
+<!-- markdownlint-enable MD034 -->
 
 ## Zellij support
 
