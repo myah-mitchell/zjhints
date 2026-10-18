@@ -44,6 +44,7 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 
 - [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
 - [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
+- [Themes](docs/themes.md): follow your Zellij theme, pick a built-in one such as Catppuccin, Nord or a Powerline look, or style the bar yourself
 - [Discovery](docs/hints.md#discovered-hints): name every keybinding your config enables, not just the curated set, or turn it off for a compact bar
 - [Labels](docs/labels.md): rename, hide, merge, or reorder any hint, globally or in a single mode
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
@@ -150,6 +151,12 @@ plugins {
         // value hides it. See docs/labels.md for the full list of ids.
         label_mode_locked "lock"
         label_split_down  "split ↓"
+
+        // Start from a built-in theme's colors and formats: "zellij" follows
+        // the active Zellij theme, "custom" adds nothing, or a name such as
+        // "catppuccin-mocha". The color_ and *_format options below override
+        // it. See docs/themes.md.
+        theme "catppuccin-mocha" // default "zellij"
 
         // Optionally style the hints using zjstatus-style format strings.
         // When unset, the current Zellij theme palette is used automatically.
@@ -310,6 +317,7 @@ The plugin works with no configuration, so this section is only for changing som
 | Topic                                      | What it covers                                                     |
 | ------------------------------------------ | ------------------------------------------------------------------ |
 | [Styling](docs/styling.md)                 | Format strings, colors, per-hint styling, key and modifier aliases |
+| [Themes](docs/themes.md)                   | Built-in themes, their color aliases, and overriding them          |
 | [Keys and ordering](docs/ordering.md)      | Which keys show for a hint, and the order of keys and of hints     |
 | [Fitting the bar](docs/fitting.md)         | Fitting to the terminal, dropping hints, the drop indicator        |
 | [Hints](docs/hints.md)                     | The curated list, discovery, and shared bindings                   |

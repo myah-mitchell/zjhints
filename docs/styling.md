@@ -1,6 +1,6 @@
 # Styling
 
-Each hint is rendered in two parts: the key, such as `Ctrl + p`, and its description, such as `pane`. By default both are styled from the active Zellij theme palette so they blend in with the rest of your status bar.
+Each hint is rendered in two parts: the key, such as `Ctrl + p`, and its description, such as `pane`. By default both are styled from the active Zellij theme palette so they blend in with the rest of your status bar. To start from a ready-made palette and set of formats instead, pick a [theme](themes.md).
 
 To customize them, set `key_format` and `desc_format`. These use the same format-string syntax as any other [zjstatus](https://github.com/dj95/zjstatus) widget, so styling hints works just like styling `{mode}`, `{tabs}`, and friends:
 
