@@ -18,7 +18,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
 ## The shape of it
 
 ```text
- nightly (04:00 UTC)                you                         result
+ weekly (Mon 04:00 UTC)             you                         result
  --------------------               ---                         ------
  update-deps.yml
    cargo update, nix flake update
@@ -85,7 +85,7 @@ Several commands and tag names below take a value you supply, written in angle b
 | File | Runs on | Does |
 | --- | --- | --- |
 | `ci.yml` | every push and pull request | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
-| `update-deps.yml` | 04:00 UTC daily, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
+| `update-deps.yml` | 04:00 UTC Mondays, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
 | `nightly.yml` | 05:00 UTC daily, pushes to `main`, or manually | rebuilds `main`, moves the `nightly` release |
 | `release.yml` | pushes to `main`, `v*.*.*` tags, or manually | publishes a release when `Cargo.toml` names an untagged version |
 | `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
@@ -237,7 +237,7 @@ Test it by opening *Actions > Update dependencies* and clicking **Run workflow**
 
 ## Merging
 
-The email arrives when the nightly finds updates. What to look at:
+The email arrives when the weekly run finds updates. What to look at:
 
 - The pull request body lists what moved and what was held back.
 - A pull request titled "Zellij … is out" is the `zellij-upgrade` one, not the routine one. Do not merge it until the Zellij you run matches and you have confirmed hints still render right. Its body says the same. A red Checks tab on this one specifically can mean the plugin needs real source changes for the new zellij-tile, not just a version bump.
