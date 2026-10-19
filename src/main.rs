@@ -1872,6 +1872,7 @@ fn open_settings(own_url: Option<&str>) {
 }
 
 /// The label of the entry the bar adds to Zellij's own settings menu.
+#[cfg(not(test))]
 const SETTINGS_ENTRY_LABEL: &str = "zjhints";
 
 /// List the settings screen in Zellij's own settings menu, launched from this
