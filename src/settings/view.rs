@@ -175,7 +175,7 @@ impl<'a> Rows<'a> {
         Rows {
             editor,
             view,
-            layered: crate::theme::layer(editor.working()),
+            layered: crate::theme::layer(editor.working(), None),
         }
     }
 
@@ -924,11 +924,11 @@ mod tests {
     #[test]
     fn values_are_drawn_against_the_selected_theme() {
         let editor = editor(&[
-            ("theme", "tokyo-night"),
+            ("color_theme", "tokyo-night"),
             ("key_format_quit", "#[fg=$bg,bg=$red,bold] {key} "),
             ("color_accent", "$red"),
         ]);
-        let themed = crate::theme::layer(editor.working());
+        let themed = crate::theme::layer(editor.working(), None);
         let red = swatch_color(&themed["color_red"], &themed).expect("a hex red");
 
         // A `$red` value the theme defines gets its swatch.
@@ -952,8 +952,8 @@ mod tests {
 
     #[test]
     fn an_unset_option_a_theme_sets_shows_the_themes_value_dimmed() {
-        let editor = editor(&[("theme", "nord")]);
-        let themed = crate::theme::layer(editor.working());
+        let editor = editor(&[("color_theme", "nord"), ("format_theme", "flat")]);
+        let themed = crate::theme::layer(editor.working(), None);
         let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Raw);
         let shown = show_value(&themed["key_format"], Kind::Format);
         assert_eq!(line.text, format!("  {:22}{shown} (theme)", "key_format"));

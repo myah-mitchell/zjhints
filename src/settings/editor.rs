@@ -709,7 +709,12 @@ mod tests {
         let mode = editor.rows_of(Section::Group("Mode prefix"));
         assert_eq!(
             mode[2..],
-            [key("mode_format_locked"), Row::Add("mode_format_")]
+            [
+                key("mode_format_locked"),
+                Row::Add("mode_format_"),
+                Row::Add("mode_label_"),
+                Row::Add("mode_key_"),
+            ]
         );
         assert_eq!(editor.rows_of(Section::Other), [key("bogus"), Row::Add("")]);
         assert_eq!(editor.rows_of(Section::Group("Fitting")).len(), 7);

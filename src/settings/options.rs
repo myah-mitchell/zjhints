@@ -213,11 +213,25 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Hint ids pinned to the start or end of each mode, around a * for the rest",
     ),
     option(
-        "theme",
+        "color_theme",
         "Theme",
-        Kind::Choice(&crate::theme::CHOICES),
+        Kind::Choice(&crate::theme::COLOR_CHOICES),
         Some("zellij"),
-        "Follow the Zellij theme, style the bar yourself, or use a built-in theme",
+        "The colors named $bg, $accent and so on: Zellij's, none, or a built-in palette",
+    ),
+    option(
+        "format_theme",
+        "Theme",
+        Kind::Choice(&crate::theme::FORMAT_CHOICES),
+        Some("zellij"),
+        "The shape of hints and the mode prefix: Zellij's ribbons or a built-in format",
+    ),
+    option(
+        "alias_theme",
+        "Theme",
+        Kind::Choice(&crate::theme::ALIAS_CHOICES),
+        Some("zellij"),
+        "The symbols for keys, modifiers and modes: Zellij's names or a built-in set",
     ),
     option(
         "key_format",
@@ -280,7 +294,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Mode prefix",
         Kind::Format,
         None,
-        "Format string for the mode prefix, with a {mode} placeholder",
+        "Format string for the mode prefix, with {desc}, {key} and {mode} placeholders",
     ),
     option(
         "mouse",
@@ -371,6 +385,18 @@ pub const FAMILIES: &[FamilySpec] = &[
         "Mode prefix",
         Kind::Format,
         "The mode prefix's format string for one mode",
+    ),
+    family(
+        "mode_label_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's name, drawn for {desc} in the mode prefix",
+    ),
+    family(
+        "mode_key_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's symbol, drawn for {key} in the mode prefix",
     ),
 ];
 

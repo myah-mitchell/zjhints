@@ -49,11 +49,13 @@ Which keys a hint shows, and what order things appear in. See [Keys and ordering
 
 ## Theme
 
-A built-in look for the whole bar, laid under your own options. See [Themes](themes.md).
+Built-in colors, shapes and symbols for the whole bar, laid under your own options. See [Themes](themes.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `theme` | `zellij` | `zellij` follows the Zellij theme, `custom` adds nothing, or a built-in theme name such as `catppuccin-mocha` |
+| `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
+| `format_theme` | `zellij` | The shape of hints and the mode prefix, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for modifiers, keys and modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
 
 ## Styling
 
@@ -112,8 +114,10 @@ The current input mode, printed before the hints for a bar in its own pane. See 
 | Option | Default | What it does |
 | --- | --- | --- |
 | `show_mode` | `false` | Prefix the hints line with the current input mode |
-| `mode_format` | unset | Format string for the mode prefix, with a `{mode}` placeholder |
+| `mode_format` | unset | Format string for the mode prefix, with `{desc}`, `{key}` and `{mode}` placeholders |
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+| `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
+| `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "🔒"` |
 
 ## Nested sessions
 

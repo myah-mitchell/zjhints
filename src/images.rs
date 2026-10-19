@@ -52,6 +52,9 @@ const FONT_FAMILY: &str =
 /// The Powerline right-pointing arrow. It lives in a Nerd Font's private use
 /// area, which a viewer is unlikely to have, so it is drawn as a triangle.
 const POWERLINE_ARROW: char = '\u{e0b0}';
+/// The round caps the pills format theme draws at each end of a block.
+const PILL_LEFT: char = '\u{e0b6}';
+const PILL_RIGHT: char = '\u{e0b4}';
 
 /// Marks the second column of a character two columns wide.
 const COVERED: char = '\0';
@@ -362,19 +365,22 @@ impl Screen {
     }
 }
 
-/// A triangle in place of each Powerline arrow of a row.
+/// A shape in place of each Powerline arrow and pill cap of a row, since few
+/// fonts a reader has carry those glyphs.
 fn write_arrows(svg: &mut String, row: usize, cells: &[Cell]) {
     for (column, cell) in cells.iter().enumerate() {
-        if cell.character != POWERLINE_ARROW {
-            continue;
-        }
         let (left, top) = (column * CELL_WIDTH, row * CELL_HEIGHT);
+        let (right, middle, bottom) = (left + CELL_WIDTH, top + CELL_HEIGHT / 2, top + CELL_HEIGHT);
+        let (radius_x, radius_y) = (CELL_WIDTH, CELL_HEIGHT / 2);
+        let path = match cell.character {
+            POWERLINE_ARROW => format!("M{left} {top}L{right} {middle}L{left} {bottom}Z"),
+            PILL_RIGHT => format!("M{left} {top}A{radius_x} {radius_y} 0 0 1 {left} {bottom}Z"),
+            PILL_LEFT => format!("M{right} {top}A{radius_x} {radius_y} 0 0 0 {right} {bottom}Z"),
+            _ => continue,
+        };
         let _ = writeln!(
             svg,
-            "<path d=\"M{left} {top}L{} {}L{left} {}Z\" fill=\"{}\"/>",
-            left + CELL_WIDTH,
-            top + CELL_HEIGHT / 2,
-            top + CELL_HEIGHT,
+            "<path d=\"{path}\" fill=\"{}\"/>",
             hex(cell.look.foreground)
         );
     }
@@ -389,7 +395,7 @@ fn write_text(svg: &mut String, row: usize, cells: &[Cell]) {
             underline, strike, ..
         } = cell.look;
         let invisible = cell.character == COVERED
-            || cell.character == POWERLINE_ARROW
+            || matches!(cell.character, POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT)
             || (cell.character == ' ' && !underline && !strike);
         if invisible {
             continue;
@@ -492,6 +498,7 @@ fn configuration_of(options: &[(&str, &str)]) -> BTreeMap<String, String> {
 /// and the click map of what it drew.
 fn bar(options: &[(&str, &str)], mode: InputMode, columns: usize) -> (String, ClickMap) {
     let mut state = State::default();
+    state.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
     state.pane_width = Some(columns);
     state.mode_info = ModeInfo {
@@ -717,7 +724,7 @@ fn hover_preview() -> Screen {
 /// The alias the settings screens show: the colors and formats of a theme
 /// written out as a user would, so the rows have values and swatches.
 const SETTINGS_OPTIONS: [(&str, &str); 11] = [
-    ("theme", "catppuccin-mocha"),
+    ("color_theme", "catppuccin-mocha"),
     ("color_bg", "#181825"),
     ("color_fg", "#cdd6f4"),
     ("color_surface", "#313244"),
@@ -733,23 +740,45 @@ const SETTINGS_OPTIONS: [(&str, &str); 11] = [
 /// Every image as the name of its file and its SVG.
 fn images() -> Vec<(&'static str, String)> {
     let show_mode = [("show_mode", "true")];
-    let themes: Vec<(&str, Vec<(&str, &str)>)> = [
-        "zellij",
-        "catppuccin-mocha",
-        "catppuccin-latte",
-        "dracula",
-        "nord",
-        "gruvbox-dark",
-        "tokyo-night",
-        "powerline",
-    ]
-    .iter()
-    .map(|theme| (*theme, vec![("show_mode", "true"), ("theme", *theme)]))
-    .collect();
-    let captioned: Vec<(&str, &[(&str, &str)])> = themes
-        .iter()
-        .map(|(theme, options)| (*theme, options.as_slice()))
-        .collect();
+    // Each kind of theme shown on its own, the others held still.
+    let rows =
+        |option: &'static str, names: &[&'static str], rest: &[(&'static str, &'static str)]| {
+            names
+                .iter()
+                .map(|name| {
+                    let mut options = vec![("show_mode", "true"), (option, *name)];
+                    options.extend_from_slice(rest);
+                    (*name, options)
+                })
+                .collect::<Vec<(&str, Vec<(&str, &str)>)>>()
+        };
+    let color_rows = rows(
+        "color_theme",
+        &crate::theme::COLOR_CHOICES,
+        &[("format_theme", "flat")],
+    );
+    let format_rows = rows(
+        "format_theme",
+        &crate::theme::FORMAT_CHOICES,
+        &[("color_theme", "catppuccin-mocha")],
+    );
+    // The nerd-font symbols are left out: a reader's font rarely has them,
+    // and unlike the Powerline shapes they are too many to draw by hand.
+    let alias_rows = rows(
+        "alias_theme",
+        &["zellij", "ascii", "unicode"],
+        &[
+            ("color_theme", "catppuccin-mocha"),
+            ("format_theme", "pills"),
+        ],
+    );
+    fn captioned<'a>(
+        rows: &'a [(&'a str, Vec<(&'a str, &'a str)>)],
+    ) -> Vec<(&'a str, &'a [(&'a str, &'a str)])> {
+        rows.iter()
+            .map(|(name, options)| (*name, options.as_slice()))
+            .collect()
+    }
     vec![
         (
             "bar-normal.svg",
@@ -762,8 +791,19 @@ fn images() -> Vec<(&'static str, String)> {
                 .to_svg("The zjhints bar in locked mode, with the mode shown"),
         ),
         (
-            "themes.svg",
-            bars(&captioned, InputMode::Normal).to_svg("The zjhints bar in each built-in theme"),
+            "color-themes.svg",
+            bars(&captioned(&color_rows), InputMode::Normal)
+                .to_svg("The zjhints bar in each color theme, drawn with the flat format theme"),
+        ),
+        (
+            "format-themes.svg",
+            bars(&captioned(&format_rows), InputMode::Normal)
+                .to_svg("The zjhints bar in each format theme, in catppuccin-mocha colors"),
+        ),
+        (
+            "alias-themes.svg",
+            bars(&captioned(&alias_rows), InputMode::Normal)
+                .to_svg("The zjhints bar in the zellij, ascii and unicode alias themes, drawn as catppuccin-mocha pills"),
         ),
         (
             "settings-styling.svg",
@@ -899,6 +939,16 @@ mod tests {
         screen.print(0, 0, "\u{e0b0}");
         let svg = screen.to_svg("t");
         assert!(svg.contains("<path d=\"M0 0L9 9L0 18Z\""));
+        assert!(!svg.contains("<tspan"));
+    }
+
+    #[test]
+    fn the_pill_caps_are_drawn_as_half_circles() {
+        let mut screen = Screen::new(1, 2);
+        screen.print(0, 0, "\u{e0b6}\u{e0b4}");
+        let svg = screen.to_svg("t");
+        assert!(svg.contains("<path d=\"M9 0A9 9 0 0 0 9 18Z\""));
+        assert!(svg.contains("<path d=\"M9 0A9 9 0 0 1 9 18Z\""));
         assert!(!svg.contains("<tspan"));
     }
 

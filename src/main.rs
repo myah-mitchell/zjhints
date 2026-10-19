@@ -153,9 +153,12 @@ struct State {
     /// switching theme replaces the old theme's values instead of keeping
     /// them as if the user had set them.
     user_config: BTreeMap<String, String>,
-    /// `user_config` with the selected theme's options laid under it. Every
+    /// `user_config` with the selected themes' options laid under it. Every
     /// option is read from this, `$alias` colors included.
     config: BTreeMap<String, String>,
+    /// The Zellij theme from the last mode update, which `color_theme zellij`
+    /// takes its aliases from. `None` until the first one arrives.
+    zellij_palette: Option<Styling>,
 }
 
 /// Where the focus sits in one tab.
@@ -354,6 +357,8 @@ const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
 const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
+const CONFIG_MODE_LABEL_PREFIX: &str = "mode_label_";
+const CONFIG_MODE_KEY_PREFIX: &str = "mode_key_";
 
 /// Concept id of the synthetic hint standing in for the descended-session
 /// placeholder (see `render`'s `is_host_descended` branch), and its default
@@ -1483,10 +1488,10 @@ impl State {
     /// update from the settings screen does, so a value behaves the same
     /// whichever way it arrived.
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
-        if let Some(name) = theme::unknown_name(&user_configuration) {
-            eprintln!("zjhints: unknown theme \"{name}\", using \"zellij\"");
+        for (option, name) in theme::unknown_names(&user_configuration) {
+            eprintln!("zjhints: unknown {option} \"{name}\", using \"zellij\"");
         }
-        let configuration = theme::layer(&user_configuration);
+        let configuration = theme::layer(&user_configuration, self.zellij_palette.as_ref());
         // The option sets the state when it changes, on load or in a
         // preview, and leaves a state a message set alone otherwise.
         let hidden = parse_hidden(&configuration);
@@ -2084,6 +2089,14 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
+                // `color_theme zellij` follows the Zellij theme, so a new one
+                // means laying the themes again.
+                let palette = self.mode_info.style.colors;
+                if self.zellij_palette != Some(palette) {
+                    self.zellij_palette = Some(palette);
+                    self.apply_configuration(self.user_config.clone());
+                    should_render = true;
+                }
             }
             // Sent once this plugin subscribes, and again whenever the
             // keybindings are reconfigured.
@@ -2881,6 +2894,11 @@ fn style_description(description: &str, palette: &Styling) -> Vec<ANSIString<'st
 /// caller), a custom format string through `format::render_template`, which
 /// resolves its own literal colors and would otherwise ignore `colors`
 /// (and `dim_when_unfocused`) entirely.
+///
+/// A format string draws the mode's name as `{desc}` and its symbol as
+/// `{key}`, taken from `mode_label_<mode>` and `mode_key_<mode>` the way a
+/// hint's come from its label and keys. `{mode}` is always the bare name. The
+/// built-in styling draws the symbol before the name when there is one.
 fn render_mode_prefix(
     mode: InputMode,
     colors: &Styling,
@@ -2889,15 +2907,21 @@ fn render_mode_prefix(
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
     let mode_name = format!("{:?}", mode).to_uppercase();
-    let per_mode_key = format!("{}{}", CONFIG_MODE_FORMAT_PREFIX, mode_config_suffix(mode));
-    let format_str = config
-        .get(&per_mode_key)
-        .map(String::as_str)
-        .or(mode_format);
+    let suffix = mode_config_suffix(mode);
+    let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).map(String::as_str);
+    let label = per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or(&mode_name);
+    let symbol = per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default();
+    let format_str = per_mode(CONFIG_MODE_FORMAT_PREFIX).or(mode_format);
 
     match format_str {
-        Some(fmt) => format::render_template(fmt, &[("mode", &mode_name)], config, dim),
-        None => style_mode(&mode_name, colors),
+        Some(fmt) => format::render_template(
+            fmt,
+            &[("mode", &mode_name), ("desc", label), ("key", symbol)],
+            config,
+            dim,
+        ),
+        None if symbol.is_empty() => style_mode(label, colors),
+        None => style_mode(&format!("{symbol} {label}"), colors),
     }
 }
 
@@ -5841,6 +5865,35 @@ mod tests {
     }
 
     #[test]
+    fn mode_prefix_draws_the_modes_label_and_symbol_for_desc_and_key() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_enter_search".to_owned(), "FIND".to_owned()),
+            ("mode_key_enter_search".to_owned(), "/".to_owned()),
+        ]);
+        let format = Some("[{key}|{desc}|{mode}]");
+        let search = render_mode_prefix(InputMode::EnterSearch, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&search).to_string(), "[/|FIND|ENTERSEARCH]");
+
+        // A mode with neither set draws its name and no symbol.
+        let pane = render_mode_prefix(InputMode::Pane, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&pane).to_string(), "[|PANE|PANE]");
+    }
+
+    #[test]
+    fn mode_prefix_default_pill_puts_the_symbol_before_the_label() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_locked".to_owned(), "LOCK".to_owned()),
+            ("mode_key_locked".to_owned(), "#".to_owned()),
+        ]);
+        let locked = render_mode_prefix(InputMode::Locked, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&locked).to_string()), " # LOCK ");
+        let pane = render_mode_prefix(InputMode::Pane, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&pane).to_string()), " PANE ");
+    }
+
+    #[test]
     fn mode_config_suffix_matches_zjstatus_naming() {
         assert_eq!(mode_config_suffix(InputMode::Normal), "normal");
         assert_eq!(mode_config_suffix(InputMode::EnterSearch), "enter_search");
@@ -6915,6 +6968,24 @@ mod tests {
     }
 
     #[test]
+    fn the_zellij_color_theme_follows_a_change_of_zellij_theme() {
+        let mut state = bar_with(&[("format_theme", "flat")]);
+        // No palette has arrived, so there is nothing to take aliases from.
+        assert!(!state.config.contains_key("color_accent"));
+
+        let mut mode_info = ModeInfo::default();
+        mode_info.style.colors.ribbon_selected.background = PaletteColor::Rgb((1, 2, 3));
+        state.update(Event::ModeUpdate(mode_info.clone()));
+        assert_eq!(state.config["color_accent"], "#010203");
+
+        mode_info.style.colors.ribbon_selected.background = PaletteColor::Rgb((4, 5, 6));
+        assert!(state.update(Event::ModeUpdate(mode_info)));
+        assert_eq!(state.config["color_accent"], "#040506");
+        // The user's own options are untouched by it.
+        assert!(!state.user_config.contains_key("color_accent"));
+    }
+
+    #[test]
     fn a_preview_changes_the_bar_through_the_same_parsing_as_load() {
         let mut state = bar_with(&[("max_length", "10")]);
         state.own_url = Some("zjhints".to_string());
@@ -6965,7 +7036,10 @@ mod tests {
     #[test]
     fn a_themed_bar_is_drawn_in_the_themes_colors() {
         let zellij = styled_bar(&[]);
-        let themed = styled_bar(&[("theme", "catppuccin-mocha")]);
+        let themed = styled_bar(&[
+            ("color_theme", "catppuccin-mocha"),
+            ("format_theme", "flat"),
+        ]);
         assert_ne!(themed, zellij);
         // The key block: the theme's bg on its accent (#cba6f7, mauve).
         assert!(themed.contains("48;2;203;166;247"), "{themed:?}");
@@ -6979,15 +7053,23 @@ mod tests {
     #[test]
     fn the_zellij_theme_draws_the_bar_as_if_no_theme_were_set() {
         let unset = styled_bar(&[]);
-        assert_eq!(styled_bar(&[("theme", "zellij")]), unset);
-        assert_eq!(styled_bar(&[("theme", "custom")]), unset);
-        assert_eq!(styled_bar(&[("theme", "no-such-theme")]), unset);
+        for (option, value) in [
+            ("color_theme", "zellij"),
+            ("color_theme", "custom"),
+            ("color_theme", "no-such-theme"),
+            ("format_theme", "zellij"),
+            ("format_theme", "no-such-theme"),
+            ("alias_theme", "zellij"),
+        ] {
+            assert_eq!(styled_bar(&[(option, value)]), unset, "{option} {value}");
+        }
     }
 
     #[test]
     fn a_users_own_options_win_over_a_themes_on_the_bar() {
         let bar = styled_bar(&[
-            ("theme", "catppuccin-mocha"),
+            ("color_theme", "catppuccin-mocha"),
+            ("format_theme", "flat"),
             ("color_accent", "#010203"),
             ("desc_format", "<{desc}>"),
         ]);
@@ -7018,7 +7100,9 @@ mod tests {
         ] {
             let key = format!("mode_format_{}", mode_config_suffix(mode));
             assert!(
-                bar_with(&[("theme", "nord")]).config.contains_key(&key),
+                bar_with(&[("format_theme", "flat")])
+                    .config
+                    .contains_key(&key),
                 "no theme color for {key}"
             );
         }
@@ -7026,20 +7110,23 @@ mod tests {
 
     #[test]
     fn an_unknown_theme_leaves_the_configuration_as_written() {
-        let state = bar_with(&[("theme", "no-such-theme"), ("max_length", "10")]);
+        let state = bar_with(&[("color_theme", "no-such-theme"), ("max_length", "10")]);
         assert_eq!(state.config, state.user_config);
         assert_eq!(state.config.len(), 2);
     }
 
     #[test]
     fn a_preview_that_changes_the_theme_swaps_its_colors() {
-        let mut state = bar_with(&[("theme", "catppuccin-mocha"), ("color_blue", "#010203")]);
+        let mut state = bar_with(&[
+            ("color_theme", "catppuccin-mocha"),
+            ("color_blue", "#010203"),
+        ]);
         state.own_url = Some("zjhints".to_string());
         assert_eq!(state.config["color_accent"], "#cba6f7");
 
         let args = preview_args(
             "zjhints",
-            &[("theme", Some("catppuccin-mocha"), Some("nord"))],
+            &[("color_theme", Some("catppuccin-mocha"), Some("nord"))],
         );
         assert!(state.take_preview(&args));
         // The old theme's values are not left behind as if the user set them.
@@ -7048,7 +7135,7 @@ mod tests {
         // The user's own color survives the switch.
         assert_eq!(state.config["color_blue"], "#010203");
 
-        let args = preview_args("zjhints", &[("theme", Some("nord"), Some("zellij"))]);
+        let args = preview_args("zjhints", &[("color_theme", Some("nord"), Some("custom"))]);
         assert!(state.take_preview(&args));
         assert!(!state.config.contains_key("color_accent"));
         assert_eq!(state.config["color_blue"], "#010203");
@@ -7056,7 +7143,7 @@ mod tests {
 
     #[test]
     fn a_preview_of_another_option_keeps_the_theme() {
-        let mut state = bar_with(&[("theme", "dracula")]);
+        let mut state = bar_with(&[("color_theme", "dracula"), ("format_theme", "flat")]);
         state.own_url = Some("zjhints".to_string());
         let args = preview_args("zjhints", &[("max_length", None, Some("30"))]);
         assert!(state.take_preview(&args));

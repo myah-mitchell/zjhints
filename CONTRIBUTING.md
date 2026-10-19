@@ -82,7 +82,7 @@ make images    # rewrites the generated SVGs in docs/img
 
 `make images` knows the SVGs it draws by a comment on their second line. It rewrites those, removes the ones it no longer draws, and leaves every other file in `docs/img` alone, so an image made by hand can live there too.
 
-The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. The nightly, release and EA workflows run the same tests, so a stale image blocks those builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles, because the image has no Nerd Font.
+The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. The nightly, release and EA workflows run the same tests, so a stale image blocks those builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 ## Pull requests
 
