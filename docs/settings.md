@@ -13,6 +13,8 @@ It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://gi
 
 There are three ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
 
+The screen opens pinned, so it stays on screen while you click into other panes and type there, and the bars it previews on stay in view beside it. Clicking it again gives it the keyboard back. To let it hide with the other floating panes, unpin it from Zellij's pane menu.
+
 ### From a keybinding
 
 Add a binding that launches the alias with `settings true`. This example binds `Alt ,` in every mode but locked; pick any free key:
