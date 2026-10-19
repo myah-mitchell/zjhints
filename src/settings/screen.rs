@@ -95,6 +95,11 @@ impl SettingsScreen {
     pub fn update(&mut self, event: Event) -> bool {
         match event {
             Event::PermissionRequestResult(PermissionStatus::Granted) => {
+                // Pinned, the screen stays up when a click lands in another
+                // pane, so it can sit beside the bar it edits without holding
+                // the keyboard. Pinning needs `ChangeApplicationState`, one
+                // of the mouse permissions asked for above.
+                set_floating_pane_pinned(PaneId::Plugin(get_plugin_ids().plugin_id), true);
                 self.read();
                 true
             }
