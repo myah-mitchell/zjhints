@@ -438,32 +438,39 @@ fn color_value(color: PaletteColor) -> String {
 /// The hint formats a format theme sets, and its `mode_format` for display
 /// and for modes it has no own entry for.
 fn format_entries(shape: Shape) -> Vec<(String, String)> {
-    let (key, desc, spacer) = match shape {
+    // The drop indicator is drawn like a description, so the gap where
+    // hints were dropped reads as part of the bar.
+    let (key, desc, spacer, drop) = match shape {
         Shape::Flat => (
             "#[fg=$bg,bg=$accent,bold] {key} ".to_string(),
             "#[fg=$fg,bg=$surface] {desc} ".to_string(),
             " ",
+            "#[fg=$fg,bg=$surface] … ".to_string(),
         ),
         Shape::Plain => (
             "#[fg=$accent,bold]{key}".to_string(),
             "#[fg=$fg] {desc}".to_string(),
             "  ",
+            "#[fg=$muted]…".to_string(),
         ),
         Shape::Powerline => (
             format!("#[fg=$bg,bg=$accent,bold] {{key}} #[fg=$accent,bg=$surface]{ARROW}"),
             format!("#[fg=$fg,bg=$surface] {{desc}} #[fg=$surface]{ARROW}"),
             " ",
+            format!("#[fg=$fg,bg=$surface] … #[fg=$surface]{ARROW}"),
         ),
         Shape::Pills => (
             format!("#[fg=$accent]{PILL_LEFT}#[fg=$bg,bg=$accent,bold]{{key}} "),
             format!("#[fg=$accent,bg=$surface,bold] {{desc}}#[fg=$surface]{PILL_RIGHT}"),
             " ",
+            format!("#[fg=$surface]{PILL_LEFT}#[fg=$fg,bg=$surface]…#[fg=$surface]{PILL_RIGHT}"),
         ),
     };
     vec![
         ("key_format".to_string(), key),
         ("desc_format".to_string(), desc),
         ("hint_spacer".to_string(), spacer.to_string()),
+        ("drop_indicator".to_string(), drop),
         (
             CONFIG_MODE_FORMAT.to_string(),
             mode_format("accent", shape, false),
@@ -641,8 +648,10 @@ mod tests {
         for combination in every_combination() {
             let layered = layer(&cfg(&combination), Some(&palette));
             for (key, format) in layered.iter().filter(|(key, _)| {
-                matches!(key.as_str(), "key_format" | "desc_format" | "hint_spacer")
-                    || key.starts_with("mode_format")
+                matches!(
+                    key.as_str(),
+                    "key_format" | "desc_format" | "hint_spacer" | "drop_indicator"
+                ) || key.starts_with("mode_format")
             }) {
                 let parts = crate::format::render_template(
                     format,
@@ -662,7 +671,13 @@ mod tests {
     fn a_format_theme_sets_the_hint_formats_and_a_format_for_every_mode() {
         for (name, _) in FORMAT_THEMES {
             let layered = themed(&[(CONFIG_FORMAT_THEME, name)]);
-            for key in ["key_format", "desc_format", "hint_spacer", "mode_format"] {
+            for key in [
+                "key_format",
+                "desc_format",
+                "hint_spacer",
+                "drop_indicator",
+                "mode_format",
+            ] {
                 assert!(layered.contains_key(key), "{name} lacks {key}");
             }
             for (mode, _) in MODES {

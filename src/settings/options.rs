@@ -150,13 +150,6 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Appended when a lone hint is too wide to fit and must be cut mid-hint",
     ),
     option(
-        "drop_indicator",
-        "Fitting",
-        Kind::Format,
-        None,
-        "Format string marking where hints were dropped (… when mouse is on)",
-    ),
-    option(
         "hint_precedence",
         "Fitting",
         Kind::Choice(&["tl", "lt"]),
@@ -253,6 +246,13 @@ pub const OPTIONS: &[OptionSpec] = &[
         Kind::Format,
         None,
         "Format string drawn between hints and after the mode prefix",
+    ),
+    option(
+        "drop_indicator",
+        "Styling",
+        Kind::Format,
+        None,
+        "Format string marking where hints were dropped (… when mouse is on)",
     ),
     option(
         "hide_when_nested",

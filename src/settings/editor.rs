@@ -698,7 +698,7 @@ mod tests {
         );
         let styling = editor.rows_of(Section::Group("Styling"));
         assert_eq!(
-            styling[3..],
+            styling[4..],
             [
                 key("key_format_quit"),
                 Row::Add("key_format_"),
@@ -717,7 +717,7 @@ mod tests {
             ]
         );
         assert_eq!(editor.rows_of(Section::Other), [key("bogus"), Row::Add("")]);
-        assert_eq!(editor.rows_of(Section::Group("Fitting")).len(), 7);
+        assert_eq!(editor.rows_of(Section::Group("Fitting")).len(), 6);
     }
 
     #[test]

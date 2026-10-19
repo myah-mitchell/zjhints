@@ -23,7 +23,6 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
-| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
@@ -66,6 +65,7 @@ Format strings for each hint, and the fixed strings that stand in for a hint's k
 | `key_format` | unset | Format string for the keybinding portion of each hint, theme palette when unset |
 | `desc_format` | unset | Format string for the description portion of each hint, theme palette when unset |
 | `hint_spacer` | unset | Format string drawn between consecutive hints and after the mode prefix, adjacent when unset |
+| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `key_format_<id>` | unset | Format string for one hint's keys, overriding `key_format` |
 | `desc_format_<id>` | unset | Format string for one hint's description, overriding `desc_format` |
 | `keys_<id>` | unset | Replace a hint's keys with a fixed string, as in `keys_go_to_tab "1-9"` |

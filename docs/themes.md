@@ -66,7 +66,7 @@ Dracula has no blue, so its `$blue` is the same purple as its `$accent`.
 
 ## Format themes
 
-A format theme sets `key_format`, `desc_format`, `hint_spacer`, `mode_format` and a `mode_format_<mode>` for every mode. Its formats use only the color aliases, so any format theme works with any color theme.
+A format theme sets `key_format`, `desc_format`, `hint_spacer`, `drop_indicator`, `mode_format` and a `mode_format_<mode>` for every mode. Its formats use only the color aliases, so any format theme works with any color theme.
 
 | Value | Shape |
 | --- | --- |
@@ -94,7 +94,7 @@ The mode prefix is colored by mode, the same in every format theme:
 
 A mode with a symbol, from an [alias theme](#alias-themes) or your own `mode_key_<mode>`, draws it with its name: before the name in most shapes, and in a block of its own after the name in `pills`. A mode without one gets the name alone.
 
-A format theme leaves `show_mode` off until you turn it on, so the mode prefix only appears when you ask for it. `drop_indicator` and the per-hint `key_format_<id>` and `desc_format_<id>` options keep their defaults.
+A format theme leaves `show_mode` off until you turn it on, so the mode prefix only appears when you ask for it. Its `drop_indicator` marks the gap where hints were dropped to fit, drawn in the theme's shape, whether or not `mouse` is on. The per-hint `key_format_<id>` and `desc_format_<id>` options keep their defaults.
 
 ## Alias themes
 
@@ -127,7 +127,7 @@ desc_format "#[fg=$fg,bg=$surface,italic] {desc} "
 ```
 
 - A `color_<name>` you set replaces that alias only. You can also add aliases of your own.
-- A `key_format`, `desc_format`, `mode_format` or `hint_spacer` you set replaces the theme's. Per-hint formats such as `key_format_quit` apply to their hint as they do without a theme.
+- A `key_format`, `desc_format`, `mode_format`, `hint_spacer` or `drop_indicator` you set replaces the theme's. Per-hint formats such as `key_format_quit` apply to their hint as they do without a theme.
 - Setting `mode_format` replaces the prefix for every mode. The format theme's per-mode formats are then left out, so they cannot take priority over it. Set `mode_format_<mode>` yourself to change a single mode.
 - A `mod_alias_<name>`, `key_alias_<name>` or `mode_key_<mode>` you set replaces the alias theme's symbol.
 - An empty value turns that part of the theme off. `key_format ""` returns the keys to the Zellij palette, and `mode_key_locked ""` drops the locked mode's symbol, while the rest of the theme stays.
