@@ -1,32 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="928" height="366" viewBox="0 0 928 366" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="402" viewBox="0 0 928 402" role="img">
 <!-- Drawn by src/images.rs: edit the code and run `make images`. -->
 <title>The settings screen on the Styling group, with formats shown rendered</title>
-<rect width="928" height="366" rx="8" fill="#1e1e2e"/>
+<rect width="928" height="402" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <g shape-rendering="crispEdges">
-<rect x="423" y="36" width="72" height="18" fill="#cba6f7"/>
-<rect x="423" y="54" width="54" height="18" fill="#313244"/>
-<rect x="207" y="72" width="684" height="18" fill="#585b70"/>
-<rect x="423" y="108" width="72" height="18" fill="#f38ba8"/>
+<rect x="378" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="378" y="90" width="54" height="18" fill="#313244"/>
+<rect x="0" y="144" width="180" height="18" fill="#585b70"/>
+<rect x="378" y="144" width="72" height="18" fill="#f38ba8"/>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
-<text y="13"><tspan x="0 9 18 27 36 45 54 72 81 90 99 108 117 126 135 153 171 180 189 198 207 225 234 243 252 261 270 279 288 297 315 333 342 351 360 369 378 387 405 414 423 432 441 450 459 468" fill="#a6e3a1">zjhintssettings·alias"zjhints"·formatsrendered</tspan><tspan x="495 513 522 531 540 549 558 567" fill="#89dceb">●unsaved</tspan></text>
-<text y="49"><tspan x="18 27 36 45 54 63 72" fill="#cdd6f4">Fitting</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306" fill="#cdd6f4">key_format</tspan><tspan x="432 441 450 459 477" fill="#181825" font-weight="bold">Ctrlp</tspan></text>
-<text y="67"><tspan x="18 27 36 45 54" fill="#cdd6f4">Hints</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">desc_format</tspan><tspan x="432 441 450 459" fill="#cdd6f4" font-style="italic">Pane</tspan><tspan x="495" fill="#89dceb">●</tspan></text>
-<text y="85"><tspan x="18 27 36 45 63 72 81 99 108 117 126 135 144 153 162" fill="#cdd6f4">Keysandordering</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 432" fill="#cdd6f4">hint_spacer│</tspan></text>
-<text y="103"><tspan x="18 27 36 45 54" fill="#cdd6f4">Theme</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 324 333 342" fill="#cdd6f4">drop_indicator</tspan><tspan x="423 432 441 450 459" fill="#878ca4">unset</tspan></text>
-<text y="121"><tspan x="0 18 27 36 45 54 63 72" fill="#a6e3a1">▸Styling</tspan><tspan x="90" fill="#89dceb">●</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 234 243 252 261 270 279 288 297 306 315 324 333 342 351" fill="#cdd6f4">key_format_quit</tspan><tspan x="432 441 450 459 477" fill="#181825" font-weight="bold">Ctrlp</tspan></text>
-<text y="139"><tspan x="18 27 36 45 54 63" fill="#cdd6f4">Colors</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405" fill="#cdd6f4">+addkey_format_&lt;id&gt;</tspan></text>
-<text y="157"><tspan x="18 27 36 54 63 72 81 90 99 108" fill="#cdd6f4">Keyaliases</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">+adddesc_format_&lt;id&gt;</tspan></text>
-<text y="175"><tspan x="18 27 36 45 54 63 72 81 99 108 117 126 135 144 153" fill="#cdd6f4">Modifieraliases</tspan><tspan x="189" fill="#878ca4">│</tspan><tspan x="225 243 252 261 279 288 297 306 315 324 333 342 351" fill="#cdd6f4">+addkeys_&lt;id&gt;</tspan></text>
-<text y="193"><tspan x="18 27 36 45 54 63" fill="#cdd6f4">Labels</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="211"><tspan x="18 27 36 45 63 72 81 90 99 108" fill="#cdd6f4">Modeprefix</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="229"><tspan x="18 27 36 45 54 63 81 90 99 108 117 126 135 144" fill="#cdd6f4">Nestedsessions</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="247"><tspan x="18 27 36 45 54" fill="#cdd6f4">Mouse</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="265"><tspan x="18 27 36 45 54 63 72 81 90 99 108" fill="#cdd6f4">Integration</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="283"><tspan x="18 27 36 45 54" fill="#cdd6f4">Other</tspan><tspan x="189" fill="#878ca4">│</tspan></text>
-<text y="301"><tspan x="0 9 18 27 36 45 63 72 81 90 99 108 126 135 144 153 162 180 189 198 207 216 225 234 252 261 270 279 288 306 315 324 342 351 360 369 378 396 405 414 432 441 450 459 477 486 495 504 513 522 531 549 558 567 576 585 594 603 621 630 639 648 657 666 684 693 702 711 720 738 747 756 765 774 783" fill="#878ca4">Formatstringdrawnbetweenhintsandafterthemodeprefix.Defaultunset.Enteredits.</tspan></text>
-<text y="337"><tspan x="0 9" fill="#f5c2e7">↑↓</tspan><tspan x="27 36 45 54" fill="#cdd6f4">move</tspan><tspan x="81" fill="#f5c2e7">←</tspan><tspan x="99 108 117 126 135 144" fill="#cdd6f4">groups</tspan><tspan x="171 180 189 198 207" fill="#f5c2e7">Enter</tspan><tspan x="225 234 243 252 261 270" fill="#cdd6f4">change</tspan><tspan x="297 306 315" fill="#f5c2e7">Del</tspan><tspan x="333 342 351 360 369" fill="#cdd6f4">reset</tspan><tspan x="396" fill="#f5c2e7">r</tspan><tspan x="414 423 432 450 459 468 477 486 495 504" fill="#cdd6f4">rawformats</tspan><tspan x="531" fill="#f5c2e7">s</tspan><tspan x="549 558 567 576" fill="#cdd6f4">save</tspan><tspan x="603 612 621" fill="#f5c2e7">Esc</tspan><tspan x="639 648 657 666 675" fill="#cdd6f4">close</tspan></text>
+<text y="13"><tspan x="0 9 18 27 36 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288" fill="#cdd6f4">File:~/.config/zellij/config.kdl</tspan></text>
+<text y="49"><tspan x="0 18 27 36 45 54 63 72 90 99 108 117 126 135" fill="#89dceb">1unsavedchange</tspan><tspan x="153 171" fill="#cdd6f4">·[</tspan><tspan x="189 198 207 216 225 243 252" fill="#f5c2e7">&lt;Ctrla&gt;</tspan><tspan x="270 279 288 297 315 333" fill="#cdd6f4">save][</tspan><tspan x="351 360 369 378 387 405 414" fill="#f5c2e7">&lt;Ctrlr&gt;</tspan><tspan x="432 441 450 459 468 477 495 504 513 531 549" fill="#cdd6f4">revertall][</tspan><tspan x="567 576 585" fill="#f5c2e7">&lt;f&gt;</tspan><tspan x="603 612 621 639 648 657 666 675 684 693 711 729" fill="#cdd6f4">rawformats][</tspan><tspan x="747 756 765 774 783" fill="#f5c2e7">&lt;Esc&gt;</tspan><tspan x="801 810 819 828 837 855" fill="#cdd6f4">close]</tspan></text>
+<text y="85"><tspan x="9 18 27 36 45 54 63 180 207 216 225 234 243 252 261 270 279 288 360" fill="#cdd6f4">Fitting│key_format[</tspan><tspan x="387 396 405 414 432" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="567" fill="#cdd6f4">]</tspan></text>
+<text y="103"><tspan x="9 18 27 36 45 180 207 216 225 234 243 252 261 270 279 288 297 360" fill="#cdd6f4">Hints│desc_format[</tspan><tspan x="387 396 405 414" fill="#cdd6f4" font-style="italic">Pane</tspan><tspan x="567" fill="#cdd6f4">]</tspan><tspan x="594 612 621 630 639 648 657 666" fill="#89dceb">●unsaved</tspan></text>
+<text y="121"><tspan x="9 18 27 36 54 63 72 90 99 108 117 126 135 144 153 180" fill="#cdd6f4">Keysandordering│</tspan><tspan x="207 216 225 234 243 252 261 270 279 288 297" fill="#fab387" font-weight="bold">hint_spacer</tspan><tspan x="360" fill="#a6e3a1" font-weight="bold">[</tspan><tspan x="387" fill="#6c7086">│</tspan><tspan x="567" fill="#a6e3a1" font-weight="bold">]</tspan></text>
+<text y="139"><tspan x="9 18 27 36 45 180 207 216 225 234 243 252 261 270 279 288 297 306 315 324 360" fill="#cdd6f4">Theme│drop_indicator[</tspan><tspan x="378 387 396 405 414" fill="#878ca4" font-style="italic">unset</tspan><tspan x="567" fill="#cdd6f4">]</tspan><tspan x="594 612 621 630 639 648 657 666" fill="#878ca4">○default</tspan></text>
+<text y="157"><tspan x="9 18 27 36 45 54 63" fill="#cdd6f4" font-weight="bold">Styling</tspan><tspan x="81" fill="#89dceb" font-weight="bold">●</tspan><tspan x="180 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 360" fill="#cdd6f4">│key_format_quit[</tspan><tspan x="387 396 405 414 432" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="567" fill="#cdd6f4">]</tspan></text>
+<text y="175"><tspan x="9 18 27 36 45 54 180 207 225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 423" fill="#cdd6f4">Colors│[+addkey_format_&lt;id&gt;]</tspan></text>
+<text y="193"><tspan x="9 18 27 45 54 63 72 81 90 99 180 207 225 243 252 261 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 432" fill="#cdd6f4">Keyaliases│[+adddesc_format_&lt;id&gt;]</tspan></text>
+<text y="211"><tspan x="9 18 27 36 45 54 63 72 90 99 108 117 126 135 144 180 207 225 243 252 261 279 288 297 306 315 324 333 342 351 369" fill="#cdd6f4">Modifieraliases│[+addkeys_&lt;id&gt;]</tspan></text>
+<text y="229"><tspan x="9 18 27 36 45 54 180" fill="#cdd6f4">Labels│</tspan></text>
+<text y="247"><tspan x="9 18 27 36 54 63 72 81 90 99 180" fill="#cdd6f4">Modeprefix│</tspan></text>
+<text y="265"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117 126 135 180" fill="#cdd6f4">Nestedsessions│</tspan></text>
+<text y="283"><tspan x="9 18 27 36 45 180" fill="#cdd6f4">Mouse│</tspan></text>
+<text y="301"><tspan x="9 18 27 36 45 54 63 72 81 90 99 180" fill="#cdd6f4">Integration│</tspan></text>
+<text y="319"><tspan x="0 9 18 27 36 45 63 72 81 90 99 108 126 135 144 153 162 180 189 198 207 216 225 234 252 261 270 279 288 306 315 324 342 351 360 369 378 396 405 414 432 441 450 459 477 486 495 504 513 522 540 549 558 567 576 585 594 603 612 630 639 648 657 666 675" fill="#fab387">Formatstringdrawnbetweenhintsandafterthemodeprefix(default:unset)</tspan></text>
+<text y="355"><tspan x="0 9 18 27 36" fill="#cdd6f4">Help:</tspan><tspan x="54 63 72 81" fill="#f5c2e7">&lt;↓↑&gt;</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">-move,</tspan><tspan x="171 180 189 198 207 216 225" fill="#f5c2e7">&lt;Enter&gt;</tspan><tspan x="243 261 270 279 288 297" fill="#cdd6f4">-edit,</tspan><tspan x="315 324 333" fill="#f5c2e7">&lt;r&gt;</tspan><tspan x="351 369 378 387 396 405 414 423" fill="#cdd6f4">-revert,</tspan><tspan x="441 450 459 468 477" fill="#f5c2e7">&lt;Del&gt;</tspan><tspan x="495 513 522 531 540 549 558" fill="#cdd6f4">-unset,</tspan><tspan x="576 585 594" fill="#f5c2e7">&lt;←&gt;</tspan><tspan x="612 630 639 648 657 666 675 684 693 702 711 720" fill="#cdd6f4">-categories,</tspan><tspan x="738 747 756" fill="#f5c2e7">&lt;/&gt;</tspan><tspan x="774 792 801 810 819 828 837" fill="#cdd6f4">-search</tspan></text>
 </g>
 </g>
 </svg>

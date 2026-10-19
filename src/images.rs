@@ -17,7 +17,7 @@
 
 use crate::mouse::{self, PreviewPopup};
 use crate::settings::editor::{Editor, Field, Focus};
-use crate::settings::view::{self, FormatView, Layout, Line, Rgb, FOOTER_LINES};
+use crate::settings::view::{self, Control, FormatView, HelpState, Layout, Marker, Rgb, RowView};
 use crate::{char_width, AnsiParser, AnsiSegment, ClickMap, State};
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -295,16 +295,6 @@ impl Screen {
         }
     }
 
-    /// Paint `columns` of a row with a background, as a selected row is.
-    fn fill(&mut self, row: usize, columns: std::ops::Range<usize>, background: Rgb) {
-        let Some(cells) = self.rows.get_mut(row) else {
-            return;
-        };
-        for cell in cells.iter_mut().take(columns.end).skip(columns.start) {
-            cell.look.background = Some(background);
-        }
-    }
-
     /// The screen as an SVG, titled `title` for the viewers that read one.
     fn to_svg(&self, title: &str) -> String {
         let width = self.columns() * CELL_WIDTH + 2 * MARGIN_X;
@@ -531,10 +521,216 @@ fn bars(captioned: &[(&str, &[(&str, &str)])], mode: InputMode) -> Screen {
     screen
 }
 
+/// The pens Zellij's widgets draw with, from the palette, standing in for
+/// what the server paints `Text` and the widgets in.
+struct WidgetPens {
+    plain: Pen,
+    dim: Pen,
+    /// The text of the selected menu item, and of a focused dropdown's value.
+    selected: Pen,
+    /// A focused field's label and brackets.
+    focused_label: Pen,
+    focused_bracket: Pen,
+    /// A toggle that is on.
+    on: Pen,
+    /// The menu's border.
+    frame: Pen,
+    emphasis: [Pen; 4],
+}
+
+impl WidgetPens {
+    fn new() -> Self {
+        let styling = palette();
+        let colors = styling.text_unselected;
+        let bold = |pen: Pen| Pen { bold: true, ..pen };
+        let plain = Pen::colored(rgb_of(colors.base));
+        WidgetPens {
+            plain,
+            dim: Pen { dim: true, ..plain },
+            selected: bold(Pen {
+                foreground: Some(rgb_of(styling.text_selected.base)),
+                background: Some(rgb_of(styling.text_selected.background)),
+                ..Pen::default()
+            }),
+            focused_label: bold(Pen::colored(rgb_of(colors.emphasis_0))),
+            focused_bracket: bold(Pen::colored(rgb_of(styling.frame_selected.base))),
+            on: bold(Pen::colored(rgb_of(colors.emphasis_2))),
+            frame: Pen::colored(rgb_of(
+                styling
+                    .frame_unselected
+                    .map_or(styling.list_unselected.base, |frame| frame.base),
+            )),
+            emphasis: [
+                colors.emphasis_0,
+                colors.emphasis_1,
+                colors.emphasis_2,
+                colors.emphasis_3,
+            ]
+            .map(|color| Pen::colored(rgb_of(color))),
+        }
+    }
+}
+
+/// `text` cut or padded to exactly `width` columns.
+fn fit(text: &str, width: usize) -> String {
+    let cut = view::truncate(text, width);
+    let pad = width.saturating_sub(view::columns(&cut));
+    format!("{cut}{}", " ".repeat(pad))
+}
+
+/// A help or header line, its keys in the key color.
+fn print_hints(
+    screen: &mut Screen,
+    y: usize,
+    x: usize,
+    line: &str,
+    keys: &[std::ops::Range<usize>],
+    pens: &WidgetPens,
+) {
+    screen.print_with(y, x, line, |index| {
+        if keys.iter().any(|range| range.contains(&index)) {
+            pens.emphasis[3]
+        } else {
+            pens.plain
+        }
+    });
+}
+
+/// A button as Zellij draws one, `[ label ]`, its key in the key color.
+/// The columns it took.
+fn print_button(
+    screen: &mut Screen,
+    y: usize,
+    x: usize,
+    key: &str,
+    action: &str,
+    pens: &WidgetPens,
+) -> usize {
+    let label = format!("[ {key} {action} ]");
+    let key_columns = 2..2 + key.chars().count();
+    screen.print_with(y, x, &label, |index| {
+        if key_columns.contains(&index) {
+            pens.emphasis[3]
+        } else {
+            pens.plain
+        }
+    });
+    view::columns(&label)
+}
+
+/// One row of the list as the widgets draw it, with its swatch and marker.
+#[allow(clippy::too_many_arguments)]
+fn print_row(
+    screen: &mut Screen,
+    y: usize,
+    x: usize,
+    row: &RowView,
+    (label_width, value_width): (usize, usize),
+    width: usize,
+    focused: bool,
+    pens: &WidgetPens,
+) {
+    let element_width = label_width + value_width;
+    let label = fit(
+        &view::truncate(&row.label, label_width.saturating_sub(2)),
+        label_width,
+    );
+    let (label_pen, bracket_pen, value_pen) = if focused {
+        let bold = Pen {
+            bold: true,
+            ..pens.plain
+        };
+        (pens.focused_label, pens.focused_bracket, bold)
+    } else {
+        (pens.plain, pens.plain, pens.plain)
+    };
+    let field_x = x + label_width;
+    match &row.control {
+        Control::Heading(title) => {
+            screen.print_with(y, x, &view::truncate(title, width), |_| pens.emphasis[2]);
+            return;
+        }
+        Control::Button(text) => {
+            let pen = if focused { pens.selected } else { pens.plain };
+            screen.print_with(y, x, &format!("[ {text} ]"), |_| pen);
+            return;
+        }
+        Control::Toggle(on) => {
+            screen.print_with(y, x, &label, |_| label_pen);
+            let inner = format!(" {} ", fit(if *on { "on" } else { "off" }, value_width - 4));
+            let inner_pen = match (*on, focused) {
+                (true, _) => pens.on,
+                (false, true) => value_pen,
+                (false, false) => pens.plain,
+            };
+            screen.print_with(y, field_x, "[", |_| bracket_pen);
+            screen.print_with(y, field_x + 1, &inner, |_| inner_pen);
+            screen.print_with(y, field_x + value_width - 1, "]", |_| bracket_pen);
+        }
+        Control::Dropdown(options, chosen) => {
+            screen.print_with(y, x, &label, |_| label_pen);
+            let value = options.get(*chosen).map_or("", String::as_str);
+            let value_pen = if focused { pens.selected } else { pens.plain };
+            let inner = format!(" {} ▾ ", fit(value, value_width - 6));
+            screen.print_with(y, field_x, "[", |_| bracket_pen);
+            screen.print_with(y, field_x + 1, &inner, |index| {
+                if focused && index == inner.chars().count() - 2 {
+                    Pen {
+                        foreground: pens.focused_bracket.foreground,
+                        ..value_pen
+                    }
+                } else {
+                    value_pen
+                }
+            });
+            screen.print_with(y, field_x + value_width - 1, "]", |_| bracket_pen);
+        }
+        Control::Text { text, placeholder } => {
+            screen.print_with(y, x, &label, |_| label_pen);
+            let text_pen = if *placeholder {
+                Pen {
+                    dim: true,
+                    italic: true,
+                    bold: false,
+                    ..value_pen
+                }
+            } else {
+                value_pen
+            };
+            let room = value_width - 4;
+            screen.print_with(y, field_x, "[ ", |index| {
+                if index == 0 {
+                    bracket_pen
+                } else {
+                    value_pen
+                }
+            });
+            screen.print_with(y, field_x + 2, &fit(text, room), |_| text_pen);
+            screen.print_with(y, field_x + value_width - 2, " ]", |index| {
+                if index == 1 {
+                    bracket_pen
+                } else {
+                    value_pen
+                }
+            });
+            if let Some(ansi) = &row.styled {
+                screen.print(y, field_x + 2, &view::take_visible(ansi, room));
+            }
+        }
+    }
+    let (swatch_x, marker_x) = view::trailer_columns(row, x + element_width, x + width);
+    if let Some(color) = row.swatch {
+        screen.print(y, swatch_x, &view::swatch_ansi(color));
+    }
+    let marker_pen = match row.marker {
+        Marker::Unsaved => pens.emphasis[1],
+        _ => pens.dim,
+    };
+    screen.print_with(y, marker_x, row.marker.text(), |_| marker_pen);
+}
+
 /// The settings screen, `rows` by `columns`, the way `SettingsScreen::render`
-/// lays it out, with `edit` already typed into the alias and `select`
-/// selected. The colors are the palette's, standing in for what Zellij's
-/// `Text` draws with.
+/// lays it out, with `edit` made and left unsaved and `select` selected.
 fn settings_screen(
     options: &[(&str, &str)],
     select: &str,
@@ -542,38 +738,16 @@ fn settings_screen(
     rows: usize,
     columns: usize,
 ) -> Screen {
-    let styling = palette();
-    let colors = styling.text_unselected;
-    let emphasis = |index: usize| {
-        Pen::colored(rgb_of(match index {
-            0 => colors.emphasis_0,
-            1 => colors.emphasis_1,
-            2 => colors.emphasis_2,
-            _ => colors.emphasis_3,
-        }))
-    };
-    let selected = Pen {
-        foreground: Some(rgb_of(styling.text_selected.base)),
-        background: Some(rgb_of(styling.text_selected.background)),
-        ..Pen::default()
-    };
-    let dim = Pen {
-        dim: true,
-        ..Pen::default()
-    };
-
-    let mut editor = Editor::new(
-        vec![PluginAliasEntry {
-            name: "zjhints".to_string(),
-            plugin: PluginEntry {
-                location: "file:~/.local/share/zellij/plugins/zjhints.wasm".to_string(),
-                cwd: None,
-                configuration: configuration_of(options).into_iter().collect(),
-            },
-        }],
-        None,
-    )
-    .expect("an alias loading zjhints");
+    let pens = WidgetPens::new();
+    let alias = vec![PluginAliasEntry {
+        name: "zjhints".to_string(),
+        plugin: PluginEntry {
+            location: "file:~/.local/share/zellij/plugins/zjhints.wasm".to_string(),
+            cwd: None,
+            configuration: configuration_of(options).into_iter().collect(),
+        },
+    }];
+    let mut editor = Editor::new(alias.clone(), alias, None).expect("an alias loading zjhints");
     editor.submit(
         &Field::Value {
             key: edit.0.to_string(),
@@ -585,119 +759,103 @@ fn settings_screen(
         .sections()
         .iter()
         .position(|candidate| *candidate == section)
-        .expect("a section of the sidebar");
+        .expect("a section of the menu");
     editor.select_section(index);
     editor.select(row);
-    editor.set_focus(Focus::List);
 
-    let sections = editor.sections();
-    let titles: Vec<&str> = sections.iter().map(|section| section.title()).collect();
-    let layout = Layout::new(rows, columns, &titles, None);
-    let sidebar = layout.sidebar.expect("room for the sidebar");
+    let items = view::menu_items(&editor);
+    let layout = Layout::new(rows, columns, &items, None).expect("room for the screen");
     let mut screen = Screen::new(rows, columns);
 
-    let title = view::title(&editor, FormatView::Rendered);
-    let unsaved = title.find('●').map(|byte| title[..byte].chars().count());
-    screen.print_with(0, 0, &title, |index| match unsaved {
-        Some(from) if index >= from => emphasis(1),
-        _ => emphasis(2),
-    });
-
-    for (index, section) in sections.iter().enumerate() {
-        let y = layout.body_y + index;
-        let line = view::sidebar_line(&editor, *section, sidebar);
-        let pen = if *section == editor.section() {
-            match editor.focus {
-                Focus::Sidebar => selected,
-                Focus::List => emphasis(2),
-            }
+    // The header.
+    let file = format!("{}~/.config/zellij/config.kdl", view::FILE_PREFIX);
+    screen.print_with(0, layout.x, &file, |_| pens.plain);
+    let unsaved = view::unsaved_text(editor.unsaved_count());
+    let count = format!("{unsaved} · ");
+    let unsaved_columns = unsaved.chars().count();
+    screen.print_with(2, layout.x, &count, |index| {
+        if index < unsaved_columns && editor.unsaved_count() > 0 {
+            pens.emphasis[1]
         } else {
-            Pen::default()
-        };
-        draw_line(&mut screen, 0, y, &line, pen, emphasis(1));
+            pens.plain
+        }
+    });
+    let mut x = layout.x + view::columns(&count);
+    for (key, action, _) in view::header_buttons(FormatView::Rendered) {
+        x += print_button(&mut screen, 2, x, key, action, &pens) + 1;
     }
+
+    // The menu, as Zellij's side menu draws it.
     for y in layout.body_y..layout.body_y + layout.body_height {
-        screen.print_with(y, sidebar, "│", |_| dim);
-    }
-
-    let width = layout.list_width.saturating_sub(1);
-    let row_lines = view::Rows::new(&editor, FormatView::Rendered);
-    for (index, list_row) in editor.rows().iter().enumerate() {
-        let y = layout.list_y + index;
-        if y >= layout.list_y + layout.list_height {
-            break;
-        }
-        let line = row_lines.line(list_row, width);
-        let is_selected = index == editor.selected && editor.focus == Focus::List;
+        let item = items.get(y - layout.body_y);
+        let text = fit(
+            &item.map_or(String::new(), |item| format!(" {item}")),
+            layout.menu_width - 1,
+        );
+        let is_selected = y - layout.body_y == editor.section_index();
         let pen = if is_selected {
-            selected
+            pens.selected
         } else {
-            Pen::default()
+            pens.plain
         };
-        if is_selected {
-            screen.fill(
-                y,
-                layout.list_x..layout.list_x + width,
-                selected.background.unwrap(),
-            );
-        }
-        draw_line(&mut screen, layout.list_x, y, &line, pen, emphasis(1));
-        if let Some((column, ansi)) = line.styled.as_ref().filter(|_| !is_selected) {
-            screen.print(y, layout.list_x + column, ansi);
-        }
-        if let Some((column, color)) = line.swatch {
-            screen.print(y, layout.list_x + column, &view::swatch_ansi(color));
-        }
-    }
-
-    let footer = rows - FOOTER_LINES;
-    screen.print_with(footer, 0, &view::describe(&editor), |_| dim);
-    let mut column = 0;
-    for (position, (key, action)) in view::help_keys(
-        editor.focus,
-        layout.is_collapsed(),
-        FormatView::Rendered,
-        None,
-    )
-    .iter()
-    .enumerate()
-    {
-        if position > 0 {
-            column += 2;
-        }
-        screen.print_with(footer + 2, column, key, |_| emphasis(3));
-        column += key.chars().count();
-        screen.print_with(footer + 2, column, &format!(" {action}"), |_| {
-            Pen::default()
-        });
-        column += action.chars().count() + 1;
-    }
-    screen
-}
-
-/// A settings line in `pen`, its unset part dimmed and its edited marker in
-/// the `marker` pen's color.
-fn draw_line(screen: &mut Screen, x: usize, y: usize, line: &Line, pen: Pen, marker: Pen) {
-    screen.print_with(y, x, &line.text, |index| {
-        if line
-            .edited
-            .as_ref()
-            .is_some_and(|range| range.contains(&index))
-        {
-            Pen {
-                foreground: marker.foreground,
+        let marker_from = item
+            .filter(|item| item.ends_with(" ●"))
+            .map(|item| item.chars().count());
+        screen.print_with(y, layout.x, &text, |index| match marker_from {
+            Some(column) if index == column => Pen {
+                foreground: pens.emphasis[1].foreground,
                 ..pen
-            }
-        } else if line
-            .dim
-            .as_ref()
-            .is_some_and(|range| range.contains(&index))
-        {
-            Pen { dim: true, ..pen }
-        } else {
-            pen
-        }
-    });
+            },
+            _ => pen,
+        });
+        screen.print_with(y, layout.x + layout.menu_width - 1, "│", |_| pens.frame);
+    }
+
+    // The rows.
+    let width = layout.content_width - 1;
+    let rows_view = view::Rows::new(&editor, FormatView::Rendered);
+    let views: Vec<RowView> = editor
+        .rows()
+        .iter()
+        .map(|row| rows_view.view(row))
+        .collect();
+    let widths = view::field_widths(&views, width);
+    for (index, row) in views.iter().enumerate().take(layout.list_height) {
+        let focused = index == editor.selected && editor.focus == Focus::List;
+        print_row(
+            &mut screen,
+            layout.body_y + index,
+            layout.content_x,
+            row,
+            widths,
+            width,
+            focused,
+            &pens,
+        );
+    }
+
+    // The footer.
+    if let Some(description) = view::describe(&editor) {
+        let description = view::truncate(&description, layout.width);
+        screen.print_with(layout.footer_y, layout.x, &description, |_| {
+            pens.emphasis[0]
+        });
+    }
+    let state = HelpState::Browsing {
+        focus: editor.focus,
+        text_row: views.get(editor.selected).is_some_and(RowView::is_text),
+        searching: false,
+    };
+    let (line, keys) = view::hint_line("Help: ", &view::help_hints(state), layout.width);
+    print_hints(
+        &mut screen,
+        layout.footer_y + 2,
+        layout.x,
+        &line,
+        &keys,
+        &pens,
+    );
+    screen
 }
 
 /// The bar with the hover preview of its last hint or marker that has one open
@@ -815,7 +973,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &SETTINGS_OPTIONS,
                 "hint_spacer",
                 ("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} "),
-                19,
+                21,
                 100,
             )
             .to_svg("The settings screen on the Styling group, with formats shown rendered"),
@@ -826,7 +984,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &SETTINGS_OPTIONS,
                 "color_accent",
                 ("color_accent", "#f5c2e7"),
-                19,
+                21,
                 100,
             )
             .to_svg("The settings screen on the Colors group, with a swatch beside each color"),

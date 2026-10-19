@@ -8,7 +8,7 @@ use super::options::{
     self, Kind, OptionSpec, FAMILIES, GROUPS, OPTIONS, RESERVED_KEYS, SCREEN_OPTIONS,
 };
 use std::collections::BTreeMap;
-use zellij_tile::prelude::PluginAliasEntry;
+use zellij_tile::prelude::{fuzzy_match_indices, PluginAliasEntry};
 
 /// One entry of the sidebar, whose rows the list shows while it is chosen.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -42,19 +42,24 @@ pub enum Row {
     /// The line that adds a new key starting with this prefix: a family's,
     /// or nothing under "Other".
     Add(&'static str),
+    /// The title of the section the search results under it come from. It
+    /// cannot be selected.
+    Heading(&'static str),
 }
 
 /// The heading over keys that fit no group.
 pub const OTHER_HEADING: &str = "Other";
 
-/// Which side of the screen the movement keys act on.
+/// Which part of the screen the keys act on.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Focus {
     /// The sections down the left.
     Sidebar,
-    /// The rows of the chosen section.
+    /// The rows of the chosen section, or the search results.
     #[default]
     List,
+    /// The search box, which takes the sidebar's place while searching.
+    Search,
 }
 
 /// A value being typed.
@@ -75,6 +80,8 @@ pub enum Outcome {
     Redraw,
     /// Start typing into `field`, starting from `text`.
     StartField { field: Field, text: String },
+    /// Open the list of choices for the selected row (see `Editor::choices`).
+    OpenChoices,
     /// The working values changed: redraw and preview them on the bars.
     Changed,
     /// The alias being edited changed: redraw and reset the preview.
@@ -84,30 +91,45 @@ pub enum Outcome {
 }
 
 pub struct Editor {
-    /// Every alias in the config, as last read. All of them are written back
-    /// on save, because the `plugins` block replaces the aliases wholesale.
+    /// Every alias in the session, as last read. All of them are written
+    /// back on save, because the `plugins` block replaces the aliases
+    /// wholesale.
     aliases: Vec<PluginAliasEntry>,
+    /// Every alias in the config file, as last read.
+    saved_aliases: Vec<PluginAliasEntry>,
     /// Indexes into `aliases` of the ones that load zjhints.
     candidates: Vec<usize>,
     /// Index into `candidates` of the alias being edited.
     chosen: usize,
-    /// The edited alias's configuration as last saved.
+    /// The edited alias's configuration in the config file.
     saved: BTreeMap<String, String>,
+    /// The edited alias's configuration as the session holds it, which is
+    /// what bars started from it load. It runs ahead of `saved` when edits
+    /// were left unsaved.
+    session: BTreeMap<String, String>,
     /// The edited alias's configuration with the pending edits applied.
     working: BTreeMap<String, String>,
     /// The section the list shows.
     section: Section,
+    /// What is being searched for, while searching. The list then shows the
+    /// matching rows of every section instead of the chosen one.
+    search: Option<String>,
     /// Index into `rows()` of the selected row.
     pub selected: usize,
-    /// The side the movement keys act on.
+    /// The part of the screen the keys act on.
     pub focus: Focus,
 }
 
 impl Editor {
     /// Edit the zjhints alias named `pinned`, or the first one when nothing
-    /// is pinned. An error, worded for the screen, when there is no zjhints
-    /// alias to edit or the pinned one is not among them.
-    pub fn new(aliases: Vec<PluginAliasEntry>, pinned: Option<&str>) -> Result<Self, String> {
+    /// is pinned, from the session's `aliases` and the config file's
+    /// `saved_aliases`. An error, worded for the screen, when there is no
+    /// zjhints alias to edit or the pinned one is not among them.
+    pub fn new(
+        aliases: Vec<PluginAliasEntry>,
+        saved_aliases: Vec<PluginAliasEntry>,
+        pinned: Option<&str>,
+    ) -> Result<Self, String> {
         let candidates: Vec<usize> = aliases
             .iter()
             .enumerate()
@@ -129,11 +151,14 @@ impl Editor {
         };
         let mut editor = Editor {
             aliases,
+            saved_aliases,
             candidates,
             chosen,
             saved: BTreeMap::new(),
+            session: BTreeMap::new(),
             working: BTreeMap::new(),
             section: Section::Group(GROUPS[0]),
+            search: None,
             selected: 0,
             focus: Focus::List,
         };
@@ -142,14 +167,21 @@ impl Editor {
     }
 
     /// Take a fresh read of the aliases, after a save or a reload, keeping
-    /// the same alias, section and row selected when they still exist.
-    pub fn reread(&mut self, aliases: Vec<PluginAliasEntry>) -> Result<(), String> {
+    /// the same alias, section, search and row selected when they still
+    /// exist.
+    pub fn reread(
+        &mut self,
+        aliases: Vec<PluginAliasEntry>,
+        saved_aliases: Vec<PluginAliasEntry>,
+    ) -> Result<(), String> {
         let name = self.alias_name().to_string();
-        let (section, selected, focus) = (self.section, self.selected, self.focus);
-        *self =
-            Editor::new(aliases.clone(), Some(&name)).or_else(|_| Editor::new(aliases, None))?;
+        let (section, search, selected, focus) =
+            (self.section, self.search.take(), self.selected, self.focus);
+        *self = Editor::new(aliases.clone(), saved_aliases.clone(), Some(&name))
+            .or_else(|_| Editor::new(aliases, saved_aliases, None))?;
         if self.sections().contains(&section) {
             self.section = section;
+            self.search = search;
             self.selected = selected;
             self.focus = focus;
         }
@@ -159,8 +191,15 @@ impl Editor {
 
     fn load_chosen(&mut self) {
         let alias = &self.aliases[self.candidates[self.chosen]];
-        self.saved = alias.plugin.configuration.iter().cloned().collect();
-        self.working = self.saved.clone();
+        self.session = alias.plugin.configuration.iter().cloned().collect();
+        // An alias the file does not have yet saves every key it holds.
+        self.saved = self
+            .saved_aliases
+            .iter()
+            .find(|saved| saved.name == alias.name)
+            .map(|saved| saved.plugin.configuration.iter().cloned().collect())
+            .unwrap_or_default();
+        self.working = self.session.clone();
         self.clamp_selection();
     }
 
@@ -168,26 +207,42 @@ impl Editor {
         &self.aliases[self.candidates[self.chosen]].name
     }
 
-    pub fn alias_count(&self) -> usize {
-        self.candidates.len()
-    }
-
     pub fn working(&self) -> &BTreeMap<String, String> {
         &self.working
     }
 
+    /// Whether the pending values differ from the config file's.
     pub fn is_dirty(&self) -> bool {
         self.saved != self.working
     }
 
-    /// Throw the pending edits away.
-    pub fn discard(&mut self) {
+    /// How many keys have a pending value that differs from the file's.
+    pub fn unsaved_count(&self) -> usize {
+        let mut keys: Vec<&String> = self.saved.keys().chain(self.working.keys()).collect();
+        keys.sort();
+        keys.dedup();
+        keys.into_iter().filter(|key| self.is_edited(key)).count()
+    }
+
+    /// Whether the session's alias holds something other than the pending
+    /// values, so bars started from now on would not load them.
+    pub fn session_differs(&self) -> bool {
+        self.session != self.working
+    }
+
+    /// Record that the session's alias now holds the pending values.
+    pub fn session_updated(&mut self) {
+        self.session = self.working.clone();
+    }
+
+    /// Put every key back to the config file's value.
+    pub fn revert_all(&mut self) {
         self.working = self.saved.clone();
         self.clamp_selection();
     }
 
     /// Every alias with the pending edits applied to the edited one, as the
-    /// `plugins` block to replace the config's with.
+    /// `plugins` block to replace the session's with.
     pub fn aliases_to_save(&self) -> Vec<PluginAliasEntry> {
         let mut aliases = self.aliases.clone();
         aliases[self.candidates[self.chosen]].plugin.configuration = self
@@ -226,9 +281,13 @@ impl Editor {
         options::group_of(key).map_or(Section::Other, Section::Group)
     }
 
-    /// The lines of the list for the chosen section, in order.
+    /// The lines of the list: the search results while searching, and the
+    /// chosen section's rows otherwise.
     pub fn rows(&self) -> Vec<Row> {
-        self.rows_of(self.section)
+        match &self.search {
+            Some(query) => self.search_rows(query),
+            None => self.rows_of(self.section),
+        }
     }
 
     /// The lines of the list for `section`: its fixed options, then the
@@ -266,6 +325,82 @@ impl Editor {
             None => rows.push(Row::Add("")),
         }
         rows
+    }
+
+    /// The options and keys of every section that match `query`, each
+    /// section's under a heading. An empty query matches them all.
+    fn search_rows(&self, query: &str) -> Vec<Row> {
+        let query = query.trim().to_lowercase();
+        let matches = |row: &Row| {
+            let (key, description) = match row {
+                Row::Option(option) => (option.name, option.description),
+                Row::Key(key) => (
+                    key.as_str(),
+                    options::family_of(key).map_or("", |family| family.description),
+                ),
+                _ => return false,
+            };
+            query.is_empty()
+                || fuzzy_match_indices(&query, &key.to_lowercase()).is_some()
+                || description.to_lowercase().contains(&query)
+        };
+        let mut rows = Vec::new();
+        for section in self.sections() {
+            let found: Vec<Row> = self
+                .rows_of(section)
+                .into_iter()
+                .filter(|row| matches(row))
+                .collect();
+            if !found.is_empty() {
+                rows.push(Row::Heading(section.title()));
+                rows.extend(found);
+            }
+        }
+        rows
+    }
+
+    /// What is being searched for, while searching.
+    pub fn search(&self) -> Option<&str> {
+        self.search.as_deref()
+    }
+
+    /// How many rows the search found, headings left out.
+    pub fn match_count(&self) -> usize {
+        self.rows()
+            .iter()
+            .filter(|row| !matches!(row, Row::Heading(_)))
+            .count()
+    }
+
+    /// Show the rows matching `query` from every section, with the search
+    /// box focused.
+    pub fn start_search(&mut self, query: &str) -> Outcome {
+        self.search = Some(query.to_string());
+        self.focus = Focus::Search;
+        self.selected = 0;
+        self.clamp_selection();
+        Outcome::Redraw
+    }
+
+    /// Go back to the chosen section's rows, with the sidebar focused.
+    pub fn end_search(&mut self) -> Outcome {
+        if self.search.take().is_none() {
+            return Outcome::None;
+        }
+        self.focus = Focus::Sidebar;
+        self.selected = 0;
+        self.clamp_selection();
+        Outcome::Redraw
+    }
+
+    /// The part of the screen to the left of the list: the search box while
+    /// searching, the sidebar otherwise.
+    pub fn menu_focus(&self) -> Focus {
+        if self.search.is_some() {
+            Focus::Search
+        } else {
+            Focus::Sidebar
+        }
     }
 
     pub fn selected_row(&self) -> Option<Row> {
@@ -306,6 +441,7 @@ impl Editor {
 
     /// Move the selection by `delta` on the focused side, stopping at either
     /// end. In the sidebar this shows another section, from its first row.
+    /// In the list it passes over headings.
     pub fn move_selection(&mut self, delta: isize) -> Outcome {
         match self.focus {
             Focus::Sidebar => {
@@ -314,15 +450,30 @@ impl Editor {
                 self.select_section(target)
             }
             Focus::List => {
-                let last = self.rows().len().saturating_sub(1);
-                let target = self.selected.saturating_add_signed(delta).min(last);
+                let selectable = self.selectable_rows();
+                let Some(at) = selectable.iter().position(|&row| row == self.selected) else {
+                    return Outcome::None;
+                };
+                let last = selectable.len().saturating_sub(1);
+                let target = selectable[at.saturating_add_signed(delta).min(last)];
                 if target == self.selected {
                     return Outcome::None;
                 }
                 self.selected = target;
                 Outcome::Redraw
             }
+            Focus::Search => Outcome::None,
         }
+    }
+
+    /// Indexes into `rows()` of the rows that can be selected.
+    fn selectable_rows(&self) -> Vec<usize> {
+        self.rows()
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| !matches!(row, Row::Heading(_)))
+            .map(|(index, _)| index)
+            .collect()
     }
 
     /// Show the section at `index` in `sections()`, from its first row.
@@ -337,15 +488,7 @@ impl Editor {
         }
     }
 
-    /// Show the section `delta` along from the chosen one, wrapping around
-    /// at either end, for when there is no room for the sidebar.
-    pub fn cycle_section(&mut self, delta: isize) -> Outcome {
-        let count = self.sections().len() as isize;
-        let target = (self.section_index() as isize + delta).rem_euclid(count);
-        self.select_section(target as usize)
-    }
-
-    /// Move the movement keys to `focus`.
+    /// Move the keys to `focus`.
     pub fn set_focus(&mut self, focus: Focus) -> Outcome {
         if self.focus == focus {
             return Outcome::None;
@@ -354,40 +497,44 @@ impl Editor {
         Outcome::Redraw
     }
 
-    /// Move the movement keys to the other side.
-    pub fn toggle_focus(&mut self) -> Outcome {
-        self.set_focus(match self.focus {
-            Focus::Sidebar => Focus::List,
-            Focus::List => Focus::Sidebar,
-        })
-    }
-
-    /// Select `row` of the list if there is one, as a click on it does.
+    /// Select `row` of the list if it can be, as a click on it does.
     pub fn select(&mut self, row: usize) -> Outcome {
+        if !self.selectable_rows().contains(&row) {
+            return Outcome::None;
+        }
         let focused = self.set_focus(Focus::List);
-        if row < self.rows().len() && row != self.selected {
+        if row != self.selected {
             self.selected = row;
             return Outcome::Redraw;
         }
         focused
     }
 
-    /// Keep the selection on a row that exists, after rows went away.
+    /// Keep the selection on a row that exists and is not a heading, after
+    /// rows went away.
     fn clamp_selection(&mut self) {
         if !self.sections().contains(&self.section) {
             self.section = Section::Group(GROUPS[0]);
         }
-        self.selected = self.selected.min(self.rows().len().saturating_sub(1));
+        let selectable = self.selectable_rows();
+        self.selected = selectable
+            .iter()
+            .copied()
+            .find(|&row| row >= self.selected)
+            .or(selectable.last().copied())
+            .unwrap_or(0);
     }
 
-    /// Act on the selected row: toggle a boolean, step through a choice, or
-    /// start typing a value. In the sidebar, move over to the list.
+    /// Act on the selected row: toggle a boolean, open the choices of a
+    /// choice, or start typing a value. In the sidebar, move over to the
+    /// list.
     pub fn activate(&mut self) -> Outcome {
-        if self.focus == Focus::Sidebar {
-            return self.set_focus(Focus::List);
+        match self.focus {
+            Focus::Sidebar | Focus::Search => return self.set_focus(Focus::List),
+            Focus::List => {}
         }
         match self.selected_row() {
-            Some(Row::Alias) => self.next_alias(),
+            Some(Row::Alias) => Outcome::OpenChoices,
             Some(Row::Option(option)) => match option.kind {
                 Kind::Bool => {
                     let on = self
@@ -396,13 +543,7 @@ impl Editor {
                         .is_some_and(|value| value == "true");
                     self.set(option.name, Some((!on).to_string()))
                 }
-                Kind::Choice(choices) => {
-                    let current = self.value(option.name).or(option.default);
-                    let next = current
-                        .and_then(|value| choices.iter().position(|choice| *choice == value))
-                        .map_or(0, |index| (index + 1) % choices.len());
-                    self.set(option.name, Some(choices[next].to_string()))
-                }
+                Kind::Choice(_) => Outcome::OpenChoices,
                 Kind::Integer | Kind::Fraction | Kind::Text | Kind::Format => Outcome::StartField {
                     field: Field::Value {
                         key: option.name.to_string(),
@@ -418,14 +559,86 @@ impl Editor {
                 field: Field::NewKey,
                 text: prefix.to_string(),
             },
-            None => Outcome::None,
+            Some(Row::Heading(_)) | None => Outcome::None,
         }
+    }
+
+    /// The choices the selected row offers, and the index of the one in
+    /// effect: the aliases to edit, or a choice option's values. A value
+    /// the option does not list is offered too, last, so it shows as it is.
+    pub fn choices(&self) -> Option<(Vec<String>, usize)> {
+        self.choices_of(&self.selected_row()?)
+    }
+
+    /// The choices `row` offers, as `choices` gives them for the selected
+    /// row.
+    pub fn choices_of(&self, row: &Row) -> Option<(Vec<String>, usize)> {
+        match row {
+            Row::Alias => Some((
+                self.candidates
+                    .iter()
+                    .map(|&index| self.aliases[index].name.clone())
+                    .collect(),
+                self.chosen,
+            )),
+            Row::Option(OptionSpec {
+                name,
+                kind: Kind::Choice(values),
+                default,
+                ..
+            }) => {
+                let mut values: Vec<String> =
+                    values.iter().map(|value| value.to_string()).collect();
+                let current = self.value(name).or(*default);
+                let index = match current {
+                    Some(current) => match values.iter().position(|value| value == current) {
+                        Some(index) => index,
+                        None => {
+                            values.push(current.to_string());
+                            values.len() - 1
+                        }
+                    },
+                    None => 0,
+                };
+                Some((values, index))
+            }
+            _ => None,
+        }
+    }
+
+    /// Take the choice at `index` in `choices()` for the selected row.
+    pub fn choose(&mut self, index: usize) -> Outcome {
+        let Some((values, current)) = self.choices() else {
+            return Outcome::None;
+        };
+        if index == current || index >= values.len() {
+            return Outcome::None;
+        }
+        match self.selected_row() {
+            Some(Row::Alias) => self.switch_alias(index),
+            Some(Row::Option(option)) => self.set(option.name, Some(values[index].clone())),
+            _ => Outcome::None,
+        }
+    }
+
+    /// Step the selected row's choice to the next or previous one, stopping
+    /// at either end.
+    pub fn step_choice(&mut self, forward: bool) -> Outcome {
+        let Some((values, current)) = self.choices() else {
+            return Outcome::None;
+        };
+        let target = if forward {
+            (current + 1).min(values.len() - 1)
+        } else {
+            current.saturating_sub(1)
+        };
+        self.choose(target)
     }
 
     /// Put the selected row's key back to its default by removing it from the
     /// alias. For a key outside the fixed options this deletes it.
     pub fn reset_selected(&mut self) -> Outcome {
-        if self.focus == Focus::Sidebar {
+        if self.focus != Focus::List {
             return Outcome::None;
         }
         match self.selected_row() {
@@ -437,6 +650,26 @@ impl Editor {
             }
             _ => Outcome::None,
         }
+    }
+
+    /// Put the selected row's key back to the config file's value. The key
+    /// reverted, or `None` when it had no unsaved change.
+    pub fn revert_selected(&mut self) -> Option<String> {
+        if self.focus != Focus::List {
+            return None;
+        }
+        let key = match self.selected_row()? {
+            Row::Option(option) => option.name.to_string(),
+            Row::Key(key) => key,
+            _ => return None,
+        };
+        if !self.is_edited(&key) {
+            return None;
+        }
+        let saved = self.saved.get(&key).cloned();
+        self.set(&key, saved);
+        self.clamp_selection();
+        Some(key)
     }
 
     /// Finish typing `text` into `field`.
@@ -486,8 +719,10 @@ impl Editor {
         }
     }
 
-    /// Show `section` with `row` selected and the list focused.
+    /// Show `section` with `row` selected and the list focused, leaving any
+    /// search behind.
     fn show(&mut self, section: Section, row: usize) {
+        self.search = None;
         self.section = section;
         self.selected = row;
         self.focus = Focus::List;
@@ -501,19 +736,23 @@ impl Editor {
         if previous.as_deref() == self.value(key) {
             return Outcome::None;
         }
-        if let Some((section, row)) = self.locate(key) {
-            self.show(section, row);
+        // The search results keep their place; anywhere else the list moves
+        // to where the key is listed, which a new key changes.
+        match (&self.search, self.locate(key)) {
+            (None, Some((section, row))) => self.show(section, row),
+            _ => self.clamp_selection(),
         }
         Outcome::Changed
     }
 
-    /// Edit the next zjhints alias. Refused while there are pending edits, so
-    /// they are never carried silently from one alias to another.
-    fn next_alias(&mut self) -> Outcome {
+    /// Edit the alias at `index` in `candidates`. Refused while there are
+    /// unsaved edits, so they are never carried silently from one alias to
+    /// another.
+    fn switch_alias(&mut self, index: usize) -> Outcome {
         if self.is_dirty() {
-            return Outcome::Refused("Save or discard the edits first".to_string());
+            return Outcome::Refused("Save or revert the changes first".to_string());
         }
-        self.chosen = (self.chosen + 1) % self.candidates.len();
+        self.chosen = index;
         self.load_chosen();
         Outcome::SwitchedAlias
     }
@@ -538,15 +777,16 @@ mod tests {
         }
     }
 
+    fn aliases(configuration: &[(&str, &str)]) -> Vec<PluginAliasEntry> {
+        vec![
+            alias("tab-bar", "zellij:tab-bar", &[]),
+            alias("zjhints", "file:~/zjhints.wasm", configuration),
+        ]
+    }
+
+    /// An editor whose session holds `configuration`, saved as it is.
     fn editor(configuration: &[(&str, &str)]) -> Editor {
-        Editor::new(
-            vec![
-                alias("tab-bar", "zellij:tab-bar", &[]),
-                alias("zjhints", "file:~/zjhints.wasm", configuration),
-            ],
-            None,
-        )
-        .unwrap()
+        Editor::new(aliases(configuration), aliases(configuration), None).unwrap()
     }
 
     fn select_key(editor: &mut Editor, key: &str) {
@@ -563,13 +803,12 @@ mod tests {
     fn only_aliases_loading_zjhints_are_edited() {
         let editor = editor(&[]);
         assert_eq!(editor.alias_name(), "zjhints");
-        assert_eq!(editor.alias_count(), 1);
         assert!(!editor.sections().contains(&Section::Alias));
     }
 
     #[test]
     fn without_a_zjhints_alias_there_is_nothing_to_edit() {
-        let result = Editor::new(vec![alias("tab-bar", "zellij:tab-bar", &[])], None);
+        let result = Editor::new(vec![alias("tab-bar", "zellij:tab-bar", &[])], vec![], None);
         assert!(result.is_err());
     }
 
@@ -579,11 +818,11 @@ mod tests {
             alias("zjhints", "file:a/zjhints.wasm", &[]),
             alias("zjhints-alt", "file:b/zjhints.wasm", &[]),
         ];
-        let editor = Editor::new(aliases.clone(), Some("zjhints-alt")).unwrap();
+        let editor = Editor::new(aliases.clone(), aliases.clone(), Some("zjhints-alt")).unwrap();
         assert_eq!(editor.alias_name(), "zjhints-alt");
         assert_eq!(editor.sections()[0], Section::Alias);
         assert_eq!(editor.rows_of(Section::Alias), [Row::Alias]);
-        assert!(Editor::new(aliases, Some("nope")).is_err());
+        assert!(Editor::new(aliases.clone(), aliases, Some("nope")).is_err());
     }
 
     #[test]
@@ -622,7 +861,7 @@ mod tests {
     fn moving_in_the_sidebar_shows_each_group_from_its_first_row() {
         let mut editor = editor(&[]);
         editor.move_selection(2);
-        assert_eq!(editor.toggle_focus(), Outcome::Redraw);
+        assert_eq!(editor.set_focus(Focus::Sidebar), Outcome::Redraw);
         assert_eq!(editor.focus, Focus::Sidebar);
         assert_eq!(editor.move_selection(1), Outcome::Redraw);
         assert_eq!(editor.section(), Section::Group("Hints"));
@@ -640,11 +879,8 @@ mod tests {
     }
 
     #[test]
-    fn cycling_sections_wraps_around() {
+    fn selecting_the_section_shown_or_none_does_nothing() {
         let mut editor = editor(&[]);
-        editor.cycle_section(-1);
-        assert_eq!(editor.section(), Section::Other);
-        editor.cycle_section(1);
         assert_eq!(editor.section(), Section::Group("Fitting"));
         assert_eq!(editor.select_section(0), Outcome::None);
         assert_eq!(editor.select_section(99), Outcome::None);
@@ -732,13 +968,38 @@ mod tests {
     }
 
     #[test]
-    fn a_choice_steps_through_its_values_and_wraps() {
-        let mut editor = editor(&[("direction_keys", "letters")]);
+    fn a_choice_opens_its_values_and_steps_without_wrapping() {
+        let mut editor = editor(&[("direction_keys", "arrows")]);
         select_key(&mut editor, "direction_keys");
-        editor.activate();
-        assert_eq!(editor.value("direction_keys"), Some("both"));
-        editor.activate();
+        assert_eq!(editor.activate(), Outcome::OpenChoices);
+        let (values, current) = editor.choices().unwrap();
+        assert_eq!(values, ["both", "arrows", "letters"]);
+        assert_eq!(current, 1);
+        assert_eq!(editor.choose(1), Outcome::None);
+        assert_eq!(editor.choose(2), Outcome::Changed);
+        assert_eq!(editor.value("direction_keys"), Some("letters"));
+        assert_eq!(editor.step_choice(true), Outcome::None);
+        assert_eq!(editor.step_choice(false), Outcome::Changed);
         assert_eq!(editor.value("direction_keys"), Some("arrows"));
+        assert_eq!(editor.choose(9), Outcome::None);
+    }
+
+    #[test]
+    fn an_unset_choice_starts_at_its_default_and_an_unknown_value_is_offered() {
+        let mut editor = editor(&[]);
+        select_key(&mut editor, "direction_keys");
+        assert_eq!(editor.choices().unwrap().1, 0);
+        let mut editor = editor_with("direction_keys", "sideways");
+        select_key(&mut editor, "direction_keys");
+        let (values, current) = editor.choices().unwrap();
+        assert_eq!(values.last().map(String::as_str), Some("sideways"));
+        assert_eq!(current, values.len() - 1);
+        select_key(&mut editor, "max_length");
+        assert_eq!(editor.choices(), None);
+    }
+
+    fn editor_with(key: &str, value: &str) -> Editor {
+        editor(&[(key, value)])
     }
 
     #[test]
@@ -873,33 +1134,172 @@ mod tests {
         );
     }
 
-    #[test]
-    fn discard_restores_the_saved_values() {
-        let mut editor = editor(&[("label_quit", "bye")]);
-        select_key(&mut editor, "label_quit");
-        editor.reset_selected();
-        assert!(editor.section_is_edited(Section::Group("Labels")));
-        editor.discard();
-        assert!(!editor.is_dirty());
-        assert!(editor.selected_row().is_some());
+    /// An editor whose session holds `session` while the file holds
+    /// `saved`.
+    fn unsaved_editor(saved: &[(&str, &str)], session: &[(&str, &str)]) -> Editor {
+        Editor::new(aliases(session), aliases(saved), None).unwrap()
     }
 
     #[test]
-    fn switching_alias_waits_until_the_edits_are_saved_or_discarded() {
-        let mut editor = Editor::new(
-            vec![
-                alias("zjhints", "file:a/zjhints.wasm", &[]),
-                alias("zjhints-alt", "file:b/zjhints.wasm", &[("mouse", "true")]),
+    fn edits_left_in_the_session_show_as_unsaved() {
+        let editor = unsaved_editor(&[("max_length", "40")], &[("mouse", "true")]);
+        assert_eq!(editor.value("mouse"), Some("true"));
+        assert!(editor.is_dirty());
+        assert!(!editor.session_differs());
+        assert_eq!(editor.unsaved_count(), 2);
+        assert!(editor.is_edited("max_length"));
+        assert!(editor.section_is_edited(Section::Group("Mouse")));
+
+        // An alias the file lacks counts every key as unsaved.
+        let editor = Editor::new(aliases(&[("mouse", "true")]), vec![], None).unwrap();
+        assert_eq!(editor.unsaved_count(), 1);
+    }
+
+    #[test]
+    fn the_session_is_tracked_apart_from_the_file() {
+        let mut editor = editor(&[]);
+        select_key(&mut editor, "auto_width");
+        editor.activate();
+        assert!(editor.session_differs());
+        editor.session_updated();
+        assert!(!editor.session_differs());
+        assert!(editor.is_dirty());
+    }
+
+    #[test]
+    fn revert_puts_one_key_back_to_the_files_value() {
+        let mut editor = unsaved_editor(
+            &[("max_length", "40"), ("label_quit", "bye")],
+            &[
+                ("max_length", "60"),
+                ("label_quit", "bye"),
+                ("color_x", "#000000"),
             ],
-            None,
-        )
-        .unwrap();
+        );
+        select_key(&mut editor, "max_length");
+        assert_eq!(editor.revert_selected().as_deref(), Some("max_length"));
+        assert_eq!(editor.value("max_length"), Some("40"));
+        assert_eq!(editor.revert_selected(), None);
+
+        select_key(&mut editor, "label_quit");
+        assert_eq!(editor.revert_selected(), None);
+
+        // A key the file lacks goes away, and the selection stays in its group.
+        select_key(&mut editor, "color_x");
+        assert_eq!(editor.revert_selected().as_deref(), Some("color_x"));
+        assert_eq!(editor.value("color_x"), None);
+        assert_eq!(editor.selected_row(), Some(Row::Add("color_")));
+        assert!(!editor.is_dirty());
+
+        editor.set_focus(Focus::Sidebar);
+        assert_eq!(editor.revert_selected(), None);
+    }
+
+    #[test]
+    fn revert_all_restores_the_files_values() {
+        let mut editor = unsaved_editor(&[("label_quit", "bye")], &[("mouse", "true")]);
+        select_key(&mut editor, "mouse");
+        editor.revert_all();
+        assert!(!editor.is_dirty());
+        assert_eq!(editor.value("label_quit"), Some("bye"));
+        assert_eq!(editor.value("mouse"), None);
+        assert!(editor.selected_row().is_some());
+        assert!(editor.session_differs());
+    }
+
+    #[test]
+    fn search_lists_matches_from_every_section_under_headings() {
+        let mut editor = editor(&[("color_blue", "#0000ff")]);
+        editor.start_search("blue");
+        assert_eq!(editor.focus, Focus::Search);
+        assert_eq!(editor.menu_focus(), Focus::Search);
+        assert_eq!(
+            editor.rows(),
+            [Row::Heading("Colors"), Row::Key("color_blue".to_string())]
+        );
+        assert_eq!(editor.match_count(), 1);
+        // The heading is passed over.
+        assert_eq!(editor.selected, 1);
+
+        // Names match fuzzily, descriptions by their words.
+        editor.start_search("mxlen");
+        assert!(editor
+            .rows()
+            .contains(&Row::Option(options::find("max_length").unwrap())));
+        editor.start_search("hjkl");
+        assert!(editor
+            .rows()
+            .contains(&Row::Option(options::find("direction_keys").unwrap())));
+
+        editor.start_search("zzzzqqq");
+        assert_eq!(editor.match_count(), 0);
+        assert_eq!(editor.selected_row(), None);
+        assert_eq!(editor.activate(), Outcome::Redraw);
+        assert_eq!(editor.activate(), Outcome::None);
+
+        assert_eq!(editor.end_search(), Outcome::Redraw);
+        assert_eq!(editor.focus, Focus::Sidebar);
+        assert_eq!(editor.search(), None);
+        assert_eq!(editor.end_search(), Outcome::None);
+    }
+
+    #[test]
+    fn moving_through_search_results_skips_headings() {
+        let mut editor = editor(&[]);
+        editor.start_search("");
+        editor.set_focus(Focus::List);
+        let rows = editor.rows();
+        assert!(matches!(rows[0], Row::Heading(_)));
+        assert_eq!(editor.selected, 1);
+        assert_eq!(editor.move_selection(-1), Outcome::None);
+        let heading = rows
+            .iter()
+            .skip(1)
+            .position(|row| matches!(row, Row::Heading(_)))
+            .unwrap()
+            + 1;
+        editor.selected = heading - 1;
+        editor.move_selection(1);
+        assert_eq!(editor.selected, heading + 1);
+        assert_eq!(editor.select(heading), Outcome::None);
+    }
+
+    #[test]
+    fn an_edit_from_the_search_results_keeps_them_shown() {
+        let mut editor = editor(&[]);
+        editor.start_search("auto_width");
+        editor.set_focus(Focus::List);
+        assert_eq!(editor.activate(), Outcome::Changed);
+        assert_eq!(editor.search(), Some("auto_width"));
+        assert_eq!(
+            editor.selected_row(),
+            Some(Row::Option(options::find("auto_width").unwrap()))
+        );
+        // Adding a key that exists leaves the search to show it.
+        editor.submit(&Field::NewKey, "mouse");
+        assert_eq!(editor.search(), None);
+        assert_eq!(editor.section(), Section::Group("Mouse"));
+    }
+
+    #[test]
+    fn the_alias_is_chosen_from_a_list_once_the_edits_are_saved_or_reverted() {
+        let both = vec![
+            alias("zjhints", "file:a/zjhints.wasm", &[]),
+            alias("zjhints-alt", "file:b/zjhints.wasm", &[("mouse", "true")]),
+        ];
+        let mut editor = Editor::new(both.clone(), both, None).unwrap();
         select_key(&mut editor, "auto_width");
         editor.activate();
         editor.select_section(0);
-        assert!(matches!(editor.activate(), Outcome::Refused(_)));
-        editor.discard();
-        assert_eq!(editor.activate(), Outcome::SwitchedAlias);
+        editor.set_focus(Focus::List);
+        assert_eq!(editor.activate(), Outcome::OpenChoices);
+        assert_eq!(
+            editor.choices(),
+            Some((vec!["zjhints".to_string(), "zjhints-alt".to_string()], 0))
+        );
+        assert!(matches!(editor.choose(1), Outcome::Refused(_)));
+        editor.revert_all();
+        assert_eq!(editor.choose(1), Outcome::SwitchedAlias);
         assert_eq!(editor.alias_name(), "zjhints-alt");
         assert_eq!(editor.value("mouse"), Some("true"));
         assert_eq!(editor.section(), Section::Alias);
