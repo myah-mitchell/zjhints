@@ -1,6 +1,7 @@
 //! What the settings screen shows and where: the layout for a pane size, and
-//! each line as text with the parts to draw differently. Pure functions, so
-//! the screen module only has to draw what these return.
+//! each row as the widget that edits it, its marker and its swatch. Pure
+//! functions, so the screen module only has to draw what these return, and
+//! the images of the screen in the docs draw the same.
 
 use super::editor::{Editor, Focus, Row, Section, OTHER_HEADING};
 use super::options::{self, Kind, FAMILIES};
@@ -9,26 +10,39 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo, Styling};
 
-/// Lines above the body: the title and a blank line.
-pub const HEADER_LINES: usize = 2;
-/// Lines below the body: the selected row's description, a status line and
-/// the key help.
-pub const FOOTER_LINES: usize = 3;
-/// Columns a row's name is padded to, wide enough for the longest option
-/// name. A longer key, such as a label's, pushes its value along.
-pub const NAME_COLUMNS: usize = 21;
-/// What starts the header line of a narrow pane, and is clicked for the
-/// previous section. The arrows are not East Asian Ambiguous, so they are one
-/// column in every terminal and the click lands where the arrow is drawn.
-const PREVIOUS: &str = "‹ ";
+/// Rows above the body: the config file, a blank row, the unsaved count with
+/// the buttons, and a blank row.
+pub const HEADER_ROWS: usize = 4;
+/// Rows below the body: a blank row, the description or a notice, a blank
+/// row, and the key help.
+pub const FOOTER_ROWS: usize = 4;
+/// The smallest pane the screen draws in.
+pub const MIN_ROWS: usize = 12;
+pub const MIN_COLS: usize = 50;
+/// What precedes the config file's path in the header.
+pub const FILE_PREFIX: &str = "File: ";
+/// Columns the menu takes beyond its longest item.
+const MENU_PADDING: usize = 4;
+/// The fewest columns the menu takes.
+const MIN_MENU_WIDTH: usize = 16;
+/// The most columns the rows take beside the menu. A wider pane centers the
+/// screen.
+const CONTENT_WIDTH: usize = 80;
+/// The most columns a row's label takes, its two spaces of padding included.
+/// A longer key is cut, and the description under the rows names it whole.
+const MAX_LABEL_WIDTH: usize = 32;
+/// The fewest and most columns a value's field takes.
+const MIN_VALUE_WIDTH: usize = 10;
+const MAX_VALUE_WIDTH: usize = 40;
+/// The fewest columns a field for typed text takes when there is room.
+const TEXT_FIELD_WIDTH: usize = 24;
+/// Columns a color swatch takes before the marker: the swatch and a gap.
+pub const SWATCH_WIDTH: usize = 4;
 /// The group whose list a preview of the bar follows.
 pub const PREVIEW_GROUP: &str = "Theme";
-/// Lines the preview takes under the list: a blank line, its caption and the
+/// Rows the preview takes under the list: a blank row, its caption and the
 /// bar.
-pub const PREVIEW_LINES: usize = 3;
-/// The fewest columns the list keeps beside the sidebar. A narrower pane
-/// folds the sidebar into a line over the list.
-const MIN_LIST_COLUMNS: usize = 40;
+pub const PREVIEW_ROWS: usize = 3;
 
 /// How format-string values are shown in the list.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -55,134 +69,148 @@ pub type Rgb = (u8, u8, u8);
 /// Where everything goes in a pane of a given size.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Layout {
-    /// Columns of the sidebar, its border excluded, or `None` when the pane
-    /// is too narrow for one and a header line over the list stands in.
-    pub sidebar: Option<usize>,
-    /// The line the sidebar, or the header line, starts on.
+    /// The column the screen starts at, centered in a wide pane.
+    pub x: usize,
+    /// Columns the screen takes.
+    pub width: usize,
+    /// Columns of the menu down the left, or of the search box in its place.
+    pub menu_width: usize,
+    /// The row the menu and the list start on.
     pub body_y: usize,
-    /// Lines the sidebar has.
+    /// Rows the menu has.
     pub body_height: usize,
-    pub list_x: usize,
-    pub list_y: usize,
-    pub list_width: usize,
+    pub content_x: usize,
+    pub content_width: usize,
+    /// Rows the list has.
     pub list_height: usize,
-    /// The line the preview's caption is on, the bar on the line after it,
+    /// The row the preview's caption is on, the bar on the row after it,
     /// when the list has a preview and there is room for it.
     pub preview_y: Option<usize>,
-}
-
-/// What a click at some spot lands on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Place {
-    Sidebar,
-    List,
-    /// The arrow at the start of the header line, which shows the previous
-    /// section.
-    Previous,
-    /// The preview's caption, which shows or hides the overrides.
-    Preview,
-    /// The rest of the header line, which shows the next section.
-    Next,
+    /// The first row under the body. The description or notice is the row
+    /// after it, and the key help two below that.
+    pub footer_y: usize,
 }
 
 impl Layout {
-    /// The layout for a pane of `rows` by `cols`, whose sidebar lists
-    /// `titles`. With `preview_rows`, the list of that many rows has a
-    /// preview right under it.
-    pub fn new(rows: usize, cols: usize, titles: &[&str], preview_rows: Option<usize>) -> Self {
-        let body_height = rows.saturating_sub(HEADER_LINES + FOOTER_LINES);
-        // "▸ " before a title and " ●" after it.
-        let sidebar = titles
-            .iter()
-            .map(|title| title.chars().count() + 4)
-            .max()
-            .unwrap_or(0);
-        // The sidebar's border and a space after it.
-        let list_x = sidebar + 2;
-        let layout = if cols >= list_x + MIN_LIST_COLUMNS {
-            Layout {
-                sidebar: Some(sidebar),
-                body_y: HEADER_LINES,
-                body_height,
-                list_x,
-                list_y: HEADER_LINES,
-                list_width: cols - list_x,
-                list_height: body_height,
-                preview_y: None,
-            }
-        } else {
-            Layout {
-                sidebar: None,
-                body_y: HEADER_LINES,
-                body_height: body_height.min(1),
-                list_x: 0,
-                list_y: HEADER_LINES + 1,
-                list_width: cols,
-                list_height: body_height.saturating_sub(1),
-                preview_y: None,
-            }
+    /// The layout for a pane of `rows` by `cols`, whose menu lists `items`,
+    /// or `None` when the pane is too small to draw in. With `preview_rows`,
+    /// the list of that many rows has a preview right under it.
+    pub fn new(
+        rows: usize,
+        cols: usize,
+        items: &[String],
+        preview_rows: Option<usize>,
+    ) -> Option<Self> {
+        if rows < MIN_ROWS || cols < MIN_COLS {
+            return None;
+        }
+        let menu_width = (items.iter().map(|item| columns(item)).max().unwrap_or(0) + MENU_PADDING)
+            .min(cols / 3)
+            .max(MIN_MENU_WIDTH);
+        let width = (menu_width + 2 + CONTENT_WIDTH).min(cols);
+        let x = (cols - width) / 2;
+        let body_height = rows - HEADER_ROWS - FOOTER_ROWS;
+        let mut layout = Layout {
+            x,
+            width,
+            menu_width,
+            body_y: HEADER_ROWS,
+            body_height,
+            content_x: x + menu_width + 2,
+            content_width: width - menu_width - 2,
+            list_height: body_height,
+            preview_y: None,
+            footer_y: rows - FOOTER_ROWS,
         };
-        match preview_rows {
+        if let Some(count) = preview_rows {
             // Too short a pane keeps the list over the preview.
-            Some(count) if layout.list_height > PREVIEW_LINES => {
-                let list_height = count.clamp(1, layout.list_height - PREVIEW_LINES);
-                Layout {
-                    list_height,
-                    preview_y: Some(layout.list_y + list_height + 1),
-                    ..layout
-                }
+            if body_height > PREVIEW_ROWS {
+                layout.list_height = count.clamp(1, body_height - PREVIEW_ROWS);
+                layout.preview_y = Some(layout.body_y + layout.list_height + 1);
             }
-            _ => layout,
         }
+        Some(layout)
     }
+}
 
-    pub fn is_collapsed(&self) -> bool {
-        self.sidebar.is_none()
-    }
+/// The widget a row is edited with, and what it shows.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Control {
+    /// A switch, for a boolean.
+    Toggle(bool),
+    /// A list to pick from, and the index of the value in effect.
+    Dropdown(Vec<String>, usize),
+    /// A field to type in. `placeholder` when the value is not set, so
+    /// `text` is what stands in for it, drawn dimmed.
+    Text { text: String, placeholder: bool },
+    /// A button, for adding a key.
+    Button(String),
+    /// The title of the section the search results under it come from.
+    Heading(String),
+}
 
-    /// What a click on `line` and `column` lands on, if anything.
-    pub fn place(&self, line: usize, column: usize) -> Option<Place> {
-        let in_body = (self.body_y..self.body_y + self.body_height).contains(&line);
-        let in_list = (self.list_y..self.list_y + self.list_height).contains(&line);
-        if self.preview_y == Some(line) && column >= self.list_x {
-            return Some(Place::Preview);
-        }
-        match self.sidebar {
-            Some(sidebar) if in_body && column < sidebar => Some(Place::Sidebar),
-            Some(_) if in_list && column >= self.list_x => Some(Place::List),
-            None if in_body && column < columns(PREVIOUS) => Some(Place::Previous),
-            None if in_body => Some(Place::Next),
-            None if in_list => Some(Place::List),
-            _ => None,
+/// What a row says about where its value comes from, after the field.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Marker {
+    /// Set, and saved as it is.
+    None,
+    /// Differs from the config file.
+    Unsaved,
+    /// Not set, so the built-in default applies.
+    Default,
+    /// Not set, so the selected theme's value applies.
+    Theme,
+}
+
+impl Marker {
+    pub fn text(self) -> &'static str {
+        match self {
+            Marker::None => "",
+            Marker::Unsaved => "● unsaved",
+            Marker::Default => "○ default",
+            Marker::Theme => "○ theme",
         }
     }
 }
 
-/// One line as text, with the parts to draw differently. Ranges count
-/// characters from the line's start, as `Text` does; the columns of the
-/// overlays count display columns (see `columns`).
-#[derive(Debug, Default, PartialEq)]
-pub struct Line {
-    /// The text as it fits, cut with `…` when it does not.
-    pub text: String,
-    /// The characters of a value that is not set, so the default shows.
-    pub dim: Option<Range<usize>>,
-    /// The characters of the marker on an edited value.
-    pub edited: Option<Range<usize>>,
-    /// A rendered format string to draw over its plain text: the column it
-    /// starts at, and its ANSI cut to as much as `text` shows of it, so it
-    /// never runs past the width the line was made for.
-    pub styled: Option<(usize, String)>,
-    /// A swatch of a color to draw over the two spaces at this column.
-    pub swatch: Option<(usize, Rgb)>,
+/// One row of the list as the screen draws it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RowView {
+    /// The key, as the label left of the field.
+    pub label: String,
+    pub control: Control,
+    pub marker: Marker,
+    /// A color the value names, drawn between the field and the marker.
+    pub swatch: Option<Rgb>,
+    /// A rendered format string to draw over the field's text, as ANSI.
+    /// The field holds the same text plain.
+    pub styled: Option<String>,
 }
 
-impl Line {
-    fn plain(text: String, width: usize) -> Self {
-        Line {
-            text: truncate(&text, width),
-            ..Line::default()
+impl RowView {
+    fn plain(label: impl Into<String>, control: Control) -> Self {
+        RowView {
+            label: label.into(),
+            control,
+            marker: Marker::None,
+            swatch: None,
+            styled: None,
         }
+    }
+
+    /// Whether the row is typed into, which Enter starts rather than Space.
+    pub fn is_text(&self) -> bool {
+        matches!(self.control, Control::Text { .. })
+    }
+
+    /// Columns the swatch and marker take after the field.
+    fn trailer_width(&self) -> usize {
+        let swatch = if self.swatch.is_some() {
+            SWATCH_WIDTH
+        } else {
+            0
+        };
+        swatch + columns(self.marker.text())
     }
 }
 
@@ -209,96 +237,133 @@ impl<'a> Rows<'a> {
         }
     }
 
-    /// A row of the list as a line `width` columns wide.
-    pub fn line(&self, row: &Row, width: usize) -> Line {
+    /// How `row` is drawn.
+    pub fn view(&self, row: &Row) -> RowView {
         let editor = self.editor;
         let (key, kind, default) = match row {
             Row::Alias => {
-                return Line::plain(
-                    format!(
-                        "{}{}  (Enter for the next of {})",
-                        name_cell("alias"),
-                        crate::show_controls(editor.alias_name()),
-                        editor.alias_count()
-                    ),
-                    width,
-                )
+                let (names, chosen) = editor.choices_of(row).unwrap_or_default();
+                let names = names
+                    .iter()
+                    .map(|name| crate::show_controls(name).into_owned())
+                    .collect();
+                return RowView::plain("alias", Control::Dropdown(names, chosen));
             }
-            Row::Add(prefix) => return Line::plain(format!("  + add {}", add_what(prefix)), width),
+            Row::Add(prefix) => {
+                return RowView::plain("", Control::Button(format!("+ add {}", add_what(prefix))))
+            }
+            Row::Heading(title) => return RowView::plain("", Control::Heading(title.to_string())),
             Row::Option(option) => (option.name, option.kind, option.default),
             Row::Key(key) => (key.as_str(), options::kind_of(key), None),
         };
         let config = &self.layered;
-        let mut text = name_cell(&crate::show_controls(key));
-        let start = text.chars().count();
-        let start_column = columns(&text);
-        let mut styled = None;
-        let mut swatch = None;
-        // What stands in for a value the user has not set: a theme's value
-        // or the built-in default, dimmed and named as such.
-        let mut fallback = None;
-        let themed = config.get(key).map(String::as_str);
-        let value = match (editor.value(key), themed) {
-            (Some(value), _) => Some(value),
-            (None, Some(value)) => {
-                fallback = Some(" (theme)");
-                Some(value)
-            }
-            (None, None) => None,
+        let set = editor.value(key);
+        let themed = config
+            .get(key)
+            .map(String::as_str)
+            .filter(|_| set.is_none());
+        let shown = set.or(themed).or(default);
+        let marker = if editor.is_edited(key) {
+            Marker::Unsaved
+        } else if set.is_some() {
+            Marker::None
+        } else if themed.is_some() {
+            Marker::Theme
+        } else {
+            Marker::Default
         };
-        match value {
-            Some(value) => {
-                let rendered = (self.view == FormatView::Rendered && kind == Kind::Format)
-                    .then(|| render_sample(key, value, config))
-                    .flatten();
-                match rendered {
-                    Some((plain, ansi)) => {
-                        text.push_str(&plain);
-                        styled = Some(ansi);
-                    }
-                    None => text.push_str(&show_value(value, kind)),
-                }
-                swatch = swatch_color(value, config);
-            }
-            None => match default {
-                Some(default) => {
-                    fallback = Some(" (default)");
-                    text.push_str(&show_value(default, kind));
-                    swatch = swatch_color(default, config);
-                }
-                None => {
-                    fallback = Some("");
-                    text.push_str("unset");
-                }
+        let mut view = RowView {
+            label: crate::show_controls(key).into_owned(),
+            control: Control::Text {
+                text: String::new(),
+                placeholder: false,
             },
-        }
-        let value_end = columns(&text);
-        let swatch = swatch.map(|color| {
-            text.push_str("   ");
-            (value_end + 1, color)
-        });
-        if let Some(fallback) = fallback {
-            text.push_str(fallback);
-        }
-        let end = text.chars().count();
-        let mut edited = None;
-        if editor.is_edited(key) {
-            text.push_str("  ●");
-            edited = Some(end + 2..end + 3);
-        }
-
-        let cut = Cut::new(&text, width);
-        Line {
-            dim: fallback.map(|_| start.min(cut.chars)..end.min(cut.chars)),
-            edited: edited.filter(|range| range.end <= cut.kept_chars),
-            styled: styled.and_then(|ansi| {
-                let room = value_end.min(cut.kept_columns).saturating_sub(start_column);
-                (room > 0).then(|| (start_column, take_visible(&ansi, room)))
-            }),
-            swatch: swatch.filter(|(column, _)| column + 2 <= cut.kept_columns),
-            text: cut.text,
-        }
+            marker,
+            swatch: shown.and_then(|value| swatch_color(value, config)),
+            styled: None,
+        };
+        view.control = match kind {
+            Kind::Bool => Control::Toggle(shown == Some("true")),
+            Kind::Choice(_) => {
+                let (values, chosen) = editor.choices_of(row).unwrap_or_default();
+                Control::Dropdown(values, chosen)
+            }
+            Kind::Integer | Kind::Fraction | Kind::Text | Kind::Format => {
+                let rendered = (self.view == FormatView::Rendered && kind == Kind::Format)
+                    .then(|| shown.and_then(|value| render_sample(key, value, config)))
+                    .flatten();
+                let text = match rendered {
+                    Some((plain, ansi)) => {
+                        view.styled = Some(ansi);
+                        plain
+                    }
+                    None => shown.map_or("unset".to_string(), |value| show_value(value, kind)),
+                };
+                Control::Text {
+                    text,
+                    placeholder: set.is_none(),
+                }
+            }
+        };
+        view
     }
+}
+
+/// The columns of the label and of the field for rows `views` in a list
+/// `width` columns wide: as wide as the longest label and value need, within
+/// limits, and narrower when the swatches and markers would not fit.
+pub fn field_widths(views: &[RowView], width: usize) -> (usize, usize) {
+    let fields: Vec<&RowView> = views
+        .iter()
+        .filter(|view| !matches!(view.control, Control::Heading(_) | Control::Button(_)))
+        .collect();
+    let label_width = (fields
+        .iter()
+        .map(|view| columns(&view.label))
+        .max()
+        .unwrap_or(0)
+        + 2)
+    .min(MAX_LABEL_WIDTH);
+    let widest_value = fields
+        .iter()
+        .map(|view| match &view.control {
+            Control::Dropdown(values, _) => values.iter().map(|value| columns(value)).max(),
+            Control::Text { text, .. } => Some(columns(text).max(TEXT_FIELD_WIDTH - 4)),
+            _ => None,
+        })
+        .max()
+        .flatten()
+        .unwrap_or(0);
+    let widest_trailer = fields
+        .iter()
+        .map(|view| view.trailer_width())
+        .max()
+        .unwrap_or(0);
+    let value_width = (widest_value + 4)
+        .clamp(MIN_VALUE_WIDTH, MAX_VALUE_WIDTH)
+        .min(width.saturating_sub(label_width + widest_trailer + 2))
+        .max(MIN_VALUE_WIDTH);
+    (label_width, value_width)
+}
+
+/// Where a row's swatch and marker go, from the column the field ends at:
+/// the swatch two columns after it, the marker after the swatch, or the
+/// marker pulled back to end at the list's edge when it would run past it.
+pub fn trailer_columns(view: &RowView, field_end: usize, list_end: usize) -> (usize, usize) {
+    let swatch = field_end + 2;
+    let marker = swatch
+        + if view.swatch.is_some() {
+            SWATCH_WIDTH
+        } else {
+            0
+        };
+    let marker_width = columns(view.marker.text());
+    let marker = if marker + marker_width <= list_end {
+        marker
+    } else {
+        list_end.saturating_sub(marker_width)
+    };
+    (swatch, marker)
 }
 
 /// What an add line adds: every family starting with `prefix`, or any key.
@@ -314,7 +379,7 @@ fn add_what(prefix: &str) -> String {
         .join(" or ")
 }
 
-/// A value as shown in the list. Text is always quoted, so its spaces show
+/// A value as shown in its field. Text is always quoted, so its spaces show
 /// and it reads apart from a number or a choice; anything else is quoted
 /// only when it would otherwise be invisible or ambiguous.
 pub fn show_value(value: &str, kind: Kind) -> String {
@@ -404,172 +469,198 @@ pub fn swatch_color(value: &str, config: &BTreeMap<String, String>) -> Option<Rg
 
 /// A swatch of `color` two columns wide, as ANSI.
 pub fn swatch_ansi((red, green, blue): Rgb) -> String {
-    format!("\u{1b}[48;2;{red};{green};{blue}m  \u{1b}[0m")
+    format!("\u{1b}[38;2;{red};{green};{blue}m██\u{1b}[0m")
 }
 
 /// The first `count` visible characters of an ANSI string, styles kept.
-fn take_visible(ansi: &str, count: usize) -> String {
+pub fn take_visible(ansi: &str, count: usize) -> String {
     crate::truncate_ansi_string(ansi, "", count, false)
 }
 
-/// A section of the sidebar as a line `width` columns wide: an arrow on the
-/// one the list shows, and a marker when it holds unsaved edits.
-pub fn sidebar_line(editor: &Editor, section: Section, width: usize) -> Line {
-    let arrow = if section == editor.section() {
-        "▸"
-    } else {
-        " "
-    };
-    let mut text = format!("{arrow} {}", section.title());
-    let mut edited = None;
-    if editor.section_is_edited(section) {
-        let end = text.chars().count();
-        text.push_str(" ●");
-        edited = Some(end + 1..end + 2);
-    }
-    let cut = Cut::new(&text, width);
-    Line {
-        edited: edited.filter(|range| range.end <= cut.kept_chars),
-        text: cut.text,
-        ..Line::default()
-    }
-}
-
-/// The line standing in for the sidebar in a narrow pane: the section the
-/// list shows, between arrows to the ones either side of it.
-pub fn header_line(editor: &Editor, width: usize) -> Line {
-    let sections = editor.sections();
-    let section = editor.section();
-    let mut text = format!("{PREVIOUS}{} ›", section.title());
-    let end = text.chars().count();
-    let mut edited = None;
-    if editor.section_is_edited(section) {
-        text.push_str(" ●");
-        edited = Some(end + 1..end + 2);
-    }
-    text.push_str(&format!(
-        "  {} of {}",
-        editor.section_index() + 1,
-        sections.len()
-    ));
-    let cut = Cut::new(&text, width);
-    Line {
-        edited: edited.filter(|range| range.end <= cut.kept_chars),
-        text: cut.text,
-        ..Line::default()
-    }
-}
-
-/// The screen's first line: what is being edited, how format strings are
-/// shown, and whether there is anything unsaved.
-pub fn title(editor: &Editor, view: FormatView) -> String {
-    let shown = match view {
-        FormatView::Rendered => "rendered",
-        FormatView::Raw => "raw",
-    };
-    let mut title = format!(
-        "zjhints settings · alias \"{}\" · formats {shown}",
-        crate::show_controls(editor.alias_name())
-    );
-    if editor.is_dirty() {
-        title.push_str("  ● unsaved");
-    }
-    title
-}
-
-/// The footer line about what is selected on the focused side.
-pub fn describe(editor: &Editor) -> String {
-    if editor.focus == Focus::Sidebar {
-        return match editor.section() {
-            Section::Alias => "Which zjhints alias to edit. Enter shows it.".to_string(),
-            Section::Group(group) => format!("The {group} options. Enter shows them."),
-            Section::Other => {
-                "Keys zjhints does not read as options. Enter shows them.".to_string()
+/// The menu's items: each section's title, with ` ●` after one holding
+/// unsaved edits.
+pub fn menu_items(editor: &Editor) -> Vec<String> {
+    editor
+        .sections()
+        .into_iter()
+        .map(|section| {
+            if editor.section_is_edited(section) {
+                format!("{} ●", section.title())
+            } else {
+                section.title().to_string()
             }
-        };
+        })
+        .collect()
+}
+
+/// "N unsaved changes", as the header starts.
+pub fn unsaved_text(count: usize) -> String {
+    let plural = if count == 1 { "" } else { "s" };
+    format!("{count} unsaved change{plural}")
+}
+
+/// What the screen does when a header button is clicked or its key pressed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Command {
+    Save,
+    RevertAll,
+    ToggleFormats,
+    Close,
+}
+
+/// The buttons after the unsaved count, in order: the key, what it does,
+/// and the command it runs.
+pub fn header_buttons(view: FormatView) -> [(&'static str, &'static str, Command); 4] {
+    let formats = match view {
+        FormatView::Rendered => "raw formats",
+        FormatView::Raw => "rendered formats",
+    };
+    [
+        ("<Ctrl a>", "save", Command::Save),
+        ("<Ctrl r>", "revert all", Command::RevertAll),
+        ("<f>", formats, Command::ToggleFormats),
+        ("<Esc>", "close", Command::Close),
+    ]
+}
+
+/// The label of the button that shows or hides the overrides in the
+/// preview.
+pub fn overrides_button(shown: bool) -> (&'static str, &'static str) {
+    if shown {
+        ("<o>", "hide overrides")
+    } else {
+        ("<o>", "show overrides")
     }
-    match editor.selected_row() {
-        Some(Row::Option(option)) => {
-            let default = option.default.unwrap_or("unset");
-            let how = match option.kind {
-                Kind::Bool => "Enter toggles".to_string(),
-                Kind::Choice(choices) => format!("Enter cycles {}", choices.join(" / ")),
-                Kind::Integer | Kind::Fraction | Kind::Text | Kind::Format => {
-                    "Enter edits".to_string()
-                }
-            };
-            format!("{}. Default {default}. {how}.", option.description)
-        }
-        Some(Row::Key(key)) => match options::family_of(&key) {
+}
+
+/// The line under the rows about the selected one, while the list has focus.
+pub fn describe(editor: &Editor) -> Option<String> {
+    if editor.focus != Focus::List {
+        return None;
+    }
+    let text = match editor.selected_row()? {
+        Row::Option(option) => format!(
+            "{} (default: {})",
+            option.description,
+            option.default.unwrap_or("unset")
+        ),
+        Row::Key(key) => match options::family_of(&key) {
             Some(family) => format!(
-                "{} ({}). Del removes it.",
-                family.description, family.pattern
+                "{}: {} ({}). Del removes it.",
+                crate::show_controls(&key),
+                family.description,
+                family.pattern
             ),
-            None => "Not an option zjhints reads. Del removes it.".to_string(),
+            None => format!(
+                "{}: not an option zjhints reads. Del removes it.",
+                crate::show_controls(&key)
+            ),
         },
-        Some(Row::Add("")) => format!(
+        Row::Add("") => format!(
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
-        Some(Row::Add(prefix)) => {
+        Row::Add(prefix) => {
             let family = FAMILIES.iter().find(|family| family.prefix() == prefix);
             let what = family.map_or("", |family| family.description);
             format!("Add a key starting {prefix}. {what}.")
         }
-        Some(Row::Alias) => "The plugins {} alias being edited.".to_string(),
-        None => String::new(),
+        Row::Alias => "The plugins {} alias being edited.".to_string(),
+        Row::Heading(_) => return None,
+    };
+    Some(text)
+}
+
+/// "N matches", under the search box.
+pub fn match_text(count: usize) -> String {
+    match count {
+        1 => "1 match".to_string(),
+        count => format!("{count} matches"),
     }
 }
 
-/// The keys to list in the footer, for the side that has focus and how
-/// format strings are shown.
-pub fn help_keys(
-    focus: Focus,
-    collapsed: bool,
-    view: FormatView,
-    overrides_shown: Option<bool>,
-) -> Vec<(&'static str, &'static str)> {
-    let toggle = match view {
-        FormatView::Rendered => ("r", "raw formats"),
-        FormatView::Raw => ("r", "rendered formats"),
-    };
-    let mut keys = match (focus, collapsed) {
-        (_, true) => vec![
-            ("↑↓", "move"),
-            ("←→", "group"),
-            ("Enter", "change"),
-            ("Del", "reset"),
-            toggle,
-            ("s", "save"),
-            ("Esc", "close"),
+/// What the keys do right now, for the help line.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum HelpState {
+    /// Typing into a field.
+    Editing,
+    /// A dropdown's list is open.
+    Choosing,
+    /// The part of the screen with focus, the selected row's view, and
+    /// whether a search is showing.
+    Browsing {
+        focus: Focus,
+        text_row: bool,
+        searching: bool,
+    },
+}
+
+/// The keys the help line lists.
+pub fn help_hints(state: HelpState) -> Vec<(&'static str, &'static str)> {
+    match state {
+        HelpState::Editing => vec![("<Enter>", "apply"), ("<Esc>", "cancel")],
+        HelpState::Choosing => vec![
+            ("<↓↑>", "choose"),
+            ("<Enter>", "select"),
+            ("<Esc>", "cancel"),
         ],
-        (Focus::Sidebar, false) => vec![
-            ("↑↓", "group"),
-            ("→", "options"),
-            toggle,
-            ("s", "save"),
-            ("Esc", "close"),
+        HelpState::Browsing {
+            focus: Focus::Sidebar,
+            ..
+        } => vec![
+            ("<↓↑>", "category"),
+            ("<Tab>", "settings"),
+            ("</>", "search"),
+            ("<Esc>", "close"),
         ],
-        (Focus::List, false) => vec![
-            ("↑↓", "move"),
-            ("←", "groups"),
-            ("Enter", "change"),
-            ("Del", "reset"),
-            toggle,
-            ("s", "save"),
-            ("Esc", "close"),
-        ],
-    };
-    if let Some(shown) = overrides_shown {
-        let action = if shown {
-            "hide overrides"
-        } else {
-            "show overrides"
-        };
-        // Beside the other view toggle, before save.
-        let at = keys.len() - 2;
-        keys.insert(at, ("o", action));
+        HelpState::Browsing {
+            focus: Focus::Search,
+            ..
+        } => vec![("<↓>", "results"), ("<Esc>", "end search")],
+        HelpState::Browsing {
+            focus: Focus::List,
+            text_row,
+            searching,
+        } => {
+            let change = if text_row {
+                ("<Enter>", "edit")
+            } else {
+                ("<Space>", "change")
+            };
+            let (back, close) = if searching {
+                (("<←>", "search"), ("<Esc>", "end search"))
+            } else {
+                (("<←>", "categories"), ("<Esc>", "close"))
+            };
+            vec![
+                ("<↓↑>", "move"),
+                change,
+                ("<r>", "revert"),
+                ("<Del>", "unset"),
+                back,
+                ("</>", "search"),
+                close,
+            ]
+        }
     }
-    keys
+}
+
+/// The help line: `prefix`, then as many of `hints` as fit in `cols`, each
+/// as "key - action". The ranges are the characters of the keys, which are
+/// drawn in a color of their own.
+pub fn hint_line(prefix: &str, hints: &[(&str, &str)], cols: usize) -> (String, Vec<Range<usize>>) {
+    let mut line = prefix.to_string();
+    let mut key_ranges = Vec::new();
+    for (index, (key, action)) in hints.iter().enumerate() {
+        let separator = if index == 0 { "" } else { ", " };
+        let entry = format!("{separator}{key} - {action}");
+        if columns(&line) + columns(&entry) > cols {
+            break;
+        }
+        let key_start = line.chars().count() + separator.chars().count();
+        key_ranges.push(key_start..key_start + key.chars().count());
+        line.push_str(&entry);
+    }
+    (truncate(&line, cols), key_ranges)
 }
 
 /// The keys of `configuration` that take the place of a value the selected
@@ -637,6 +728,11 @@ pub fn preview_caption(overrides: usize, shown: bool) -> String {
     }
 }
 
+/// Whether the list of `section` has a preview of the bar under it.
+pub fn is_previewed(section: Section) -> bool {
+    section == Section::Group(PREVIEW_GROUP)
+}
+
 /// The display columns `text` takes in the pane. Zellij lays out a plugin's
 /// pane with East Asian Ambiguous characters one column wide, so they are
 /// counted as one here, whatever `ambiguous_width` says for the bar.
@@ -644,95 +740,57 @@ pub fn columns(text: &str) -> usize {
     text.chars().map(|ch| crate::char_width(ch, false)).sum()
 }
 
-/// `name` padded to `NAME_COLUMNS` display columns after a two-space indent,
-/// and a space: where a row's value starts.
-pub fn name_cell(name: &str) -> String {
-    let padding = NAME_COLUMNS.saturating_sub(columns(name));
-    format!("  {name}{} ", " ".repeat(padding))
-}
-
 /// `text` cut to `width` columns, ending in `…` when it was cut. A wide
 /// character that would cross the edge is left out whole.
 pub fn truncate(text: &str, width: usize) -> String {
-    Cut::new(text, width).text
-}
-
-/// A line cut to a width, and how much of the original survives before the
-/// `…`, for placing what is drawn over it.
-struct Cut {
-    text: String,
-    /// Characters of `text`, the `…` included.
-    chars: usize,
-    /// Characters and columns of the original kept in front of the `…`.
-    kept_chars: usize,
-    kept_columns: usize,
-}
-
-impl Cut {
-    fn new(text: &str, width: usize) -> Self {
-        let full = columns(text);
-        if full <= width {
-            let chars = text.chars().count();
-            return Cut {
-                text: text.to_string(),
-                chars,
-                kept_chars: chars,
-                kept_columns: full,
-            };
-        }
-        let room = width.saturating_sub(1);
-        let mut cut = String::new();
-        let (mut kept_chars, mut kept_columns) = (0, 0);
-        for ch in text.chars() {
-            let width = crate::char_width(ch, false);
-            if kept_columns + width > room {
-                break;
-            }
-            cut.push(ch);
-            kept_chars += 1;
-            kept_columns += width;
-        }
-        if width > 0 {
-            cut.push('…');
-        }
-        Cut {
-            chars: cut.chars().count(),
-            text: cut,
-            kept_chars,
-            kept_columns,
-        }
+    if columns(text) <= width {
+        return text.to_string();
     }
+    let room = width.saturating_sub(1);
+    let mut cut = String::new();
+    let mut used = 0;
+    for ch in text.chars() {
+        let width = crate::char_width(ch, false);
+        if used + width > room {
+            break;
+        }
+        cut.push(ch);
+        used += width;
+    }
+    if width > 0 {
+        cut.push('…');
+    }
+    cut
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::editor::Field;
-    use crate::settings::options::GROUPS;
     use zellij_tile::prelude::actions::Action;
     use zellij_tile::prelude::{InputMode, PaletteColor, PluginAliasEntry, PluginEntry};
 
+    fn alias(configuration: &[(&str, &str)]) -> Vec<PluginAliasEntry> {
+        vec![PluginAliasEntry {
+            name: "zjhints".to_string(),
+            plugin: PluginEntry {
+                location: "file:~/zjhints.wasm".to_string(),
+                cwd: None,
+                configuration: configuration
+                    .iter()
+                    .map(|(key, value)| (key.to_string(), value.to_string()))
+                    .collect(),
+            },
+        }]
+    }
+
     fn editor(configuration: &[(&str, &str)]) -> Editor {
-        Editor::new(
-            vec![PluginAliasEntry {
-                name: "zjhints".to_string(),
-                plugin: PluginEntry {
-                    location: "file:~/zjhints.wasm".to_string(),
-                    cwd: None,
-                    configuration: configuration
-                        .iter()
-                        .map(|(key, value)| (key.to_string(), value.to_string()))
-                        .collect(),
-                },
-            }],
-            None,
-        )
-        .unwrap()
+        Editor::new(alias(configuration), alias(configuration), None).unwrap()
     }
 
     /// `row` as drawn on its own, laying the theme for it alone.
-    fn row_line(editor: &Editor, row: &Row, width: usize, view: FormatView) -> Line {
-        Rows::new(editor, view, None).line(row, width)
+    fn row_view(editor: &Editor, row: &Row, view: FormatView) -> RowView {
+        Rows::new(editor, view, None).view(row)
     }
 
     fn option_row(name: &str) -> Row {
@@ -743,30 +801,79 @@ mod tests {
         Row::Key(key.to_string())
     }
 
-    /// The text of `row` in an 80-column list, formats shown raw.
+    /// The text of the field of `row`, formats shown raw.
     fn raw(editor: &Editor, row: &Row) -> String {
-        row_line(editor, row, 80, FormatView::Raw).text
+        match row_view(editor, row, FormatView::Raw).control {
+            Control::Text { text, .. } => text,
+            other => panic!("expected a text field, got {other:?}"),
+        }
+    }
+
+    fn text(text: &str, placeholder: bool) -> Control {
+        Control::Text {
+            text: text.to_string(),
+            placeholder,
+        }
     }
 
     #[test]
-    fn an_unset_option_shows_its_default_dimmed() {
-        let line = row_line(&editor(&[]), &option_row("auto_width"), 80, FormatView::Raw);
-        assert_eq!(line.text, format!("  {:22}true (default)", "auto_width"));
-        assert_eq!(line.dim, Some(24..38));
-        assert_eq!(line.edited, None);
-        assert_eq!(line.swatch, None);
-    }
-
-    #[test]
-    fn a_set_option_shows_its_value_plainly() {
-        let line = row_line(
-            &editor(&[("max_length", "40")]),
-            &option_row("max_length"),
-            80,
-            FormatView::Raw,
+    fn each_kind_of_option_gets_its_own_widget() {
+        let editor = editor(&[("show_mode", "true"), ("direction_keys", "arrows")]);
+        let view = |name| row_view(&editor, &option_row(name), FormatView::Raw);
+        assert_eq!(view("show_mode").control, Control::Toggle(true));
+        assert_eq!(view("auto_width").control, Control::Toggle(true));
+        assert_eq!(
+            view("direction_keys").control,
+            Control::Dropdown(
+                vec![
+                    "both".to_string(),
+                    "arrows".to_string(),
+                    "letters".to_string()
+                ],
+                1
+            )
         );
-        assert_eq!(line.text, format!("  {:22}40", "max_length"));
-        assert_eq!(line.dim, None);
+        assert_eq!(view("max_length").control, text("0", true));
+        assert_eq!(view("max_length").label, "max_length");
+    }
+
+    #[test]
+    fn markers_say_whether_a_value_is_unsaved_default_or_set() {
+        let mut editor = editor(&[("max_length", "40")]);
+        let marker =
+            |editor: &Editor, name| row_view(editor, &option_row(name), FormatView::Raw).marker;
+        assert_eq!(marker(&editor, "max_length"), Marker::None);
+        assert_eq!(marker(&editor, "auto_width"), Marker::Default);
+        editor.submit(
+            &Field::Value {
+                key: "max_length".to_string(),
+            },
+            "60",
+        );
+        assert_eq!(marker(&editor, "max_length"), Marker::Unsaved);
+        // Unsetting a saved value is unsaved too.
+        editor.submit(
+            &Field::Value {
+                key: "max_length".to_string(),
+            },
+            "",
+        );
+        assert_eq!(marker(&editor, "max_length"), Marker::Unsaved);
+        assert_eq!(Marker::Unsaved.text(), "● unsaved");
+        assert_eq!(Marker::Default.text(), "○ default");
+    }
+
+    #[test]
+    fn an_unset_field_shows_its_default_as_a_placeholder() {
+        let editor = editor(&[("max_length", "40")]);
+        assert_eq!(
+            row_view(&editor, &option_row("overflow_str"), FormatView::Raw).control,
+            text("\"...\"", true)
+        );
+        assert_eq!(
+            row_view(&editor, &option_row("max_length"), FormatView::Raw).control,
+            text("40", false)
+        );
     }
 
     #[test]
@@ -774,71 +881,15 @@ mod tests {
         let editor = editor(&[
             ("pipe_name", "bar"),
             ("label_quit", "bye"),
-            ("key_order", "dvorak"),
             ("dim_strength", "0.25"),
             ("key_format", "{key}"),
         ]);
-        let line = row_line(&editor, &option_row("overflow_str"), 80, FormatView::Raw);
-        assert_eq!(
-            line.text,
-            format!("  {:22}\"...\" (default)", "overflow_str")
-        );
-        assert_eq!(line.dim, Some(24..39));
-        assert_eq!(
-            raw(&editor, &option_row("pipe_name")),
-            format!("  {:22}\"bar\"", "pipe_name")
-        );
-        assert_eq!(
-            raw(&editor, &key_row("label_quit")),
-            format!("  {:22}\"bye\"", "label_quit")
-        );
-        assert_eq!(
-            raw(&editor, &option_row("key_format")),
-            format!("  {:22}\"{{key}}\"", "key_format")
-        );
-        assert_eq!(
-            raw(&editor, &option_row("key_order")),
-            format!("  {:22}dvorak", "key_order")
-        );
-        assert_eq!(
-            raw(&editor, &option_row("dim_strength")),
-            format!("  {:22}0.25", "dim_strength")
-        );
+        assert_eq!(raw(&editor, &option_row("pipe_name")), "\"bar\"");
+        assert_eq!(raw(&editor, &key_row("label_quit")), "\"bye\"");
+        assert_eq!(raw(&editor, &option_row("key_format")), "\"{key}\"");
+        assert_eq!(raw(&editor, &option_row("dim_strength")), "0.25");
         assert_eq!(show_value("", Kind::Integer), "\"\"");
         assert_eq!(show_value(" 1", Kind::Integer), "\" 1\"");
-    }
-
-    #[test]
-    fn an_edited_value_is_marked() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            " | ",
-        );
-        let line = row_line(&editor, &option_row("hint_spacer"), 80, FormatView::Raw);
-        assert_eq!(line.text, format!("  {:22}\" | \"  ●", "hint_spacer"));
-        assert_eq!(line.edited, Some(31..32));
-        assert!(title(&editor, FormatView::Raw).ends_with("● unsaved"));
-    }
-
-    #[test]
-    fn a_narrow_pane_truncates_rows_and_drops_markers_cut_off() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            "|",
-        );
-        for view in [FormatView::Raw, FormatView::Rendered] {
-            let line = row_line(&editor, &option_row("hint_spacer"), 20, view);
-            assert_eq!(line.text.chars().count(), 20);
-            assert!(line.text.ends_with('…'));
-            assert_eq!(line.edited, None);
-            assert_eq!(line.styled, None);
-        }
     }
 
     #[test]
@@ -850,48 +901,47 @@ mod tests {
             ("max_length", "\u{1b}[2J"),
             ("x\u{1b}[1A", "1"),
         ]);
-        let shown = "\\u{1b}]52;c;aGk=\\u{7}";
+        let shown = "\"\\u{1b}]52;c;aGk=\\u{7}\"";
         for view in [FormatView::Raw, FormatView::Rendered] {
-            let line = |row: &Row| row_line(&editor, row, 80, view);
-            assert_eq!(
-                line(&key_row("label_quit")).text,
-                format!("  {:22}\"{shown}\"", "label_quit")
-            );
-            let format = line(&option_row("key_format"));
-            assert_eq!(format.text, format!("  {:22}\"{shown}\"", "key_format"));
+            let row = |row: &Row| row_view(&editor, row, view);
+            assert_eq!(row(&key_row("label_quit")).control, text(shown, false));
+            let format = row(&option_row("key_format"));
+            assert_eq!(format.control, text(shown, false));
             assert_eq!(format.styled, None);
             assert_eq!(
-                line(&option_row("max_length")).text,
-                format!("  {:22}\\u{{1b}}[2J", "max_length")
+                row(&option_row("max_length")).control,
+                text("\\u{1b}[2J", false)
             );
-            assert_eq!(
-                line(&key_row("x\u{1b}[1A")).text,
-                format!("  {:22}\"1\"", "x\\u{1b}[1A")
-            );
+            assert_eq!(row(&key_row("x\u{1b}[1A")).label, "x\\u{1b}[1A");
         }
     }
 
     #[test]
-    fn a_key_longer_than_the_name_column_keeps_a_space_before_its_value() {
-        let key = "label_locked_switch_to_mode_normal";
-        let line = row_line(
-            &editor(&[(key, "Unlock")]),
-            &key_row(key),
-            80,
-            FormatView::Raw,
+    fn add_rows_are_buttons_naming_the_families_they_add() {
+        let editor = editor(&[]);
+        let button = |prefix| row_view(&editor, &Row::Add(prefix), FormatView::Raw).control;
+        assert_eq!(
+            button("color_"),
+            Control::Button("+ add color_<name>".to_string())
         );
-        assert_eq!(line.text, format!("  {key} \"Unlock\""));
+        assert_eq!(
+            button("label_"),
+            Control::Button("+ add label_<id> or label_<mode>_<id>".to_string())
+        );
+        assert_eq!(button(""), Control::Button("+ add a key".to_string()));
+        assert_eq!(
+            row_view(&editor, &Row::Heading("Colors"), FormatView::Raw).control,
+            Control::Heading("Colors".to_string())
+        );
     }
 
     #[test]
-    fn add_lines_name_the_families_they_add() {
+    fn the_alias_row_is_a_dropdown_of_the_aliases() {
         let editor = editor(&[]);
-        assert_eq!(raw(&editor, &Row::Add("color_")), "  + add color_<name>");
         assert_eq!(
-            raw(&editor, &Row::Add("label_")),
-            "  + add label_<id> or label_<mode>_<id>"
+            row_view(&editor, &Row::Alias, FormatView::Raw).control,
+            Control::Dropdown(vec!["zjhints".to_string()], 0)
         );
-        assert_eq!(raw(&editor, &Row::Add("")), "  + add a key");
     }
 
     #[test]
@@ -904,89 +954,61 @@ mod tests {
             ("hint_spacer", "#[fg=red]|"),
             ("label_quit", "{key}"),
         ]);
-        let rendered = |row: &Row| row_line(&editor, row, 80, FormatView::Rendered);
+        let rendered = |row: &Row| row_view(&editor, row, FormatView::Rendered);
 
-        let line = rendered(&option_row("key_format"));
-        assert_eq!(line.text, format!("  {:22} Ctrl p ", "key_format"));
-        let (column, ansi) = line.styled.unwrap();
-        assert_eq!(column, 24);
+        let view = rendered(&option_row("key_format"));
+        assert_eq!(view.control, text(" Ctrl p ", false));
+        let ansi = view.styled.unwrap();
         assert!(ansi.contains("38;2;255;0;0"));
         assert!(ansi.contains(" Ctrl p "));
 
-        let text = |row: &Row| rendered(row).text[24..].to_string();
-        assert_eq!(text(&option_row("desc_format")), "[Pane]");
-        assert_eq!(text(&option_row("mode_format")), "<NORMAL>");
-        assert_eq!(
-            rendered(&key_row("mode_format_enter_search")).text,
-            "  mode_format_enter_search ENTERSEARCH"
-        );
-        assert_eq!(text(&option_row("hint_spacer")), "|");
+        let shown = |row: &Row| match rendered(row).control {
+            Control::Text { text, .. } => text,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(shown(&option_row("desc_format")), "[Pane]");
+        assert_eq!(shown(&option_row("mode_format")), "<NORMAL>");
+        assert_eq!(shown(&key_row("mode_format_enter_search")), "ENTERSEARCH");
+        assert_eq!(shown(&option_row("hint_spacer")), "|");
         // Labels are text, not format strings, whatever they hold.
-        assert_eq!(text(&key_row("label_quit")), "\"{key}\"");
+        assert_eq!(shown(&key_row("label_quit")), "\"{key}\"");
 
-        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Raw);
-        assert_eq!(
-            line.text,
-            format!("  {:22}\"#[fg=#ff0000,bold] {{key}} \"", "key_format")
-        );
-        assert_eq!(line.styled, None);
+        let view = row_view(&editor, &option_row("key_format"), FormatView::Raw);
+        assert_eq!(view.control, text("\"#[fg=#ff0000,bold] {key} \"", false));
+        assert_eq!(view.styled, None);
     }
 
     #[test]
     fn a_rendered_key_uses_the_modifier_aliases_being_edited() {
         let editor = editor(&[("mod_alias_ctrl", "^"), ("key_format", "{key}")]);
-        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Rendered);
-        assert_eq!(line.text, format!("  {:22}^p", "key_format"));
+        let view = row_view(&editor, &option_row("key_format"), FormatView::Rendered);
+        assert_eq!(view.control, text("^p", false));
     }
 
     #[test]
     fn a_format_that_draws_nothing_visible_shows_raw() {
         let editor = editor(&[("hint_spacer", "  "), ("desc_format", "#[fg=red]")]);
-        let text = |name| row_line(&editor, &option_row(name), 80, FormatView::Rendered).text;
-        assert_eq!(text("hint_spacer"), format!("  {:22}\"  \"", "hint_spacer"));
-        assert_eq!(
-            text("desc_format"),
-            format!("  {:22}\"#[fg=red]\"", "desc_format")
-        );
+        let view = |name| row_view(&editor, &option_row(name), FormatView::Rendered);
+        assert_eq!(view("hint_spacer").control, text("\"  \"", false));
+        assert_eq!(view("desc_format").control, text("\"#[fg=red]\"", false));
+        assert_eq!(view("desc_format").styled, None);
     }
 
     #[test]
     fn a_rendered_value_is_cut_by_visible_characters() {
-        let editor = editor(&[("key_format", "#[fg=#ff0000]abcdefghij")]);
-        let line = row_line(&editor, &option_row("key_format"), 30, FormatView::Rendered);
-        assert_eq!(line.text, format!("  {:22}abcde…", "key_format"));
-        let (column, ansi) = line.styled.unwrap();
-        assert_eq!(column, 24);
-        assert!(ansi.contains("abcde"));
-        assert!(!ansi.contains('f'));
-        assert!(ansi.ends_with("\u{1b}[0m"));
+        let ansi = "\u{1b}[31mabcdefghij\u{1b}[0m";
+        let cut = take_visible(ansi, 5);
+        assert!(cut.contains("abcde") && !cut.contains('f'));
+        assert!(cut.ends_with("\u{1b}[0m"));
     }
 
     #[test]
-    fn wide_characters_are_cut_and_placed_by_their_columns() {
+    fn wide_characters_are_cut_by_their_columns() {
         assert_eq!(truncate("漢字漢字", 8), "漢字漢字");
         assert_eq!(truncate("漢字漢字", 7), "漢字漢…");
         assert_eq!(truncate("漢字漢字", 6), "漢字…");
         assert_eq!(truncate("abc", 0), "");
-
-        let editor = editor(&[
-            ("key_format", "#[fg=#ff0000]漢字漢字漢字"),
-            ("color_漢字", "#0000ff"),
-            ("label_漢字", "漢字漢字漢字漢字"),
-        ]);
-        let line = row_line(&editor, &option_row("key_format"), 30, FormatView::Rendered);
-        assert!(columns(&line.text) <= 30, "{:?}", line.text);
-        let (column, ansi) = line.styled.expect("a rendered format");
-        assert_eq!(column, 24);
-        // Four columns of the sample fit before the `…`, and no more.
-        assert!(ansi.contains("漢字") && !ansi.contains("漢字漢"));
-        assert!(column + crate::calculate_visible_length(&ansi, false) <= 30);
-
-        // A wide key still lines its value up with the others.
-        let line = row_line(&editor, &key_row("color_漢字"), 80, FormatView::Raw);
-        assert_eq!(line.swatch, Some((34, (0, 0, 255))));
-        let line = row_line(&editor, &key_row("label_漢字"), 30, FormatView::Raw);
-        assert!(columns(&line.text) <= 30, "{:?}", line.text);
+        assert_eq!(columns("漢字"), 4);
     }
 
     #[test]
@@ -1013,20 +1035,13 @@ mod tests {
         assert_eq!(swatch_color("#[fg=#ff0000]", &config), None);
         assert_eq!(
             swatch_ansi((1, 2, 3)),
-            "\u{1b}[48;2;1;2;3m  \u{1b}[0m".to_string()
+            "\u{1b}[38;2;1;2;3m██\u{1b}[0m".to_string()
         );
-    }
 
-    #[test]
-    fn a_swatch_sits_after_the_value_while_it_fits() {
         let editor = editor(&[("color_blue", "#0000ff"), ("color_accent", "$blue")]);
-        let line = row_line(&editor, &key_row("color_blue"), 80, FormatView::Raw);
-        assert_eq!(line.text, format!("  {:22}\"#0000ff\"   ", "color_blue"));
-        assert_eq!(line.swatch, Some((34, (0, 0, 255))));
-        let line = row_line(&editor, &key_row("color_accent"), 80, FormatView::Raw);
-        assert_eq!(line.swatch, Some((32, (0, 0, 255))));
-        let line = row_line(&editor, &key_row("color_blue"), 35, FormatView::Raw);
-        assert_eq!(line.swatch, None);
+        let swatch = |key| row_view(&editor, &key_row(key), FormatView::Raw).swatch;
+        assert_eq!(swatch("color_blue"), Some((0, 0, 255)));
+        assert_eq!(swatch("color_accent"), Some((0, 0, 255)));
     }
 
     #[test]
@@ -1040,18 +1055,13 @@ mod tests {
         let red = swatch_color(&themed["color_red"], &themed).expect("a hex red");
 
         // A `$red` value the theme defines gets its swatch.
-        let line = row_line(&editor, &key_row("color_accent"), 80, FormatView::Raw);
-        assert_eq!(line.swatch.map(|(_, color)| color), Some(red));
+        let view = row_view(&editor, &key_row("color_accent"), FormatView::Raw);
+        assert_eq!(view.swatch, Some(red));
 
         // A format using the theme's aliases renders in its colors.
-        let line = row_line(
-            &editor,
-            &key_row("key_format_quit"),
-            80,
-            FormatView::Rendered,
-        );
+        let view = row_view(&editor, &key_row("key_format_quit"), FormatView::Rendered);
         let (red_r, red_g, red_b) = red;
-        let (_, ansi) = line.styled.expect("a rendered format");
+        let ansi = view.styled.expect("a rendered format");
         assert!(ansi.contains(&format!("48;2;{red_r};{red_g};{red_b}")));
 
         // What is saved stays the user's own.
@@ -1064,69 +1074,111 @@ mod tests {
         let mut styling = Styling::default();
         styling.ribbon_selected.background = PaletteColor::Rgb((1, 2, 3));
         let row = option_row("key_format");
-        let line = Rows::new(&editor, FormatView::Rendered, Some(&styling)).line(&row, 80);
-        let (_, ansi) = line.styled.expect("a rendered format");
+        let view = Rows::new(&editor, FormatView::Rendered, Some(&styling)).view(&row);
+        let ansi = view.styled.expect("a rendered format");
         assert!(ansi.contains("48;2;1;2;3"), "{ansi:?}");
         // Without the palette there is no `$accent` to draw.
-        let line = row_line(&editor, &row, 80, FormatView::Rendered);
-        let (_, ansi) = line.styled.expect("a rendered format");
+        let view = row_view(&editor, &row, FormatView::Rendered);
+        let ansi = view.styled.expect("a rendered format");
         assert!(!ansi.contains("48;2;1;2;3"));
     }
 
     #[test]
-    fn an_unset_option_a_theme_sets_shows_the_themes_value_dimmed() {
+    fn an_unset_option_a_theme_sets_shows_the_themes_value() {
         let editor = editor(&[("color_theme", "nord"), ("format_theme", "flat")]);
         let themed = crate::theme::layer(editor.working(), None);
-        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Raw);
+        let view = row_view(&editor, &option_row("key_format"), FormatView::Raw);
         let shown = show_value(&themed["key_format"], Kind::Format);
-        assert_eq!(line.text, format!("  {:22}{shown} (theme)", "key_format"));
-        assert_eq!(line.dim, Some(24..line.text.chars().count()));
+        assert_eq!(view.control, text(&shown, true));
+        assert_eq!(view.marker, Marker::Theme);
 
-        let line = row_line(&editor, &option_row("key_format"), 80, FormatView::Rendered);
-        assert_eq!(line.text, format!("  {:22} Ctrl p  (theme)", "key_format"));
-        assert!(line.styled.is_some());
+        let view = row_view(&editor, &option_row("key_format"), FormatView::Rendered);
+        assert_eq!(view.control, text(" Ctrl p ", true));
+        assert!(view.styled.is_some());
 
         // Without a theme the built-in default shows, as before.
-        let line = row_line(&editor, &option_row("max_length"), 80, FormatView::Raw);
-        assert!(!line.text.contains("(theme)"));
+        let view = row_view(&editor, &option_row("max_length"), FormatView::Raw);
+        assert_eq!(view.marker, Marker::Default);
     }
 
     #[test]
-    fn a_wide_pane_has_a_sidebar_beside_the_list() {
-        let layout = Layout::new(30, 120, &GROUPS, None);
-        // "Keys and ordering" is the longest title.
-        assert_eq!(layout.sidebar, Some(21));
-        assert_eq!((layout.list_x, layout.list_width), (23, 97));
-        assert_eq!((layout.list_y, layout.list_height), (2, 25));
-        assert_eq!(layout.place(5, 3), Some(Place::Sidebar));
-        assert_eq!(layout.place(5, 30), Some(Place::List));
-        assert_eq!(layout.place(5, 21), None);
-        assert_eq!(layout.place(0, 3), None);
-        assert_eq!(layout.place(28, 30), None);
-        assert!(!Layout::new(30, 63, &GROUPS, None).is_collapsed());
+    fn fields_are_as_wide_as_the_longest_label_and_value_need() {
+        let editor = editor(&[]);
+        let rows = Rows::new(&editor, FormatView::Raw, None);
+        let views: Vec<RowView> = editor
+            .rows_of(Section::Group("Fitting"))
+            .iter()
+            .map(|row| rows.view(row))
+            .collect();
+        // "hint_precedence" is the longest label in Fitting.
+        let (label, value) = field_widths(&views, 80);
+        assert_eq!(label, "hint_precedence".len() + 2);
+        assert_eq!(value, TEXT_FIELD_WIDTH);
+
+        // A narrow list leaves room for the markers, down to a minimum.
+        let (label_narrow, value_narrow) = field_widths(&views, 40);
+        assert_eq!(label_narrow, label);
+        assert_eq!(value_narrow, 40 - label - "○ default".chars().count() - 2);
+        assert_eq!(field_widths(&views, 10).1, MIN_VALUE_WIDTH);
+
+        // A long key is cut at the label limit.
+        let long = RowView::plain("x".repeat(60), text("", false));
+        assert_eq!(field_widths(&[long], 120).0, MAX_LABEL_WIDTH);
     }
 
     #[test]
-    fn a_narrow_pane_folds_the_sidebar_into_a_header_line() {
-        let layout = Layout::new(30, 62, &GROUPS, None);
-        assert!(layout.is_collapsed());
-        assert_eq!((layout.list_x, layout.list_width), (0, 62));
-        assert_eq!((layout.list_y, layout.list_height), (3, 24));
-        assert_eq!(layout.place(2, 0), Some(Place::Previous));
-        assert_eq!(layout.place(2, 10), Some(Place::Next));
-        assert_eq!(layout.place(3, 0), Some(Place::List));
-
-        let mut editor = editor(&[("color_blue", "#0000ff")]);
-        assert_eq!(header_line(&editor, 61).text, "‹ Fitting ›  1 of 14");
-        editor.cycle_section(-1);
-        assert_eq!(header_line(&editor, 61).text, "‹ Other ›  14 of 14");
-
-        let keys = help_keys(Focus::List, true, FormatView::Rendered, None);
-        assert!(keys.contains(&("←→", "group")));
+    fn the_swatch_comes_before_the_marker_which_stays_inside_the_list() {
+        let mut view = RowView::plain("color_blue", text("\"#0000ff\"", false));
+        view.marker = Marker::Unsaved;
+        assert_eq!(trailer_columns(&view, 30, 80), (32, 32));
+        view.swatch = Some((0, 0, 255));
+        assert_eq!(trailer_columns(&view, 30, 80), (32, 36));
+        // Too little room pulls the marker back over the gap.
+        assert_eq!(trailer_columns(&view, 30, 40), (32, 31));
     }
 
     #[test]
-    fn the_sidebar_marks_the_section_shown_and_unsaved_edits() {
+    fn the_screen_is_centered_with_the_menu_beside_the_rows() {
+        let items: Vec<String> = editor(&[])
+            .sections()
+            .iter()
+            .map(|s| s.title().to_string())
+            .collect();
+        // "Keys and ordering" is the longest item.
+        let layout = Layout::new(30, 200, &items, None).unwrap();
+        assert_eq!(layout.menu_width, 17 + 4);
+        assert_eq!(layout.width, 21 + 2 + 80);
+        assert_eq!(layout.x, (200 - 103) / 2);
+        assert_eq!(layout.content_x, layout.x + 23);
+        assert_eq!(layout.content_width, 80);
+        assert_eq!((layout.body_y, layout.body_height), (4, 22));
+        assert_eq!(layout.footer_y, 26);
+
+        let layout = Layout::new(30, 60, &items, None).unwrap();
+        assert_eq!((layout.x, layout.menu_width), (0, 20));
+        assert_eq!(layout.content_width, 38);
+
+        assert_eq!(Layout::new(MIN_ROWS - 1, 80, &items, None), None);
+        assert_eq!(Layout::new(30, MIN_COLS - 1, &items, None), None);
+    }
+
+    #[test]
+    fn a_previewed_list_has_the_preview_right_under_its_rows() {
+        let items = vec!["Theme".to_string()];
+        let layout = Layout::new(30, 120, &items, Some(3)).unwrap();
+        assert_eq!(layout.list_height, 3);
+        assert_eq!(layout.preview_y, Some(layout.body_y + 4));
+
+        // A long list leaves room for the preview at the bottom.
+        let layout = Layout::new(30, 120, &items, Some(100)).unwrap();
+        assert_eq!(
+            layout.list_height,
+            30 - HEADER_ROWS - FOOTER_ROWS - PREVIEW_ROWS
+        );
+    }
+
+    #[test]
+    fn the_menu_marks_sections_with_unsaved_edits() {
         let mut editor = editor(&[]);
         editor.submit(
             &Field::Value {
@@ -1134,38 +1186,66 @@ mod tests {
             },
             "#0000ff",
         );
-        assert_eq!(editor.section(), Section::Group("Colors"));
-        let line = sidebar_line(&editor, Section::Group("Colors"), 20);
-        assert_eq!(line.text, "▸ Colors ●");
-        assert_eq!(line.edited, Some(9..10));
-        let line = sidebar_line(&editor, Section::Group("Fitting"), 20);
-        assert_eq!(line.text, "  Fitting");
-        assert_eq!(line.edited, None);
+        let items = menu_items(&editor);
+        assert!(items.contains(&"Colors ●".to_string()));
+        assert!(items.contains(&"Fitting".to_string()));
     }
 
     #[test]
-    fn the_footer_names_the_keys_for_the_focused_side_and_the_view() {
-        let sidebar = help_keys(Focus::Sidebar, false, FormatView::Rendered, None);
-        assert!(sidebar.contains(&("→", "options")));
-        assert!(sidebar.contains(&("r", "raw formats")));
-        let list = help_keys(Focus::List, false, FormatView::Raw, None);
-        assert!(list.contains(&("←", "groups")));
-        assert!(list.contains(&("r", "rendered formats")));
-        assert!(title(&editor(&[]), FormatView::Raw).contains("formats raw"));
-        assert!(title(&editor(&[]), FormatView::Rendered).contains("formats rendered"));
+    fn the_header_counts_the_unsaved_changes_and_names_the_buttons() {
+        assert_eq!(unsaved_text(0), "0 unsaved changes");
+        assert_eq!(unsaved_text(1), "1 unsaved change");
+        let buttons = header_buttons(FormatView::Rendered);
+        assert_eq!(buttons[0], ("<Ctrl a>", "save", Command::Save));
+        assert_eq!(buttons[2].1, "raw formats");
+        assert_eq!(header_buttons(FormatView::Raw)[2].1, "rendered formats");
+        assert_eq!(overrides_button(true).1, "hide overrides");
     }
 
     #[test]
-    fn the_footer_explains_the_selected_row() {
+    fn the_help_line_lists_the_keys_for_what_has_focus() {
+        let browsing = |focus, text_row, searching| {
+            help_hints(HelpState::Browsing {
+                focus,
+                text_row,
+                searching,
+            })
+        };
+        let list = browsing(Focus::List, false, false);
+        assert!(list.contains(&("<Space>", "change")));
+        assert!(list.contains(&("<r>", "revert")));
+        assert!(list.contains(&("<Esc>", "close")));
+        assert!(browsing(Focus::List, true, false).contains(&("<Enter>", "edit")));
+        assert!(browsing(Focus::List, false, true).contains(&("<Esc>", "end search")));
+        assert!(browsing(Focus::Sidebar, false, false).contains(&("<Tab>", "settings")));
+        assert_eq!(
+            browsing(Focus::Search, false, true),
+            [("<↓>", "results"), ("<Esc>", "end search")]
+        );
+        assert_eq!(help_hints(HelpState::Editing)[0], ("<Enter>", "apply"));
+
+        let (line, keys) = hint_line("Help: ", &[("<a>", "one"), ("<b>", "two")], 80);
+        assert_eq!(line, "Help: <a> - one, <b> - two");
+        assert_eq!(keys, [6..9, 17..20]);
+        // Hints that do not fit are left out whole.
+        let (line, keys) = hint_line("Help: ", &[("<a>", "one"), ("<b>", "two")], 20);
+        assert_eq!(line, "Help: <a> - one");
+        assert_eq!(keys.len(), 1);
+    }
+
+    #[test]
+    fn the_description_explains_the_selected_row() {
         let mut editor = editor(&[("color_blue", "#0000ff")]);
         editor.submit(&Field::NewKey, "key_order");
-        let text = describe(&editor);
-        assert!(text.starts_with("How keys within a hint are ordered. Default qwerty."));
-        assert!(text.contains("qwerty / dvorak"));
+        let text = describe(&editor).unwrap();
+        assert!(text.starts_with("How keys within a hint are ordered"));
+        assert!(text.ends_with("(default: qwerty)"));
         editor.submit(&Field::NewKey, "color_blue");
-        assert!(describe(&editor).contains("color_<name>"));
+        assert!(describe(&editor).unwrap().contains("color_<name>"));
         editor.focus = Focus::Sidebar;
-        assert_eq!(describe(&editor), "The Colors options. Enter shows them.");
+        assert_eq!(describe(&editor), None);
+        assert_eq!(match_text(1), "1 match");
+        assert_eq!(match_text(0), "0 matches");
     }
 
     fn mode_info(mode: InputMode) -> ModeInfo {
@@ -1232,40 +1312,7 @@ mod tests {
             preview_caption(3, false),
             "Preview · without your 3 overrides"
         );
-    }
-
-    #[test]
-    fn a_previewed_list_has_the_preview_right_under_its_rows() {
-        let layout = Layout::new(30, 120, &GROUPS, Some(3));
-        assert_eq!(layout.list_height, 3);
-        assert_eq!(layout.preview_y, Some(layout.list_y + 4));
-        let caption = layout.preview_y.unwrap();
-        assert_eq!(layout.place(caption, layout.list_x), Some(Place::Preview));
-        assert_eq!(layout.place(caption - 1, layout.list_x), None);
-
-        // A long list leaves room for the preview at the bottom.
-        let layout = Layout::new(30, 120, &GROUPS, Some(100));
-        assert_eq!(
-            layout.list_height,
-            30 - HEADER_LINES - FOOTER_LINES - PREVIEW_LINES
-        );
-
-        // Too short a pane drops the preview.
-        let layout = Layout::new(
-            HEADER_LINES + FOOTER_LINES + PREVIEW_LINES,
-            120,
-            &GROUPS,
-            Some(3),
-        );
-        assert_eq!(layout.preview_y, None);
-    }
-
-    #[test]
-    fn the_footer_names_the_overrides_toggle_beside_the_preview() {
-        let keys = help_keys(Focus::List, false, FormatView::Rendered, Some(true));
-        let at = keys.iter().position(|key| *key == ("o", "hide overrides"));
-        assert_eq!(at, Some(keys.len() - 3));
-        let keys = help_keys(Focus::Sidebar, false, FormatView::Rendered, Some(false));
-        assert!(keys.contains(&("o", "show overrides")));
+        assert!(is_previewed(Section::Group("Theme")));
+        assert!(!is_previewed(Section::Group("Colors")));
     }
 }
