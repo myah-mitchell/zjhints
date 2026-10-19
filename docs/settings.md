@@ -84,6 +84,7 @@ Each row of the list shows an option and its value. An option you have not set s
 | `Enter` or `Space` | In the sidebar, move to the list; in the list, toggle a true/false option, step through a fixed set of values, or start typing a value |
 | `Del`, `Backspace` or `d` | Reset the option to its default by removing it from the alias |
 | `r` | Switch format strings between rendered and raw |
+| `o` | In the *Theme* group, show or hide your overrides in the preview |
 | `s` | Save; `Ctrl s` also works in locked mode, where Zellij does not take it for scroll mode |
 | `Esc` or `q` | Close, asking first when there are unsaved edits |
 
@@ -112,6 +113,12 @@ Press **r** to show every format string as written, and again to go back. The ti
 A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it. The alias can be one of yours or one the selected theme defines.
 
 ![The settings screen on the Colors group. Each row names a color alias, such as color_accent with the value #f5c2e7, and ends in a swatch of that color. The color_accent row is selected and marked as edited](img/settings-colors.svg)
+
+### Theme preview
+
+The *Theme* group draws a bar under its three options, as your bars would draw it with the themes selected there. It uses the session's current mode, keybindings and Zellij theme, so `color_theme zellij` shows the colors you have now. Options that hide the whole bar, such as `hidden`, are left out of the preview.
+
+Any key you set that a selected theme sets too, such as `color_accent` or `desc_format`, overrides the theme. The caption over the bar counts them. Press **o**, or click the caption, to draw the bar without them and see the themes on their own; press it again to put them back. Hiding them changes only the preview, not your settings.
 
 ### Keys outside the fixed options
 

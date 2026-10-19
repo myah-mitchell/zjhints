@@ -56,6 +56,11 @@ pub struct SettingsScreen {
     shown_section: Option<Section>,
     /// What the pointer was last over, so the scroll wheel scrolls that.
     pointer: Option<Place>,
+    /// The session's mode, keybindings and Zellij theme, which the preview
+    /// draws the bar in.
+    mode_info: Option<ModeInfo>,
+    /// The preview leaves out the user's overrides of the themes.
+    overrides_hidden: bool,
 }
 
 impl SettingsScreen {
@@ -81,6 +86,9 @@ impl SettingsScreen {
             EventType::ConfigWasWrittenToDisk,
             EventType::FailedToWriteConfigToDisk,
             EventType::ConfigFileChangedSinceRead,
+            // For the preview.
+            EventType::ModeUpdate,
+            EventType::InitialKeybinds,
         ]);
     }
 
@@ -97,6 +105,24 @@ impl SettingsScreen {
                 true
             }
             Event::Key(key) => self.handle_key(key),
+            Event::ModeUpdate(mut mode_info) => {
+                // With `InitialKeybinds` subscribed, the keybindings arrive
+                // on their own rather than with every mode.
+                if let Some(previous) = &self.mode_info {
+                    if mode_info.keybinds.is_empty() {
+                        mode_info.keybinds = previous.keybinds.clone();
+                    }
+                }
+                let changed = self.mode_info.as_ref() != Some(&mode_info);
+                self.mode_info = Some(mode_info);
+                changed && self.shows_preview()
+            }
+            Event::InitialKeybinds(keybinds) => {
+                self.mode_info
+                    .get_or_insert_with(ModeInfo::default)
+                    .keybinds = keybinds;
+                self.shows_preview()
+            }
             Event::Mouse(mouse) => self.handle_mouse(mouse),
             Event::ConfigWasWrittenToDisk if self.waiting.is_some() => {
                 let done = match self.waiting.take() {
@@ -134,6 +160,11 @@ impl SettingsScreen {
             }
             _ => false,
         }
+    }
+
+    /// Whether the list on screen has the preview under it.
+    fn shows_preview(&self) -> bool {
+        matches!(&self.editor, Some(Ok(editor)) if is_previewed(editor.section()))
     }
 
     /// Read the aliases fresh and start editing.
@@ -208,6 +239,10 @@ impl SettingsScreen {
             BareKey::Backspace | BareKey::Delete | BareKey::Char('d') => editor.reset_selected(),
             BareKey::Char('r') => {
                 self.view = self.view.toggled();
+                return true;
+            }
+            BareKey::Char('o') if is_previewed(editor.section()) => {
+                self.overrides_hidden = !self.overrides_hidden;
                 return true;
             }
             BareKey::Esc | BareKey::Char('q') => {
@@ -285,6 +320,10 @@ impl SettingsScreen {
                         } else {
                             editor.select(row)
                         }
+                    }
+                    Some(Place::Preview) => {
+                        self.overrides_hidden = !self.overrides_hidden;
+                        return true;
                     }
                     Some(Place::Previous) => editor.cycle_section(-1),
                     Some(Place::Next) => editor.cycle_section(1),
@@ -468,7 +507,9 @@ impl SettingsScreen {
 
         let sections = editor.sections();
         let titles: Vec<&str> = sections.iter().map(|section| section.title()).collect();
-        let layout = Layout::new(rows, cols, &titles);
+        let list = editor.rows();
+        let preview_rows = is_previewed(editor.section()).then_some(list.len());
+        let layout = Layout::new(rows, cols, &titles, preview_rows);
         if layout.is_collapsed() {
             // Nothing to focus but the list without a sidebar.
             editor.focus = Focus::List;
@@ -529,7 +570,6 @@ impl SettingsScreen {
             }
         }
 
-        let list = editor.rows();
         let scroll = self.scroll.get_or_insert_with(|| ScrollView::new(0));
         scroll.set_total_rows(list.len());
         scroll.layout(
@@ -592,6 +632,22 @@ impl SettingsScreen {
         }
         scroll.render_indicators();
 
+        if let (Some(y), Some(mode_info)) = (layout.preview_y, &self.mode_info) {
+            let shown = !self.overrides_hidden;
+            let configuration = editor.working();
+            let overrides = view::theme_overrides(configuration, Some(&mode_info.style.colors));
+            let caption = view::preview_caption(overrides.len(), shown);
+            print_text_with_coordinates(
+                Text::from(view::truncate(&caption, width)).dim_all(),
+                layout.list_x,
+                y,
+                None,
+                None,
+            );
+            let bar = view::theme_preview(configuration, mode_info, shown, width);
+            print_ansi(layout.list_x, y + 1, &bar);
+        }
+
         let footer = rows.saturating_sub(FOOTER_LINES);
         print_text_with_coordinates(
             Text::from(view::truncate(&view::describe(editor), cols)).dim_all(),
@@ -619,7 +675,12 @@ impl SettingsScreen {
                 ("Esc", "cancel"),
             ],
             (None, Some(_)) => vec![("Enter", "set"), ("Esc", "cancel")],
-            (None, None) => view::help_keys(editor.focus, layout.is_collapsed(), self.view),
+            (None, None) => view::help_keys(
+                editor.focus,
+                layout.is_collapsed(),
+                self.view,
+                layout.preview_y.map(|_| !self.overrides_hidden),
+            ),
         };
         if let Some(question) = self.question {
             let prompt = match question {
@@ -674,6 +735,11 @@ fn help(keys: &[(&str, &str)], cols: usize) -> Text {
         .into_iter()
         .filter(|range| range.end <= visible)
         .fold(Text::from(&line), |text, range| text.color_range(3, range))
+}
+
+/// Whether the list of `section` has a preview of the bar under it.
+fn is_previewed(section: Section) -> bool {
+    section == Section::Group(view::PREVIEW_GROUP)
 }
 
 fn is_plain(key: &KeyWithModifier, bare: BareKey) -> bool {

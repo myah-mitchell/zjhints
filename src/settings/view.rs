@@ -7,7 +7,7 @@ use super::options::{self, Kind, FAMILIES};
 use crate::format;
 use std::collections::BTreeMap;
 use std::ops::Range;
-use zellij_tile::prelude::{BareKey, KeyWithModifier};
+use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo, Styling};
 
 /// Lines above the body: the title and a blank line.
 pub const HEADER_LINES: usize = 2;
@@ -21,6 +21,11 @@ pub const NAME_COLUMNS: usize = 21;
 /// previous section. The arrows are not East Asian Ambiguous, so they are one
 /// column in every terminal and the click lands where the arrow is drawn.
 const PREVIOUS: &str = "‹ ";
+/// The group whose list a preview of the bar follows.
+pub const PREVIEW_GROUP: &str = "Theme";
+/// Lines the preview takes under the list: a blank line, its caption and the
+/// bar.
+pub const PREVIEW_LINES: usize = 3;
 /// The fewest columns the list keeps beside the sidebar. A narrower pane
 /// folds the sidebar into a line over the list.
 const MIN_LIST_COLUMNS: usize = 40;
@@ -61,6 +66,9 @@ pub struct Layout {
     pub list_y: usize,
     pub list_width: usize,
     pub list_height: usize,
+    /// The line the preview's caption is on, the bar on the line after it,
+    /// when the list has a preview and there is room for it.
+    pub preview_y: Option<usize>,
 }
 
 /// What a click at some spot lands on.
@@ -71,14 +79,17 @@ pub enum Place {
     /// The arrow at the start of the header line, which shows the previous
     /// section.
     Previous,
+    /// The preview's caption, which shows or hides the overrides.
+    Preview,
     /// The rest of the header line, which shows the next section.
     Next,
 }
 
 impl Layout {
     /// The layout for a pane of `rows` by `cols`, whose sidebar lists
-    /// `titles`.
-    pub fn new(rows: usize, cols: usize, titles: &[&str]) -> Self {
+    /// `titles`. With `preview_rows`, the list of that many rows has a
+    /// preview right under it.
+    pub fn new(rows: usize, cols: usize, titles: &[&str], preview_rows: Option<usize>) -> Self {
         let body_height = rows.saturating_sub(HEADER_LINES + FOOTER_LINES);
         // "▸ " before a title and " ●" after it.
         let sidebar = titles
@@ -88,7 +99,7 @@ impl Layout {
             .unwrap_or(0);
         // The sidebar's border and a space after it.
         let list_x = sidebar + 2;
-        if cols >= list_x + MIN_LIST_COLUMNS {
+        let layout = if cols >= list_x + MIN_LIST_COLUMNS {
             Layout {
                 sidebar: Some(sidebar),
                 body_y: HEADER_LINES,
@@ -97,6 +108,7 @@ impl Layout {
                 list_y: HEADER_LINES,
                 list_width: cols - list_x,
                 list_height: body_height,
+                preview_y: None,
             }
         } else {
             Layout {
@@ -107,7 +119,20 @@ impl Layout {
                 list_y: HEADER_LINES + 1,
                 list_width: cols,
                 list_height: body_height.saturating_sub(1),
+                preview_y: None,
             }
+        };
+        match preview_rows {
+            // Too short a pane keeps the list over the preview.
+            Some(count) if layout.list_height > PREVIEW_LINES => {
+                let list_height = count.clamp(1, layout.list_height - PREVIEW_LINES);
+                Layout {
+                    list_height,
+                    preview_y: Some(layout.list_y + list_height + 1),
+                    ..layout
+                }
+            }
+            _ => layout,
         }
     }
 
@@ -119,6 +144,9 @@ impl Layout {
     pub fn place(&self, line: usize, column: usize) -> Option<Place> {
         let in_body = (self.body_y..self.body_y + self.body_height).contains(&line);
         let in_list = (self.list_y..self.list_y + self.list_height).contains(&line);
+        if self.preview_y == Some(line) && column >= self.list_x {
+            return Some(Place::Preview);
+        }
         match self.sidebar {
             Some(sidebar) if in_body && column < sidebar => Some(Place::Sidebar),
             Some(_) if in_list && column >= self.list_x => Some(Place::List),
@@ -496,12 +524,13 @@ pub fn help_keys(
     focus: Focus,
     collapsed: bool,
     view: FormatView,
+    overrides_shown: Option<bool>,
 ) -> Vec<(&'static str, &'static str)> {
     let toggle = match view {
         FormatView::Rendered => ("r", "raw formats"),
         FormatView::Raw => ("r", "rendered formats"),
     };
-    match (focus, collapsed) {
+    let mut keys = match (focus, collapsed) {
         (_, true) => vec![
             ("↑↓", "move"),
             ("←→", "group"),
@@ -527,6 +556,86 @@ pub fn help_keys(
             ("s", "save"),
             ("Esc", "close"),
         ],
+    };
+    if let Some(shown) = overrides_shown {
+        let action = if shown {
+            "hide overrides"
+        } else {
+            "show overrides"
+        };
+        // Beside the other view toggle, before save.
+        let at = keys.len() - 2;
+        keys.insert(at, ("o", action));
+    }
+    keys
+}
+
+/// The keys of `configuration` that take the place of a value the selected
+/// themes set, in key order.
+pub fn theme_overrides(
+    configuration: &BTreeMap<String, String>,
+    zellij_palette: Option<&Styling>,
+) -> Vec<String> {
+    let is_theme = |key: &str| {
+        options::OPTIONS
+            .iter()
+            .any(|option| option.group == PREVIEW_GROUP && option.name == key)
+    };
+    let themes: BTreeMap<String, String> = configuration
+        .iter()
+        .filter(|(key, _)| is_theme(key))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    let themed = crate::theme::layer(&themes, zellij_palette);
+    configuration
+        .keys()
+        .filter(|key| !is_theme(key) && themed.contains_key(*key))
+        .cloned()
+        .collect()
+}
+
+/// The bar as `configuration` draws it `width` columns wide, in the mode,
+/// keybindings and Zellij theme of `mode_info`, and with the user's
+/// overrides of the themes left out unless `overrides_shown`.
+pub fn theme_preview(
+    configuration: &BTreeMap<String, String>,
+    mode_info: &ModeInfo,
+    overrides_shown: bool,
+    width: usize,
+) -> String {
+    let palette = mode_info.style.colors;
+    let mut shown = configuration.clone();
+    if !overrides_shown {
+        for key in theme_overrides(configuration, Some(&palette)) {
+            shown.remove(&key);
+        }
+    }
+    // Options that hide the whole bar would leave nothing to preview.
+    for key in ["hidden", "hide_in_base_mode", "hide_when_nested"] {
+        shown.remove(key);
+    }
+    let mut state = crate::State {
+        zellij_palette: Some(palette),
+        pane_width: Some(width),
+        ..Default::default()
+    };
+    state.apply_configuration(shown);
+    state.mode_info = mode_info.clone();
+    state.draw_bar().0
+}
+
+/// The line over the preview, saying whether it draws the user's overrides
+/// of the themes and how many there are.
+pub fn preview_caption(overrides: usize, shown: bool) -> String {
+    let noun = if overrides == 1 {
+        "override"
+    } else {
+        "overrides"
+    };
+    match (overrides, shown) {
+        (0, _) => "Preview · no overrides".to_string(),
+        (_, true) => format!("Preview · with your {overrides} {noun}"),
+        (_, false) => format!("Preview · without your {overrides} {noun}"),
     }
 }
 
@@ -602,7 +711,8 @@ mod tests {
     use super::*;
     use crate::settings::editor::Field;
     use crate::settings::options::GROUPS;
-    use zellij_tile::prelude::{PluginAliasEntry, PluginEntry};
+    use zellij_tile::prelude::actions::Action;
+    use zellij_tile::prelude::{InputMode, PluginAliasEntry, PluginEntry};
 
     fn editor(configuration: &[(&str, &str)]) -> Editor {
         Editor::new(
@@ -970,7 +1080,7 @@ mod tests {
 
     #[test]
     fn a_wide_pane_has_a_sidebar_beside_the_list() {
-        let layout = Layout::new(30, 120, &GROUPS);
+        let layout = Layout::new(30, 120, &GROUPS, None);
         // "Keys and ordering" is the longest title.
         assert_eq!(layout.sidebar, Some(21));
         assert_eq!((layout.list_x, layout.list_width), (23, 97));
@@ -980,12 +1090,12 @@ mod tests {
         assert_eq!(layout.place(5, 21), None);
         assert_eq!(layout.place(0, 3), None);
         assert_eq!(layout.place(28, 30), None);
-        assert!(!Layout::new(30, 63, &GROUPS).is_collapsed());
+        assert!(!Layout::new(30, 63, &GROUPS, None).is_collapsed());
     }
 
     #[test]
     fn a_narrow_pane_folds_the_sidebar_into_a_header_line() {
-        let layout = Layout::new(30, 62, &GROUPS);
+        let layout = Layout::new(30, 62, &GROUPS, None);
         assert!(layout.is_collapsed());
         assert_eq!((layout.list_x, layout.list_width), (0, 62));
         assert_eq!((layout.list_y, layout.list_height), (3, 24));
@@ -998,7 +1108,7 @@ mod tests {
         editor.cycle_section(-1);
         assert_eq!(header_line(&editor, 61).text, "‹ Other ›  14 of 14");
 
-        let keys = help_keys(Focus::List, true, FormatView::Rendered);
+        let keys = help_keys(Focus::List, true, FormatView::Rendered, None);
         assert!(keys.contains(&("←→", "group")));
     }
 
@@ -1022,10 +1132,10 @@ mod tests {
 
     #[test]
     fn the_footer_names_the_keys_for_the_focused_side_and_the_view() {
-        let sidebar = help_keys(Focus::Sidebar, false, FormatView::Rendered);
+        let sidebar = help_keys(Focus::Sidebar, false, FormatView::Rendered, None);
         assert!(sidebar.contains(&("→", "options")));
         assert!(sidebar.contains(&("r", "raw formats")));
-        let list = help_keys(Focus::List, false, FormatView::Raw);
+        let list = help_keys(Focus::List, false, FormatView::Raw, None);
         assert!(list.contains(&("←", "groups")));
         assert!(list.contains(&("r", "rendered formats")));
         assert!(title(&editor(&[]), FormatView::Raw).contains("formats raw"));
@@ -1043,5 +1153,106 @@ mod tests {
         assert!(describe(&editor).contains("color_<name>"));
         editor.focus = Focus::Sidebar;
         assert_eq!(describe(&editor), "The Colors options. Enter shows them.");
+    }
+
+    fn mode_info(mode: InputMode) -> ModeInfo {
+        ModeInfo {
+            mode,
+            base_mode: Some(InputMode::Normal),
+            keybinds: vec![(
+                InputMode::Normal,
+                vec![(KeyWithModifier::new(BareKey::Char('q')), vec![Action::Quit])],
+            )],
+            ..Default::default()
+        }
+    }
+
+    fn config_of(entries: &[(&str, &str)]) -> BTreeMap<String, String> {
+        entries
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn overrides_are_the_keys_a_theme_sets_that_the_user_sets_too() {
+        let configuration = config_of(&[
+            ("color_theme", "nord"),
+            ("format_theme", "flat"),
+            ("color_accent", "#ebcb8b"),
+            ("desc_format", "{desc}"),
+            ("color_mine", "#123456"),
+            ("max_length", "80"),
+        ]);
+        assert_eq!(
+            theme_overrides(&configuration, None),
+            vec!["color_accent", "desc_format"]
+        );
+
+        // With every theme left at zellij and no palette, nothing is set to
+        // override.
+        let plain = config_of(&[("key_format", "{key}"), ("color_accent", "#ff0000")]);
+        assert!(theme_overrides(&plain, None).is_empty());
+    }
+
+    #[test]
+    fn the_preview_draws_the_bar_with_or_without_the_overrides() {
+        let configuration = config_of(&[
+            ("format_theme", "plain"),
+            ("key_format", "<{key}>"),
+            ("hidden", "true"),
+        ]);
+        let mode_info = mode_info(InputMode::Normal);
+        let with = theme_preview(&configuration, &mode_info, true, 80);
+        let without = theme_preview(&configuration, &mode_info, false, 80);
+        // Drawn although `hidden` is set.
+        assert!(with.contains("<q>"), "{with:?}");
+        assert!(!without.contains("<q>"), "{without:?}");
+        assert!(without.contains('q'), "{without:?}");
+    }
+
+    #[test]
+    fn the_caption_says_whether_the_overrides_are_drawn() {
+        assert_eq!(preview_caption(0, true), "Preview · no overrides");
+        assert_eq!(preview_caption(1, true), "Preview · with your 1 override");
+        assert_eq!(
+            preview_caption(3, false),
+            "Preview · without your 3 overrides"
+        );
+    }
+
+    #[test]
+    fn a_previewed_list_has_the_preview_right_under_its_rows() {
+        let layout = Layout::new(30, 120, &GROUPS, Some(3));
+        assert_eq!(layout.list_height, 3);
+        assert_eq!(layout.preview_y, Some(layout.list_y + 4));
+        let caption = layout.preview_y.unwrap();
+        assert_eq!(layout.place(caption, layout.list_x), Some(Place::Preview));
+        assert_eq!(layout.place(caption - 1, layout.list_x), None);
+
+        // A long list leaves room for the preview at the bottom.
+        let layout = Layout::new(30, 120, &GROUPS, Some(100));
+        assert_eq!(
+            layout.list_height,
+            30 - HEADER_LINES - FOOTER_LINES - PREVIEW_LINES
+        );
+
+        // Too short a pane drops the preview.
+        let layout = Layout::new(
+            HEADER_LINES + FOOTER_LINES + PREVIEW_LINES,
+            120,
+            &GROUPS,
+            Some(3),
+        );
+        assert_eq!(layout.preview_y, None);
+    }
+
+    #[test]
+    fn the_footer_names_the_overrides_toggle_beside_the_preview() {
+        let keys = help_keys(Focus::List, false, FormatView::Rendered, Some(true));
+        let at = keys.iter().position(|key| *key == ("o", "hide overrides"));
+        assert_eq!(at, Some(keys.len() - 3));
+        let keys = help_keys(Focus::Sidebar, false, FormatView::Rendered, Some(false));
+        assert!(keys.contains(&("o", "show overrides")));
     }
 }

@@ -592,7 +592,7 @@ fn settings_screen(
 
     let sections = editor.sections();
     let titles: Vec<&str> = sections.iter().map(|section| section.title()).collect();
-    let layout = Layout::new(rows, columns, &titles);
+    let layout = Layout::new(rows, columns, &titles, None);
     let sidebar = layout.sidebar.expect("room for the sidebar");
     let mut screen = Screen::new(rows, columns);
 
@@ -653,10 +653,14 @@ fn settings_screen(
     let footer = rows - FOOTER_LINES;
     screen.print_with(footer, 0, &view::describe(&editor), |_| dim);
     let mut column = 0;
-    for (position, (key, action)) in
-        view::help_keys(editor.focus, layout.is_collapsed(), FormatView::Rendered)
-            .iter()
-            .enumerate()
+    for (position, (key, action)) in view::help_keys(
+        editor.focus,
+        layout.is_collapsed(),
+        FormatView::Rendered,
+        None,
+    )
+    .iter()
+    .enumerate()
     {
         if position > 0 {
             column += 2;
