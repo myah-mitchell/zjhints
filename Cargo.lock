@@ -2629,7 +2629,7 @@ dependencies = [
 [[package]]
 name = "zellij-tile"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.4#bf1876eac93975f8855b551331b1287cc4e6a647"
+source = "git+https://github.com/myah-mitchell/zellij?branch=feat%2Fplugin-settings-entries#5b13e697302692acee9ea91234901fdd4f419aea"
 dependencies = [
  "prost",
  "serde",
@@ -2643,7 +2643,7 @@ dependencies = [
 [[package]]
 name = "zellij-tile-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.4#bf1876eac93975f8855b551331b1287cc4e6a647"
+source = "git+https://github.com/myah-mitchell/zellij?branch=feat%2Fplugin-settings-entries#5b13e697302692acee9ea91234901fdd4f419aea"
 dependencies = [
  "ansi_term",
 ]
@@ -2651,7 +2651,7 @@ dependencies = [
 [[package]]
 name = "zellij-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.4#bf1876eac93975f8855b551331b1287cc4e6a647"
+source = "git+https://github.com/myah-mitchell/zellij?branch=feat%2Fplugin-settings-entries#5b13e697302692acee9ea91234901fdd4f419aea"
 dependencies = [
  "anyhow",
  "backtrace",
