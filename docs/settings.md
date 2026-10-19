@@ -78,7 +78,7 @@ The screen is laid out like Zellij's own settings screen, and takes the same key
 - The top line names the config file. Under it, the count of unsaved changes is followed by buttons for saving, reverting, switching how format strings are shown, and closing. Click a button or press the key it names.
 - The menu on the left lists the groups, the same ones as the [configuration reference](configuration.md), with *Other* last. A group holding unsaved changes is marked with `●`.
 - The rows on the right are the options of the group selected in the menu. Each row is a widget: a toggle for a true/false option, a dropdown for a fixed set of values, and a text field for anything else.
-- The line under the rows describes the selected option and its default. The bottom line lists the keys that work right now.
+- The line under the rows describes the selected option and its default. The bottom line is a row of buttons for the keys that work right now. Click one or press the key it names.
 
 After each value comes a marker of where it comes from:
 
@@ -136,7 +136,7 @@ While typing into a field, `Enter` applies the value and `Esc` cancels. Numbers 
 
 ### With the mouse
 
-Click a group in the menu to show it. Click a row to select it and act on it: a toggle flips, a dropdown opens, and a text field starts taking typing. Click outside a field you are typing into to cancel it. The scroll wheel scrolls the menu or the rows, whichever is under the pointer.
+Click a group in the menu to show it. Click a row to select it and act on it: a toggle flips, a dropdown opens, and a text field starts taking typing. Click outside a field you are typing into to cancel it. The buttons along the bottom work while you type or choose from a dropdown too, and the one for `↓` `↑` moves down. The scroll wheel scrolls the menu or the rows, whichever is under the pointer.
 
 ## Searching
 

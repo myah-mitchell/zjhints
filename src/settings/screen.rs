@@ -55,6 +55,8 @@ pub struct SettingsScreen {
     /// The buttons in the header, and the one over the preview.
     buttons: Vec<(Command, Button)>,
     overrides_button: Option<Button>,
+    /// The buttons of the help line, and the key each presses.
+    help_buttons: Vec<(Option<BareKey>, Button)>,
     /// Timers the buttons started to show a press, which come back before
     /// the one closing the screen.
     button_timers: usize,
@@ -448,18 +450,35 @@ impl SettingsScreen {
         if self.question.is_some() || self.closing {
             return false;
         }
+        // The help line's buttons work whatever is open, as their keys do.
+        let mut pressed = None;
+        let mut help_changed = false;
+        for (press, button) in &mut self.help_buttons {
+            match button.handle_mouse(mouse) {
+                UiResponse::Activated => pressed = Some(*press),
+                UiResponse::NotHandled => {}
+                _ => help_changed = true,
+            }
+        }
+        if let Some(press) = pressed {
+            self.button_timers += 1;
+            return match press {
+                Some(bare) => self.handle_key(KeyWithModifier::new(bare)),
+                None => true,
+            };
+        }
         if let Some((_, dropdown)) = &mut self.dropdown {
             let response = dropdown.handle_mouse(mouse);
             return match response {
-                UiResponse::NotHandled => false,
+                UiResponse::NotHandled => help_changed,
                 response => self.dropdown_response(response),
             };
         }
         if self.layout.is_none() {
-            return false;
+            return help_changed;
         }
         match mouse {
-            Mouse::Hover(line, column) => self.hover(line, column),
+            Mouse::Hover(line, column) => self.hover(line, column) | help_changed,
             Mouse::ScrollUp(lines) | Mouse::ScrollDown(lines) => {
                 if let Some(menu) = &mut self.menu {
                     if menu.handle_mouse(mouse) != UiResponse::NotHandled {
@@ -577,6 +596,9 @@ impl SettingsScreen {
                 changed |= button.handle_timer();
             }
             if let Some(button) = &mut self.overrides_button {
+                changed |= button.handle_timer();
+            }
+            for (_, button) in &mut self.help_buttons {
                 changed |= button.handle_timer();
             }
             return changed;
@@ -863,8 +885,7 @@ impl SettingsScreen {
                     None,
                     None,
                 );
-                let (line, keys) = view::hint_line("Help: ", &[("<Esc>", "close")], cols);
-                print_text_with_coordinates(colored_keys(&line, keys), 0, 2, None, None);
+                render_help(&mut self.help_buttons, &[("<Esc>", "close")], 0, 2, cols);
                 return;
             }
             Some(Ok(editor)) => editor,
@@ -921,15 +942,7 @@ impl SettingsScreen {
         }
         let mut x = layout.x + view::columns(&count);
         for ((key, action, _), (_, button)) in header_buttons.iter().zip(&mut self.buttons) {
-            let label = format!("{key} {action}");
-            button.set_label(Text::from(&label).color_range(3, ..key.chars().count()));
-            let width = button.natural_width();
-            if x + width > layout.x + layout.width {
-                button.clear_area();
-                continue;
-            }
-            button.render(x, 2);
-            x += width + 1;
+            x = render_button(button, key, action, x, 2, layout.x + layout.width);
         }
 
         // The menu, or the search box in its place.
@@ -1115,13 +1128,12 @@ impl SettingsScreen {
                 searching,
             }
         };
-        let (line, keys) = view::hint_line("Help: ", &view::help_hints(state), layout.width);
-        print_text_with_coordinates(
-            colored_keys(&line, keys),
+        render_help(
+            &mut self.help_buttons,
+            &view::help_hints(state),
             layout.x,
             layout.footer_y + 2,
-            None,
-            None,
+            layout.width,
         );
 
         // The open list goes over everything else.
@@ -1268,9 +1280,43 @@ fn menu_markers(menu: &SideMenu, items: &[String], layout: Layout) {
 }
 
 /// A help line with its keys in their own color.
-fn colored_keys(line: &str, keys: Vec<std::ops::Range<usize>>) -> Text {
-    keys.into_iter()
-        .fold(Text::from(line), |text, range| text.color_range(3, range))
+/// Draw `button` as "key action" at `x`, its key colored, unless it would
+/// pass `end`. Where the next button goes.
+fn render_button(
+    button: &mut Button,
+    key: &str,
+    action: &str,
+    x: usize,
+    y: usize,
+    end: usize,
+) -> usize {
+    let label = format!("{key} {action}");
+    button.set_label(Text::from(&label).color_range(3, ..key.chars().count()));
+    let width = button.natural_width();
+    if x + width > end {
+        button.clear_area();
+        return x;
+    }
+    button.render(x, y);
+    x + width + 1
+}
+
+/// Draw the help line from `x`, one button per hint, each pressing the key
+/// it names when clicked. Hints that do not fit in `width` are left out.
+fn render_help(
+    buttons: &mut Vec<(Option<BareKey>, Button)>,
+    hints: &[(&str, &str)],
+    x: usize,
+    y: usize,
+    width: usize,
+) {
+    buttons.truncate(hints.len());
+    buttons.resize_with(hints.len(), || (None, Button::new("")));
+    let mut next = x;
+    for ((key, action), (press, button)) in hints.iter().zip(buttons.iter_mut()) {
+        *press = view::hint_press(key);
+        next = render_button(button, key, action, next, y, x + width);
+    }
 }
 
 /// Draw ANSI at a column and line of the pane, from a clean style.

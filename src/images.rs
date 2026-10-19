@@ -578,24 +578,6 @@ fn fit(text: &str, width: usize) -> String {
     format!("{cut}{}", " ".repeat(pad))
 }
 
-/// A help or header line, its keys in the key color.
-fn print_hints(
-    screen: &mut Screen,
-    y: usize,
-    x: usize,
-    line: &str,
-    keys: &[std::ops::Range<usize>],
-    pens: &WidgetPens,
-) {
-    screen.print_with(y, x, line, |index| {
-        if keys.iter().any(|range| range.contains(&index)) {
-            pens.emphasis[3]
-        } else {
-            pens.plain
-        }
-    });
-}
-
 /// A button as Zellij draws one, `[ label ]`, its key in the key color.
 /// The columns it took.
 fn print_button(
@@ -616,6 +598,25 @@ fn print_button(
         }
     });
     view::columns(&label)
+}
+
+/// Buttons in a row from `x`, leaving out any that would pass `end`, as the
+/// screen places them.
+fn print_buttons(
+    screen: &mut Screen,
+    y: usize,
+    mut x: usize,
+    end: usize,
+    buttons: &[(&str, &str)],
+    pens: &WidgetPens,
+) {
+    for (key, action) in buttons {
+        let width = view::columns(&format!("{key} {action}")) + 4;
+        if x + width > end {
+            continue;
+        }
+        x += print_button(screen, y, x, key, action, pens) + 1;
+    }
 }
 
 /// One row of the list as the widgets draw it, with its swatch and marker.
@@ -780,10 +781,9 @@ fn settings_screen(
             pens.plain
         }
     });
-    let mut x = layout.x + view::columns(&count);
-    for (key, action, _) in view::header_buttons(FormatView::Rendered) {
-        x += print_button(&mut screen, 2, x, key, action, &pens) + 1;
-    }
+    let x = layout.x + view::columns(&count);
+    let buttons = view::header_buttons(FormatView::Rendered).map(|(key, action, _)| (key, action));
+    print_buttons(&mut screen, 2, x, layout.x + layout.width, &buttons, &pens);
 
     // The menu, as Zellij's side menu draws it.
     for y in layout.body_y..layout.body_y + layout.body_height {
@@ -846,13 +846,14 @@ fn settings_screen(
         text_row: views.get(editor.selected).is_some_and(RowView::is_text),
         searching: false,
     };
-    let (line, keys) = view::hint_line("Help: ", &view::help_hints(state), layout.width);
-    print_hints(
+    let end = layout.x + layout.width;
+    let hints = view::help_hints(state);
+    print_buttons(
         &mut screen,
         layout.footer_y + 2,
         layout.x,
-        &line,
-        &keys,
+        end,
+        &hints,
         &pens,
     );
     screen
@@ -973,7 +974,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &SETTINGS_OPTIONS,
                 "hint_spacer",
                 ("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} "),
-                21,
+                22,
                 100,
             )
             .to_svg("The settings screen on the Styling group, with formats shown rendered"),
@@ -984,7 +985,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &SETTINGS_OPTIONS,
                 "color_accent",
                 ("color_accent", "#f5c2e7"),
-                21,
+                22,
                 100,
             )
             .to_svg("The settings screen on the Colors group, with a swatch beside each color"),

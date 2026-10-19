@@ -7,7 +7,6 @@ use super::editor::{Editor, Focus, Row, Section, OTHER_HEADING};
 use super::options::{self, Kind, FAMILIES};
 use crate::format;
 use std::collections::BTreeMap;
-use std::ops::Range;
 use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo, Styling};
 
 /// Rows above the body: the config file, a blank row, the unsaved count with
@@ -641,23 +640,22 @@ pub fn help_hints(state: HelpState) -> Vec<(&'static str, &'static str)> {
     }
 }
 
-/// The help line: `prefix`, then as many of `hints` as fit in `cols`, each
-/// as "key - action". The ranges are the characters of the keys, which are
-/// drawn in a color of their own.
-pub fn hint_line(prefix: &str, hints: &[(&str, &str)], cols: usize) -> (String, Vec<Range<usize>>) {
-    let mut line = prefix.to_string();
-    let mut key_ranges = Vec::new();
-    for (index, (key, action)) in hints.iter().enumerate() {
-        let separator = if index == 0 { "" } else { ", " };
-        let entry = format!("{separator}{key} - {action}");
-        if columns(&line) + columns(&entry) > cols {
-            break;
-        }
-        let key_start = line.chars().count() + separator.chars().count();
-        key_ranges.push(key_start..key_start + key.chars().count());
-        line.push_str(&entry);
-    }
-    (truncate(&line, cols), key_ranges)
+/// The key a help line button presses when clicked, from the key it names.
+/// `<↓↑>` moves down, as clicking it again keeps doing.
+pub fn hint_press(key: &str) -> Option<BareKey> {
+    let bare = match key {
+        "<↓↑>" | "<↓>" => BareKey::Down,
+        "<Enter>" => BareKey::Enter,
+        "<Esc>" => BareKey::Esc,
+        "<Tab>" => BareKey::Tab,
+        "<Space>" => BareKey::Char(' '),
+        "<Del>" => BareKey::Delete,
+        "<←>" => BareKey::Left,
+        "</>" => BareKey::Char('/'),
+        "<r>" => BareKey::Char('r'),
+        _ => return None,
+    };
+    Some(bare)
 }
 
 /// The keys of `configuration` that take the place of a value the selected
@@ -1209,14 +1207,29 @@ mod tests {
             [("<↓>", "results"), ("<Esc>", "end search")]
         );
         assert_eq!(help_hints(HelpState::Editing)[0], ("<Enter>", "apply"));
+    }
 
-        let (line, keys) = hint_line("Help: ", &[("<a>", "one"), ("<b>", "two")], 80);
-        assert_eq!(line, "Help: <a> - one, <b> - two");
-        assert_eq!(keys, [6..9, 17..20]);
-        // Hints that do not fit are left out whole.
-        let (line, keys) = hint_line("Help: ", &[("<a>", "one"), ("<b>", "two")], 20);
-        assert_eq!(line, "Help: <a> - one");
-        assert_eq!(keys.len(), 1);
+    #[test]
+    fn every_help_button_presses_the_key_it_names() {
+        let states = [Focus::Sidebar, Focus::List, Focus::Search]
+            .into_iter()
+            .flat_map(|focus| {
+                [false, true].into_iter().flat_map(move |text_row| {
+                    [false, true].map(|searching| HelpState::Browsing {
+                        focus,
+                        text_row,
+                        searching,
+                    })
+                })
+            })
+            .chain([HelpState::Editing, HelpState::Choosing]);
+        for state in states {
+            for (key, _) in help_hints(state) {
+                assert!(hint_press(key).is_some(), "{key} presses nothing");
+            }
+        }
+        assert_eq!(hint_press("<Del>"), Some(BareKey::Delete));
+        assert_eq!(hint_press("<↓↑>"), Some(BareKey::Down));
     }
 
     #[test]
