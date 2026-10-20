@@ -2,9 +2,11 @@
 name: Update dependencies
 on:
   schedule:
-    # 04:00 UTC, an hour before the nightly build, so a merged update is
-    # already in main by the time the nightly runs.
-    - cron: "0 4 * * *"
+    # 04:00 UTC on Mondays, an hour before the nightly build, so a merged
+    # update is already in main by the time the nightly runs. Weekly rather
+    # than daily: each run rebuilds the open pull request on the latest main
+    # and force-pushes it, which notifies and reruns CI every time.
+    - cron: "0 4 * * 1"
   workflow_dispatch:
 
 permissions:

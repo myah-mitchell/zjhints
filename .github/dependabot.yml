@@ -1,6 +1,6 @@
 ---
 # Dependabot is a backstop here, not the main path. Routine version updates come
-# from .github/workflows/update-deps.yml, which batches them into one nightly
+# from .github/workflows/update-deps.yml, which batches them into one weekly
 # pull request and holds the Zellij crates to patch releases — bumping those
 # past a minor breaks hints silently unless the running Zellij is upgraded too.
 #
@@ -18,7 +18,7 @@ updates:
       - security
     commit-message:
       prefix: "chore(deps)"
-    # Routine bumps belong to the nightly workflow; ignoring them here stops the
+    # Routine bumps belong to the weekly workflow; ignoring them here stops the
     # two opening competing pull requests for the same version. Security
     # updates are exempt from `ignore` and still come through.
     ignore:
