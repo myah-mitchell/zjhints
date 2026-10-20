@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The tmux mode bar with only its way out, then with every discovered binding after it</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="18" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="45" y="18" width="63" height="18" fill="#313244"/>
+<rect x="18" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="72" y="72" width="63" height="18" fill="#313244"/>
+<rect x="162" y="72" width="81" height="18" fill="#cba6f7"/>
+<rect x="243" y="72" width="54" height="18" fill="#313244"/>
+<rect x="324" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="342" y="72" width="108" height="18" fill="#313244"/>
+<rect x="477" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="495" y="72" width="99" height="18" fill="#313244"/>
+<rect x="621" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="639" y="72" width="108" height="18" fill="#313244"/>
+<rect x="774" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="792" y="72" width="63" height="18" fill="#313244"/>
+<rect x="882" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="900" y="72" width="63" height="18" fill="#313244"/>
+<rect x="990" y="72" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 135 144 153 162 171" fill="#878ca4">discover_hintsfalse</tspan></text>
+<path d="M18 18A9 9 0 0 0 18 36Z" fill="#cba6f7"/>
+<path d="M108 18A9 9 0 0 1 108 36Z" fill="#313244"/>
+<text y="31"><tspan x="18 27" fill="#1e1e2e" font-weight="bold">⎋⏎</tspan><tspan x="54 63 72 81 90 99" fill="#cba6f7" font-weight="bold">normal</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 135 144 153 162" fill="#878ca4">discover_hintstrue</tspan></text>
+<path d="M18 72A9 9 0 0 0 18 90Z" fill="#cba6f7"/>
+<path d="M135 72A9 9 0 0 1 135 90Z" fill="#313244"/>
+<path d="M162 72A9 9 0 0 0 162 90Z" fill="#cba6f7"/>
+<path d="M297 72A9 9 0 0 1 297 90Z" fill="#313244"/>
+<path d="M324 72A9 9 0 0 0 324 90Z" fill="#cba6f7"/>
+<path d="M450 72A9 9 0 0 1 450 90Z" fill="#313244"/>
+<path d="M477 72A9 9 0 0 0 477 90Z" fill="#cba6f7"/>
+<path d="M594 72A9 9 0 0 1 594 90Z" fill="#313244"/>
+<path d="M621 72A9 9 0 0 0 621 90Z" fill="#cba6f7"/>
+<path d="M747 72A9 9 0 0 1 747 90Z" fill="#313244"/>
+<path d="M774 72A9 9 0 0 0 774 90Z" fill="#cba6f7"/>
+<path d="M855 72A9 9 0 0 1 855 90Z" fill="#313244"/>
+<path d="M882 72A9 9 0 0 0 882 90Z" fill="#cba6f7"/>
+<path d="M963 72A9 9 0 0 1 963 90Z" fill="#313244"/>
+<path d="M990 72A9 9 0 0 0 990 90Z" fill="#313244"/>
+<path d="M999 72A9 9 0 0 1 999 90Z" fill="#313244"/>
+<text y="85"><tspan x="18 27 45 54" fill="#1e1e2e" font-weight="bold">⎋⏎^b</tspan><tspan x="81 90 99 108 117 126" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="162 171 180 189 198 207 216 225" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→</tspan><tspan x="252 261 270 279 288" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="324" fill="#1e1e2e" font-weight="bold">␣</tspan><tspan x="351 360 369 378 396 405 414 423 432 441" fill="#cba6f7" font-weight="bold">nextlayout</tspan><tspan x="477" fill="#1e1e2e" font-weight="bold">"</tspan><tspan x="504 513 522 531 540 558 567 576 585" fill="#cba6f7" font-weight="bold">splitdown</tspan><tspan x="621" fill="#1e1e2e" font-weight="bold">%</tspan><tspan x="648 657 666 675 684 702 711 720 729 738" fill="#cba6f7" font-weight="bold">splitright</tspan><tspan x="774" fill="#1e1e2e" font-weight="bold">,</tspan><tspan x="801 810 819 828 837 846" fill="#cba6f7" font-weight="bold">rename</tspan><tspan x="882" fill="#1e1e2e" font-weight="bold">[</tspan><tspan x="909 918 927 936 945 954" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="990" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>

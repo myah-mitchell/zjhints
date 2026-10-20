@@ -118,6 +118,13 @@ jobs:
             sudo apt-get update && sudo apt-get install -y libssl-dev
           fi
 
+      # A dependency that changes how the bar or the settings screen draws
+      # changes the docs images too. Redrawn here, they go into the PR rather
+      # than failing the test below.
+      - name: Redraw the docs images
+        if: steps.deps.outputs.changed == 'true' || steps.flake.outputs.changed == 'true'
+        run: make images
+
       # Proven green before the PR is opened, so a red PR means CI found
       # something this job did not.
       - name: Test
@@ -166,6 +173,7 @@ jobs:
             <summary>What ran before this was opened</summary>
 
             - `cargo update`, semver-compatible updates only
+            - `make images`, so any docs image the update redraws is included
             - `cargo test --all-features`
             - `cargo build --release --target=wasm32-wasip1`
             ${{ steps.flake.outputs.changed == 'true' && '- `nix flake update`, then `nix build .#default` to confirm it still resolves' || '' }}

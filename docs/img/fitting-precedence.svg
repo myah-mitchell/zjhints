@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The normal mode bar at 14 columns, keeping quit with hint_precedence tl and pane with lt</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="36" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="63" y="18" width="45" height="18" fill="#313244"/>
+<rect x="18" y="72" width="27" height="18" fill="#cba6f7"/>
+<rect x="45" y="72" width="45" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171" fill="#878ca4">hint_precedence"tl"</tspan></text>
+<path d="M36 18A9 9 0 0 0 36 36Z" fill="#cba6f7"/>
+<path d="M108 18A9 9 0 0 1 108 36Z" fill="#313244"/>
+<text y="31"><tspan x="9" fill="#cdd6f4">…</tspan><tspan x="36 45" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="72 81 90 99" fill="#cba6f7" font-weight="bold">quit</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171" fill="#878ca4">hint_precedence"lt"</tspan></text>
+<path d="M18 72A9 9 0 0 0 18 90Z" fill="#cba6f7"/>
+<path d="M90 72A9 9 0 0 1 90 90Z" fill="#313244"/>
+<text y="85"><tspan x="18 27" fill="#1e1e2e" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="108" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>

@@ -49,7 +49,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-There are 133 and they run in CI. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+They run in CI, and in every workflow that builds a release. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
 
 ### Comments that explain why
 
@@ -71,6 +71,18 @@ chore(deps): bump unicode-width
 ### Documentation
 
 New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. The reference is checked against the options the code actually reads.
+
+### Images
+
+The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `src/images.rs` from the code that draws the bar and the settings screen, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
+
+```bash
+make images    # rewrites the generated SVGs in docs/img
+```
+
+`make images` knows the SVGs it draws by a comment on their second line. It rewrites those, removes the ones it no longer draws, and leaves every other file in `docs/img` alone, so an image made by hand can live there too.
+
+The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. The nightly, release and EA workflows run the same tests, so a stale image blocks those builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 ## Pull requests
 

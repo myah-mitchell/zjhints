@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The bar as drawn while the session receives input, then dimmed while it does not</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="9" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="45" y="18" width="54" height="18" fill="#313244"/>
+<rect x="108" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="144" y="18" width="45" height="18" fill="#313244"/>
+<rect x="198" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="234" y="18" width="72" height="18" fill="#313244"/>
+<rect x="315" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="351" y="18" width="54" height="18" fill="#313244"/>
+<rect x="414" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="450" y="18" width="72" height="18" fill="#313244"/>
+<rect x="531" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="567" y="18" width="81" height="18" fill="#313244"/>
+<rect x="657" y="18" width="36" height="18" fill="#cba6f7"/>
+<rect x="693" y="18" width="54" height="18" fill="#313244"/>
+<rect x="756" y="18" width="99" height="18" fill="#cba6f7"/>
+<rect x="855" y="18" width="63" height="18" fill="#313244"/>
+<rect x="936" y="18" width="9" height="18" fill="#313244"/>
+<rect x="9" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="45" y="72" width="54" height="18" fill="#20212a"/>
+<rect x="108" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="144" y="72" width="45" height="18" fill="#20212a"/>
+<rect x="198" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="234" y="72" width="72" height="18" fill="#20212a"/>
+<rect x="315" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="351" y="72" width="54" height="18" fill="#20212a"/>
+<rect x="414" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="450" y="72" width="72" height="18" fill="#20212a"/>
+<rect x="531" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="567" y="72" width="81" height="18" fill="#20212a"/>
+<rect x="657" y="72" width="36" height="18" fill="#816f97"/>
+<rect x="693" y="72" width="54" height="18" fill="#20212a"/>
+<rect x="756" y="72" width="99" height="18" fill="#816f97"/>
+<rect x="855" y="72" width="63" height="18" fill="#20212a"/>
+<rect x="936" y="72" width="9" height="18" fill="#20212a"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 90 99 108 117 126" fill="#878ca4">receivinginput</tspan></text>
+<path d="M936 18A9 9 0 0 0 936 36Z" fill="#313244"/>
+<path d="M945 18A9 9 0 0 1 945 36Z" fill="#313244"/>
+<text y="31"><tspan x="18 27" fill="#181825" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#cdd6f4">pane</tspan><tspan x="117 126" fill="#181825" font-weight="bold">^t</tspan><tspan x="153 162 171" fill="#cdd6f4">tab</tspan><tspan x="207 216" fill="#181825" font-weight="bold">^n</tspan><tspan x="243 252 261 270 279 288" fill="#cdd6f4">resize</tspan><tspan x="324 333" fill="#181825" font-weight="bold">^h</tspan><tspan x="360 369 378 387" fill="#cdd6f4">move</tspan><tspan x="423 432" fill="#181825" font-weight="bold">^s</tspan><tspan x="459 468 477 486 495 504" fill="#cdd6f4">scroll</tspan><tspan x="540 549" fill="#181825" font-weight="bold">^o</tspan><tspan x="576 585 594 603 612 621 630" fill="#cdd6f4">session</tspan><tspan x="666 675" fill="#181825" font-weight="bold">^q</tspan><tspan x="702 711 720 729" fill="#cdd6f4">quit</tspan><tspan x="765 774 783 792 801 810 819 828 837" fill="#181825" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="864 873 882 891 900 936" fill="#cdd6f4">focus…</tspan></text>
+<text y="67"><tspan x="0 9 18 36 45 54 63 72 81 90 99 108 126 135 144 153 162 171 189 198 207 216 225 234 243 252 261 270 279 288 306 315 324 333 342" fill="#878ca4">notreceivinginput,dim_strength"0.5"</tspan></text>
+<path d="M936 72A9 9 0 0 0 936 90Z" fill="#20212a"/>
+<path d="M945 72A9 9 0 0 1 945 90Z" fill="#20212a"/>
+<text y="85"><tspan x="18 27" fill="#101016" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#878b9a">pane</tspan><tspan x="117 126" fill="#101016" font-weight="bold">^t</tspan><tspan x="153 162 171" fill="#878b9a">tab</tspan><tspan x="207 216" fill="#101016" font-weight="bold">^n</tspan><tspan x="243 252 261 270 279 288" fill="#878b9a">resize</tspan><tspan x="324 333" fill="#101016" font-weight="bold">^h</tspan><tspan x="360 369 378 387" fill="#878b9a">move</tspan><tspan x="423 432" fill="#101016" font-weight="bold">^s</tspan><tspan x="459 468 477 486 495 504" fill="#878b9a">scroll</tspan><tspan x="540 549" fill="#101016" font-weight="bold">^o</tspan><tspan x="576 585 594 603 612 621 630" fill="#878b9a">session</tspan><tspan x="666 675" fill="#101016" font-weight="bold">^q</tspan><tspan x="702 711 720 729" fill="#878b9a">quit</tspan><tspan x="765 774 783 792 801 810 819 828 837" fill="#101016" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="864 873 882 891 900 936" fill="#878b9a">focus…</tspan></text>
+</g>
+</g>
+</svg>

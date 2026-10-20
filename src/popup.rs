@@ -234,7 +234,7 @@ impl PreviewPopup {
 
     /// The popup's rows for a pane of `rows` by `cols`: the entries in a
     /// frame, or as many as fit with `…` standing for the rest.
-    fn lines(&self, rows: usize, cols: usize) -> Vec<String> {
+    pub fn lines(&self, rows: usize, cols: usize) -> Vec<String> {
         if rows <= FRAME_ROWS || cols <= FRAME_COLUMNS {
             return vec![];
         }
