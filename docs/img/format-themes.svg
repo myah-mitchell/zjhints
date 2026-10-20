@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="276" viewBox="0 0 1108 276" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The zjhints bar in each format theme, in catppuccin-mocha colors</title>
+<rect width="1108" height="276" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="153" y="18" width="54" height="18" fill="#181825"/>
+<rect x="216" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="288" y="18" width="45" height="18" fill="#181825"/>
+<rect x="342" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="414" y="18" width="72" height="18" fill="#181825"/>
+<rect x="495" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="567" y="18" width="54" height="18" fill="#181825"/>
+<rect x="630" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="702" y="18" width="72" height="18" fill="#181825"/>
+<rect x="783" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="855" y="18" width="81" height="18" fill="#181825"/>
+<rect x="945" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="1017" y="18" width="54" height="18" fill="#181825"/>
+<rect x="0" y="72" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="153" y="72" width="54" height="18" fill="#313244"/>
+<rect x="216" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="288" y="72" width="45" height="18" fill="#313244"/>
+<rect x="342" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="414" y="72" width="72" height="18" fill="#313244"/>
+<rect x="495" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="567" y="72" width="54" height="18" fill="#313244"/>
+<rect x="630" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="702" y="72" width="72" height="18" fill="#313244"/>
+<rect x="783" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="855" y="72" width="81" height="18" fill="#313244"/>
+<rect x="945" y="72" width="27" height="18" fill="#313244"/>
+<rect x="0" y="180" width="72" height="18" fill="#a6e3a1"/>
+<rect x="90" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="162" y="180" width="63" height="18" fill="#313244"/>
+<rect x="243" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="315" y="180" width="54" height="18" fill="#313244"/>
+<rect x="387" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="459" y="180" width="81" height="18" fill="#313244"/>
+<rect x="558" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="630" y="180" width="63" height="18" fill="#313244"/>
+<rect x="711" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="783" y="180" width="81" height="18" fill="#313244"/>
+<rect x="882" y="180" width="27" height="18" fill="#313244"/>
+<rect x="0" y="234" width="72" height="18" fill="#313244"/>
+<rect x="99" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="162" y="234" width="45" height="18" fill="#313244"/>
+<rect x="234" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="297" y="234" width="36" height="18" fill="#313244"/>
+<rect x="360" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="423" y="234" width="63" height="18" fill="#313244"/>
+<rect x="513" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="576" y="234" width="45" height="18" fill="#313244"/>
+<rect x="648" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="711" y="234" width="63" height="18" fill="#313244"/>
+<rect x="801" y="234" width="63" height="18" fill="#cba6f7"/>
+<rect x="864" y="234" width="72" height="18" fill="#313244"/>
+<rect x="963" y="234" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45" fill="#878ca4">zellij</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54 90 99 108 117 135" fill="#181825" font-weight="bold">NORMALCtrlp</tspan><tspan x="162 171 180 189" fill="#cdd6f4">pane</tspan><tspan x="225 234 243 252 270" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="297 306 315" fill="#cdd6f4">tab</tspan><tspan x="351 360 369 378 396" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="423 432 441 450 459 468" fill="#cdd6f4">resize</tspan><tspan x="504 513 522 531 549" fill="#181825" font-weight="bold">Ctrlh</tspan><tspan x="576 585 594 603" fill="#cdd6f4">move</tspan><tspan x="639 648 657 666 684" fill="#181825" font-weight="bold">Ctrls</tspan><tspan x="711 720 729 738 747 756" fill="#cdd6f4">scroll</tspan><tspan x="792 801 810 819 837" fill="#181825" font-weight="bold">Ctrlo</tspan><tspan x="864 873 882 891 900 909 918" fill="#cdd6f4">session</tspan><tspan x="954 963 972 981 999" fill="#181825" font-weight="bold">Ctrlq</tspan><tspan x="1026 1035 1044 1053" fill="#cdd6f4">quit</tspan></text>
+<text y="67"><tspan x="0 9 18 27" fill="#878ca4">flat</tspan></text>
+<text y="85"><tspan x="9 18 27 36 45 54 90 99 108 117 135" fill="#1e1e2e" font-weight="bold">NORMALCtrlp</tspan><tspan x="162 171 180 189" fill="#cdd6f4">pane</tspan><tspan x="225 234 243 252 270" fill="#1e1e2e" font-weight="bold">Ctrlt</tspan><tspan x="297 306 315" fill="#cdd6f4">tab</tspan><tspan x="351 360 369 378 396" fill="#1e1e2e" font-weight="bold">Ctrln</tspan><tspan x="423 432 441 450 459 468" fill="#cdd6f4">resize</tspan><tspan x="504 513 522 531 549" fill="#1e1e2e" font-weight="bold">Ctrlh</tspan><tspan x="576 585 594 603" fill="#cdd6f4">move</tspan><tspan x="639 648 657 666 684" fill="#1e1e2e" font-weight="bold">Ctrls</tspan><tspan x="711 720 729 738 747 756" fill="#cdd6f4">scroll</tspan><tspan x="792 801 810 819 837" fill="#1e1e2e" font-weight="bold">Ctrlo</tspan><tspan x="864 873 882 891 900 909 918 954" fill="#cdd6f4">session…</tspan></text>
+<text y="121"><tspan x="0 9 18 27 36" fill="#878ca4">plain</tspan></text>
+<text y="139"><tspan x="0 9 18 27 36 45" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="72 81 90 99 117" fill="#cba6f7" font-weight="bold">Ctrlp</tspan><tspan x="135 144 153 162" fill="#cdd6f4">pane</tspan><tspan x="189 198 207 216 234" fill="#cba6f7" font-weight="bold">Ctrlt</tspan><tspan x="252 261 270" fill="#cdd6f4">tab</tspan><tspan x="297 306 315 324 342" fill="#cba6f7" font-weight="bold">Ctrln</tspan><tspan x="360 369 378 387 396 405" fill="#cdd6f4">resize</tspan><tspan x="432 441 450 459 477" fill="#cba6f7" font-weight="bold">Ctrlh</tspan><tspan x="495 504 513 522" fill="#cdd6f4">move</tspan><tspan x="549 558 567 576 594" fill="#cba6f7" font-weight="bold">Ctrls</tspan><tspan x="612 621 630 639 648 657" fill="#cdd6f4">scroll</tspan><tspan x="684 693 702 711 729" fill="#cba6f7" font-weight="bold">Ctrlo</tspan><tspan x="747 756 765 774 783 792 801" fill="#cdd6f4">session</tspan><tspan x="828 837 846 855 873" fill="#cba6f7" font-weight="bold">Ctrlq</tspan><tspan x="891 900 909 918" fill="#cdd6f4">quit</tspan><tspan x="945" fill="#6c7086">…</tspan></text>
+<text y="175"><tspan x="0 9 18 27 36 45 54 63 72" fill="#878ca4">powerline</tspan></text>
+<path d="M72 180L81 189L72 198Z" fill="#a6e3a1"/>
+<path d="M162 180L171 189L162 198Z" fill="#cba6f7"/>
+<path d="M225 180L234 189L225 198Z" fill="#313244"/>
+<path d="M315 180L324 189L315 198Z" fill="#cba6f7"/>
+<path d="M369 180L378 189L369 198Z" fill="#313244"/>
+<path d="M459 180L468 189L459 198Z" fill="#cba6f7"/>
+<path d="M540 180L549 189L540 198Z" fill="#313244"/>
+<path d="M630 180L639 189L630 198Z" fill="#cba6f7"/>
+<path d="M693 180L702 189L693 198Z" fill="#313244"/>
+<path d="M783 180L792 189L783 198Z" fill="#cba6f7"/>
+<path d="M864 180L873 189L864 198Z" fill="#313244"/>
+<path d="M909 180L918 189L909 198Z" fill="#313244"/>
+<text y="193"><tspan x="9 18 27 36 45 54 99 108 117 126 144" fill="#1e1e2e" font-weight="bold">NORMALCtrlp</tspan><tspan x="180 189 198 207" fill="#cdd6f4">pane</tspan><tspan x="252 261 270 279 297" fill="#1e1e2e" font-weight="bold">Ctrlt</tspan><tspan x="333 342 351" fill="#cdd6f4">tab</tspan><tspan x="396 405 414 423 441" fill="#1e1e2e" font-weight="bold">Ctrln</tspan><tspan x="477 486 495 504 513 522" fill="#cdd6f4">resize</tspan><tspan x="567 576 585 594 612" fill="#1e1e2e" font-weight="bold">Ctrlh</tspan><tspan x="648 657 666 675" fill="#cdd6f4">move</tspan><tspan x="720 729 738 747 765" fill="#1e1e2e" font-weight="bold">Ctrls</tspan><tspan x="801 810 819 828 837 846 891" fill="#cdd6f4">scroll…</tspan></text>
+<text y="229"><tspan x="0 9 18 27 36" fill="#878ca4">pills</tspan></text>
+<path d="M72 234A9 9 0 0 1 72 252Z" fill="#313244"/>
+<path d="M99 234A9 9 0 0 0 99 252Z" fill="#cba6f7"/>
+<path d="M207 234A9 9 0 0 1 207 252Z" fill="#313244"/>
+<path d="M234 234A9 9 0 0 0 234 252Z" fill="#cba6f7"/>
+<path d="M333 234A9 9 0 0 1 333 252Z" fill="#313244"/>
+<path d="M360 234A9 9 0 0 0 360 252Z" fill="#cba6f7"/>
+<path d="M486 234A9 9 0 0 1 486 252Z" fill="#313244"/>
+<path d="M513 234A9 9 0 0 0 513 252Z" fill="#cba6f7"/>
+<path d="M621 234A9 9 0 0 1 621 252Z" fill="#313244"/>
+<path d="M648 234A9 9 0 0 0 648 252Z" fill="#cba6f7"/>
+<path d="M774 234A9 9 0 0 1 774 252Z" fill="#313244"/>
+<path d="M801 234A9 9 0 0 0 801 252Z" fill="#cba6f7"/>
+<path d="M936 234A9 9 0 0 1 936 252Z" fill="#313244"/>
+<path d="M963 234A9 9 0 0 0 963 252Z" fill="#313244"/>
+<path d="M972 234A9 9 0 0 1 972 252Z" fill="#313244"/>
+<text y="247"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 108 117 126 144" fill="#1e1e2e" font-weight="bold">Ctrlp</tspan><tspan x="171 180 189 198" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="234 243 252 261 279" fill="#1e1e2e" font-weight="bold">Ctrlt</tspan><tspan x="306 315 324" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="360 369 378 387 405" fill="#1e1e2e" font-weight="bold">Ctrln</tspan><tspan x="432 441 450 459 468 477" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="513 522 531 540 558" fill="#1e1e2e" font-weight="bold">Ctrlh</tspan><tspan x="585 594 603 612" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="648 657 666 675 693" fill="#1e1e2e" font-weight="bold">Ctrls</tspan><tspan x="720 729 738 747 756 765" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="801 810 819 828 846" fill="#1e1e2e" font-weight="bold">Ctrlo</tspan><tspan x="873 882 891 900 909 918 927" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="963" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>

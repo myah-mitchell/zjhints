@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="60" viewBox="0 0 1108 60" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The zjhints bar in normal mode, with the mode shown</title>
+<rect width="1108" height="60" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="153" y="18" width="54" height="18" fill="#181825"/>
+<rect x="216" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="288" y="18" width="45" height="18" fill="#181825"/>
+<rect x="342" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="414" y="18" width="72" height="18" fill="#181825"/>
+<rect x="495" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="567" y="18" width="54" height="18" fill="#181825"/>
+<rect x="630" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="702" y="18" width="72" height="18" fill="#181825"/>
+<rect x="783" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="855" y="18" width="81" height="18" fill="#181825"/>
+<rect x="945" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="1017" y="18" width="54" height="18" fill="#181825"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 63 72 81 90" fill="#878ca4">normalmode</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54 90 99 108 117 135" fill="#181825" font-weight="bold">NORMALCtrlp</tspan><tspan x="162 171 180 189" fill="#cdd6f4">pane</tspan><tspan x="225 234 243 252 270" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="297 306 315" fill="#cdd6f4">tab</tspan><tspan x="351 360 369 378 396" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="423 432 441 450 459 468" fill="#cdd6f4">resize</tspan><tspan x="504 513 522 531 549" fill="#181825" font-weight="bold">Ctrlh</tspan><tspan x="576 585 594 603" fill="#cdd6f4">move</tspan><tspan x="639 648 657 666 684" fill="#181825" font-weight="bold">Ctrls</tspan><tspan x="711 720 729 738 747 756" fill="#cdd6f4">scroll</tspan><tspan x="792 801 810 819 837" fill="#181825" font-weight="bold">Ctrlo</tspan><tspan x="864 873 882 891 900 909 918" fill="#cdd6f4">session</tspan><tspan x="954 963 972 981 999" fill="#181825" font-weight="bold">Ctrlq</tspan><tspan x="1026 1035 1044 1053" fill="#cdd6f4">quit</tspan></text>
+</g>
+</g>
+</svg>

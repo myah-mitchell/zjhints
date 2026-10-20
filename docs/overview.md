@@ -9,8 +9,9 @@ The pages in this directory, and what each one is for. Start with the [configura
 | [Labels](labels.md) | Ids, renaming and hiding hints, per-mode labels, and merging two hints into one |
 | [Keys and ordering](ordering.md) | Which keys a hint shows, and the order of both keys and hints |
 | [Styling](styling.md) | Format strings, colors, per-hint styling, and key, modifier and chord aliases |
+| [Themes](themes.md) | Color, format and alias themes, the color aliases they define, and overriding any part of them |
 | [Fitting the bar](fitting.md) | Fitting the line to the terminal, choosing what gets dropped, and marking the gap |
-| [Mouse](mouse.md) | Right-click for Zellij's context menu, clickable hints, and menus of the hints that did not fit |
+| [Mouse](mouse.md) | Right-click for Zellij's context menu, clickable hints, menus of the hints that did not fit, and a hover preview of what a menu offers |
 | [Settings screen](settings.md) | Editing the options in a floating pane, with live preview on the bars |
 | [Hiding the bar](hiding.md) | Hiding and showing the bar from a keybinding, the right-click menu or a shell |
 | [Nested sessions](nested-sessions.md) | Running one Zellij session inside another, and running this plugin in its own pane |

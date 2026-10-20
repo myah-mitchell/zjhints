@@ -1,30 +1,13 @@
 //! The settings screen as a running plugin: reading the config, turning keys
 //! and clicks into edits, previewing them on the bars, saving, and drawing.
+//! It looks and answers keys like Zellij's own settings screen.
 
-use super::editor::{Editor, Field, Outcome, Row};
+use super::editor::{Editor, Field, Focus, Outcome, Row, Section};
 use super::live;
-use super::options::Kind;
+use super::view::{self, Command, Control, FormatView, HelpState, Layout, Marker, RowView};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zellij_utils::input::config_blocks::plugin_aliases_kdl;
-
-/// Lines above the list: the title and a blank line.
-const HEADER_LINES: usize = 2;
-/// Lines below the list: the selected row's description, a status line and
-/// the key help.
-const FOOTER_LINES: usize = 3;
-/// Columns a row's name is padded to, wide enough for the longest option
-/// name. A longer key, such as a label's, pushes its value along.
-const NAME_COLUMNS: usize = 21;
-
-/// A question waiting for an answer before anything else happens.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Question {
-    /// Closing with unsaved edits.
-    DiscardAndClose,
-    /// The file changed on disk since it was read, so saving would lose that.
-    OverwriteOrReload,
-}
 
 /// What the host is to report back on.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,28 +16,80 @@ enum Waiting {
     Reload,
 }
 
+/// What a prompt shown by the host asks.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Question {
+    RevertAll,
+    /// The file changed on disk since it was read, so saving would lose that.
+    ChangedOutside,
+}
+
+/// How long the notice about unsaved edits stays up before the screen
+/// closes.
+const CLOSE_SECONDS: f64 = 1.5;
+
+/// Where a row of the list was drawn, for the clicks after it.
+#[derive(Clone, Copy, Debug)]
+struct RowArea {
+    /// Index into `Editor::rows`.
+    row: usize,
+    area: Rect,
+}
+
 #[derive(Default)]
 pub struct SettingsScreen {
     /// The alias the `alias` option pins, if any.
     pinned_alias: Option<String>,
     /// What is being edited, or why nothing can be.
     editor: Option<Result<Editor, String>>,
+    /// The config file, as the header names it.
+    config_file: Option<String>,
     /// The value being typed, and what it is for.
     input: Option<(Field, TextInput)>,
-    question: Option<Question>,
-    /// The last thing worth telling the user, and whether it is an error.
-    status: Option<(String, bool)>,
+    /// The search box, shown in the menu's place while searching.
+    search: Option<TextInput>,
+    /// The sections down the left.
+    menu: Option<SideMenu>,
+    /// The open list of choices, and the index of its row in the list.
+    dropdown: Option<(usize, Dropdown)>,
+    /// The buttons in the header, and the one over the preview.
+    buttons: Vec<(Command, Button)>,
+    overrides_button: Option<Button>,
+    /// The buttons of the help line, and the key each presses.
+    help_buttons: Vec<(Option<BareKey>, Button)>,
+    /// Timers the buttons started to show a press, which come back before
+    /// the one closing the screen.
+    button_timers: usize,
+    /// The last thing worth telling the user.
+    notice: Option<String>,
+    /// The prompt the host is showing, by its id.
+    question: Option<(u64, Question)>,
+    /// The screen closes on the next timer or key.
+    closing: bool,
     /// The alias's configuration as the bars were last told it.
     previewed: BTreeMap<String, String>,
     /// A save or reload was asked for and its result has not come back yet.
     waiting: Option<Waiting>,
-    /// The session's aliases hold edits the file does not, because a save
-    /// put them there and did not reach the file.
-    runtime_ahead: bool,
+    /// How format strings are shown in the list.
+    view: FormatView,
+    /// Where everything went at the last render, for the clicks after it.
+    layout: Option<Layout>,
     scroll: Option<ScrollView>,
-    /// The row the list was last scrolled to show, so the view follows the
-    /// selection when it moves and the scroll wheel otherwise.
-    shown_selected: Option<usize>,
+    rows: Vec<RowArea>,
+    /// The row under the pointer.
+    hovered_row: Option<usize>,
+    /// Columns the labels of the list took at the last render, which a
+    /// field or list opened after it lines up with.
+    label_width: usize,
+    /// The section and row the list was last scrolled to show, and whether
+    /// it showed search results, so the view follows the selection when it
+    /// moves and the scroll wheel otherwise.
+    shown_selected: Option<(Section, usize, bool)>,
+    /// The session's mode, keybindings and Zellij theme, which the preview
+    /// draws the bar in.
+    mode_info: Option<ModeInfo>,
+    /// The preview leaves out the user's overrides of the themes.
+    overrides_hidden: bool,
 }
 
 impl SettingsScreen {
@@ -76,16 +111,27 @@ impl SettingsScreen {
         subscribe(&[
             EventType::Key,
             EventType::Mouse,
+            EventType::Timer,
+            EventType::BeforeClose,
+            EventType::PromptResult,
             EventType::PermissionRequestResult,
             EventType::ConfigWasWrittenToDisk,
             EventType::FailedToWriteConfigToDisk,
             EventType::ConfigFileChangedSinceRead,
+            // For the preview.
+            EventType::ModeUpdate,
+            EventType::InitialKeybinds,
         ]);
     }
 
     pub fn update(&mut self, event: Event) -> bool {
         match event {
             Event::PermissionRequestResult(PermissionStatus::Granted) => {
+                // Pinned, the screen stays up when a click lands in another
+                // pane, so it can sit beside the bar it edits without holding
+                // the keyboard. Pinning needs `ChangeApplicationState`, one
+                // of the mouse permissions asked for above.
+                set_floating_pane_pinned(PaneId::Plugin(get_plugin_ids().plugin_id), true);
                 self.read();
                 true
             }
@@ -97,17 +143,40 @@ impl SettingsScreen {
             }
             Event::Key(key) => self.handle_key(key),
             Event::Mouse(mouse) => self.handle_mouse(mouse),
+            Event::Timer(_) => self.handle_timer(),
+            Event::BeforeClose => {
+                self.keep_in_session();
+                false
+            }
+            Event::PromptResult(id, result) => self.answer(id, &result),
+            Event::ModeUpdate(mut mode_info) => {
+                // With `InitialKeybinds` subscribed, the keybindings arrive
+                // on their own rather than with every mode.
+                if let Some(previous) = &self.mode_info {
+                    if mode_info.keybinds.is_empty() {
+                        mode_info.keybinds = previous.keybinds.clone();
+                    }
+                }
+                let changed = self.mode_info.as_ref() != Some(&mode_info);
+                self.mode_info = Some(mode_info);
+                changed && self.shows_preview()
+            }
+            Event::InitialKeybinds(keybinds) => {
+                self.mode_info
+                    .get_or_insert_with(ModeInfo::default)
+                    .keybinds = keybinds;
+                self.shows_preview()
+            }
             Event::ConfigWasWrittenToDisk if self.waiting.is_some() => {
                 let done = match self.waiting.take() {
                     Some(Waiting::Reload) => "Reloaded the config file",
                     _ => "Saved",
                 };
-                self.runtime_ahead = false;
                 self.reread();
                 if let Some(Ok(editor)) = &self.editor {
                     self.previewed = editor.working().clone();
                 }
-                self.status = Some((done.to_string(), false));
+                self.notice = Some(done.to_string());
                 true
             }
             Event::FailedToWriteConfigToDisk(path) if self.waiting.is_some() => {
@@ -116,12 +185,12 @@ impl SettingsScreen {
                     _ => "write",
                 };
                 let path = path.unwrap_or_else(|| "the config file".to_string());
-                self.status = Some((format!("Could not {verb} {path}"), true));
+                self.notice = Some(format!("Could not {verb} {path}"));
                 true
             }
             Event::ConfigFileChangedSinceRead if self.waiting == Some(Waiting::Save) => {
                 self.waiting = None;
-                self.question = Some(Question::OverwriteOrReload);
+                self.ask_changed_outside();
                 true
             }
             Event::ConfigFileChangedSinceRead => {
@@ -135,10 +204,20 @@ impl SettingsScreen {
         }
     }
 
+    /// Whether the list on screen has the preview under it.
+    fn shows_preview(&self) -> bool {
+        matches!(&self.editor, Some(Ok(editor)) if view::is_previewed(editor.section()) && editor.search().is_none())
+    }
+
     /// Read the aliases fresh and start editing.
     fn read(&mut self) {
-        let aliases = read_config().blocks.plugin_aliases;
-        let editor = Editor::new(aliases, self.pinned_alias.as_deref());
+        let snapshot = read_config();
+        self.config_file = snapshot.config_file_path.clone();
+        let editor = Editor::new(
+            snapshot.blocks.plugin_aliases,
+            snapshot.saved_blocks.plugin_aliases,
+            self.pinned_alias.as_deref(),
+        );
         if let Ok(editor) = &editor {
             self.previewed = editor.working().clone();
         }
@@ -147,10 +226,15 @@ impl SettingsScreen {
 
     /// Read the aliases again after the config changed under the editor.
     fn reread(&mut self) {
-        let aliases = read_config().blocks.plugin_aliases;
+        let snapshot = read_config();
+        self.config_file = snapshot.config_file_path.clone();
         match &mut self.editor {
             Some(Ok(editor)) => {
-                if let Err(message) = editor.reread(aliases) {
+                let reread = editor.reread(
+                    snapshot.blocks.plugin_aliases,
+                    snapshot.saved_blocks.plugin_aliases,
+                );
+                if let Err(message) = reread {
                     self.editor = Some(Err(message));
                 }
             }
@@ -158,96 +242,423 @@ impl SettingsScreen {
         }
     }
 
+    fn editor_mut(&mut self) -> Option<&mut Editor> {
+        match &mut self.editor {
+            Some(Ok(editor)) => Some(editor),
+            _ => None,
+        }
+    }
+
     fn handle_key(&mut self, key: KeyWithModifier) -> bool {
-        if let Some(question) = self.question {
-            return self.answer(question, &key);
+        if self.closing {
+            close_self();
+            return false;
+        }
+        if self.question.is_some() {
+            return false;
         }
         if self.input.is_some() {
             return self.type_key(&key);
         }
-        let Some(Ok(editor)) = &mut self.editor else {
-            if is_plain(&key, BareKey::Esc) || is_plain(&key, BareKey::Char('q')) {
+        if self.dropdown.is_some() {
+            return self.choose_key(&key);
+        }
+        if key.has_modifiers(&[KeyModifier::Ctrl]) && key.key_modifiers.len() == 1 {
+            return match key.bare_key {
+                BareKey::Char('a') => self.run(Command::Save),
+                BareKey::Char('r') => self.run(Command::RevertAll),
+                _ => false,
+            };
+        }
+        let previewed = self.shows_preview();
+        let Some(editor) = self.editor_mut() else {
+            if is_plain(&key, BareKey::Esc) {
                 close_self();
             }
             return false;
         };
-        let page = self
-            .scroll
-            .as_ref()
-            .map_or(10, |scroll| scroll.viewport_height().max(1)) as isize;
-        // Ctrl s as well as s: Zellij's default keybindings take Ctrl s
-        // for scroll mode, but it reaches the screen in locked mode.
-        let is_save = key.bare_key == BareKey::Char('s')
-            && (key.key_modifiers.is_empty() || key.has_modifiers(&[KeyModifier::Ctrl]));
-        if is_save {
-            self.save();
-            return true;
+        if is_shift_tab(&key) {
+            let outcome = match editor.focus {
+                Focus::List => match editor.move_selection(-1) {
+                    Outcome::None => {
+                        let menu = editor.menu_focus();
+                        editor.set_focus(menu)
+                    }
+                    outcome => outcome,
+                },
+                _ => Outcome::None,
+            };
+            return self.carry_out(outcome);
         }
-        let outcome = match key.bare_key {
-            _ if !key.key_modifiers.is_empty() => return false,
-            BareKey::Up | BareKey::Char('k') => editor.move_selection(-1),
-            BareKey::Down | BareKey::Char('j') => editor.move_selection(1),
-            BareKey::PageUp => editor.move_selection(-page),
-            BareKey::PageDown => editor.move_selection(page),
-            BareKey::Home | BareKey::Char('g') => editor.move_selection(isize::MIN / 2),
-            BareKey::End | BareKey::Char('G') => editor.move_selection(isize::MAX / 2),
-            BareKey::Enter | BareKey::Char(' ') => editor.activate(),
-            BareKey::Backspace | BareKey::Delete | BareKey::Char('d') => editor.reset_selected(),
-            BareKey::Esc | BareKey::Char('q') => {
-                if editor.is_dirty() {
-                    self.question = Some(Question::DiscardAndClose);
-                } else {
-                    close_self();
-                }
+        if !key.key_modifiers.is_empty() {
+            return false;
+        }
+        match key.bare_key {
+            BareKey::Char('f') if editor.focus != Focus::Search => {
+                return self.run(Command::ToggleFormats)
+            }
+            BareKey::Char('o') if editor.focus != Focus::Search && previewed => {
+                self.overrides_hidden = !self.overrides_hidden;
                 return true;
             }
+            BareKey::Char('/') if editor.focus != Focus::Search => {
+                let query = editor.search().unwrap_or_default().to_string();
+                let outcome = editor.start_search(&query);
+                let mut search = TextInput::new(query).search_mode().focused();
+                search.move_to_end();
+                self.search = Some(search);
+                return self.carry_out(outcome);
+            }
+            _ => {}
+        }
+        match editor.focus {
+            Focus::Sidebar => self.menu_key(&key),
+            Focus::Search => self.search_key(&key),
+            Focus::List => self.list_key(&key),
+        }
+    }
+
+    fn menu_key(&mut self, key: &KeyWithModifier) -> bool {
+        let Some(editor) = self.editor_mut() else {
+            return false;
+        };
+        let outcome = match key.bare_key {
+            BareKey::Up | BareKey::Char('k') => editor.move_selection(-1),
+            BareKey::Down | BareKey::Char('j') => editor.move_selection(1),
+            BareKey::Home => editor.select_section(0),
+            BareKey::End => {
+                let last = editor.sections().len() - 1;
+                editor.select_section(last)
+            }
+            BareKey::Tab | BareKey::Right | BareKey::Char('l') | BareKey::Enter => {
+                editor.set_focus(Focus::List)
+            }
+            BareKey::Esc => return self.begin_close(),
             _ => return false,
         };
         self.carry_out(outcome)
     }
 
-    fn handle_mouse(&mut self, mouse: Mouse) -> bool {
-        if self.question.is_some() || self.input.is_some() {
-            return false;
-        }
-        let (Some(Ok(editor)), Some(scroll)) = (&mut self.editor, &mut self.scroll) else {
+    fn search_key(&mut self, key: &KeyWithModifier) -> bool {
+        let (Some(Ok(editor)), Some(search)) = (&mut self.editor, &mut self.search) else {
             return false;
         };
-        match mouse {
-            Mouse::ScrollUp(lines) => scroll.scroll_by(-(lines as isize)),
-            Mouse::ScrollDown(lines) => scroll.scroll_by(lines as isize),
-            Mouse::LeftClick(line, _) => {
-                let Some(row) = scroll.row_at(line) else {
-                    return false;
-                };
-                // A click selects; a click on the selected row acts on it.
-                let outcome = if row == editor.selected {
-                    editor.activate()
-                } else {
-                    editor.select(row)
-                };
-                self.carry_out(outcome)
+        let outcome = match key.bare_key {
+            BareKey::Down | BareKey::Tab | BareKey::Enter => editor.set_focus(Focus::List),
+            _ => match search.handle_key(key) {
+                UiResponse::Changed(_) => editor.start_search(search.get_text()),
+                UiResponse::Cancelled => {
+                    self.search = None;
+                    editor.end_search()
+                }
+                UiResponse::NotHandled => return false,
+                _ => Outcome::Redraw,
+            },
+        };
+        self.carry_out(outcome)
+    }
+
+    fn list_key(&mut self, key: &KeyWithModifier) -> bool {
+        let page = self
+            .scroll
+            .as_ref()
+            .map_or(10, |scroll| scroll.viewport_height().max(1)) as isize;
+        let Some(editor) = self.editor_mut() else {
+            return false;
+        };
+        let choice_row = editor.choices().is_some();
+        let searching = editor.search().is_some();
+        let outcome = match key.bare_key {
+            BareKey::Up | BareKey::Char('k') => match editor.move_selection(-1) {
+                Outcome::None if searching => editor.set_focus(Focus::Search),
+                outcome => outcome,
+            },
+            BareKey::Down | BareKey::Char('j') | BareKey::Tab => editor.move_selection(1),
+            BareKey::PageUp => editor.move_selection(-page),
+            BareKey::PageDown => editor.move_selection(page),
+            BareKey::Home => editor.move_selection(isize::MIN / 2),
+            BareKey::End => editor.move_selection(isize::MAX / 2),
+            BareKey::Left if choice_row => editor.step_choice(false),
+            BareKey::Right if choice_row => editor.step_choice(true),
+            BareKey::Left | BareKey::Char('h') => {
+                let menu = editor.menu_focus();
+                editor.set_focus(menu)
             }
+            BareKey::Enter => editor.activate(),
+            // Space changes a value in place; typing a value starts with
+            // Enter, as in Zellij's settings.
+            BareKey::Char(' ') if !is_text_row(editor) => editor.activate(),
+            BareKey::Backspace | BareKey::Delete => editor.reset_selected(),
+            BareKey::Char('r') => match editor.revert_selected() {
+                Some(key) => {
+                    self.notice = Some(format!("Reverted {}", crate::show_controls(&key)));
+                    self.preview();
+                    return true;
+                }
+                None => return false,
+            },
+            BareKey::Esc if searching => {
+                let outcome = editor.end_search();
+                self.search = None;
+                outcome
+            }
+            BareKey::Esc => return self.begin_close(),
+            _ => return false,
+        };
+        self.carry_out(outcome)
+    }
+
+    /// Pass a key to the open dropdown.
+    fn choose_key(&mut self, key: &KeyWithModifier) -> bool {
+        let Some((_, dropdown)) = &mut self.dropdown else {
+            return false;
+        };
+        let response = dropdown.handle_key(key);
+        self.dropdown_response(response)
+    }
+
+    fn dropdown_response(&mut self, response: UiResponse) -> bool {
+        match response {
+            UiResponse::Changed(UiValue::Choice { index, .. }) => {
+                self.dropdown = None;
+                let Some(editor) = self.editor_mut() else {
+                    return true;
+                };
+                let outcome = editor.choose(index);
+                self.carry_out(outcome);
+                true
+            }
+            UiResponse::Cancelled | UiResponse::NotHandled => {
+                self.dropdown = None;
+                true
+            }
+            _ => {
+                // The list stays open, with the highlight moved.
+                if !self
+                    .dropdown
+                    .as_ref()
+                    .is_some_and(|(_, dropdown)| dropdown.is_open())
+                {
+                    self.dropdown = None;
+                }
+                true
+            }
+        }
+    }
+
+    fn handle_mouse(&mut self, mouse: Mouse) -> bool {
+        if self.question.is_some() || self.closing {
+            return false;
+        }
+        // The help line's buttons work whatever is open, as their keys do.
+        let mut pressed = None;
+        let mut help_changed = false;
+        for (press, button) in &mut self.help_buttons {
+            match button.handle_mouse(mouse) {
+                UiResponse::Activated => pressed = Some(*press),
+                UiResponse::NotHandled => {}
+                _ => help_changed = true,
+            }
+        }
+        if let Some(press) = pressed {
+            self.button_timers += 1;
+            return match press {
+                Some(bare) => self.handle_key(KeyWithModifier::new(bare)),
+                None => true,
+            };
+        }
+        if let Some((_, dropdown)) = &mut self.dropdown {
+            let response = dropdown.handle_mouse(mouse);
+            return match response {
+                UiResponse::NotHandled => help_changed,
+                response => self.dropdown_response(response),
+            };
+        }
+        if self.layout.is_none() {
+            return help_changed;
+        }
+        match mouse {
+            Mouse::Hover(line, column) => self.hover(line, column) | help_changed,
+            Mouse::ScrollUp(lines) | Mouse::ScrollDown(lines) => {
+                if let Some(menu) = &mut self.menu {
+                    if menu.handle_mouse(mouse) != UiResponse::NotHandled {
+                        return true;
+                    }
+                }
+                let delta = lines.max(1) as isize;
+                let delta = if matches!(mouse, Mouse::ScrollUp(_)) {
+                    -delta
+                } else {
+                    delta
+                };
+                self.scroll
+                    .as_mut()
+                    .is_some_and(|scroll| scroll.scroll_by(delta))
+            }
+            Mouse::LeftClick(line, column) => self.click(line, column),
             _ => false,
         }
+    }
+
+    /// Track what the pointer is over, redrawing when that changes.
+    fn hover(&mut self, line: isize, column: usize) -> bool {
+        let mouse = Mouse::Hover(line, column);
+        let mut changed = false;
+        for (_, button) in &mut self.buttons {
+            changed |= button.handle_mouse(mouse) != UiResponse::NotHandled;
+        }
+        if let Some(button) = &mut self.overrides_button {
+            changed |= button.handle_mouse(mouse) != UiResponse::NotHandled;
+        }
+        if let Some(menu) = &mut self.menu {
+            changed |= menu.handle_mouse(mouse) != UiResponse::NotHandled;
+        }
+        let hovered = self.row_at(line, column);
+        changed |= hovered != self.hovered_row;
+        self.hovered_row = hovered;
+        changed
+    }
+
+    fn row_at(&self, line: isize, column: usize) -> Option<usize> {
+        self.rows
+            .iter()
+            .find(|row| row.area.contains(line, column))
+            .map(|row| row.row)
+    }
+
+    fn click(&mut self, line: isize, column: usize) -> bool {
+        let mouse = Mouse::LeftClick(line, column);
+        // A click anywhere else ends typing, dropping what was typed.
+        if let Some((_, input)) = &mut self.input {
+            if input.hit_test(line, column) {
+                input.handle_mouse(mouse);
+                return true;
+            }
+            self.input = None;
+        }
+        let command = self.buttons.iter_mut().find_map(|(command, button)| {
+            (button.handle_mouse(mouse) == UiResponse::Activated).then_some(*command)
+        });
+        if let Some(command) = command {
+            self.button_timers += 1;
+            return self.run(command);
+        }
+        if let Some(button) = &mut self.overrides_button {
+            if button.handle_mouse(mouse) == UiResponse::Activated {
+                self.button_timers += 1;
+                self.overrides_hidden = !self.overrides_hidden;
+                return true;
+            }
+        }
+        if let Some(search) = &mut self.search {
+            if search.hit_test(line, column) {
+                search.handle_mouse(mouse);
+                let Some(editor) = self.editor_mut() else {
+                    return false;
+                };
+                let outcome = editor.set_focus(Focus::Search);
+                self.carry_out(outcome);
+                return true;
+            }
+        }
+        if let (Some(menu), Some(Ok(editor))) = (&mut self.menu, &mut self.editor) {
+            if editor.search().is_none() && menu.hit_test(line, column) {
+                menu.handle_mouse(mouse);
+                let shown = editor.select_section(menu.selected_index());
+                let focused = editor.set_focus(Focus::Sidebar);
+                let outcome = if shown == Outcome::None {
+                    focused
+                } else {
+                    shown
+                };
+                self.carry_out(outcome);
+                return true;
+            }
+        }
+        if let Some(row) = self.row_at(line, column) {
+            // A click selects the row and acts on it, as a key would.
+            let Some(editor) = self.editor_mut() else {
+                return false;
+            };
+            editor.select(row);
+            let outcome = editor.activate();
+            self.carry_out(outcome);
+            return true;
+        }
+        false
+    }
+
+    fn handle_timer(&mut self) -> bool {
+        if self.button_timers > 0 {
+            self.button_timers -= 1;
+            let mut changed = false;
+            for (_, button) in &mut self.buttons {
+                changed |= button.handle_timer();
+            }
+            if let Some(button) = &mut self.overrides_button {
+                changed |= button.handle_timer();
+            }
+            for (_, button) in &mut self.help_buttons {
+                changed |= button.handle_timer();
+            }
+            return changed;
+        }
+        if self.closing {
+            close_self();
+        }
+        false
+    }
+
+    /// Run a header command, from its key or its button.
+    fn run(&mut self, command: Command) -> bool {
+        match command {
+            Command::Save => self.save(),
+            Command::RevertAll => self.ask_revert_all(),
+            Command::ToggleFormats => self.view = self.view.toggled(),
+            Command::Close => return self.begin_close(),
+        }
+        true
     }
 
     fn carry_out(&mut self, outcome: Outcome) -> bool {
         match outcome {
             Outcome::None => false,
-            Outcome::Redraw => {
-                self.status = None;
-                true
-            }
+            Outcome::Redraw => true,
             Outcome::StartField { field, text } => {
-                let mut input = TextInput::new(text).focused();
+                let label = match &field {
+                    Field::Value { key } => crate::show_controls(key).into_owned(),
+                    Field::NewKey => "new key".to_string(),
+                };
+                let mut input = TextInput::new(text)
+                    .label(self.label(&label).as_str())
+                    .label_width(self.label_width)
+                    .focused();
                 input.move_to_end();
                 self.input = Some((field, input));
-                self.status = None;
+                self.notice = None;
+                true
+            }
+            Outcome::OpenChoices => {
+                let Some(Ok(editor)) = &self.editor else {
+                    return false;
+                };
+                let Some((choices, chosen)) = editor.choices() else {
+                    return false;
+                };
+                let label = match editor.selected_row() {
+                    Some(Row::Option(option)) => option.name,
+                    _ => "alias",
+                };
+                let mut dropdown = Dropdown::new(self.label(label).as_str(), choices)
+                    .selected(chosen)
+                    .label_width(self.label_width)
+                    .focused();
+                dropdown.open();
+                self.dropdown = Some((editor.selected, dropdown));
                 true
             }
             Outcome::Changed => {
-                self.status = None;
+                self.notice = None;
                 self.preview();
                 true
             }
@@ -255,14 +666,19 @@ impl SettingsScreen {
                 if let Some(Ok(editor)) = &self.editor {
                     self.previewed = editor.working().clone();
                 }
-                self.status = None;
+                self.notice = None;
                 true
             }
             Outcome::Refused(message) => {
-                self.status = Some((message, true));
+                self.notice = Some(message);
                 true
             }
         }
+    }
+
+    /// A row's label, cut to the label column.
+    fn label(&self, label: &str) -> String {
+        view::truncate(label, self.label_width.saturating_sub(2))
     }
 
     fn type_key(&mut self, key: &KeyWithModifier) -> bool {
@@ -272,11 +688,12 @@ impl SettingsScreen {
         match input.handle_key(key) {
             UiResponse::Cancelled => {
                 self.input = None;
+                self.notice = None;
                 true
             }
             UiResponse::Submitted(_) => {
                 let (field, input) = self.input.take().expect("checked above");
-                let Some(Ok(editor)) = &mut self.editor else {
+                let Some(editor) = self.editor_mut() else {
                     return true;
                 };
                 let outcome = editor.submit(&field, input.get_text());
@@ -291,44 +708,87 @@ impl SettingsScreen {
         }
     }
 
-    fn answer(&mut self, question: Question, key: &KeyWithModifier) -> bool {
-        let BareKey::Char(answer) = key.bare_key else {
-            if is_plain(key, BareKey::Esc) {
-                self.question = None;
-                return true;
-            }
+    fn ask_revert_all(&mut self) {
+        let unsaved = match &self.editor {
+            Some(Ok(editor)) => editor.unsaved_count(),
+            _ => return,
+        };
+        if unsaved == 0 {
+            self.notice = Some("Nothing to revert".to_string());
+            return;
+        }
+        let message = format!(
+            "Put the {} back to the config file's values?",
+            view::unsaved_text(unsaved)
+        );
+        let request = PromptRequest::confirm(message)
+            .title("Revert all?")
+            .yes("Revert all")
+            .no("Cancel");
+        self.question = Some((prompt(request), Question::RevertAll));
+    }
+
+    fn ask_changed_outside(&mut self) {
+        let file = self
+            .config_file
+            .as_deref()
+            .and_then(|path| path.rsplit('/').next())
+            .unwrap_or("The config file")
+            .to_string();
+        let request = PromptRequest::menu(vec![
+            ChoiceItem::labeled("overwrite", "Overwrite: save your changes over the file"),
+            ChoiceItem::labeled(
+                "reload",
+                "Reload: take the file as it is, dropping your unsaved changes",
+            ),
+            ChoiceItem::labeled("cancel", "Cancel"),
+        ])
+        .title(format!("{file} changed outside Zellij"));
+        self.question = Some((prompt(request), Question::ChangedOutside));
+    }
+
+    fn answer(&mut self, id: u64, result: &PromptResult) -> bool {
+        let Some((asked, question)) = self.question else {
             return false;
         };
-        match (question, answer) {
-            (Question::DiscardAndClose, 'y') => {
-                if let Some(Ok(editor)) = &mut self.editor {
-                    editor.discard();
-                }
-                self.preview();
-                self.revert_runtime();
-                close_self();
-            }
-            (Question::DiscardAndClose, 'n') => {}
-            (Question::OverwriteOrReload, 'o') => {
-                self.waiting = Some(Waiting::Save);
-                overwrite_config_file();
-            }
-            (Question::OverwriteOrReload, 'r') => {
-                // Reloading takes the file as it is now. The edits are lost,
-                // so the bars go back to the file's values too.
-                if let Some(Ok(editor)) = &mut self.editor {
-                    editor.discard();
-                }
-                self.preview();
-                // Reloading keeps runtime aliases the file did not change, so
-                // the failed save's edits would survive it.
-                self.revert_runtime();
-                self.waiting = Some(Waiting::Reload);
-                reload_config_file();
-            }
-            _ => return false,
+        if asked != id {
+            return false;
         }
         self.question = None;
+        match (question, result) {
+            (Question::RevertAll, PromptResult::Confirmed(true)) => {
+                if let Some(editor) = self.editor_mut() {
+                    editor.revert_all();
+                }
+                self.preview();
+                self.keep_in_session();
+                self.notice = Some("Reverted all changes".to_string());
+            }
+            (Question::ChangedOutside, PromptResult::Answered(PromptValue::Choice(choice))) => {
+                match choice.as_str() {
+                    "overwrite" => {
+                        self.waiting = Some(Waiting::Save);
+                        overwrite_config_file();
+                    }
+                    "reload" => {
+                        // Reloading takes the file as it is now. The edits
+                        // are dropped, so the bars and the session go back to
+                        // the file's values first: reloading keeps session
+                        // aliases the file did not change.
+                        if let Some(editor) = self.editor_mut() {
+                            editor.revert_all();
+                            editor.session_updated();
+                        }
+                        self.preview();
+                        revert_config(Some(SettingKey::PluginAliases));
+                        self.waiting = Some(Waiting::Reload);
+                        reload_config_file();
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
         true
     }
 
@@ -350,34 +810,63 @@ impl SettingsScreen {
         self.previewed = editor.working().clone();
     }
 
+    /// Put the pending values in the session's alias, so bars started from
+    /// now on load them, as Zellij keeps settings edits applied to the
+    /// session until they are saved or reverted.
+    fn keep_in_session(&mut self) {
+        let Some(editor) = self.editor_mut() else {
+            return;
+        };
+        if editor.session_differs() {
+            replace_config_blocks(plugin_aliases_kdl(&editor.aliases_to_save()));
+            editor.session_updated();
+        }
+    }
+
+    /// Close, after a moment's notice when edits stay unsaved.
+    fn begin_close(&mut self) -> bool {
+        let unsaved = match &self.editor {
+            Some(Ok(editor)) => editor.unsaved_count(),
+            _ => 0,
+        };
+        self.keep_in_session();
+        if unsaved == 0 {
+            close_self();
+            return false;
+        }
+        let noun = if unsaved == 1 {
+            "change stays"
+        } else {
+            "changes stay"
+        };
+        self.notice = Some(format!(
+            "{unsaved} unsaved {noun} applied to this session. Ctrl+a in settings saves them."
+        ));
+        self.closing = true;
+        set_timeout(CLOSE_SECONDS);
+        true
+    }
+
     /// Write the edits to the config file, keeping its comments and layout.
     fn save(&mut self) {
-        let Some(Ok(editor)) = &self.editor else {
+        let Some(editor) = self.editor_mut() else {
             return;
         };
         if !editor.is_dirty() {
-            self.status = Some(("Nothing to save".to_string(), false));
+            self.notice = Some("Nothing to save".to_string());
             return;
         }
         // The plugins block replaces every alias, so all of them go back,
         // the others unchanged. Saving then rewrites only the changed keys.
         replace_config_blocks(plugin_aliases_kdl(&editor.aliases_to_save()));
+        editor.session_updated();
         save_config();
-        self.runtime_ahead = true;
         self.waiting = Some(Waiting::Save);
-        self.status = Some(("Saving…".to_string(), false));
-    }
-
-    /// Put the session's aliases back to the file's after a save that did
-    /// not reach it, so bars started later do not load the dropped edits.
-    fn revert_runtime(&mut self) {
-        if std::mem::take(&mut self.runtime_ahead) {
-            revert_config(Some(SettingKey::PluginAliases));
-        }
+        self.notice = Some("Saving…".to_string());
     }
 
     pub fn render(&mut self, rows: usize, cols: usize) {
-        let editor = match &self.editor {
+        let editor = match &mut self.editor {
             None => {
                 print_text_with_coordinates(
                     Text::from("Waiting for permission…"),
@@ -390,373 +879,455 @@ impl SettingsScreen {
             }
             Some(Err(message)) => {
                 print_text_with_coordinates(
-                    Text::from(truncate(message, cols)).error_color_all(),
+                    Text::from(view::truncate(message, cols)).error_color_all(),
                     0,
                     0,
                     None,
                     None,
                 );
-                print_text_with_coordinates(help(&[("Esc", "close")], cols), 0, 2, None, None);
+                render_help(&mut self.help_buttons, &[("<Esc>", "close")], 0, 2, cols);
                 return;
             }
             Some(Ok(editor)) => editor,
         };
 
-        let title = title(editor);
-        let unsaved_from = title.find('●').map(|byte| title[..byte].chars().count());
-        let mut title_text = Text::from(truncate(&title, cols)).color_range(2, ..);
-        if let Some(from) = unsaved_from {
-            title_text = title_text.color_range(1, from..);
-        }
-        print_text_with_coordinates(title_text, 0, 0, None, None);
-
+        let items = view::menu_items(editor);
         let list = editor.rows();
-        let height = rows.saturating_sub(HEADER_LINES + FOOTER_LINES);
-        let scroll = self.scroll.get_or_insert_with(|| ScrollView::new(0));
-        scroll.set_total_rows(list.len());
-        scroll.layout(0, HEADER_LINES, cols, height);
-        // Bring the selection into view when it moves, with the heading over
-        // it when there is one, and leave the view where the wheel put it
-        // otherwise.
-        let selected = editor.selected;
-        if self.shown_selected != Some(selected) {
-            if selected > 0 && matches!(list[selected - 1], Row::Heading(_)) {
-                scroll.ensure_range_visible(selected - 1, 2);
-            } else {
-                scroll.ensure_visible(selected);
-            }
-            self.shown_selected = Some(selected);
-        }
-        let width = scroll.content_width().saturating_sub(1);
-        let mut editing = self.input.as_mut();
-        for (index, row) in list.iter().enumerate() {
-            let Some(y) = scroll.screen_row(index) else {
-                continue;
-            };
-            if index == selected {
-                if let Some((field, input)) = editing.take() {
-                    let name = match field {
-                        Field::Value { key } => key.as_str(),
-                        Field::NewKey => "new key",
-                    };
-                    let label = format!("  {name:NAME_COLUMNS$} ");
-                    print_text_with_coordinates(Text::from(&label).selected(), 0, y, None, None);
-                    input.render(label.chars().count(), y, width.saturating_sub(label.len()));
-                    continue;
-                }
-            }
-            let line = row_line(editor, row, width);
-            let mut text = Text::from(&line.text);
-            if let Some(range) = line.dim {
-                text = text.dim_range(range);
-            }
-            if let Some(range) = line.edited {
-                text = text.color_range(1, range);
-            }
-            if line.heading {
-                text = text.color_all(2);
-            }
-            if index == selected {
-                text = text.selected();
-            }
-            print_text_with_coordinates(text, 0, y, Some(width), None);
-        }
-        scroll.render_indicators();
-
-        let footer = rows.saturating_sub(FOOTER_LINES);
-        let description = describe(editor.selected_row().as_ref());
-        print_text_with_coordinates(
-            Text::from(truncate(&description, cols)).dim_all(),
-            0,
-            footer,
-            None,
-            None,
-        );
-        if let Some((status, is_error)) = &self.status {
-            let text = Text::from(truncate(status, cols));
-            let text = if *is_error {
-                text.error_color_all()
-            } else {
-                text.success_color_all()
-            };
-            print_text_with_coordinates(text, 0, footer + 1, None, None);
-        }
-        let keys = match (self.question, &self.input) {
-            (Some(Question::DiscardAndClose), _) => {
-                vec![("y", "discard and close"), ("n", "keep editing")]
-            }
-            (Some(Question::OverwriteOrReload), _) => vec![
-                ("o", "overwrite the changed file"),
-                ("r", "reload it, dropping the edits"),
-                ("Esc", "cancel"),
-            ],
-            (None, Some(_)) => vec![("Enter", "set"), ("Esc", "cancel")],
-            (None, None) => vec![
-                ("↑↓", "move"),
-                ("Enter", "change"),
-                ("Del", "reset"),
-                ("s", "save"),
-                ("Esc", "close"),
-            ],
-        };
-        if let Some(question) = self.question {
-            let prompt = match question {
-                Question::DiscardAndClose => "Discard the unsaved edits?",
-                Question::OverwriteOrReload => "The config file changed since it was read.",
-            };
+        let searching = editor.search().is_some();
+        let preview_rows =
+            (view::is_previewed(editor.section()) && !searching).then_some(list.len());
+        let Some(layout) = Layout::new(rows, cols, &items, preview_rows) else {
+            self.layout = None;
+            self.rows.clear();
+            let message = format!(
+                "Pane too small for settings ({}x{} needed)",
+                view::MIN_COLS,
+                view::MIN_ROWS
+            );
             print_text_with_coordinates(
-                Text::from(truncate(prompt, cols)).error_color_all(),
+                Text::from(view::truncate(&message, cols)).color_all(3),
                 0,
-                footer + 1,
+                rows / 2,
                 None,
                 None,
             );
+            return;
+        };
+        self.layout = Some(layout);
+        let editor = &*editor;
+
+        // The header: the file, then the unsaved count and the buttons.
+        let file = self.config_file.as_deref().unwrap_or("none");
+        let file_line = format!("{}{file}", view::FILE_PREFIX);
+        print_text_with_coordinates(
+            Text::from(view::truncate(&file_line, layout.width)),
+            layout.x,
+            0,
+            None,
+            None,
+        );
+        let unsaved = editor.unsaved_count();
+        let count = format!("{} · ", view::unsaved_text(unsaved));
+        let mut count_text = Text::from(&count);
+        if unsaved > 0 {
+            count_text = count_text.color_range(1, ..view::unsaved_text(unsaved).chars().count());
         }
-        print_text_with_coordinates(help(&keys, cols), 0, footer + 2, None, None);
-    }
-}
+        print_text_with_coordinates(count_text, layout.x, 2, None, None);
+        let header_buttons = view::header_buttons(self.view);
+        if self.buttons.len() != header_buttons.len() {
+            self.buttons = header_buttons
+                .iter()
+                .map(|(_, _, command)| (*command, Button::new("")))
+                .collect();
+        }
+        let mut x = layout.x + view::columns(&count);
+        for ((key, action, _), (_, button)) in header_buttons.iter().zip(&mut self.buttons) {
+            x = render_button(button, key, action, x, 2, layout.x + layout.width);
+        }
 
-/// The screen's first line: what is being edited and whether it is saved.
-fn title(editor: &Editor) -> String {
-    let mut title = format!("zjhints settings · alias \"{}\"", editor.alias_name());
-    if editor.is_dirty() {
-        title.push_str("  ● unsaved");
-    }
-    title
-}
-
-/// One row as text, with the parts to draw differently.
-#[derive(Debug, PartialEq)]
-struct Line {
-    text: String,
-    heading: bool,
-    /// The characters of a value that is not set, so the default shows.
-    dim: Option<std::ops::Range<usize>>,
-    /// The characters of the marker on an edited value.
-    edited: Option<std::ops::Range<usize>>,
-}
-
-fn row_line(editor: &Editor, row: &Row, width: usize) -> Line {
-    let plain = |text: String| Line {
-        text: truncate(&text, width),
-        heading: false,
-        dim: None,
-        edited: None,
-    };
-    let (key, value, default) = match row {
-        Row::Heading(title) => {
-            return Line {
-                text: truncate(title, width),
-                heading: true,
-                dim: None,
-                edited: None,
+        // The menu, or the search box in its place.
+        let menu = self
+            .menu
+            .get_or_insert_with(|| SideMenu::new(Vec::<String>::new()));
+        menu.set_items(items.clone());
+        menu.set_selected(editor.section_index());
+        menu.set_focused(editor.focus == Focus::Sidebar);
+        match &mut self.search {
+            Some(search) if searching => {
+                menu.clear_area();
+                search.set_focused(editor.focus == Focus::Search);
+                search.set_match_count(None);
+                search.render(layout.x, layout.body_y, layout.menu_width);
+                print_text_with_coordinates(
+                    Text::from(view::truncate(
+                        &view::match_text(editor.match_count()),
+                        layout.menu_width,
+                    ))
+                    .dim_all(),
+                    layout.x + 1,
+                    layout.body_y + 2,
+                    None,
+                    None,
+                );
+            }
+            _ => {
+                self.search = None;
+                menu.render(
+                    layout.x,
+                    layout.body_y,
+                    layout.menu_width,
+                    layout.body_height,
+                );
+                menu_markers(menu, &items, layout);
             }
         }
-        Row::Alias => {
-            return plain(format!(
-                "  {:NAME_COLUMNS$} {}  (Enter for the next of {})",
-                "alias",
-                editor.alias_name(),
-                editor.alias_count()
-            ))
+
+        // The rows.
+        let scroll = self.scroll.get_or_insert_with(|| ScrollView::new(0));
+        scroll.set_total_rows(list.len());
+        scroll.layout(
+            layout.content_x,
+            layout.body_y,
+            layout.content_width,
+            layout.list_height,
+        );
+        // Bring the selection into view when it moves, from the top when the
+        // list changed, and leave the view where the wheel put it otherwise.
+        let selected = editor.selected;
+        let shown = (editor.section(), selected, searching);
+        if self.shown_selected != Some(shown) {
+            let same_list = self
+                .shown_selected
+                .is_some_and(|(section, _, was_searching)| {
+                    section == editor.section() && was_searching == searching
+                });
+            if !same_list {
+                scroll.set_offset(0);
+            }
+            scroll.ensure_visible(selected);
+            self.shown_selected = Some(shown);
         }
-        Row::AddOther => return plain("  + add a key".to_string()),
-        Row::Option(option) => (option.name, editor.value(option.name), option.default),
-        Row::Other(key) => (key.as_str(), editor.value(key), None),
-    };
-    let prefix = format!("  {key:NAME_COLUMNS$} ");
-    let start = prefix.chars().count();
-    let (shown, dim) = match value {
-        Some(value) => (show_value(value), false),
-        None => (
-            match default {
-                Some(default) => format!("{} (default)", show_value(default)),
-                None => "unset".to_string(),
-            },
-            true,
-        ),
-    };
-    let mut text = format!("{prefix}{shown}");
-    let end = text.chars().count();
-    let mut edited = None;
-    if editor.is_edited(key) {
-        text.push_str("  ●");
-        edited = Some(end + 2..end + 3);
-    }
-    let text = truncate(&text, width);
-    let visible = text.chars().count();
-    Line {
-        text,
-        heading: false,
-        dim: dim.then(|| start.min(visible)..end.min(visible)),
-        edited: edited.filter(|range| range.end <= visible),
-    }
-}
-
-/// A value as shown in the list: quoted when it would otherwise be invisible
-/// or ambiguous.
-fn show_value(value: &str) -> String {
-    if value.is_empty() || value.trim() != value {
-        format!("\"{value}\"")
-    } else {
-        value.to_string()
-    }
-}
-
-/// The footer line about the selected row.
-fn describe(row: Option<&Row>) -> String {
-    match row {
-        Some(Row::Option(option)) => {
-            let default = option.default.unwrap_or("unset");
-            let how = match option.kind {
-                Kind::Bool => "Enter toggles".to_string(),
-                Kind::Choice(choices) => format!("Enter cycles {}", choices.join(" / ")),
-                Kind::Integer | Kind::Fraction | Kind::Text => "Enter edits".to_string(),
+        let width = scroll.content_width().saturating_sub(1);
+        let x = layout.content_x;
+        let rows_view = view::Rows::new(editor, self.view);
+        let views: Vec<RowView> = list.iter().map(|row| rows_view.view(row)).collect();
+        let (label_width, value_width) = view::field_widths(&views, width);
+        let element_width = label_width + value_width;
+        self.label_width = label_width;
+        let list_focused = editor.focus == Focus::List;
+        self.rows.clear();
+        for (index, row_view) in views.iter().enumerate() {
+            let Some(y) = scroll.screen_row(index) else {
+                continue;
             };
-            format!("{}. Default {default}. {how}.", option.description)
+            let focused = index == selected && list_focused;
+            let hovered = self.hovered_row == Some(index) && self.dropdown.is_none();
+            if let Some((_, input)) = self.input.as_mut().filter(|_| index == selected) {
+                input.set_show_cursor(true);
+                input.render(x, y, element_width);
+                continue;
+            }
+            if let Some((_, dropdown)) = self.dropdown.as_mut().filter(|(row, _)| *row == index) {
+                dropdown.render(x, y, element_width);
+            } else {
+                draw_row(
+                    row_view,
+                    x,
+                    y,
+                    label_width,
+                    value_width,
+                    width,
+                    focused,
+                    hovered,
+                );
+            }
+            if !matches!(row_view.control, Control::Heading(_)) {
+                self.rows.push(RowArea {
+                    row: index,
+                    area: Rect::new(x, y, element_width.min(width), 1),
+                });
+            }
         }
-        Some(Row::Other(key)) => match super::options::family_of(key) {
-            Some(family) => format!(
-                "{} ({}). Del removes it.",
-                family.description, family.pattern
-            ),
-            None => "Not an option zjhints reads. Del removes it.".to_string(),
-        },
-        Some(Row::AddOther) => {
-            "Add a key not listed above, such as label_<id> or color_<name>.".to_string()
+        if list.is_empty() {
+            let empty = if searching {
+                "No settings match"
+            } else {
+                "Nothing to show"
+            };
+            print_text_with_coordinates(Text::from(empty).dim_all(), x, layout.body_y, None, None);
         }
-        Some(Row::Alias) => "The plugins {} alias being edited.".to_string(),
-        Some(Row::Heading(_)) | None => String::new(),
+        scroll.render_indicators();
+
+        // The preview, under a Theme list.
+        match (layout.preview_y, &self.mode_info) {
+            (Some(y), Some(mode_info)) => {
+                let shown = !self.overrides_hidden;
+                // With a theme's list open, the preview follows the
+                // highlighted choice.
+                let mut configuration = editor.working().clone();
+                if let Some((row, dropdown)) = &self.dropdown {
+                    if let (Some(Row::Option(option)), Some(index)) =
+                        (list.get(*row), dropdown.highlighted_index())
+                    {
+                        if let Some(value) = dropdown.options().get(index) {
+                            configuration.insert(option.name.to_string(), value.clone());
+                        }
+                    }
+                }
+                let overrides =
+                    view::theme_overrides(&configuration, Some(&mode_info.style.colors));
+                let caption = view::preview_caption(overrides.len(), shown);
+                let caption = view::truncate(&caption, width);
+                print_text_with_coordinates(Text::from(&caption).dim_all(), x, y, None, None);
+                let button = self.overrides_button.get_or_insert_with(|| Button::new(""));
+                if overrides.is_empty() {
+                    button.clear_area();
+                } else {
+                    let (key, action) = view::overrides_button(shown);
+                    let label = format!("{key} {action}");
+                    button.set_label(Text::from(&label).color_range(3, ..key.chars().count()));
+                    let button_x = x + view::columns(&caption) + 2;
+                    if button_x + button.natural_width() <= x + width {
+                        button.render(button_x, y);
+                    } else {
+                        button.clear_area();
+                    }
+                }
+                let bar = view::theme_preview(&configuration, mode_info, shown, width);
+                print_ansi(x, y + 1, &bar);
+            }
+            _ => {
+                if let Some(button) = &mut self.overrides_button {
+                    button.clear_area();
+                }
+            }
+        }
+
+        // The footer: a notice or the selected row's description, then the
+        // keys.
+        let footer = match (&self.notice, view::describe(editor)) {
+            (Some(notice), _) => {
+                Some(Text::from(view::truncate(notice, layout.width)).color_all(3))
+            }
+            (None, Some(description)) => {
+                Some(Text::from(view::truncate(&description, layout.width)).color_all(0))
+            }
+            (None, None) => None,
+        };
+        if let Some(text) = footer {
+            print_text_with_coordinates(text, layout.x, layout.footer_y, None, None);
+        }
+        let state = if self.input.is_some() {
+            HelpState::Editing
+        } else if self.dropdown.is_some() {
+            HelpState::Choosing
+        } else {
+            HelpState::Browsing {
+                focus: editor.focus,
+                text_row: views.get(selected).is_some_and(RowView::is_text),
+                searching,
+            }
+        };
+        render_help(
+            &mut self.help_buttons,
+            &view::help_hints(state),
+            layout.x,
+            layout.footer_y + 2,
+            layout.width,
+        );
+
+        // The open list goes over everything else.
+        if let Some((_, dropdown)) = &mut self.dropdown {
+            dropdown.render_overlay(rows, cols);
+        }
     }
 }
 
-fn help(keys: &[(&str, &str)], cols: usize) -> Text {
-    let mut line = String::new();
-    let mut key_ranges = Vec::new();
-    for (key, action) in keys {
-        if !line.is_empty() {
-            line.push_str("  ");
-        }
-        let start = line.chars().count();
-        line.push_str(key);
-        key_ranges.push(start..line.chars().count());
-        line.push(' ');
-        line.push_str(action);
+/// Whether the selected row is typed into.
+fn is_text_row(editor: &Editor) -> bool {
+    match editor.selected_row() {
+        Some(row) => view::Rows::new(editor, FormatView::Raw)
+            .view(&row)
+            .is_text(),
+        None => false,
     }
-    let line = truncate(&line, cols);
-    let visible = line.chars().count();
-    key_ranges
-        .into_iter()
-        .filter(|range| range.end <= visible)
-        .fold(Text::from(&line), |text, range| text.color_range(3, range))
 }
 
-fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
+/// Draw one row of the list as its widget, with its swatch and marker.
+#[allow(clippy::too_many_arguments)]
+fn draw_row(
+    row: &RowView,
+    x: usize,
+    y: usize,
+    label_width: usize,
+    value_width: usize,
+    width: usize,
+    focused: bool,
+    hovered: bool,
+) {
+    let label = view::truncate(&row.label, label_width.saturating_sub(2));
+    let element_width = label_width + value_width;
+    match &row.control {
+        Control::Heading(title) => {
+            print_text_with_coordinates(
+                Text::from(view::truncate(title, width)).color_all(2),
+                x,
+                y,
+                None,
+                None,
+            );
+            return;
+        }
+        Control::Button(text) => {
+            let mut button = Button::new(text.as_str()).left_aligned();
+            if focused {
+                button = button.focused();
+            }
+            if hovered {
+                button = button.hovered();
+            }
+            button.render(x, y);
+            return;
+        }
+        Control::Toggle(on) => {
+            let mut toggle = Toggle::new(label.as_str(), *on).label_width(label_width);
+            toggle.set_field_width(value_width);
+            if focused {
+                toggle = toggle.focused();
+            }
+            if hovered {
+                toggle = toggle.hovered();
+            }
+            toggle.render(x, y);
+        }
+        Control::Dropdown(options, chosen) => {
+            let mut dropdown = Dropdown::new(label.as_str(), options.clone())
+                .selected(*chosen)
+                .label_width(label_width);
+            if focused {
+                dropdown = dropdown.focused();
+            }
+            if hovered {
+                dropdown = dropdown.hovered();
+            }
+            dropdown.render(x, y, element_width);
+        }
+        Control::Text { text, placeholder } => {
+            let mut input = if *placeholder {
+                TextInput::new("").placeholder(text.as_str())
+            } else {
+                TextInput::new(text.as_str())
+            }
+            .label(label.as_str())
+            .label_width(label_width);
+            if focused {
+                input = input.focused();
+            }
+            if hovered {
+                input = input.hovered();
+            }
+            input.set_show_cursor(false);
+            input.render(x, y, element_width);
+            // Text draws only the theme's palette, so a rendered format
+            // string, which needs true color, goes over the field's text as
+            // plain ANSI. A hovered field keeps its highlight instead.
+            if let Some(ansi) = row.styled.as_ref().filter(|_| !hovered) {
+                let room = value_width.saturating_sub(4);
+                print_ansi(x + label_width + 2, y, &view::take_visible(ansi, room));
+            }
+        }
     }
-    let mut cut: String = text.chars().take(width.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
+    let (swatch_x, marker_x) = view::trailer_columns(row, x + element_width, x + width);
+    if let Some(color) = row.swatch {
+        print_ansi(swatch_x, y, &view::swatch_ansi(color));
+    }
+    let marker = row.marker.text();
+    if !marker.is_empty() {
+        let text = Text::from(marker);
+        let text = match row.marker {
+            Marker::Unsaved => text.color_all(1),
+            _ => text.dim_all(),
+        };
+        print_text_with_coordinates(text, marker_x, y, None, None);
+    }
+}
+
+/// Redraw the ` ●` after a menu item with unsaved edits in the unsaved
+/// color, as Zellij's settings screen does.
+fn menu_markers(menu: &SideMenu, items: &[String], layout: Layout) {
+    let has_indicators = items.len() > layout.body_height;
+    let first_line = layout.body_y + usize::from(has_indicators);
+    let visible_rows = if has_indicators {
+        layout.body_height.saturating_sub(2)
+    } else {
+        layout.body_height
+    };
+    let offset = menu.scroll_offset();
+    for (index, item) in items.iter().enumerate().skip(offset).take(visible_rows) {
+        let Some(title) = item.strip_suffix(" ●") else {
+            continue;
+        };
+        let column = layout.x + 1 + view::columns(title) + 1;
+        if column + 1 >= layout.x + layout.menu_width {
+            continue;
+        }
+        let mut marker = Text::from("●").color_all(1);
+        if index == menu.selected_index() || menu.hovered_index() == Some(index) {
+            marker = marker.selected();
+        }
+        print_text_with_coordinates(marker, column, first_line + index - offset, None, None);
+    }
+}
+
+/// A help line with its keys in their own color.
+/// Draw `button` as "key action" at `x`, its key colored, unless it would
+/// pass `end`. Where the next button goes.
+fn render_button(
+    button: &mut Button,
+    key: &str,
+    action: &str,
+    x: usize,
+    y: usize,
+    end: usize,
+) -> usize {
+    let label = format!("{key} {action}");
+    button.set_label(Text::from(&label).color_range(3, ..key.chars().count()));
+    let width = button.natural_width();
+    if x + width > end {
+        button.clear_area();
+        return x;
+    }
+    button.render(x, y);
+    x + width + 1
+}
+
+/// Draw the help line from `x`, one button per hint, each pressing the key
+/// it names when clicked. Hints that do not fit in `width` are left out.
+fn render_help(
+    buttons: &mut Vec<(Option<BareKey>, Button)>,
+    hints: &[(&str, &str)],
+    x: usize,
+    y: usize,
+    width: usize,
+) {
+    buttons.truncate(hints.len());
+    buttons.resize_with(hints.len(), || (None, Button::new("")));
+    let mut next = x;
+    for ((key, action), (press, button)) in hints.iter().zip(buttons.iter_mut()) {
+        *press = view::hint_press(key);
+        next = render_button(button, key, action, next, y, x + width);
+    }
+}
+
+/// Draw ANSI at a column and line of the pane, from a clean style.
+fn print_ansi(x: usize, y: usize, ansi: &str) {
+    print!("\u{1b}[{};{}H\u{1b}[0m{ansi}", y + 1, x + 1);
 }
 
 fn is_plain(key: &KeyWithModifier, bare: BareKey) -> bool {
     key.bare_key == bare && key.key_modifiers.is_empty()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::settings::options;
-
-    fn editor(configuration: &[(&str, &str)]) -> Editor {
-        Editor::new(
-            vec![PluginAliasEntry {
-                name: "zjhints".to_string(),
-                plugin: PluginEntry {
-                    location: "file:~/zjhints.wasm".to_string(),
-                    cwd: None,
-                    configuration: configuration
-                        .iter()
-                        .map(|(key, value)| (key.to_string(), value.to_string()))
-                        .collect(),
-                },
-            }],
-            None,
-        )
-        .unwrap()
-    }
-
-    fn option_row(name: &str) -> Row {
-        Row::Option(options::find(name).unwrap())
-    }
-
-    #[test]
-    fn an_unset_option_shows_its_default_dimmed() {
-        let line = row_line(&editor(&[]), &option_row("auto_width"), 80);
-        assert_eq!(line.text, format!("  {:22}true (default)", "auto_width"));
-        assert_eq!(line.dim, Some(24..38));
-        assert_eq!(line.edited, None);
-    }
-
-    #[test]
-    fn a_set_option_shows_its_value_plainly() {
-        let line = row_line(
-            &editor(&[("max_length", "40")]),
-            &option_row("max_length"),
-            80,
-        );
-        assert_eq!(line.text, format!("  {:22}40", "max_length"));
-        assert_eq!(line.dim, None);
-    }
-
-    #[test]
-    fn an_edited_value_is_marked() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            " | ",
-        );
-        let line = row_line(&editor, &option_row("hint_spacer"), 80);
-        assert_eq!(line.text, format!("  {:22}\" | \"  ●", "hint_spacer"));
-        assert_eq!(line.edited, Some(31..32));
-        assert!(title(&editor).ends_with("● unsaved"));
-    }
-
-    #[test]
-    fn a_narrow_pane_truncates_rows_and_drops_markers_cut_off() {
-        let mut editor = editor(&[]);
-        editor.submit(
-            &Field::Value {
-                key: "hint_spacer".to_string(),
-            },
-            "|",
-        );
-        let line = row_line(&editor, &option_row("hint_spacer"), 20);
-        assert_eq!(line.text.chars().count(), 20);
-        assert!(line.text.ends_with('…'));
-        assert_eq!(line.edited, None);
-    }
-
-    #[test]
-    fn a_key_longer_than_the_name_column_keeps_a_space_before_its_value() {
-        let key = "label_locked_switch_to_mode_normal";
-        let line = row_line(
-            &editor(&[(key, "Unlock")]),
-            &Row::Other(key.to_string()),
-            80,
-        );
-        assert_eq!(line.text, format!("  {key} Unlock"));
-    }
-
-    #[test]
-    fn the_footer_explains_the_selected_row() {
-        let text = describe(Some(&option_row("key_order")));
-        assert!(text.starts_with("How keys within a hint are ordered. Default qwerty."));
-        assert!(text.contains("qwerty / dvorak"));
-        let text = describe(Some(&Row::Other("color_blue".to_string())));
-        assert!(text.contains("color_<name>"));
-    }
+fn is_shift_tab(key: &KeyWithModifier) -> bool {
+    key.bare_key == BareKey::Tab && key.has_modifiers(&[KeyModifier::Shift])
 }

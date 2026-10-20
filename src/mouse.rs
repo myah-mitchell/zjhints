@@ -5,13 +5,16 @@
 //! click to its outcome can be tested without a running Zellij. Carrying an
 //! outcome out (opening the context menu, running actions, showing a menu) is
 //! left to `State::perform_mouse_outcome` and `State::run_mouse_action`, the
-//! only parts that talk to the host.
+//! only parts that talk to the host. The hover preview, which lists what a
+//! menu would offer before it is clicked, is split the same way: what to show
+//! and when to close it is decided here, and `State::follow_mouse_with_preview`,
+//! `State::show_preview` and `State::close_preview` open and close the popup.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::{
-    ChoiceItem, Mouse, PromptPlacement, PromptRequest, PromptResult, PromptValue,
+    ChoiceItem, Mouse, PipeSource, PromptPlacement, PromptRequest, PromptResult, PromptValue,
 };
 
 /// One hint, as something that can be clicked.
@@ -160,11 +163,14 @@ impl ClickMap {
         }
     }
 
-    fn target_at(&self, column: usize) -> Option<&ClickTarget> {
+    fn region_at(&self, column: usize) -> Option<&ClickRegion> {
         self.regions
             .iter()
             .find(|region| region.columns.contains(&column))
-            .map(|region| &region.target)
+    }
+
+    fn target_at(&self, column: usize) -> Option<&ClickTarget> {
+        self.region_at(column).map(|region| &region.target)
     }
 }
 
@@ -211,13 +217,19 @@ pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
             line: (*line).max(0) as usize,
             column: *column,
         },
-        Mouse::LeftClick(0, column) => match map.target_at(*column) {
-            Some(ClickTarget::Hint(hint)) => hint.activate(),
-            Some(ClickTarget::HiddenHints(hints)) => hidden_hints_menu(hints),
-            Some(ClickTarget::Settings) => MouseOutcome::OpenSettings,
-            None => MouseOutcome::Nothing,
-        },
+        Mouse::LeftClick(0, column) => map
+            .target_at(*column)
+            .map_or(MouseOutcome::Nothing, click_target_outcome),
         _ => MouseOutcome::Nothing,
+    }
+}
+
+/// What a left-click on `target` does.
+fn click_target_outcome(target: &ClickTarget) -> MouseOutcome {
+    match target {
+        ClickTarget::Hint(hint) => hint.activate(),
+        ClickTarget::HiddenHints(hints) => hidden_hints_menu(hints),
+        ClickTarget::Settings => MouseOutcome::OpenSettings,
     }
 }
 
@@ -298,6 +310,348 @@ pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
             .map(|(index, entry)| ChoiceItem::labeled(index.to_string(), entry.label.clone())),
     )
     .placement(PromptPlacement::Mouse)
+}
+
+/// What hovering a stretch of the bar shows: the entries of the menu a click
+/// there would open.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Preview {
+    /// The columns of the hint or marker under the pointer. The popup hangs
+    /// from the first. Hovering the same columns while they show the same
+    /// entries is hovering the same thing.
+    pub columns: Range<usize>,
+    /// Each entry as the menu words it.
+    pub entries: Vec<String>,
+}
+
+/// The preview a hover over the bar calls for, if any. Only a hint or marker
+/// whose click opens a menu has one, and it lists exactly what that menu
+/// would.
+pub fn hover_preview(map: &ClickMap, mouse: &Mouse) -> Option<Preview> {
+    let Mouse::Hover(0, column) = mouse else {
+        return None;
+    };
+    let region = map.region_at(*column)?;
+    match click_target_outcome(&region.target) {
+        MouseOutcome::Menu(entries) if !entries.is_empty() => Some(Preview {
+            columns: region.columns.clone(),
+            entries: entries.into_iter().map(|entry| entry.label).collect(),
+        }),
+        _ => None,
+    }
+}
+
+/// How long a preview waits to be hovered before it closes itself, which is
+/// what keeps one from outliving a pointer that left the bar unnoticed.
+pub const PREVIEW_IDLE_SECONDS: f64 = 3.0;
+
+/// How long the bar remembers a preview it opened. A little longer than
+/// `PREVIEW_IDLE_SECONDS`, so a preview that closed itself can be shown again.
+pub const PREVIEW_MEMORY_SECONDS: f64 = 4.0;
+
+/// The pipe message that closes previews. Its payload is the tag of the one to
+/// close, and none closes every preview of the bar that sent it.
+pub const PREVIEW_CLOSE_MESSAGE: &str = "zjhints::preview_close";
+
+/// Which preview the bar has open, so that hovering the same hint again leaves
+/// it be and hovering something else replaces it.
+#[derive(Debug, Default)]
+pub struct PreviewMemory {
+    shown: Option<ShownPreview>,
+    /// Previews opened so far, which numbers each one.
+    opened: u64,
+    /// Timers asked for and timers that have fired, which is how a firing is
+    /// matched to the preview it was set for (see `timer_fired`).
+    timers_set: u64,
+    timers_fired: u64,
+}
+
+#[derive(Debug)]
+struct ShownPreview {
+    generation: u64,
+    preview: Preview,
+    timer: u64,
+}
+
+/// What a hover asks of the popup.
+#[derive(Debug, PartialEq)]
+pub enum PreviewStep {
+    Keep,
+    /// Close preview number `generation`.
+    Close(u64),
+    /// Open `preview` as number `generation`, closing the one shown, if any.
+    Show {
+        close: Option<u64>,
+        generation: u64,
+        preview: Preview,
+    },
+}
+
+impl PreviewMemory {
+    /// Take in a hover over the bar. The caller sets a timer of
+    /// `PREVIEW_MEMORY_SECONDS` for every `Show`.
+    pub fn hover(&mut self, map: &ClickMap, mouse: &Mouse) -> PreviewStep {
+        let Some(preview) = hover_preview(map, mouse) else {
+            return self.dismiss().map_or(PreviewStep::Keep, PreviewStep::Close);
+        };
+        if self
+            .shown
+            .as_ref()
+            .is_some_and(|shown| shown.preview == preview)
+        {
+            return PreviewStep::Keep;
+        }
+        let close = self.dismiss();
+        self.opened += 1;
+        self.timers_set += 1;
+        self.shown = Some(ShownPreview {
+            generation: self.opened,
+            preview: preview.clone(),
+            timer: self.timers_set,
+        });
+        PreviewStep::Show {
+            close,
+            generation: self.opened,
+            preview,
+        }
+    }
+
+    /// Forget the preview shown, returning its number if there was one.
+    pub fn dismiss(&mut self) -> Option<u64> {
+        self.shown.take().map(|shown| shown.generation)
+    }
+
+    /// A timer fired. Forgets the preview it was set for if that one is still
+    /// remembered, and returns whether it was.
+    ///
+    /// Forgetting is all the timer does. The bar cannot tell whether the
+    /// pointer is on the popup, which is a plugin of its own and gets the
+    /// mouse events there, so the popup is left to close itself: when the
+    /// pointer leaves it, or when its own idle timer finds it never reached.
+    ///
+    /// A firing is matched to its preview by counting, which assumes Zellij
+    /// fires timers of the same length in the order they were set. Should two
+    /// swap, a preview is forgotten one timer early or late, which only means
+    /// hovering its hint again may open it anew.
+    pub fn timer_fired(&mut self) -> bool {
+        self.timers_fired += 1;
+        let is_own = self
+            .shown
+            .as_ref()
+            .is_some_and(|shown| shown.timer == self.timers_fired);
+        if is_own {
+            self.shown = None;
+        }
+        is_own
+    }
+}
+
+/// Names preview number `generation` of the bar `owner`, so that closing it
+/// leaves other bars' previews alone.
+pub fn preview_tag(owner: u32, generation: u64) -> String {
+    format!("{owner}-{generation}")
+}
+
+// What marks an instance as a preview popup rather than the bar, and what it
+// shows. Written by `preview_configuration`, read by
+// `PreviewPopup::from_configuration`. Named apart from the options, so a user
+// option that reads like a switch for the feature cannot turn a bar into a
+// popup.
+const CONFIG_HOVER_PREVIEW: &str = "zjhints_internal_preview";
+const CONFIG_HOVER_PREVIEW_TAG: &str = "zjhints_internal_preview_tag";
+const CONFIG_HOVER_PREVIEW_ENTRIES: &str = "zjhints_internal_preview_entries";
+
+/// The configuration a preview popup is opened with.
+pub fn preview_configuration(
+    tag: &str,
+    entries: &[String],
+    wide_ambiguous: bool,
+) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        (CONFIG_HOVER_PREVIEW.to_string(), "true".to_string()),
+        (CONFIG_HOVER_PREVIEW_TAG.to_string(), tag.to_string()),
+        (
+            CONFIG_HOVER_PREVIEW_ENTRIES.to_string(),
+            encode_entries(entries),
+        ),
+        (
+            crate::CONFIG_AMBIGUOUS_WIDTH.to_string(),
+            if wide_ambiguous { "2" } else { "1" }.to_string(),
+        ),
+    ])
+}
+
+/// Entries as one configuration value: each followed by a newline, with
+/// backslashes and newlines inside an entry escaped.
+fn encode_entries(entries: &[String]) -> String {
+    entries
+        .iter()
+        .map(|entry| {
+            let escaped = entry.replace('\\', "\\\\").replace('\n', "\\n");
+            format!("{escaped}\n")
+        })
+        .collect()
+}
+
+fn decode_entries(encoded: &str) -> Vec<String> {
+    encoded
+        .split_terminator('\n')
+        .map(|escaped| {
+            let mut entry = String::new();
+            let mut chars = escaped.chars();
+            while let Some(ch) = chars.next() {
+                if ch != '\\' {
+                    entry.push(ch);
+                    continue;
+                }
+                match chars.next() {
+                    Some('n') => entry.push('\n'),
+                    Some(other) => entry.push(other),
+                    None => entry.push('\\'),
+                }
+            }
+            entry
+        })
+        .collect()
+}
+
+/// The columns and rows a preview of `entries` needs: the entries inside a
+/// frame with a space of padding on either side.
+pub fn preview_size(entries: &[String], wide_ambiguous: bool) -> (usize, usize) {
+    let widest = entries
+        .iter()
+        .map(|entry| crate::calculate_visible_length(&crate::show_controls(entry), wide_ambiguous))
+        .max()
+        .unwrap_or(0);
+    (widest + FRAME_COLUMNS, entries.len() + FRAME_ROWS)
+}
+
+/// What the frame around a preview's entries takes: a border and a space on
+/// each side, a border above and below.
+const FRAME_COLUMNS: usize = 4;
+const FRAME_ROWS: usize = 2;
+
+/// What a preview popup does about an event.
+#[derive(Debug, PartialEq)]
+pub enum PreviewAction {
+    Stay,
+    Close,
+}
+
+/// The popup side of the hover preview: this plugin running as a read-only
+/// list of entries, in a popup the bar opened.
+#[derive(Debug)]
+pub struct PreviewPopup {
+    tag: String,
+    entries: Vec<String>,
+    wide_ambiguous: bool,
+    /// Whether the pointer has been over the popup.
+    hovered: bool,
+}
+
+impl PreviewPopup {
+    /// The popup `configuration` asks for, if it is a preview's.
+    pub fn from_configuration(configuration: &BTreeMap<String, String>) -> Option<Self> {
+        if configuration.get(CONFIG_HOVER_PREVIEW).map(String::as_str) != Some("true") {
+            return None;
+        }
+        Some(Self {
+            tag: configuration
+                .get(CONFIG_HOVER_PREVIEW_TAG)
+                .cloned()
+                .unwrap_or_default(),
+            // Entries are plain text, and whoever opened the popup chose
+            // them, so a control character in one is shown, not obeyed.
+            entries: configuration
+                .get(CONFIG_HOVER_PREVIEW_ENTRIES)
+                .map(|encoded| {
+                    decode_entries(encoded)
+                        .iter()
+                        .map(|entry| crate::show_controls(entry).into_owned())
+                        .collect()
+                })
+                .unwrap_or_default(),
+            wide_ambiguous: configuration
+                .get(crate::CONFIG_AMBIGUOUS_WIDTH)
+                .is_some_and(|width| width.trim() == "2"),
+            hovered: false,
+        })
+    }
+
+    /// The pointer leaving the popup closes it, and so does a click, which
+    /// has nothing to choose here.
+    pub fn on_mouse(&mut self, mouse: &Mouse) -> PreviewAction {
+        match mouse {
+            Mouse::Hover(line, _) if *line < 0 => PreviewAction::Close,
+            Mouse::Hover(..) => {
+                self.hovered = true;
+                PreviewAction::Stay
+            }
+            Mouse::LeftClick(..) | Mouse::RightClick(..) => PreviewAction::Close,
+            _ => PreviewAction::Stay,
+        }
+    }
+
+    /// A popup nobody hovered by the time `PREVIEW_IDLE_SECONDS` are up has
+    /// been left behind. One the pointer is over closes when it leaves.
+    pub fn on_timer(&self) -> PreviewAction {
+        if self.hovered {
+            PreviewAction::Stay
+        } else {
+            PreviewAction::Close
+        }
+    }
+
+    /// A `PREVIEW_CLOSE_MESSAGE` from `source` with `payload` closes this
+    /// popup if the bar that opened it sent it, naming its tag or none. Any
+    /// plugin or `zellij pipe` can send the message, so one from anywhere
+    /// else is ignored.
+    pub fn on_close_message(&self, source: &PipeSource, payload: Option<&str>) -> PreviewAction {
+        let from_owner = matches!(
+            (source, self.owner()),
+            (PipeSource::Plugin(sender), Some(owner)) if *sender == owner
+        );
+        match payload {
+            _ if !from_owner => PreviewAction::Stay,
+            Some(tag) if !tag.is_empty() && tag != self.tag => PreviewAction::Stay,
+            _ => PreviewAction::Close,
+        }
+    }
+
+    /// The plugin id of the bar that opened this popup, which `preview_tag`
+    /// puts first in the tag.
+    fn owner(&self) -> Option<u32> {
+        self.tag.split_once('-')?.0.parse().ok()
+    }
+
+    /// The popup's rows for a pane of `rows` by `cols`: the entries in a
+    /// frame, or as many as fit with `…` standing for the rest.
+    pub fn lines(&self, rows: usize, cols: usize) -> Vec<String> {
+        if rows <= FRAME_ROWS || cols <= FRAME_COLUMNS {
+            return vec![];
+        }
+        let inner = cols - FRAME_COLUMNS;
+        let room = rows - FRAME_ROWS;
+        let cut = self.entries.len() > room;
+        let shown = if cut { room - 1 } else { self.entries.len() };
+        let border = "─".repeat(cols - 2);
+        let mut lines = vec![format!("┌{border}┐")];
+        for entry in self.entries.iter().take(shown) {
+            lines.push(self.framed(entry, inner));
+        }
+        if cut {
+            lines.push(self.framed("…", inner));
+        }
+        lines.push(format!("└{border}┘"));
+        lines
+    }
+
+    fn framed(&self, entry: &str, inner: usize) -> String {
+        let text = crate::truncate_ansi_string(entry, "…", inner, self.wide_ambiguous);
+        let padding =
+            inner.saturating_sub(crate::calculate_visible_length(&text, self.wide_ambiguous));
+        format!("│ {text}{} │", " ".repeat(padding))
+    }
 }
 
 #[cfg(test)]
@@ -592,5 +946,521 @@ mod tests {
                 ChoiceItem::labeled("1", "second")
             ]
         );
+    }
+
+    /// A hint whose keys do different things, so clicking it opens a menu.
+    fn choosy(name: &str) -> HintTarget {
+        HintTarget {
+            label: name.to_string(),
+            choices: vec![
+                HintChoice {
+                    label: format!("{name}1  first"),
+                    actions: vec![Action::FocusPreviousPane],
+                },
+                HintChoice {
+                    label: format!("{name}2  second"),
+                    actions: vec![Action::FocusNextPane],
+                },
+            ],
+        }
+    }
+
+    fn hover(column: usize) -> Mouse {
+        Mouse::Hover(0, column)
+    }
+
+    fn entries(labels: &[&str]) -> Vec<String> {
+        labels.iter().map(|label| label.to_string()).collect()
+    }
+
+    /// `a` (3 columns, one action), a spacer, `f` (4 columns, two choices),
+    /// a spacer, then the drop marker (1 column) standing for `c` and `d`,
+    /// starting at column 1.
+    fn preview_bar() -> ClickMap {
+        ClickMap::lay_out(
+            vec![
+                segment(3, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+                segment(1, SegmentContent::Spacer),
+                segment(4, SegmentContent::Hint(choosy("f"))),
+                segment(1, SegmentContent::Spacer),
+                segment(
+                    1,
+                    SegmentContent::Dropped(vec![
+                        hint("c", vec![Action::TogglePaneFrames]),
+                        hint("d", vec![Action::TogglePanePinned]),
+                    ]),
+                ),
+            ],
+            1,
+            None,
+        )
+    }
+
+    #[test]
+    fn only_hints_that_open_a_menu_have_a_preview() {
+        let map = preview_bar().with_settings(0..1);
+        // The mode prefix, the one-action hint and the gaps between hints.
+        for column in [0, 1, 3, 4, 9, 20] {
+            assert_eq!(hover_preview(&map, &hover(column)), None, "{column}");
+        }
+        // The hint with two choices, on every column it covers.
+        for column in 5..=8 {
+            assert_eq!(
+                hover_preview(&map, &hover(column)),
+                Some(Preview {
+                    columns: 5..9,
+                    entries: entries(&["f1  first", "f2  second"]),
+                }),
+                "{column}"
+            );
+        }
+        // The drop marker.
+        assert_eq!(
+            hover_preview(&map, &hover(10)),
+            Some(Preview {
+                columns: 10..11,
+                entries: entries(&["c", "d"]),
+            })
+        );
+    }
+
+    #[test]
+    fn only_a_hover_on_the_hint_line_has_a_preview() {
+        let map = preview_bar();
+        assert!(hover_preview(&map, &hover(6)).is_some());
+        assert_eq!(hover_preview(&map, &Mouse::Hover(1, 6)), None);
+        assert_eq!(hover_preview(&map, &Mouse::Hover(-1, 6)), None);
+        assert_eq!(hover_preview(&map, &Mouse::Hover(0, usize::MAX)), None);
+        assert_eq!(hover_preview(&map, &Mouse::LeftClick(0, 6)), None);
+        assert_eq!(hover_preview(&map, &Mouse::ScrollUp(1)), None);
+    }
+
+    #[test]
+    fn a_hint_with_no_bound_keys_or_a_marker_with_no_hints_has_no_preview() {
+        let unbound = HintTarget {
+            label: "x".to_string(),
+            choices: vec![],
+        };
+        let segments = vec![
+            segment(2, SegmentContent::Hint(unbound)),
+            segment(2, SegmentContent::Dropped(vec![])),
+        ];
+        let map = ClickMap::lay_out(segments, 0, None);
+        assert_eq!(hover_preview(&map, &hover(0)), None);
+        assert_eq!(hover_preview(&map, &hover(2)), None);
+    }
+
+    #[test]
+    fn the_overflow_marker_previews_the_hints_the_cut_took() {
+        let cut = Cut {
+            at: 2,
+            overflow: 2..5,
+        };
+        let map = ClickMap::lay_out(two_hints(), 1, Some(cut));
+        assert_eq!(
+            hover_preview(&map, &hover(3)),
+            Some(Preview {
+                columns: 2..5,
+                entries: entries(&["a", "b"]),
+            })
+        );
+    }
+
+    #[test]
+    fn a_cut_hint_with_several_choices_previews_them_on_the_columns_still_showing() {
+        let segments = vec![segment(6, SegmentContent::Hint(choosy("f")))];
+        let cut = Cut {
+            at: 3,
+            overflow: 3..6,
+        };
+        let map = ClickMap::lay_out(segments, 0, Some(cut));
+        let visible = hover_preview(&map, &hover(1)).expect("the visible part");
+        assert_eq!(visible.columns, 0..3);
+        assert_eq!(visible.entries, entries(&["f1  first", "f2  second"]));
+        // The overflow marker lists the hint whole, by its name.
+        let marker = hover_preview(&map, &hover(4)).expect("the marker");
+        assert_eq!(marker.entries, entries(&["f"]));
+    }
+
+    #[test]
+    fn a_preview_lists_what_clicking_would_offer() {
+        let map = preview_bar();
+        for column in [5, 10] {
+            let MouseOutcome::Menu(menu) = click_outcome(&map, &left(column)) else {
+                panic!("expected a menu");
+            };
+            let labels: Vec<String> = menu.into_iter().map(|entry| entry.label).collect();
+            assert_eq!(
+                hover_preview(&map, &hover(column)).map(|preview| preview.entries),
+                Some(labels)
+            );
+        }
+    }
+
+    #[test]
+    fn entries_survive_being_carried_in_configuration() {
+        let original = entries(&[
+            "h←  move focus left",
+            "",
+            "back\\slash",
+            "two\nlines",
+            "\\n is not a newline",
+            "trailing\\",
+        ]);
+        assert_eq!(decode_entries(&encode_entries(&original)), original);
+        assert_eq!(decode_entries(&encode_entries(&[])), Vec::<String>::new());
+        assert_eq!(
+            decode_entries(&encode_entries(&entries(&[""]))),
+            entries(&[""])
+        );
+        let configuration = preview_configuration("7-2", &original, true);
+        let popup = PreviewPopup::from_configuration(&configuration).expect("a preview");
+        // The newline arrives, and the popup shows it escaped.
+        let mut shown = original.clone();
+        shown[3] = "two\\nlines".to_string();
+        assert_eq!(popup.entries, shown);
+        assert_eq!(popup.tag, "7-2");
+        assert!(popup.wide_ambiguous);
+        let narrow = preview_configuration("7-2", &original, false);
+        let popup = PreviewPopup::from_configuration(&narrow).expect("a preview");
+        assert!(!popup.wide_ambiguous);
+    }
+
+    #[test]
+    fn only_a_preview_configuration_makes_a_preview_popup() {
+        assert!(PreviewPopup::from_configuration(&BTreeMap::new()).is_none());
+        let bar = BTreeMap::from([("mouse".to_string(), "true".to_string())]);
+        assert!(PreviewPopup::from_configuration(&bar).is_none());
+        let off = BTreeMap::from([(CONFIG_HOVER_PREVIEW.to_string(), "false".to_string())]);
+        assert!(PreviewPopup::from_configuration(&off).is_none());
+        // An option a user might set to turn the feature on leaves a bar.
+        let user = BTreeMap::from([("hover_preview".to_string(), "true".to_string())]);
+        assert!(PreviewPopup::from_configuration(&user).is_none());
+    }
+
+    #[test]
+    fn hovering_the_same_hint_again_keeps_its_preview() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        let PreviewStep::Show {
+            close: None,
+            generation,
+            preview,
+        } = memory.hover(&map, &hover(5))
+        else {
+            panic!("expected the preview to open");
+        };
+        assert_eq!(preview.columns, 5..9);
+        for column in [5, 6, 8, 7] {
+            assert_eq!(memory.hover(&map, &hover(column)), PreviewStep::Keep);
+        }
+        assert_eq!(memory.dismiss(), Some(generation));
+    }
+
+    #[test]
+    fn hovering_another_hint_replaces_the_preview() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        let PreviewStep::Show {
+            generation: first, ..
+        } = memory.hover(&map, &hover(5))
+        else {
+            panic!("expected the preview to open");
+        };
+        let PreviewStep::Show {
+            close,
+            generation: second,
+            preview,
+        } = memory.hover(&map, &hover(10))
+        else {
+            panic!("expected the preview to be replaced");
+        };
+        assert_eq!(close, Some(first));
+        assert_ne!(first, second);
+        assert_eq!(preview.entries, entries(&["c", "d"]));
+    }
+
+    #[test]
+    fn hovering_off_every_picker_closes_the_preview_once() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        // Nothing open, nothing to close.
+        assert_eq!(memory.hover(&map, &hover(1)), PreviewStep::Keep);
+        let PreviewStep::Show { generation, .. } = memory.hover(&map, &hover(5)) else {
+            panic!("expected the preview to open");
+        };
+        // A one-action hint, a gap and the line below are all off a picker.
+        assert_eq!(
+            memory.hover(&map, &hover(1)),
+            PreviewStep::Close(generation)
+        );
+        assert_eq!(memory.hover(&map, &hover(4)), PreviewStep::Keep);
+        let PreviewStep::Show { generation, .. } = memory.hover(&map, &hover(5)) else {
+            panic!("expected the preview to open again");
+        };
+        assert_eq!(
+            memory.hover(&map, &Mouse::Hover(1, 5)),
+            PreviewStep::Close(generation)
+        );
+    }
+
+    #[test]
+    fn a_preview_whose_entries_changed_under_the_pointer_is_shown_again() {
+        let mut memory = PreviewMemory::default();
+        assert!(matches!(
+            memory.hover(&preview_bar(), &hover(5)),
+            PreviewStep::Show { .. }
+        ));
+        let changed = ClickMap::lay_out(
+            vec![
+                segment(4, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+                segment(4, SegmentContent::Hint(choosy("g"))),
+            ],
+            1,
+            None,
+        );
+        let PreviewStep::Show { close, preview, .. } = memory.hover(&changed, &hover(5)) else {
+            panic!("expected the preview to be shown again");
+        };
+        assert!(close.is_some());
+        assert_eq!(preview.entries, entries(&["g1  first", "g2  second"]));
+    }
+
+    #[test]
+    fn the_memory_forgets_a_preview_when_its_own_timer_fires() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        let PreviewStep::Show { generation, .. } = memory.hover(&map, &hover(5)) else {
+            panic!("expected the preview to open");
+        };
+        assert!(memory.timer_fired());
+        assert_eq!(memory.dismiss(), None, "preview {generation} is forgotten");
+        // Forgotten, so the same hint opens it again.
+        assert!(matches!(
+            memory.hover(&map, &hover(5)),
+            PreviewStep::Show { close: None, .. }
+        ));
+    }
+
+    #[test]
+    fn a_timer_set_for_an_earlier_preview_leaves_a_later_one_alone() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        assert!(matches!(
+            memory.hover(&map, &hover(5)),
+            PreviewStep::Show { .. }
+        ));
+        assert!(matches!(
+            memory.hover(&map, &hover(10)),
+            PreviewStep::Show { .. }
+        ));
+        // The first preview's timer, then the second's.
+        assert!(!memory.timer_fired());
+        assert!(memory.timer_fired());
+        assert!(!memory.timer_fired());
+    }
+
+    #[test]
+    fn a_dismissed_preview_is_not_closed_again_by_its_timer() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        assert!(matches!(
+            memory.hover(&map, &hover(5)),
+            PreviewStep::Show { .. }
+        ));
+        assert!(memory.dismiss().is_some());
+        assert_eq!(memory.dismiss(), None);
+        assert!(!memory.timer_fired());
+    }
+
+    #[test]
+    fn a_popup_the_pointer_is_on_outlives_the_bars_timer() {
+        let map = preview_bar();
+        let mut memory = PreviewMemory::default();
+        let PreviewStep::Show {
+            generation,
+            preview,
+            ..
+        } = memory.hover(&map, &hover(5))
+        else {
+            panic!("expected the preview to open");
+        };
+        let tag = preview_tag(7, generation);
+        let mut popup =
+            PreviewPopup::from_configuration(&preview_configuration(&tag, &preview.entries, false))
+                .expect("a preview");
+        // The pointer moves from the hint down into the popup.
+        assert_eq!(popup.on_mouse(&Mouse::Hover(1, 2)), PreviewAction::Stay);
+        // The popup's idle timer, then the bar's, which only forgets it: the
+        // bar has no step that closes it.
+        assert_eq!(popup.on_timer(), PreviewAction::Stay);
+        assert!(memory.timer_fired());
+        assert_eq!(memory.dismiss(), None);
+        // Leaving the popup is what closes it.
+        assert_eq!(popup.on_mouse(&Mouse::Hover(-1, 0)), PreviewAction::Close);
+        // Back on the bar, the same hint opens a new preview.
+        assert!(matches!(
+            memory.hover(&map, &hover(5)),
+            PreviewStep::Show { close: None, .. }
+        ));
+    }
+
+    #[test]
+    fn previews_are_named_by_bar_and_number() {
+        assert_eq!(preview_tag(7, 2), "7-2");
+        assert_ne!(preview_tag(7, 2), preview_tag(2, 7));
+        assert_ne!(preview_tag(1, 11), preview_tag(11, 1));
+    }
+
+    fn popup(labels: &[&str]) -> PreviewPopup {
+        PreviewPopup::from_configuration(&preview_configuration("7-2", &entries(labels), false))
+            .expect("a preview")
+    }
+
+    #[test]
+    fn the_pointer_leaving_the_popup_closes_it() {
+        let mut popup = popup(&["a"]);
+        assert_eq!(popup.on_mouse(&Mouse::Hover(1, 2)), PreviewAction::Stay);
+        assert_eq!(popup.on_mouse(&Mouse::Hover(-1, 0)), PreviewAction::Close);
+        assert_eq!(popup.on_mouse(&Mouse::ScrollUp(1)), PreviewAction::Stay);
+    }
+
+    #[test]
+    fn clicking_the_popup_closes_it() {
+        let mut popup = popup(&["a"]);
+        assert_eq!(
+            popup.on_mouse(&Mouse::LeftClick(1, 2)),
+            PreviewAction::Close
+        );
+        assert_eq!(
+            popup.on_mouse(&Mouse::RightClick(1, 2)),
+            PreviewAction::Close
+        );
+    }
+
+    #[test]
+    fn a_popup_nobody_hovered_closes_when_its_time_is_up() {
+        let mut popup = popup(&["a"]);
+        assert_eq!(popup.on_timer(), PreviewAction::Close);
+        popup.on_mouse(&Mouse::Hover(0, 0));
+        assert_eq!(popup.on_timer(), PreviewAction::Stay);
+    }
+
+    #[test]
+    fn a_close_message_closes_the_popup_it_names_or_every_popup() {
+        let popup = popup(&["a"]);
+        let owner = PipeSource::Plugin(7);
+        let close = |payload| popup.on_close_message(&owner, payload);
+        assert_eq!(close(Some("7-2")), PreviewAction::Close);
+        assert_eq!(close(None), PreviewAction::Close);
+        assert_eq!(close(Some("")), PreviewAction::Close);
+        assert_eq!(close(Some("7-3")), PreviewAction::Stay);
+        assert_eq!(close(Some("8-2")), PreviewAction::Stay);
+    }
+
+    #[test]
+    fn only_the_bar_that_opened_the_popup_can_close_it() {
+        let popup = popup(&["a"]);
+        for source in [
+            PipeSource::Plugin(8),
+            PipeSource::Cli("pipe".to_string()),
+            PipeSource::Keybind,
+        ] {
+            for payload in [Some("7-2"), None, Some("")] {
+                assert_eq!(
+                    popup.on_close_message(&source, payload),
+                    PreviewAction::Stay,
+                    "{source:?} sending {payload:?}"
+                );
+            }
+        }
+        // A tag that names no bar is closed by no message.
+        let configuration = preview_configuration("stray", &entries(&["a"]), false);
+        let stray = PreviewPopup::from_configuration(&configuration).expect("a preview");
+        assert_eq!(
+            stray.on_close_message(&PipeSource::Plugin(7), None),
+            PreviewAction::Stay
+        );
+    }
+
+    #[test]
+    fn a_popup_is_sized_to_its_entries_and_frame() {
+        let labels = entries(&["h←  move focus left", "j↓  down"]);
+        let widest = "h←  move focus left".chars().count();
+        assert_eq!(preview_size(&labels, false), (widest + 4, 2 + 2));
+        assert_eq!(preview_size(&[], false), (4, 2));
+        // A wide character takes two columns.
+        assert_eq!(preview_size(&entries(&["漢字"]), false), (4 + 4, 1 + 2));
+    }
+
+    #[test]
+    fn a_popup_draws_its_entries_in_a_frame_of_the_size_asked_for() {
+        let popup = popup(&["h  left", "l  right"]);
+        let (width, height) = preview_size(&popup.entries, false);
+        assert_eq!(
+            popup.lines(height, width),
+            vec![
+                "┌──────────┐",
+                "│ h  left  │",
+                "│ l  right │",
+                "└──────────┘",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_popup_too_short_for_its_entries_ends_in_an_ellipsis() {
+        let popup = popup(&["one", "two", "three"]);
+        assert_eq!(
+            popup.lines(4, 9),
+            vec!["┌───────┐", "│ one   │", "│ …     │", "└───────┘"]
+        );
+        // With room for all of them there is no ellipsis.
+        assert_eq!(popup.lines(5, 9).len(), 5);
+    }
+
+    #[test]
+    fn a_popup_too_narrow_for_an_entry_cuts_it_short() {
+        let popup = popup(&["a long entry"]);
+        let lines = popup.lines(3, 9);
+        assert_eq!(lines[0], "┌───────┐");
+        // The cut ends with a reset, so no color leaks into the frame.
+        assert_eq!(lines[1], "│ a lo…\u{1b}[0m │");
+        assert_eq!(lines[2], "└───────┘");
+    }
+
+    #[test]
+    fn a_popup_cuts_wide_characters_without_breaking_its_frame() {
+        let popup = popup(&["漢字漢字"]);
+        for cols in 7..=11 {
+            for line in popup.lines(3, cols) {
+                assert_eq!(
+                    crate::calculate_visible_length(&line, false),
+                    cols,
+                    "{line:?} in {cols} columns"
+                );
+            }
+        }
+        assert_eq!(popup.lines(3, 10)[1], "│ 漢字…\u{1b}[0m  │");
+    }
+
+    #[test]
+    fn a_popup_shows_control_characters_instead_of_sending_them() {
+        let labels = entries(&["\u{1b}]52;c;aGk=\u{7}", "a\u{1b}[2Jb"]);
+        let configuration = preview_configuration("7-2", &labels, false);
+        let popup = PreviewPopup::from_configuration(&configuration).expect("a preview");
+        let (width, height) = preview_size(&labels, false);
+        let lines = popup.lines(height, width);
+        assert_eq!(lines[1], "│ \\u{1b}]52;c;aGk=\\u{7} │");
+        assert_eq!(lines[2], "│ a\\u{1b}[2Jb           │");
+        assert!(lines.iter().all(|line| !line.contains('\u{1b}')));
+    }
+
+    #[test]
+    fn a_popup_with_no_room_for_a_frame_draws_nothing() {
+        let popup = popup(&["a"]);
+        assert!(popup.lines(2, 20).is_empty());
+        assert!(popup.lines(5, 4).is_empty());
+        assert!(popup.lines(0, 0).is_empty());
     }
 }

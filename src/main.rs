@@ -13,16 +13,19 @@ use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 
 mod format;
+#[cfg(test)]
+mod images;
 mod keypress;
 mod mouse;
 mod settings;
+mod theme;
 
 use settings::live;
 use settings::screen::SettingsScreen;
 
 use mouse::{
     ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
-    SegmentContent,
+    Preview, PreviewAction, PreviewMemory, PreviewPopup, PreviewStep, SegmentContent,
 };
 
 #[derive(Default)]
@@ -30,6 +33,9 @@ struct State {
     /// Set when this instance runs as the settings screen rather than the bar.
     /// It then handles every event itself and the bar's fields go unused.
     settings: Option<SettingsScreen>,
+    /// Set when this instance runs as the popup of a hover preview rather than
+    /// as the bar. It handles every event itself, like the settings screen.
+    hover_preview: Option<PreviewPopup>,
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
     /// The URL this bar's pane reports, which is the alias name when the bar
@@ -137,7 +143,22 @@ struct State {
     pending_menus: BTreeMap<u64, Vec<MenuEntry>>,
     /// Clicked actions not yet run, started one at a time.
     action_queue: ActionQueue,
+    /// The hover preview open over the bar, if any.
+    preview_memory: PreviewMemory,
+    /// How many rows the bar's pane had when it was last drawn, which is
+    /// where a hover preview starts below it.
+    pane_rows: usize,
+    /// The options as the user wrote them, before a theme is laid under them.
+    /// A preview from the settings screen edits this and layers it again, so
+    /// switching theme replaces the old theme's values instead of keeping
+    /// them as if the user had set them.
+    user_config: BTreeMap<String, String>,
+    /// `user_config` with the selected themes' options laid under it. Every
+    /// option is read from this, `$alias` colors included.
     config: BTreeMap<String, String>,
+    /// The Zellij theme from the last mode update, which `color_theme zellij`
+    /// takes its aliases from. `None` until the first one arrives.
+    zellij_palette: Option<Styling>,
 }
 
 /// Where the focus sits in one tab.
@@ -336,6 +357,8 @@ const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
 const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
+const CONFIG_MODE_LABEL_PREFIX: &str = "mode_label_";
+const CONFIG_MODE_KEY_PREFIX: &str = "mode_key_";
 
 /// Concept id of the synthetic hint standing in for the descended-session
 /// placeholder (see `render`'s `is_host_descended` branch), and its default
@@ -1244,6 +1267,60 @@ impl State {
         }
     }
 
+    /// Keep the hover preview in step with a mouse event on the bar: a hover
+    /// shows, keeps or closes it, and a click closes it before the click acts.
+    fn follow_mouse_with_preview(&mut self, mouse: &Mouse) {
+        let step = match mouse {
+            Mouse::Hover(..) => self.preview_memory.hover(&self.click_map, mouse),
+            Mouse::LeftClick(..) | Mouse::RightClick(..) => self
+                .preview_memory
+                .dismiss()
+                .map_or(PreviewStep::Keep, PreviewStep::Close),
+            _ => PreviewStep::Keep,
+        };
+        match step {
+            PreviewStep::Keep => {}
+            PreviewStep::Close(generation) => self.close_preview(generation),
+            PreviewStep::Show {
+                close,
+                generation,
+                preview,
+            } => {
+                if let Some(previous) = close {
+                    self.close_preview(previous);
+                }
+                self.show_preview(generation, &preview);
+            }
+        }
+    }
+
+    /// Open the popup for preview number `generation`. The timer is set
+    /// whether or not the popup can be, since the memory counts on one firing
+    /// for each preview it shows.
+    fn show_preview(&mut self, generation: u64, preview: &Preview) {
+        schedule_preview_expiry(mouse::PREVIEW_MEMORY_SECONDS);
+        let Some(url) = self.own_url.clone() else {
+            self.preview_memory.dismiss();
+            return;
+        };
+        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
+        let (width, height) = mouse::preview_size(&preview.entries, self.wide_ambiguous);
+        open_preview_popup(
+            &url,
+            mouse::preview_configuration(&tag, &preview.entries, self.wide_ambiguous),
+            self.pane_rows.max(1),
+            preview.columns.start,
+            width,
+            height,
+        );
+    }
+
+    /// Close preview number `generation` of this bar.
+    fn close_preview(&self, generation: u64) {
+        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
+        close_preview_popup(&tag);
+    }
+
     /// The hint line for one session's mode and keybindings, curated, ordered,
     /// styled, dimmed and truncated according to this plugin's configuration.
     ///
@@ -1410,7 +1487,11 @@ impl State {
     /// Read every option from `configuration`, as `load` does and as a live
     /// update from the settings screen does, so a value behaves the same
     /// whichever way it arrived.
-    fn apply_configuration(&mut self, configuration: BTreeMap<String, String>) {
+    fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
+        for (option, name) in theme::unknown_names(&user_configuration) {
+            eprintln!("zjhints: unknown {option} \"{name}\", using \"zellij\"");
+        }
+        let configuration = theme::layer(&user_configuration, self.zellij_palette.as_ref());
         // The option sets the state when it changes, on load or in a
         // preview, and leaves a state a message set alone otherwise.
         let hidden = parse_hidden(&configuration);
@@ -1588,7 +1669,8 @@ impl State {
             })
             .unwrap_or(DEFAULT_HIDE_SHARED_HINTS);
         // Retained so `$alias` colors and `label_<action>` overrides can be
-        // resolved from the raw configuration.
+        // resolved from the configuration.
+        self.user_config = user_configuration;
         self.config = configuration;
     }
 }
@@ -1610,7 +1692,7 @@ const BAR_PERMISSIONS: [PermissionType; 2] = [
 pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
     // Running a clicked hint's actions.
     PermissionType::RunActionsAsUser,
-    // Opening Zellij's context menu.
+    // Opening Zellij's context menu and the popup of a hover preview.
     PermissionType::ChangeApplicationState,
     // Showing the menus of hints and keys, which are prompts.
     PermissionType::OpenTerminalsOrPlugins,
@@ -1628,10 +1710,12 @@ fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
 }
 
 /// The events `mouse` needs beyond what the bar always subscribes to.
-const MOUSE_EVENTS: [EventType; 3] = [
+const MOUSE_EVENTS: [EventType; 4] = [
     EventType::Mouse,
     EventType::PromptResult,
     EventType::ActionComplete,
+    // Forgetting a hover preview that has closed itself.
+    EventType::Timer,
 ];
 
 /// The pipe message that opens the settings screen, or brings it up.
@@ -1704,6 +1788,67 @@ fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
         .get(CONFIG_HIDDEN)
         .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
 }
+
+/// Open a hover preview below the bar's `line` and at its `column`, `width` by
+/// `height`. Both are relative to the bar's pane, which is what Zellij adds
+/// the pane's own position to, and Zellij keeps the popup on screen: below
+/// the bar, or above it when the bar is at the bottom and the popup would not
+/// fit. The popup does not take the focus. `url` is the bar's own, so the
+/// popup is this plugin again, and is not granted permissions of its own.
+#[cfg(not(test))]
+fn open_preview_popup(
+    url: &str,
+    configuration: BTreeMap<String, String>,
+    line: usize,
+    column: usize,
+    width: usize,
+    height: usize,
+) {
+    open_plugin_popup_with_options(
+        url,
+        configuration,
+        line,
+        column,
+        width,
+        height,
+        PopupOptions {
+            focused: false,
+            corner: None,
+        },
+    );
+}
+
+#[cfg(test)]
+fn open_preview_popup(
+    _url: &str,
+    _configuration: BTreeMap<String, String>,
+    _line: usize,
+    _column: usize,
+    _width: usize,
+    _height: usize,
+) {
+}
+
+/// Tell the preview named `tag` to close. The message is a broadcast, because
+/// one sent to the popup's URL would launch a new instance when none matches;
+/// the tag keeps it from closing another bar's preview.
+#[cfg(not(test))]
+fn close_preview_popup(tag: &str) {
+    pipe_message_to_plugin(MessageToPlugin::new(mouse::PREVIEW_CLOSE_MESSAGE).with_payload(tag));
+}
+
+#[cfg(test)]
+fn close_preview_popup(_tag: &str) {}
+
+/// Have a timer fire in `seconds`, when the bar should forget the preview it
+/// just opened.
+#[cfg(not(test))]
+fn schedule_preview_expiry(seconds: f64) {
+    set_timeout(seconds);
+}
+
+#[cfg(test)]
+fn schedule_preview_expiry(_seconds: f64) {}
 
 /// Open the settings screen as a floating pane, or reach the one already
 /// open. `zellij:OWN_URL` stands for this plugin's own location, and a
@@ -1835,7 +1980,7 @@ impl State {
         if !live::is_for(&alias, self.own_url.as_deref()) {
             return false;
         }
-        let mut configuration = self.config.clone();
+        let mut configuration = self.user_config.clone();
         if !live::apply(&mut configuration, &mut self.preview_ignored, &changes) {
             return false;
         }
@@ -1863,6 +2008,15 @@ impl State {
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        // A preview popup asks for no permissions: it shares its location,
+        // and so its cached grants, with the bar, and a request would
+        // replace them. It needs none for what it does.
+        if let Some(popup) = PreviewPopup::from_configuration(&configuration) {
+            self.hover_preview = Some(popup);
+            subscribe(&[EventType::Mouse, EventType::Timer]);
+            set_timeout(mouse::PREVIEW_IDLE_SECONDS);
+            return;
+        }
         if configuration.get("settings").map(String::as_str) == Some("true") {
             let mut screen = SettingsScreen::default();
             screen.load(&configuration);
@@ -1905,6 +2059,17 @@ impl ZellijPlugin for State {
     }
 
     fn update(&mut self, event: Event) -> bool {
+        if let Some(popup) = &mut self.hover_preview {
+            let action = match event {
+                Event::Mouse(mouse) => popup.on_mouse(&mouse),
+                Event::Timer(_) => popup.on_timer(),
+                _ => PreviewAction::Stay,
+            };
+            if action == PreviewAction::Close {
+                close_self();
+            }
+            return false;
+        }
         if let Some(screen) = &mut self.settings {
             return screen.update(event);
         }
@@ -1924,6 +2089,14 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
+                // `color_theme zellij` follows the Zellij theme, so a new one
+                // means laying the themes again.
+                let palette = self.mode_info.style.colors;
+                if self.zellij_palette != Some(palette) {
+                    self.zellij_palette = Some(palette);
+                    self.apply_configuration(self.user_config.clone());
+                    should_render = true;
+                }
             }
             // Sent once this plugin subscribes, and again whenever the
             // keybindings are reconfigured.
@@ -2011,8 +2184,14 @@ impl ZellijPlugin for State {
             // Still subscribed after `mouse` is turned off by a preview, so
             // checked here as well.
             Event::Mouse(mouse) if self.mouse => {
+                self.follow_mouse_with_preview(&mouse);
                 let outcome = mouse::click_outcome(&self.click_map, &mouse);
                 self.perform_mouse_outcome(outcome);
+            }
+            // Forget the preview, but leave the popup open: the pointer may
+            // be on it, and only the popup can tell. It closes itself.
+            Event::Timer(_) => {
+                self.preview_memory.timer_fired();
             }
             Event::PromptResult(request_id, result) => {
                 let entries = self.pending_menus.remove(&request_id);
@@ -2029,6 +2208,15 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
+        if let Some(popup) = &self.hover_preview {
+            if message.name == mouse::PREVIEW_CLOSE_MESSAGE
+                && popup.on_close_message(&message.source, message.payload.as_deref())
+                    == PreviewAction::Close
+            {
+                close_self();
+            }
+            return false;
+        }
         if self.settings.is_some() {
             // Clicking the mode prefix again while the screen is hidden.
             if message.name == OPEN_SETTINGS_MESSAGE {
@@ -2057,6 +2245,12 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
+        if let Some(popup) = &self.hover_preview {
+            for (row, line) in popup.lines(rows, cols).into_iter().enumerate() {
+                print_text_with_coordinates(Text::from(&line), 0, row, None, None);
+            }
+            return;
+        }
         if let Some(screen) = &mut self.settings {
             screen.render(rows, cols);
             return;
@@ -2081,7 +2275,14 @@ impl ZellijPlugin for State {
             );
         }
         print!("{}", output);
+        // A preview of a hint that is no longer there would mislead.
+        if click_map != self.click_map {
+            if let Some(generation) = self.preview_memory.dismiss() {
+                self.close_preview(generation);
+            }
+        }
         self.click_map = click_map;
+        self.pane_rows = rows;
     }
 }
 
@@ -2138,6 +2339,25 @@ fn calculate_visible_length(text: &str, wide_ambiguous: bool) -> usize {
     len
 }
 
+/// `text` with every control character written out as an escape, such as
+/// `\u{1b}` for ESC or `\n` for a newline, so that it shows as text instead
+/// of acting on the terminal. For plain text from the config or a nested
+/// session, never for ANSI the plugin styled itself.
+fn show_controls(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(char::is_control) {
+        return Cow::Borrowed(text);
+    }
+    let mut shown = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_control() {
+            shown.extend(ch.escape_default());
+        } else {
+            shown.push(ch);
+        }
+    }
+    Cow::Owned(shown)
+}
+
 fn char_width(ch: char, wide_ambiguous: bool) -> usize {
     let width = if wide_ambiguous {
         ch.width_cjk()
@@ -2155,8 +2375,9 @@ fn truncate_ansi_string(
     wide_ambiguous: bool,
 ) -> String {
     let visible_len = calculate_visible_length(text, wide_ambiguous);
-    // Width on screen, not bytes: an overflow marker like `…` is one column.
-    let overflow_len = overflow_str.chars().count();
+    // Columns on screen, not characters or bytes: `…` is one column, or two
+    // where ambiguous characters are wide.
+    let overflow_len = calculate_visible_length(overflow_str, wide_ambiguous);
 
     if visible_len <= max_len {
         return text.to_string();
@@ -2165,7 +2386,16 @@ fn truncate_ansi_string(
     // Too narrow for even the marker, so show as much of it as fits rather than
     // overshooting the limit the caller asked for.
     if max_len <= overflow_len {
-        return overflow_str.chars().take(max_len).collect();
+        let mut shown = String::new();
+        let mut columns = 0;
+        for ch in overflow_str.chars() {
+            columns += char_width(ch, wide_ambiguous);
+            if columns > max_len {
+                break;
+            }
+            shown.push(ch);
+        }
+        return shown;
     }
 
     let target_len = max_len - overflow_len;
@@ -2179,11 +2409,14 @@ fn truncate_ansi_string(
                 result.push_str(&seq);
             }
             AnsiSegment::VisibleChar(ch) => {
-                if visible_count >= target_len {
+                // A wide character that would cross the limit is left out
+                // whole, so the cut can fall a column short of it.
+                let width = char_width(ch, wide_ambiguous);
+                if visible_count + width > target_len {
                     break;
                 }
                 result.push(ch);
-                visible_count += 1;
+                visible_count += width;
             }
         }
     }
@@ -2661,6 +2894,11 @@ fn style_description(description: &str, palette: &Styling) -> Vec<ANSIString<'st
 /// caller), a custom format string through `format::render_template`, which
 /// resolves its own literal colors and would otherwise ignore `colors`
 /// (and `dim_when_unfocused`) entirely.
+///
+/// A format string draws the mode's name as `{desc}` and its symbol as
+/// `{key}`, taken from `mode_label_<mode>` and `mode_key_<mode>` the way a
+/// hint's come from its label and keys. `{mode}` is always the bare name. The
+/// built-in styling draws the symbol before the name when there is one.
 fn render_mode_prefix(
     mode: InputMode,
     colors: &Styling,
@@ -2669,15 +2907,21 @@ fn render_mode_prefix(
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
     let mode_name = format!("{:?}", mode).to_uppercase();
-    let per_mode_key = format!("{}{}", CONFIG_MODE_FORMAT_PREFIX, mode_config_suffix(mode));
-    let format_str = config
-        .get(&per_mode_key)
-        .map(String::as_str)
-        .or(mode_format);
+    let suffix = mode_config_suffix(mode);
+    let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).map(String::as_str);
+    let label = per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or(&mode_name);
+    let symbol = per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default();
+    let format_str = per_mode(CONFIG_MODE_FORMAT_PREFIX).or(mode_format);
 
     match format_str {
-        Some(fmt) => format::render_template(fmt, &[("mode", &mode_name)], config, dim),
-        None => style_mode(&mode_name, colors),
+        Some(fmt) => format::render_template(
+            fmt,
+            &[("mode", &mode_name), ("desc", label), ("key", symbol)],
+            config,
+            dim,
+        ),
+        None if symbol.is_empty() => style_mode(label, colors),
+        None => style_mode(&format!("{symbol} {label}"), colors),
     }
 }
 
@@ -4565,6 +4809,48 @@ mod tests {
     }
 
     #[test]
+    fn control_characters_are_shown_as_escapes() {
+        assert_eq!(
+            show_controls("\u{1b}]52;c;aGk=\u{7}"),
+            "\\u{1b}]52;c;aGk=\\u{7}"
+        );
+        assert_eq!(
+            show_controls("a\nb\tc\u{7f}\u{9b}"),
+            "a\\nb\\tc\\u{7f}\\u{9b}"
+        );
+        assert!(matches!(show_controls("漢字 → ok"), Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn truncating_counts_wide_characters_as_two_columns() {
+        let line = "漢字テスト";
+        // Five columns leave four for the text and one for the marker.
+        let truncated = truncate_ansi_string(line, "…", 6, false);
+        assert_eq!(truncated, format!("漢字…{ANSI_RESET}"));
+        // A character that would cross the limit is left out, not split.
+        let truncated = truncate_ansi_string(line, "…", 7, false);
+        assert_eq!(truncated, format!("漢字テ…{ANSI_RESET}"));
+        for limit in 0..=10 {
+            for wide_ambiguous in [false, true] {
+                let truncated = truncate_ansi_string(line, "…", limit, wide_ambiguous);
+                assert!(
+                    calculate_visible_length(&truncated, wide_ambiguous) <= limit,
+                    "limit {limit} produced {truncated:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_ambiguous_marker_takes_two_columns_where_they_are_wide() {
+        // `…` is two columns, so a three-column cut keeps one of the text.
+        let truncated = truncate_ansi_string("abcdef", "…", 3, true);
+        assert_eq!(truncated, format!("a…{ANSI_RESET}"));
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, true), "");
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, false), "…");
+    }
+
+    #[test]
     fn a_line_that_fits_is_left_exactly_as_it_was() {
         let line = styled_line();
         assert_eq!(truncate_ansi_string(&line, "...", 100, false), line);
@@ -5576,6 +5862,35 @@ mod tests {
         // Full dim strength on pure red lands on the same dark gray
         // dim_color/dim_rgb produce elsewhere (see dim_color_blends_rgb_toward_gray).
         assert!(rendered.contains("\u{1b}[38;2;23;23;23m"));
+    }
+
+    #[test]
+    fn mode_prefix_draws_the_modes_label_and_symbol_for_desc_and_key() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_enter_search".to_owned(), "FIND".to_owned()),
+            ("mode_key_enter_search".to_owned(), "/".to_owned()),
+        ]);
+        let format = Some("[{key}|{desc}|{mode}]");
+        let search = render_mode_prefix(InputMode::EnterSearch, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&search).to_string(), "[/|FIND|ENTERSEARCH]");
+
+        // A mode with neither set draws its name and no symbol.
+        let pane = render_mode_prefix(InputMode::Pane, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&pane).to_string(), "[|PANE|PANE]");
+    }
+
+    #[test]
+    fn mode_prefix_default_pill_puts_the_symbol_before_the_label() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_locked".to_owned(), "LOCK".to_owned()),
+            ("mode_key_locked".to_owned(), "#".to_owned()),
+        ]);
+        let locked = render_mode_prefix(InputMode::Locked, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&locked).to_string()), " # LOCK ");
+        let pane = render_mode_prefix(InputMode::Pane, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&pane).to_string()), " PANE ");
     }
 
     #[test]
@@ -6653,6 +6968,24 @@ mod tests {
     }
 
     #[test]
+    fn the_zellij_color_theme_follows_a_change_of_zellij_theme() {
+        let mut state = bar_with(&[("format_theme", "flat")]);
+        // No palette has arrived, so there is nothing to take aliases from.
+        assert!(!state.config.contains_key("color_accent"));
+
+        let mut mode_info = ModeInfo::default();
+        mode_info.style.colors.ribbon_selected.background = PaletteColor::Rgb((1, 2, 3));
+        state.update(Event::ModeUpdate(mode_info.clone()));
+        assert_eq!(state.config["color_accent"], "#010203");
+
+        mode_info.style.colors.ribbon_selected.background = PaletteColor::Rgb((4, 5, 6));
+        assert!(state.update(Event::ModeUpdate(mode_info)));
+        assert_eq!(state.config["color_accent"], "#040506");
+        // The user's own options are untouched by it.
+        assert!(!state.user_config.contains_key("color_accent"));
+    }
+
+    #[test]
     fn a_preview_changes_the_bar_through_the_same_parsing_as_load() {
         let mut state = bar_with(&[("max_length", "10")]);
         state.own_url = Some("zjhints".to_string());
@@ -6688,6 +7021,135 @@ mod tests {
         let args = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
         assert!(!state.take_preview(&args));
         assert!(!state.show_mode);
+    }
+
+    /// The styled bar `configuration` draws for a Normal mode that binds `q`
+    /// to quit, with the escape codes left in.
+    fn styled_bar(configuration: &[(&str, &str)]) -> String {
+        let mut state = bar_with(configuration);
+        state.mode_info.keybinds = quit_table('q');
+        state
+            .render_hint_line(&state.mode_info, 0.0, ClickBehavior::RunActions)
+            .0
+    }
+
+    #[test]
+    fn a_themed_bar_is_drawn_in_the_themes_colors() {
+        let zellij = styled_bar(&[]);
+        let themed = styled_bar(&[
+            ("color_theme", "catppuccin-mocha"),
+            ("format_theme", "flat"),
+        ]);
+        assert_ne!(themed, zellij);
+        // The key block: the theme's bg on its accent (#cba6f7, mauve).
+        assert!(themed.contains("48;2;203;166;247"), "{themed:?}");
+        assert!(themed.contains("38;2;30;30;46"), "{themed:?}");
+        // The description block: the theme's text on its surface (#313244).
+        assert!(themed.contains("38;2;205;214;244"), "{themed:?}");
+        assert!(themed.contains("48;2;49;50;68"), "{themed:?}");
+        assert!(!zellij.contains("48;2;203;166;247"));
+    }
+
+    #[test]
+    fn the_zellij_theme_draws_the_bar_as_if_no_theme_were_set() {
+        let unset = styled_bar(&[]);
+        for (option, value) in [
+            ("color_theme", "zellij"),
+            ("color_theme", "custom"),
+            ("color_theme", "no-such-theme"),
+            ("format_theme", "zellij"),
+            ("format_theme", "no-such-theme"),
+            ("alias_theme", "zellij"),
+        ] {
+            assert_eq!(styled_bar(&[(option, value)]), unset, "{option} {value}");
+        }
+    }
+
+    #[test]
+    fn a_users_own_options_win_over_a_themes_on_the_bar() {
+        let bar = styled_bar(&[
+            ("color_theme", "catppuccin-mocha"),
+            ("format_theme", "flat"),
+            ("color_accent", "#010203"),
+            ("desc_format", "<{desc}>"),
+        ]);
+        assert!(bar.contains("48;2;1;2;3"), "{bar:?}");
+        assert!(!bar.contains("48;2;203;166;247"));
+        assert!(strip_ansi(&bar).contains("<quit>"));
+        // The key block still comes from the theme.
+        assert!(bar.contains("38;2;30;30;46"));
+    }
+
+    #[test]
+    fn every_mode_has_a_theme_color() {
+        for mode in [
+            InputMode::Normal,
+            InputMode::Locked,
+            InputMode::Resize,
+            InputMode::Pane,
+            InputMode::Tab,
+            InputMode::Scroll,
+            InputMode::EnterSearch,
+            InputMode::Search,
+            InputMode::RenameTab,
+            InputMode::RenamePane,
+            InputMode::Session,
+            InputMode::Move,
+            InputMode::Prompt,
+            InputMode::Tmux,
+        ] {
+            let key = format!("mode_format_{}", mode_config_suffix(mode));
+            assert!(
+                bar_with(&[("format_theme", "flat")])
+                    .config
+                    .contains_key(&key),
+                "no theme color for {key}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_theme_leaves_the_configuration_as_written() {
+        let state = bar_with(&[("color_theme", "no-such-theme"), ("max_length", "10")]);
+        assert_eq!(state.config, state.user_config);
+        assert_eq!(state.config.len(), 2);
+    }
+
+    #[test]
+    fn a_preview_that_changes_the_theme_swaps_its_colors() {
+        let mut state = bar_with(&[
+            ("color_theme", "catppuccin-mocha"),
+            ("color_blue", "#010203"),
+        ]);
+        state.own_url = Some("zjhints".to_string());
+        assert_eq!(state.config["color_accent"], "#cba6f7");
+
+        let args = preview_args(
+            "zjhints",
+            &[("color_theme", Some("catppuccin-mocha"), Some("nord"))],
+        );
+        assert!(state.take_preview(&args));
+        // The old theme's values are not left behind as if the user set them.
+        assert_eq!(state.config["color_accent"], "#88c0d0");
+        assert_eq!(state.config["color_bg"], "#2e3440");
+        // The user's own color survives the switch.
+        assert_eq!(state.config["color_blue"], "#010203");
+
+        let args = preview_args("zjhints", &[("color_theme", Some("nord"), Some("custom"))]);
+        assert!(state.take_preview(&args));
+        assert!(!state.config.contains_key("color_accent"));
+        assert_eq!(state.config["color_blue"], "#010203");
+    }
+
+    #[test]
+    fn a_preview_of_another_option_keeps_the_theme() {
+        let mut state = bar_with(&[("color_theme", "dracula"), ("format_theme", "flat")]);
+        state.own_url = Some("zjhints".to_string());
+        let args = preview_args("zjhints", &[("max_length", None, Some("30"))]);
+        assert!(state.take_preview(&args));
+        assert_eq!(state.max_length, 30);
+        assert_eq!(state.config["color_accent"], "#bd93f9");
+        assert!(state.key_format.is_some());
     }
 
     /// A bar with something to draw: the mode prefix on its own.
