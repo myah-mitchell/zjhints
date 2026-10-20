@@ -134,4 +134,4 @@ mode_key_locked "󰌾"
 
 `mode_label_<mode>` and `mode_key_<mode>` take the same suffixes as `mode_format_<mode>`. A mode with no label draws its uppercase name, and one with no symbol draws `{key}` as nothing. `{mode}` stays the plain mode name whatever the label says.
 
-With no `mode_format` at all, the default prefix draws the symbol before the label when a mode has one.
+With no `mode_format` at all, the default prefix draws the symbol before the label when a mode has one. An [alias theme](themes.md#alias-themes) sets a symbol for every mode at once.
