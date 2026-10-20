@@ -46,6 +46,13 @@ label_next_layout "»"
 label_mouse       ""      // empty string hides this hint entirely
 ```
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+Here is Pane mode with four of its hints relabeled, moved to the front with `hint_order` so they are in view:
+
+![Two zjhints bars in pane mode, drawn as purple pills. The first shows split right, split down, focus and normal with their default labels. The second shows the same hints labeled split →, split ↓, ◆ and exit](img/labels-changing.svg)
+
 This works for any hint, whether it came from the [curated list](hints.md#the-curated-list) or from [discovery](hints.md#discovered-hints).
 
 ## Finding a hint's id
@@ -139,6 +146,8 @@ label_prev_layout "swap layout"   // one hint, both keys
 ```
 
 Next-layout and previous-layout are separate actions with separate ids, so by default they are two hints. Labeling both `swap layout` says to treat these as one thing, and they collapse into a single hint carrying both keys.
+
+![Two zjhints bars in normal mode, with the layout hints moved to the front. The first shows Alt [ prev layout and Alt ] next layout as two hints. The second shows one hint, Alt [] swap layout](img/labels-combining.svg)
 
 This applies only to labels you set. Hints that merely ship with the same built-in label, such as Pane's `new` and Tab's `new`, stay separate, so a merge is always something you asked for rather than an accident of the default table.
 

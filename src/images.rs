@@ -487,6 +487,16 @@ fn configuration_of(options: &[(&str, &str)]) -> BTreeMap<String, String> {
 /// The bar in `mode`, `columns` wide, with `options` as its configuration,
 /// and the click map of what it drew.
 fn bar(options: &[(&str, &str)], mode: InputMode, columns: usize) -> (String, ClickMap) {
+    bar_in_session(options, mode, columns, false)
+}
+
+/// `bar`, in a session that is `ascended` out of, so not receiving input.
+fn bar_in_session(
+    options: &[(&str, &str)],
+    mode: InputMode,
+    columns: usize,
+    ascended: bool,
+) -> (String, ClickMap) {
     let mut state = State::default();
     state.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
@@ -499,6 +509,7 @@ fn bar(options: &[(&str, &str)], mode: InputMode, columns: usize) -> (String, Cl
             colors: palette(),
             ..Default::default()
         },
+        session_ascended: ascended.then_some(true),
         ..Default::default()
     };
     state.draw_bar()
@@ -517,6 +528,100 @@ fn bars(captioned: &[(&str, &[(&str, &str)])], mode: InputMode) -> Screen {
             ..Pen::default()
         });
         screen.print(row + 1, 0, &bar(options, mode, BAR_COLUMNS).0);
+    }
+    screen
+}
+
+/// The themes the topic images are drawn in, unless a shot overrides them.
+const BASE_THEME: [(&str, &str); 3] = [
+    ("color_theme", "catppuccin-mocha"),
+    ("format_theme", "pills"),
+    ("alias_theme", "unicode"),
+];
+
+/// The themes that leave the bar looking like Zellij's own.
+const ZELLIJ_THEME: [(&str, &str); 3] = [
+    ("color_theme", "zellij"),
+    ("format_theme", "zellij"),
+    ("alias_theme", "zellij"),
+];
+
+/// One bar of an image: what its caption says, and how it is drawn.
+struct Shot<'a> {
+    caption: String,
+    options: Vec<(&'a str, &'a str)>,
+    mode: InputMode,
+    columns: usize,
+    ascended: bool,
+}
+
+impl<'a> Shot<'a> {
+    /// The bar in `mode` at full width, with `options` over `BASE_THEME`.
+    fn new(caption: impl Into<String>, options: &[(&'a str, &'a str)], mode: InputMode) -> Self {
+        let mut all = BASE_THEME.to_vec();
+        all.extend_from_slice(options);
+        Shot {
+            caption: caption.into(),
+            options: all,
+            mode,
+            columns: BAR_COLUMNS,
+            ascended: false,
+        }
+    }
+
+    /// Each value of `option` in turn, captioned with it as a config line.
+    fn each(
+        option: &'a str,
+        values: &[&'a str],
+        rest: &[(&'a str, &'a str)],
+        mode: InputMode,
+    ) -> Vec<Self> {
+        values
+            .iter()
+            .map(|value| {
+                let mut options = rest.to_vec();
+                options.push((option, value));
+                Shot::new(format!("{option} {}", kdl_value(value)), &options, mode)
+            })
+            .collect()
+    }
+
+    /// `options` added to the configuration, leaving the caption as it is.
+    fn also(mut self, options: &[(&'a str, &'a str)]) -> Self {
+        self.options.extend_from_slice(options);
+        self
+    }
+
+    fn columns(mut self, columns: usize) -> Self {
+        self.columns = columns;
+        self
+    }
+
+    fn ascended(mut self) -> Self {
+        self.ascended = true;
+        self
+    }
+}
+
+/// `value` as a KDL config line writes it: booleans bare, the rest quoted.
+fn kdl_value(value: &str) -> String {
+    match value {
+        "true" | "false" => value.to_string(),
+        _ => format!("{value:?}"),
+    }
+}
+
+/// A screen holding each shot under its caption.
+fn shots(shots: &[Shot]) -> Screen {
+    let mut screen = Screen::new(shots.len() * 3 - 1, BAR_COLUMNS);
+    for (index, shot) in shots.iter().enumerate() {
+        let row = index * 3;
+        screen.print_with(row, 0, &shot.caption, |_| Pen {
+            dim: true,
+            ..Pen::default()
+        });
+        let line = bar_in_session(&shot.options, shot.mode, shot.columns, shot.ascended).0;
+        screen.print(row + 1, 0, &line);
     }
     screen
 }
@@ -993,6 +1098,221 @@ fn images() -> Vec<(&'static str, String)> {
         (
             "mouse-preview.svg",
             hover_preview().to_svg("The hover preview of a hint, listing what clicking it offers"),
+        ),
+    ]
+    .into_iter()
+    .chain(documentation_images())
+    .collect()
+}
+
+/// The colors the format examples in the docs name, as a user would set them.
+const EXAMPLE_COLORS: [(&str, &str); 6] = [
+    ("color_bg", "#181825"),
+    ("color_fg", "#cdd6f4"),
+    ("color_surface", "#313244"),
+    ("color_gray", "#6c7086"),
+    ("color_red", "#f38ba8"),
+    ("color_accent", "#cba6f7"),
+];
+
+/// The images of the topic pages, each showing the config examples beside
+/// it as the bar draws them.
+fn documentation_images() -> Vec<(&'static str, String)> {
+    use InputMode::{Locked, Normal, Pane, Tab};
+    let with_colors = |options: &[(&'static str, &'static str)]| {
+        let mut all = EXAMPLE_COLORS.to_vec();
+        all.extend_from_slice(options);
+        all
+    };
+    // Each image names in its doc whichever of these shared settings it uses
+    // to bring the hints it is about into view.
+    let fitted = [("hint_order", "*, quit"), ("drop_indicator", "…")];
+    let precedence = [("hint_order", "pane, *, quit"), ("drop_indicator", "…")];
+    let formats = with_colors(&[
+        ("key_format", "#[fg=$bg,bg=$accent,bold] {key} "),
+        ("desc_format", "#[fg=$fg,bg=$surface] {desc} "),
+    ]);
+    let mut quit = formats.clone();
+    quit.extend([
+        ("key_format_quit", "#[fg=$bg,bg=$red,bold] {key} "),
+        ("desc_format_quit", "#[fg=$red,bg=$surface,bold] {desc} "),
+    ]);
+    let aliases = [
+        ("key_alias_enter", "⏎"),
+        ("key_alias_esc", "⎋"),
+        ("key_alias_left", "←"),
+        ("key_alias_down", "↓"),
+        ("key_alias_up", "↑"),
+        ("key_alias_right", "→"),
+        ("mod_alias_ctrl", "^"),
+        ("mod_alias_alt", "⌥"),
+    ];
+    let focus_first = [("hint_order", "focus, mode_normal, *")];
+    let zellij_keys = [("alias_theme", "zellij")];
+    let labels = [
+        ("label_split_right", "split →"),
+        ("label_split_down", "split ↓"),
+        ("label_focus", "◆"),
+        ("label_mode_normal", "exit"),
+    ];
+    // Named by label too, since a relabeled hint is matched by its new label.
+    let splits_first = [(
+        "hint_order",
+        "split_right, split →, split_down, split ↓, focus, ◆, mode_normal, exit, *",
+    )];
+    let layouts_first = [("hint_order", "prev_layout, next_layout, swap layout, *")];
+    let swap = [
+        ("label_next_layout", "swap layout"),
+        ("label_prev_layout", "swap layout"),
+    ];
+    let tabs_first = [("hint_order", "go_to_tab, focus, *")];
+    let curated = [("discover_hints", "false")];
+    let modes_first = [(
+        "hint_order",
+        "mode_tab, mode_resize, mode_move, mode_scroll, *",
+    )];
+    let one_format = [
+        ("show_mode", "true"),
+        ("mode_format", "#[fg=#181825,bg=#cba6f7,bold] {desc} "),
+        ("mode_label_normal", "NORM"),
+    ];
+    let show_mode = [("show_mode", "true")];
+    vec![
+        (
+            "fitting-widths.svg",
+            shots(&[120, 90, 60, 40].map(|columns| {
+                Shot::new(format!("{columns} columns"), &fitted, Normal).columns(columns)
+            }))
+            .to_svg("The normal mode bar at 120, 90, 60 and 40 columns, losing hints from the middle while quit stays last"),
+        ),
+        (
+            "fitting-precedence.svg",
+            shots(
+                &Shot::each("hint_precedence", &["tl", "lt"], &precedence, Normal)
+                    .into_iter()
+                    .map(|shot| shot.columns(14))
+                    .collect::<Vec<_>>(),
+            )
+            .to_svg("The normal mode bar at 14 columns, keeping quit with hint_precedence tl and pane with lt"),
+        ),
+        (
+            "styling-formats.svg",
+            shots(&[
+                Shot::new("the Zellij theme's colors", &ZELLIJ_THEME, Normal),
+                Shot::new("key_format and desc_format", &formats, Normal),
+            ])
+            .to_svg("The normal mode bar in the Zellij theme's colors, then with key_format and desc_format set"),
+        ),
+        (
+            "styling-one-hint.svg",
+            shots(&[
+                Shot::new("key_format and desc_format", &formats, Normal),
+                Shot::new("plus key_format_quit and desc_format_quit", &quit, Normal),
+            ])
+            .to_svg("The normal mode bar with one format for every hint, then with quit drawn in red"),
+        ),
+        (
+            "styling-spacer.svg",
+            shots(&Shot::each(
+                "hint_spacer",
+                &["", "  ", "#[fg=$gray] │ "],
+                &formats,
+                Normal,
+            ))
+            .to_svg("The normal mode bar with no hint spacer, a wider gap, and a gray divider between hints"),
+        ),
+        (
+            "styling-aliases.svg",
+            shots(&[
+                Shot::new("Zellij's key names", &focus_first, Pane).also(&zellij_keys),
+                Shot::new("key_alias_<name> and mod_alias_<name>", &focus_first, Pane)
+                    .also(&zellij_keys)
+                    .also(&aliases),
+            ])
+            .to_svg("The pane mode bar with Zellij's key names, then with Alt, Ctrl, Esc, Enter and the arrows replaced by symbols"),
+        ),
+        (
+            "labels-changing.svg",
+            shots(&[
+                Shot::new("the default labels", &splits_first, Pane),
+                Shot::new("label_<id>", &splits_first, Pane).also(&labels),
+            ])
+            .to_svg("The pane mode bar with its default labels, then with split right, split down, focus and normal relabeled"),
+        ),
+        (
+            "labels-combining.svg",
+            shots(&[
+                Shot::new("the default labels", &layouts_first, Normal),
+                Shot::new("label_next_layout and label_prev_layout \"swap layout\"", &layouts_first, Normal).also(&swap),
+            ])
+            .to_svg("The normal mode bar with prev layout and next layout as two hints, then merged into one swap layout hint"),
+        ),
+        (
+            "ordering-direction-keys.svg",
+            shots(&Shot::each(
+                "direction_keys",
+                &["both", "arrows", "letters"],
+                &focus_first,
+                Pane,
+            ))
+            .to_svg("The pane mode bar with direction_keys both, arrows and letters, changing the keys of focus"),
+        ),
+        (
+            "ordering-key-order.svg",
+            shots(&Shot::each(
+                "key_order",
+                &["qwerty", "none"],
+                &tabs_first,
+                Tab,
+            ))
+            .to_svg("The tab mode bar with key_order qwerty and none, changing the order of the tab and focus keys"),
+        ),
+        (
+            "ordering-hint-order.svg",
+            shots(&Shot::each(
+                "hint_order",
+                &["*", "quit, *", "*, pane"],
+                &curated,
+                Normal,
+            ))
+            .to_svg("The normal mode bar in its own order, with quit moved first, and with pane moved last"),
+        ),
+        (
+            "hints-discovery.svg",
+            shots(&Shot::each(
+                "discover_hints",
+                &["false", "true"],
+                &[],
+                InputMode::Tmux,
+            ))
+            .to_svg("The tmux mode bar with only its way out, then with every discovered binding after it"),
+        ),
+        (
+            "hints-shared.svg",
+            shots(&Shot::each(
+                "hide_shared_hints",
+                &["true", "false"],
+                &modes_first,
+                Pane,
+            ))
+            .to_svg("The pane mode bar without the mode switches it shares with normal mode, then listing them"),
+        ),
+        (
+            "nested-dimming.svg",
+            shots(&[
+                Shot::new("receiving input", &formats, Normal),
+                Shot::new("not receiving input, dim_strength \"0.5\"", &formats, Normal).ascended(),
+            ])
+            .to_svg("The bar as drawn while the session receives input, then dimmed while it does not"),
+        ),
+        (
+            "nested-show-mode.svg",
+            shots(&[
+                Shot::new("show_mode true", &show_mode, Normal),
+                Shot::new("show_mode true, in locked mode", &show_mode, Locked),
+                Shot::new("one mode_format, mode_label_normal \"NORM\"", &one_format, Normal),
+            ])
+            .to_svg("The bar with the mode shown before the hints, in normal and locked mode, then drawn from one mode_format with a shorter label"),
         ),
     ]
 }

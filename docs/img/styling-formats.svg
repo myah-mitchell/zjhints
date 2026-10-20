@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The normal mode bar in the Zellij theme's colors, then with key_format and desc_format set</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="18" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="90" y="18" width="54" height="18" fill="#181825"/>
+<rect x="153" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="225" y="18" width="45" height="18" fill="#181825"/>
+<rect x="279" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="351" y="18" width="72" height="18" fill="#181825"/>
+<rect x="432" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="504" y="18" width="54" height="18" fill="#181825"/>
+<rect x="567" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="639" y="18" width="72" height="18" fill="#181825"/>
+<rect x="720" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="792" y="18" width="81" height="18" fill="#181825"/>
+<rect x="882" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="954" y="18" width="54" height="18" fill="#181825"/>
+<rect x="9" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="45" y="72" width="54" height="18" fill="#313244"/>
+<rect x="108" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="144" y="72" width="45" height="18" fill="#313244"/>
+<rect x="198" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="234" y="72" width="72" height="18" fill="#313244"/>
+<rect x="315" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="351" y="72" width="54" height="18" fill="#313244"/>
+<rect x="414" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="450" y="72" width="72" height="18" fill="#313244"/>
+<rect x="531" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="567" y="72" width="81" height="18" fill="#313244"/>
+<rect x="657" y="72" width="36" height="18" fill="#cba6f7"/>
+<rect x="693" y="72" width="54" height="18" fill="#313244"/>
+<rect x="756" y="72" width="99" height="18" fill="#cba6f7"/>
+<rect x="855" y="72" width="63" height="18" fill="#313244"/>
+<rect x="936" y="72" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 99 108 117 126 135 144 153 171 180 189 198 207 216" fill="#878ca4">theZellijtheme'scolors</tspan></text>
+<text y="31"><tspan x="27 36 45 54 72" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 126" fill="#cdd6f4">pane</tspan><tspan x="162 171 180 189 207" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="234 243 252" fill="#cdd6f4">tab</tspan><tspan x="288 297 306 315 333" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="360 369 378 387 396 405" fill="#cdd6f4">resize</tspan><tspan x="441 450 459 468 486" fill="#181825" font-weight="bold">Ctrlh</tspan><tspan x="513 522 531 540" fill="#cdd6f4">move</tspan><tspan x="576 585 594 603 621" fill="#181825" font-weight="bold">Ctrls</tspan><tspan x="648 657 666 675 684 693" fill="#cdd6f4">scroll</tspan><tspan x="729 738 747 756 774" fill="#181825" font-weight="bold">Ctrlo</tspan><tspan x="801 810 819 828 837 846 855" fill="#cdd6f4">session</tspan><tspan x="891 900 909 918 936" fill="#181825" font-weight="bold">Ctrlq</tspan><tspan x="963 972 981 990" fill="#cdd6f4">quit</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 99 108 117 135 144 153 162 171 180 189 198 207 216 225" fill="#878ca4">key_formatanddesc_format</tspan></text>
+<path d="M936 72A9 9 0 0 0 936 90Z" fill="#313244"/>
+<path d="M945 72A9 9 0 0 1 945 90Z" fill="#313244"/>
+<text y="85"><tspan x="18 27" fill="#181825" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#cdd6f4">pane</tspan><tspan x="117 126" fill="#181825" font-weight="bold">^t</tspan><tspan x="153 162 171" fill="#cdd6f4">tab</tspan><tspan x="207 216" fill="#181825" font-weight="bold">^n</tspan><tspan x="243 252 261 270 279 288" fill="#cdd6f4">resize</tspan><tspan x="324 333" fill="#181825" font-weight="bold">^h</tspan><tspan x="360 369 378 387" fill="#cdd6f4">move</tspan><tspan x="423 432" fill="#181825" font-weight="bold">^s</tspan><tspan x="459 468 477 486 495 504" fill="#cdd6f4">scroll</tspan><tspan x="540 549" fill="#181825" font-weight="bold">^o</tspan><tspan x="576 585 594 603 612 621 630" fill="#cdd6f4">session</tspan><tspan x="666 675" fill="#181825" font-weight="bold">^q</tspan><tspan x="702 711 720 729" fill="#cdd6f4">quit</tspan><tspan x="765 774 783 792 801 810 819 828 837" fill="#181825" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="864 873 882 891 900 936" fill="#cdd6f4">focus…</tspan></text>
+</g>
+</g>
+</svg>
