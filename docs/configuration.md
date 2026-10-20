@@ -104,8 +104,10 @@ The current input mode, printed before the hints for a bar in its own pane. See 
 | Option | Default | What it does |
 | --- | --- | --- |
 | `show_mode` | `false` | Prefix the hints line with the current input mode |
-| `mode_format` | unset | Format string for the mode prefix, with a `{mode}` placeholder |
+| `mode_format` | unset | Format string for the mode prefix, with `{desc}`, `{key}` and `{mode}` placeholders |
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+| `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
+| `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "🔒"` |
 
 ## Nested sessions
 

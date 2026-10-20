@@ -346,6 +346,8 @@ const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
 const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
+const CONFIG_MODE_LABEL_PREFIX: &str = "mode_label_";
+const CONFIG_MODE_KEY_PREFIX: &str = "mode_key_";
 
 /// Concept id of the synthetic hint standing in for the descended-session
 /// placeholder (see `render`'s `is_host_descended` branch), and its default
@@ -2866,6 +2868,11 @@ fn style_description(description: &str, palette: &Styling) -> Vec<ANSIString<'st
 /// caller), a custom format string through `format::render_template`, which
 /// resolves its own literal colors and would otherwise ignore `colors`
 /// (and `dim_when_unfocused`) entirely.
+///
+/// A format string draws the mode's name as `{desc}` and its symbol as
+/// `{key}`, taken from `mode_label_<mode>` and `mode_key_<mode>` the way a
+/// hint's come from its label and keys. `{mode}` is always the bare name. The
+/// built-in styling draws the symbol before the name when there is one.
 fn render_mode_prefix(
     mode: InputMode,
     colors: &Styling,
@@ -2874,15 +2881,21 @@ fn render_mode_prefix(
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
     let mode_name = format!("{:?}", mode).to_uppercase();
-    let per_mode_key = format!("{}{}", CONFIG_MODE_FORMAT_PREFIX, mode_config_suffix(mode));
-    let format_str = config
-        .get(&per_mode_key)
-        .map(String::as_str)
-        .or(mode_format);
+    let suffix = mode_config_suffix(mode);
+    let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).map(String::as_str);
+    let label = per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or(&mode_name);
+    let symbol = per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default();
+    let format_str = per_mode(CONFIG_MODE_FORMAT_PREFIX).or(mode_format);
 
     match format_str {
-        Some(fmt) => format::render_template(fmt, &[("mode", &mode_name)], config, dim),
-        None => style_mode(&mode_name, colors),
+        Some(fmt) => format::render_template(
+            fmt,
+            &[("mode", &mode_name), ("desc", label), ("key", symbol)],
+            config,
+            dim,
+        ),
+        None if symbol.is_empty() => style_mode(label, colors),
+        None => style_mode(&format!("{symbol} {label}"), colors),
     }
 }
 
@@ -5868,6 +5881,35 @@ mod tests {
         // Full dim strength on pure red lands on the same dark gray
         // dim_color/dim_rgb produce elsewhere (see dim_color_blends_rgb_toward_gray).
         assert!(rendered.contains("\u{1b}[38;2;23;23;23m"));
+    }
+
+    #[test]
+    fn mode_prefix_draws_the_modes_label_and_symbol_for_desc_and_key() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_enter_search".to_owned(), "FIND".to_owned()),
+            ("mode_key_enter_search".to_owned(), "/".to_owned()),
+        ]);
+        let format = Some("[{key}|{desc}|{mode}]");
+        let search = render_mode_prefix(InputMode::EnterSearch, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&search).to_string(), "[/|FIND|ENTERSEARCH]");
+
+        // A mode with neither set draws its name and no symbol.
+        let pane = render_mode_prefix(InputMode::Pane, &colors, format, &config, 0.0);
+        assert_eq!(ANSIStrings(&pane).to_string(), "[|PANE|PANE]");
+    }
+
+    #[test]
+    fn mode_prefix_default_pill_puts_the_symbol_before_the_label() {
+        let colors = Styling::default();
+        let config = BTreeMap::from([
+            ("mode_label_locked".to_owned(), "LOCK".to_owned()),
+            ("mode_key_locked".to_owned(), "#".to_owned()),
+        ]);
+        let locked = render_mode_prefix(InputMode::Locked, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&locked).to_string()), " # LOCK ");
+        let pane = render_mode_prefix(InputMode::Pane, &colors, None, &config, 0.0);
+        assert_eq!(strip_ansi(&ANSIStrings(&pane).to_string()), " PANE ");
     }
 
     #[test]

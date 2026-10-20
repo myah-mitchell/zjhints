@@ -364,6 +364,18 @@ pub const FAMILIES: &[FamilySpec] = &[
         Kind::Format,
         "The mode prefix's format string for one mode",
     ),
+    family(
+        "mode_label_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's name, drawn for {desc} in the mode prefix",
+    ),
+    family(
+        "mode_key_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's symbol, drawn for {key} in the mode prefix",
+    ),
 ];
 
 /// Options of the settings screen itself, read only when it is opened. They
