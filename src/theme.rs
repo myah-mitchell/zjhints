@@ -26,6 +26,8 @@ use zellij_tile::prelude::{BareKey, PaletteColor, Styling};
 const CONFIG_COLOR_THEME: &str = "color_theme";
 const CONFIG_FORMAT_THEME: &str = "format_theme";
 const CONFIG_ALIAS_THEME: &str = "alias_theme";
+/// The options that choose a theme.
+pub const OPTIONS: [&str; 3] = [CONFIG_COLOR_THEME, CONFIG_FORMAT_THEME, CONFIG_ALIAS_THEME];
 
 /// The value every theme option starts at: follow Zellij.
 const THEME_ZELLIJ: &str = "zellij";
@@ -517,6 +519,7 @@ fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::options::{find, Kind};
 
     fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
@@ -553,6 +556,29 @@ mod tests {
         styling.ribbon_selected.background = PaletteColor::Rgb((0xa6, 0xe3, 0xa1));
         styling.exit_code_error.base = PaletteColor::EightBit(196);
         styling
+    }
+
+    #[test]
+    fn the_settings_screen_offers_every_value_of_each_theme_option() {
+        for (option, choices) in [
+            (CONFIG_COLOR_THEME, &COLOR_CHOICES[..]),
+            (CONFIG_FORMAT_THEME, &FORMAT_CHOICES[..]),
+            (CONFIG_ALIAS_THEME, &ALIAS_CHOICES[..]),
+        ] {
+            let spec = find(option).unwrap();
+            let Kind::Choice(offered) = spec.kind else {
+                panic!("{option} should be a choice");
+            };
+            assert_eq!(offered, choices, "{option}");
+            assert_eq!(offered[0], THEME_ZELLIJ, "{option}");
+            assert_eq!(spec.default, Some(THEME_ZELLIJ), "{option}");
+            for name in offered {
+                assert!(
+                    unknown_names(&cfg(&[(option, name)])).is_empty(),
+                    "{option} {name}"
+                );
+            }
+        }
     }
 
     #[test]
