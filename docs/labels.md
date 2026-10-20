@@ -142,4 +142,4 @@ Next-layout and previous-layout are separate actions with separate ids, so by de
 
 This applies only to labels you set. Hints that merely ship with the same built-in label, such as Pane's `new` and Tab's `new`, stay separate, so a merge is always something you asked for rather than an accident of the default table.
 
-One consequence worth knowing: a merged hint's id becomes the label you chose, so [hint_order](ordering.md#hint-order) should refer to it by that label.
+A merged hint keeps the id of whichever of its hints came first, so refer to it by the label you chose, in [hint_order](ordering.md#hint-order) and in options such as `key_format_<label>`.

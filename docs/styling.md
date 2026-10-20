@@ -60,7 +60,7 @@ Resolution runs most specific first, and can be scoped to a mode exactly as [lab
 5. `key_format`, the global setting
 6. the theme palette
 
-A hint can be named by its [id](labels.md#ids) or by its label, with spaces written as underscores. The label form matters for hints you have [fused](labels.md#combining-hints) under a shared label, whose internal id is that label with a marker prefix:
+A hint can be named by its [id](labels.md#ids) or by its label, with spaces written as underscores. The label form matters for hints you have [fused](labels.md#combining-hints) under a shared label, which keep the id of only one of the hints fused:
 
 ```kdl
 label_next_layout "swap layout"
