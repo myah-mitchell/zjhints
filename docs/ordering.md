@@ -81,7 +81,7 @@ The `*` marks where every hint you did not name goes. Entries before it lead, en
 
 The list applies to every mode, so an id a mode does not have is simply ignored: `"*, exit"` puts `exit` last wherever it appears and changes nothing elsewhere. Naming an id that does not exist at all is equally harmless, so a typo degrades to no effect rather than an error.
 
-Entries match a hint's id or its label, case-insensitively. Labels matter for hints you have fused by giving them a shared label: those carry an internal id like `=swap layout`, and naming them by label avoids having to write that.
+Entries match a hint's id or its label, case-insensitively. Labels matter for hints you have fused by giving them a shared label: the fused hint keeps the id of only one of them, so name it by the label you gave it.
 
 `hint_order` does double duty: what you pin here is also what survives longest when the window is too narrow to show everything. See [What gets dropped](fitting.md#what-gets-dropped).
 

@@ -514,10 +514,9 @@ impl HintOrder {
         (1, 0)
     }
 
-    /// Entries name a hint by concept id or by the label it displays. Matching
-    /// the label too is what keeps relabeled hints addressable — a hint fused by
-    /// a shared label has the internal id `=swap layout`, which no one wants to
-    /// type.
+    /// Entries name a hint by concept id or by the label it displays. The label
+    /// matters for a hint fused from several under a shared label, whose id is
+    /// only that of whichever binding came first.
     fn position(entries: &[String], hint: &Hint) -> Option<usize> {
         let id = hint.id.to_lowercase();
         let label = hint.label.to_lowercase();
@@ -971,6 +970,7 @@ fn render_descended_indicator(mode_info: &ModeInfo, style: &HintStyle) -> String
 
     let hint = Hint {
         id: DESCENDED_HINT_ID.to_string(),
+        merge_key: DESCENDED_HINT_ID.to_string(),
         label: DESCENDED_HINT_LABEL.to_string(),
         keys: mode_info.nested_ascend_keys.clone(),
     };
@@ -2746,13 +2746,17 @@ fn exit_keys(keymap: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithModifier> 
 /// A hint queued for rendering: a concept `id`, the `label` shown for it, and
 /// every key bound to it.
 ///
-/// `id` — not `label` — is the merge key, and it is also the `label_<id>` config
-/// key. Separating the two is what lets unrelated hints share a display label
-/// without fusing (Pane's `new` is `new_pane`, Tab's is `new_tab`), and lets one
-/// concept gather keys from several sources (a curated `focus` on `hjkl` and a
-/// discovered `focus` on the arrows become one hint).
+/// `id` is the hint's name in config (`label_<id>`, `key_format_<id>`,
+/// `hint_order`), and it never changes with the label. Hints sharing a
+/// `merge_key` become one. That key is the `id` unless the user set a label, so
+/// unrelated hints can share a display label without fusing (Pane's `new` is
+/// `new_pane`, Tab's is `new_tab`), and one concept gathers keys from several
+/// sources (a curated `focus` on `hjkl` and a discovered `focus` on the arrows
+/// become one hint). A label the user set is its own merge key instead; see
+/// `merged_label_id`.
 struct Hint {
     id: String,
+    merge_key: String,
     label: String,
     keys: Vec<KeyWithModifier>,
 }
@@ -2762,6 +2766,7 @@ struct Hint {
 fn add_hint(
     hints: &mut Vec<Hint>,
     keys: &[KeyWithModifier],
+    merge_key: &str,
     id: &str,
     label: &str,
     used: &mut Vec<KeyWithModifier>,
@@ -2769,15 +2774,22 @@ fn add_hint(
     if keys.is_empty() {
         return;
     }
-    merge_hint(hints, id, label, keys);
+    merge_hint(hints, merge_key, id, label, keys);
     used.extend(keys.iter().cloned());
 }
 
-/// Add `keys` to the hint with this `id`, creating it if it does not exist yet.
-/// Keys already present are skipped so a merged hint never repeats a key. The
-/// first source to create a hint sets its label; later merges only add keys.
-fn merge_hint(hints: &mut Vec<Hint>, id: &str, label: &str, keys: &[KeyWithModifier]) {
-    match hints.iter_mut().find(|hint| hint.id == id) {
+/// Add `keys` to the hint with this `merge_key`, creating it if it does not
+/// exist yet. Keys already present are skipped so a merged hint never repeats a
+/// key. The first source to create a hint sets its id and label; later merges
+/// only add keys.
+fn merge_hint(
+    hints: &mut Vec<Hint>,
+    merge_key: &str,
+    id: &str,
+    label: &str,
+    keys: &[KeyWithModifier],
+) {
+    match hints.iter_mut().find(|hint| hint.merge_key == merge_key) {
         Some(hint) => {
             for key in keys {
                 if !hint.keys.contains(key) {
@@ -2787,6 +2799,7 @@ fn merge_hint(hints: &mut Vec<Hint>, id: &str, label: &str, keys: &[KeyWithModif
         }
         None => hints.push(Hint {
             id: id.to_string(),
+            merge_key: merge_key.to_string(),
             label: label.to_string(),
             keys: keys.to_vec(),
         }),
@@ -3570,11 +3583,11 @@ fn add_discovered_hints(
         if is_shared_binding(key, primary, style.shared) {
             continue;
         }
-        let Some((id, label)) = resolve_hint(primary, style) else {
+        let Some((merge_key, id, label)) = resolve_hint(primary, style) else {
             continue;
         };
 
-        merge_hint(hints, &id, &label, std::slice::from_ref(key));
+        merge_hint(hints, &merge_key, &id, &label, std::slice::from_ref(key));
     }
 }
 
@@ -3597,7 +3610,9 @@ fn is_shared_binding(
 /// `label_<action>` override wins; an empty override hides the hint. Otherwise
 /// the built-in table is consulted, falling back to a name derived from the
 /// action's own signature so nothing is ever left unlabeled.
-fn resolve_hint(action: &Action, style: &HintStyle) -> Option<(String, String)> {
+///
+/// Returns the hint's merge key, id and label.
+fn resolve_hint(action: &Action, style: &HintStyle) -> Option<(String, String, String)> {
     let signature = action_signature(action);
     let (id, default) = match builtin_hint(action) {
         Some((id, label)) => (id.to_string(), label.to_string()),
@@ -3607,12 +3622,12 @@ fn resolve_hint(action: &Action, style: &HintStyle) -> Option<(String, String)> 
     };
 
     match label_override(&id, &signature, style.mode, style.config) {
-        // An explicit label is its own merge id, so two actions given the same
+        // An explicit label is its own merge key, so two actions given the same
         // label become one hint. See `merged_label_id`.
-        Some(Some(label)) => Some((merged_label_id(&label), label)),
+        Some(Some(label)) => Some((merged_label_id(&label), id, label)),
         // An empty override hides the hint.
         Some(None) => None,
-        None => Some((id, default)),
+        None => Some((id.clone(), id, default)),
     }
 }
 
@@ -3713,9 +3728,9 @@ fn apply_label(
     used: &mut Vec<KeyWithModifier>,
 ) {
     match label_override(id, signature, style.mode, style.config) {
-        Some(Some(label)) => add_hint(hints, keys, &merged_label_id(&label), &label, used),
+        Some(Some(label)) => add_hint(hints, keys, &merged_label_id(&label), id, &label, used),
         Some(None) => used.extend(keys.iter().cloned()),
-        None => add_hint(hints, keys, id, default, used),
+        None => add_hint(hints, keys, id, id, default, used),
     }
 }
 
@@ -3723,9 +3738,8 @@ fn apply_label(
 ///
 /// Tries the most specific key first, so a mode-scoped setting beats a global
 /// one, exactly as labels resolve. A hint can be named by its concept id or by
-/// its label — the latter matters for hints fused under a label you chose,
-/// whose id is that label with a marker prefix and not something anyone wants
-/// to type.
+/// its label. The label matters for hints fused under a label you chose, whose
+/// id is only that of whichever binding came first.
 ///
 /// The outer `Option` separates "not set" from set; the inner one is `None`
 /// for an empty value, which each caller reads for itself.
@@ -3757,7 +3771,7 @@ fn config_slug(label: &str) -> String {
         .join("_")
 }
 
-/// The merge id for a hint whose label the user set explicitly.
+/// The merge key for a hint whose label the user set explicitly.
 ///
 /// Deliberately relabeling two hints to the same text fuses them into one hint —
 /// that is how you combine separate bindings you consider a single concept, e.g.
@@ -3765,7 +3779,7 @@ fn config_slug(label: &str) -> String {
 /// *not* merge this way, so hints that merely ship with the same label (Pane's
 /// `new` and Tab's `new`) stay separate.
 fn merged_label_id(label: &str) -> String {
-    // `=` never appears in a concept id, so this cannot collide with one.
+    // `=` never appears in a concept id, so this cannot collide with one's key.
     format!("={}", label)
 }
 
@@ -4191,6 +4205,7 @@ mod tests {
                 let (id, label) = spec.split_once('/').unwrap_or((spec, spec));
                 Hint {
                     id: id.to_string(),
+                    merge_key: id.to_string(),
                     label: label.to_string(),
                     keys: vec![],
                 }
@@ -4247,11 +4262,9 @@ mod tests {
 
     #[test]
     fn hints_can_be_named_by_label_as_well_as_id() {
-        // A hint fused by a shared label carries the internal id `=swap layout`;
-        // naming it by the label is what makes it addressable.
         assert_eq!(
-            ordered(&["a", "=swap layout/swap layout"], "swap layout, *"),
-            vec!["=swap layout", "a"]
+            ordered(&["a", "next_layout/swap layout"], "swap layout, *"),
+            vec!["next_layout", "a"]
         );
     }
 
@@ -4761,8 +4774,6 @@ mod tests {
 
     #[test]
     fn a_relabelled_hint_is_addressable_by_its_new_label() {
-        // Setting a label gives the hint an id of `=<label>`, which nobody
-        // wants to type; the slugged label works instead.
         assert_eq!(
             rendered(
                 InputMode::Pane,
@@ -4770,6 +4781,35 @@ mod tests {
                 &[("label_frames", "swap layout"), ("keys_swap_layout", "><")]
             ),
             "a close|b fullscreen|>< swap layout|d pin"
+        );
+    }
+
+    #[test]
+    fn a_relabelled_hint_keeps_its_id() {
+        // The label changes what the hint shows, never what config calls it.
+        assert_eq!(
+            rendered(
+                InputMode::Pane,
+                &four_hints(),
+                &[
+                    ("label_frames", "◆"),
+                    ("keys_frames", "><"),
+                    ("hint_order", "frames, *"),
+                ]
+            ),
+            ">< ◆|a close|b fullscreen|d pin"
+        );
+    }
+
+    #[test]
+    fn hints_given_one_label_become_one_hint() {
+        assert_eq!(
+            rendered(
+                InputMode::Pane,
+                &four_hints(),
+                &[("label_close_pane", "both"), ("label_pin", "both")]
+            ),
+            "ad both|b fullscreen|c frames"
         );
     }
 
