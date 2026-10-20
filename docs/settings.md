@@ -148,11 +148,17 @@ Press `↓` to move from the search box to the results, and `↑` on the first r
 
 Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
 
+The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, an unsaved edit to `desc_format` that makes its description italic, and `hint_spacer` on the selected row:
+
+![The settings screen on the Styling group. The header shows 1 unsaved change and the save, revert all, raw formats and close buttons. The menu lists the groups from Fitting to Other with Styling selected and marked, and the rows show key_format as a light purple Ctrl p block, desc_format as italic Pane marked unsaved, hint_spacer as a vertical bar on the selected row, drop_indicator unset with its default and key_format_quit as a pink Ctrl p block, followed by buttons to add keys. The key help runs along the bottom](img/settings-styling.svg)
+
 Press `f` or click its button to show every format string as written, and again to go back. The button says which way pressing it switches. Typing into a field always starts from the text as written.
 
 ## Colors
 
 A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it. The alias can be one of yours or one the selected theme defines.
+
+![The settings screen on the Colors group. Each row names a color alias, such as color_accent with the value #f5c2e7, and has a swatch of that color after its field. The color_accent row is selected and marked unsaved](img/settings-colors.svg)
 
 ## Theme preview
 

@@ -48,6 +48,13 @@ hint_order "*, exit" // exit outlives the hints in the "*"
 
 So on a narrowing window the middle thins out while `exit` stays put, rather than `exit` being the first thing over the edge.
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+Here is Normal mode with `hint_order "*, quit"` and `drop_indicator "…"`, at four widths:
+
+![Four zjhints bars in normal mode, drawn as purple pills, at 120, 90, 60 and 40 columns. At 120 the hints run from ^p pane to ⌥hjkl←↓↑→ focus, then an ellipsis, then ^q quit. Each narrower bar loses more hints from the middle, until at 40 columns only ^p pane, ^t tab, the ellipsis and ^q quit remain](img/fitting-widths.svg)
+
 When the `*` runs out, dropping continues outward from that same gap: the leading group is consumed from its inner edge, then the trailing group from its inner edge. Hints given up therefore always form one contiguous run, so a single indicator can stand for all of them:
 
 ```text
@@ -82,6 +89,8 @@ new … exit   <- the "*" is gone
 … exit       <- "new" spent
 exit         <- trailing group is last
 ```
+
+![Two zjhints bars in normal mode at 14 columns, with hint_order "pane, *, quit". With hint_precedence "tl" the bar is an ellipsis then ^q quit; with "lt" it is ^p pane then an ellipsis](img/fitting-precedence.svg)
 
 Reverse it with `"lt"` if the hints you pin to the front are the ones you most want kept. Either way the dropped hints stay one contiguous run, so a single `drop_indicator` still covers them. The `*` is always spent first, whichever precedence is set.
 

@@ -12,6 +12,13 @@ direction_keys "arrows"  // drop hjkl, keep the arrow keys ←↓↑→; or "arr
 direction_keys "letters" // drop the arrows, keep hjkl; or "hjkl", "vim"
 ```
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+Here is Pane mode, with `hint_order "focus, mode_normal, *"` putting `focus` first:
+
+![Three zjhints bars in pane mode, drawn as purple pills. With direction_keys "both" focus shows hjkl, the arrows, and ⌥jk with up and down arrows. With "arrows" it shows the arrows and ⌥ with up and down arrows. With "letters" it shows hjkl and ⌥jk](img/ordering-direction-keys.svg)
+
 Anything unrecognized falls back to `both`.
 
 The reduction applies only when a hint actually has both families, so a binding with arrows alone, or letters alone, is never emptied.
@@ -38,6 +45,10 @@ Within a hint, keys sort by kind so unlike keys never interleave:
 | Punctuation | likewise, but after all letters |
 | Arrows | `hjkl` order (`←↓↑→`) |
 | Everything else | roughly physical, starting `Esc Tab Enter` |
+
+Here is Tab mode with `hint_order "go_to_tab, focus, *"`, sorted and as Zellij reports it:
+
+![Two zjhints bars in tab mode, drawn as purple pills. With key_order "qwerty" focus reads hjkl then the arrows, and normal reads ⎋⏎ ^t. With key_order "none" focus reads the arrows and letters interleaved, and normal reads ^t ⎋⏎](img/ordering-key-order.svg)
 
 Letters and punctuation are separate groups so they do not interleave at row boundaries: `o p a s \` sorts to `opas\`, not `op\as`.
 
@@ -78,6 +89,10 @@ hint_order "pane, tab, move"  // explicit order, rest follow
 ```
 
 The `*` marks where every hint you did not name goes. Entries before it lead, entries after it trail, and unlisted hints keep the order the mode built them. Leaving `*` out is the same as ending with one.
+
+Here is Normal mode with `discover_hints false`:
+
+![Three zjhints bars in normal mode, drawn as purple pills. With hint_order "*" the hints run pane, tab, resize, move, scroll, session, quit. With "quit, *" quit comes first. With "*, pane" pane comes last](img/ordering-hint-order.svg)
 
 The list applies to every mode, so an id a mode does not have is simply ignored: `"*, exit"` puts `exit` last wherever it appears and changes nothing elsewhere. Naming an id that does not exist at all is equally harmless, so a typo degrades to no effect rather than an error.
 
