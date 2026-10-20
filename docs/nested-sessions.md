@@ -102,7 +102,7 @@ show_mode true // default false
 mode_format "#[fg=#cba6f7,bold] {mode} " // default unset, uses the ribbon_selected theme color
 ```
 
-`show_mode` prefixes the hints line with the current input mode, rendering as " NORMAL ", so this plugin reads the same as `{mode}{hints}` did through the pipe, without needing zjstatus's widget alongside it. `mode_format` is a zjstatus-style format string with a `{mode}` placeholder standing in for the mode's name: `NORMAL`, `PANE`, `LOCKED`, and the rest. When unset, the prefix uses the theme's `ribbon_selected` colors, the same "currently active" style Zellij's own ribbons use. The prefix dims along with the rest of the line under `dim_when_unfocused`, and counts against `max_length` the same way a hint would.
+`show_mode` prefixes the hints line with the current input mode, rendering as " NORMAL ", so this plugin reads the same as `{mode}{hints}` did through the pipe, without needing zjstatus's widget alongside it. `mode_format` is a zjstatus-style format string with a `{mode}` placeholder standing in for the mode's name: `NORMAL`, `PANE`, `LOCKED`, and the rest. It also takes `{desc}` and `{key}`, described in [One format for every mode](#one-format-for-every-mode). When unset, the prefix uses the theme's `ribbon_selected` colors, the same "currently active" style Zellij's own ribbons use. The prefix dims along with the rest of the line under `dim_when_unfocused`, and counts against `max_length` the same way a hint would.
 
 Each mode can also have its own format, the same way zjstatus's own `mode_normal` and `mode_locked` do, so a mode can carry its own icon instead of sharing one generic look:
 
@@ -120,3 +120,18 @@ search  session  move    prompt  rename_tab   rename_pane  tmux
 ```
 
 A mode with its own `mode_format_<mode>` uses that. A mode without one falls back to the global `mode_format`, and with neither set every mode uses the same theme-colored default. Icons already set up for zjstatus's own per-mode keys copy over as-is, with `mode_normal` becoming `mode_format_normal`.
+
+### One format for every mode
+
+Rather than repeating a format per mode, write one `mode_format` and give each mode its own name and symbol. In a mode format, `{desc}` is the mode's label and `{key}` its symbol, the way they are a hint's description and keys:
+
+```kdl
+mode_format "#[fg=$bg,bg=$accent,bold] {key} {desc} "
+mode_label_normal "NORM"   // default unset, the uppercase mode name
+mode_key_normal "󰌌"        // default unset, no symbol
+mode_key_locked "󰌾"
+```
+
+`mode_label_<mode>` and `mode_key_<mode>` take the same suffixes as `mode_format_<mode>`. A mode with no label draws its uppercase name, and one with no symbol draws `{key}` as nothing. `{mode}` stays the plain mode name whatever the label says.
+
+With no `mode_format` at all, the default prefix draws the symbol before the label when a mode has one.
