@@ -73,7 +73,7 @@ LaunchOrFocusPlugin "zjhints" {
 
 The screen has two sides. The sidebar on the left lists the groups, the same ones as the [configuration reference](configuration.md), with *Other* last. The list on the right shows the options of the group selected in the sidebar. A group holding unsaved edits is marked with `●` in the sidebar.
 
-Each row of the list shows an option and its value. An option you have not set shows its default, dimmed, and a value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
+Each row of the list shows an option and its value. An option you have not set shows its default, dimmed. When the selected [theme](themes.md) sets that option, the theme's value shows instead, dimmed and followed by *(theme)*. A value you have changed but not saved is marked with `●`. Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. The line under the list describes the selected option and its default.
 
 | Key | What it does |
 | --- | --- |
@@ -84,6 +84,7 @@ Each row of the list shows an option and its value. An option you have not set s
 | `Enter` or `Space` | In the sidebar, move to the list; in the list, toggle a true/false option, step through a fixed set of values, or start typing a value |
 | `Del`, `Backspace` or `d` | Reset the option to its default by removing it from the alias |
 | `r` | Switch format strings between rendered and raw |
+| `o` | In the *Theme* group, show or hide your overrides in the preview |
 | `s` | Save; `Ctrl s` also works in locked mode, where Zellij does not take it for scroll mode |
 | `Esc` or `q` | Close, asking first when there are unsaved edits |
 
@@ -97,13 +98,21 @@ When the pane is too narrow for the sidebar beside the list, a line over the lis
 
 ### Format strings
 
-Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+
+While the list has focus, the selected row draws its sample in the selection's colors instead of its own, so the selection runs unbroken across the row.
 
 Press **r** to show every format string as written, and again to go back. The title says which way they are shown, as *formats rendered* or *formats raw*. Editing always starts from the text as written.
 
 ### Colors
 
-A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it.
+A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<name>` is one, has a swatch of that color drawn after it. The alias can be one of yours or one the selected theme defines.
+
+### Theme preview
+
+The *Theme* group draws a bar under its three options, as your bars would draw it with the themes selected there. It uses the session's current mode, keybindings and Zellij theme, so `color_theme zellij` shows the colors you have now. Options that hide the whole bar, such as `hidden`, are left out of the preview.
+
+Any key you set that a selected theme sets too, such as `color_accent` or `desc_format`, overrides the theme. The caption over the bar counts them. Press **o**, or click the caption, to draw the bar without them and see the themes on their own; press it again to put them back. Hiding them changes only the preview, not your settings.
 
 ### Keys outside the fixed options
 

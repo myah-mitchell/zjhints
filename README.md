@@ -44,6 +44,7 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 
 - [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
 - [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
+- [Themes](docs/themes.md): pick colors, a shape such as pills or Powerline arrows, and a symbol set, each on its own, or style the bar yourself
 - [Discovery](docs/hints.md#discovered-hints): name every keybinding your config enables, not just the curated set, or turn it off for a compact bar
 - [Labels](docs/labels.md): rename, hide, merge, or reorder any hint, globally or in a single mode
 - [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
@@ -113,11 +114,15 @@ plugins {
         // a single mode its own icon, the same as zjstatus's mode_normal.
         // See docs/nested-sessions.md#standing-alone.
         show_mode true // default false
-        // Style the mode prefix with a format string; {mode} is the mode's
-        // name. Unset uses the theme's ribbon colors.
-        mode_format "#[fg=$black,bg=$blue,bold] {mode} "
+        // Style the mode prefix with a format string; {desc} is the mode's
+        // label, {key} its symbol, and {mode} its name. Unset uses the
+        // theme's ribbon colors.
+        mode_format "#[fg=$black,bg=$blue,bold] {key} {desc} "
         // Give one mode its own prefix, falling back to mode_format.
         mode_format_locked "#[fg=$black,bg=$fg,bold] 🔒 "
+        // Rename a mode, or give it a symbol, for one shared mode_format.
+        mode_label_normal "NORM" // default unset, the uppercase mode name
+        mode_key_normal   "⌨"    // default unset, no symbol
 
         // Right-click the bar for Zellij's context menu, click a hint to run
         // it, and click the drop indicator for the hints that did not fit.
@@ -150,6 +155,16 @@ plugins {
         // value hides it. See docs/labels.md for the full list of ids.
         label_mode_locked "lock"
         label_split_down  "split ↓"
+
+        // Built-in themes, each picked on its own. "zellij" follows the
+        // active Zellij theme. The color_, *_format and *_alias options
+        // below override them. See docs/themes.md.
+        // Colors: "custom" adds none, or a name such as "catppuccin-mocha".
+        color_theme "catppuccin-mocha" // default "zellij"
+        // Shape: "flat", "plain", "powerline" or "pills".
+        format_theme "pills" // default "zellij"
+        // Symbols: "ascii", "unicode" or "nerd-font".
+        alias_theme "unicode" // default "zellij"
 
         // Optionally style the hints using zjstatus-style format strings.
         // When unset, the current Zellij theme palette is used automatically.
@@ -310,6 +325,7 @@ The plugin works with no configuration, so this section is only for changing som
 | Topic                                      | What it covers                                                     |
 | ------------------------------------------ | ------------------------------------------------------------------ |
 | [Styling](docs/styling.md)                 | Format strings, colors, per-hint styling, key and modifier aliases |
+| [Themes](docs/themes.md)                   | Color, format and alias themes, and overriding them                |
 | [Keys and ordering](docs/ordering.md)      | Which keys show for a hint, and the order of keys and of hints     |
 | [Fitting the bar](docs/fitting.md)         | Fitting to the terminal, dropping hints, the drop indicator        |
 | [Hints](docs/hints.md)                     | The curated list, discovery, and shared bindings                   |

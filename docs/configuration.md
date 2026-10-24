@@ -23,7 +23,6 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
-| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
@@ -47,6 +46,16 @@ Which keys a hint shows, and what order things appear in. See [Keys and ordering
 | `key_order` | `qwerty` | How keys within a hint are ordered, `qwerty`, `dvorak`, `colemak`, `abcdef` or `none` |
 | `hint_order` | unset | Comma-separated hint ids pinned to the start or end of each mode, around a `*` for everything else |
 
+## Theme
+
+Built-in colors, shapes and symbols for the whole bar, laid under your own options. See [Themes](themes.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
+| `format_theme` | `zellij` | The shape of hints and the mode prefix, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for modifiers, keys and modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
+
 ## Styling
 
 Format strings for each hint, and the fixed strings that stand in for a hint's keys. See [Styling](styling.md).
@@ -56,6 +65,7 @@ Format strings for each hint, and the fixed strings that stand in for a hint's k
 | `key_format` | unset | Format string for the keybinding portion of each hint, theme palette when unset |
 | `desc_format` | unset | Format string for the description portion of each hint, theme palette when unset |
 | `hint_spacer` | unset | Format string drawn between consecutive hints and after the mode prefix, adjacent when unset |
+| `drop_indicator` | unset | Format string marking where hints were dropped, unmarked when unset (`…` when `mouse` is on) |
 | `key_format_<id>` | unset | Format string for one hint's keys, overriding `key_format` |
 | `desc_format_<id>` | unset | Format string for one hint's description, overriding `desc_format` |
 | `keys_<id>` | unset | Replace a hint's keys with a fixed string, as in `keys_go_to_tab "1-9"` |
@@ -104,8 +114,10 @@ The current input mode, printed before the hints for a bar in its own pane. See 
 | Option | Default | What it does |
 | --- | --- | --- |
 | `show_mode` | `false` | Prefix the hints line with the current input mode |
-| `mode_format` | unset | Format string for the mode prefix, with a `{mode}` placeholder |
+| `mode_format` | unset | Format string for the mode prefix, with `{desc}`, `{key}` and `{mode}` placeholders |
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+| `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
+| `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "🔒"` |
 
 ## Nested sessions
 
