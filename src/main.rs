@@ -15,6 +15,7 @@ use zellij_tile_utils::palette_match;
 mod format;
 mod keypress;
 mod mouse;
+mod popup;
 mod settings;
 
 use settings::live;
@@ -22,14 +23,18 @@ use settings::screen::SettingsScreen;
 
 use mouse::{
     ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
-    SegmentContent,
+    Preview, PreviewMemory, PreviewStep, SegmentContent,
 };
+use popup::PreviewPopup;
 
 #[derive(Default)]
 struct State {
     /// Set when this instance runs as the settings screen rather than the bar.
     /// It then handles every event itself and the bar's fields go unused.
     settings: Option<SettingsScreen>,
+    /// Set when this instance runs as the popup of a hover preview rather than
+    /// as the bar. It handles every event itself, like the settings screen.
+    preview_popup: Option<PreviewPopup>,
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
     /// The URL this bar's pane reports, which is the alias name when the bar
@@ -137,6 +142,11 @@ struct State {
     pending_menus: BTreeMap<u64, Vec<MenuEntry>>,
     /// Clicked actions not yet run, started one at a time.
     action_queue: ActionQueue,
+    /// The hover preview waiting to open or open over the bar, if any.
+    preview_memory: PreviewMemory,
+    /// How many rows the bar's pane had when it was last drawn, which is
+    /// where a hover preview starts below it.
+    pane_rows: usize,
     config: BTreeMap<String, String>,
 }
 
@@ -1244,6 +1254,78 @@ impl State {
         }
     }
 
+    /// Keep the hover preview in step with a mouse event on the bar: a hover
+    /// shows, keeps or closes it, and a click closes it before the click acts.
+    fn follow_mouse_with_preview(&mut self, mouse: &Mouse) {
+        // The popup is this plugin again, opened by URL, so none can open
+        // before the first `PaneUpdate` reports it.
+        if self.own_url.is_none() {
+            return;
+        }
+        let step = match mouse {
+            Mouse::Hover(..) => self.preview_memory.hover(&self.click_map, mouse),
+            Mouse::LeftClick(..) | Mouse::RightClick(..) => self.preview_memory.dismiss(),
+            _ => PreviewStep::default(),
+        };
+        self.take_preview_step(step);
+    }
+
+    fn take_preview_step(&self, step: PreviewStep) {
+        if let Some(popup) = step.close {
+            close_preview_popup(popup);
+        }
+        if step.wait {
+            start_hover_delay(mouse::HOVER_DELAY_SECONDS);
+        }
+        if let Some((generation, preview)) = step.open {
+            self.show_preview(generation, &preview);
+        }
+    }
+
+    fn show_preview(&self, generation: u64, preview: &Preview) {
+        let Some(url) = &self.own_url else {
+            return;
+        };
+        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
+        let (width, height) = popup::size(&preview.entries, self.wide_ambiguous);
+        open_preview_popup(
+            url,
+            popup::configuration(&tag, &preview.entries, self.wide_ambiguous),
+            self.pane_rows.max(1),
+            preview.columns.start,
+            width,
+            height,
+        );
+    }
+
+    /// A popup of this bar saying it opened or closed. Returns whether the
+    /// message was one.
+    fn take_popup_message(&mut self, message: &PipeMessage) -> bool {
+        let opened = message.name == mouse::HOVER_OPENED_MESSAGE;
+        if !opened && message.name != mouse::HOVER_CLOSED_MESSAGE {
+            return false;
+        }
+        let PipeSource::Plugin(popup) = message.source else {
+            return true;
+        };
+        let Some(generation) = message
+            .payload
+            .as_deref()
+            .and_then(mouse::parse_preview_tag)
+            .filter(|(owner, _)| Some(*owner) == self.plugin_id)
+            .map(|(_, generation)| generation)
+        else {
+            return true;
+        };
+        if opened {
+            let step = self.preview_memory.popup_opened(popup, generation);
+            self.take_preview_step(step);
+        } else {
+            self.preview_memory.popup_closed(generation);
+        }
+        true
+    }
+
     /// The hint line for one session's mode and keybindings, curated, ordered,
     /// styled, dimmed and truncated according to this plugin's configuration.
     ///
@@ -1502,10 +1584,7 @@ impl State {
         // Nerd Font glyphs are East Asian Ambiguous. A terminal set up to show
         // them draws two columns, so measuring them as one makes the plugin
         // think the line fits when it overflows.
-        self.wide_ambiguous = configuration
-            .get(CONFIG_AMBIGUOUS_WIDTH)
-            .map(|s| s.trim() == "2")
-            .unwrap_or(false);
+        self.wide_ambiguous = parse_wide_ambiguous(&configuration);
         // Optional zjstatus-style format strings for the key and description
         // parts of each hint. When unset, the theme palette is used (see
         // `style_key_with_modifier` / `style_description`). An empty string is
@@ -1610,7 +1689,7 @@ const BAR_PERMISSIONS: [PermissionType; 2] = [
 pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
     // Running a clicked hint's actions.
     PermissionType::RunActionsAsUser,
-    // Opening Zellij's context menu.
+    // Opening Zellij's context menu and the popup of a hover preview.
     PermissionType::ChangeApplicationState,
     // Showing the menus of hints and keys, which are prompts.
     PermissionType::OpenTerminalsOrPlugins,
@@ -1628,10 +1707,12 @@ fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
 }
 
 /// The events `mouse` needs beyond what the bar always subscribes to.
-const MOUSE_EVENTS: [EventType; 3] = [
+const MOUSE_EVENTS: [EventType; 4] = [
     EventType::Mouse,
     EventType::PromptResult,
     EventType::ActionComplete,
+    // Opening a hover preview once the pointer has rested on its hint.
+    EventType::Timer,
 ];
 
 /// The pipe message that opens the settings screen, or brings it up.
@@ -1704,6 +1785,66 @@ fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
         .get(CONFIG_HIDDEN)
         .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
 }
+
+fn parse_wide_ambiguous(configuration: &BTreeMap<String, String>) -> bool {
+    configuration
+        .get(CONFIG_AMBIGUOUS_WIDTH)
+        .is_some_and(|value| value.trim() == "2")
+}
+
+/// Open a hover preview at the bar pane's `line` and `column`, without taking
+/// the focus. Zellij keeps it on screen, above a bar at the bottom.
+#[cfg(not(test))]
+fn open_preview_popup(
+    url: &str,
+    configuration: BTreeMap<String, String>,
+    line: usize,
+    column: usize,
+    width: usize,
+    height: usize,
+) {
+    open_plugin_popup_with_options(
+        url,
+        configuration,
+        line,
+        column,
+        width,
+        height,
+        PopupOptions {
+            focused: false,
+            corner: None,
+        },
+    );
+}
+
+#[cfg(test)]
+fn open_preview_popup(
+    _url: &str,
+    _configuration: BTreeMap<String, String>,
+    _line: usize,
+    _column: usize,
+    _width: usize,
+    _height: usize,
+) {
+}
+
+#[cfg(not(test))]
+fn close_preview_popup(popup: u32) {
+    pipe_message_to_plugin(
+        MessageToPlugin::new(mouse::HOVER_CLOSE_MESSAGE).with_destination_plugin_id(popup),
+    );
+}
+
+#[cfg(test)]
+fn close_preview_popup(_popup: u32) {}
+
+#[cfg(not(test))]
+fn start_hover_delay(seconds: f64) {
+    set_timeout(seconds);
+}
+
+#[cfg(test)]
+fn start_hover_delay(_seconds: f64) {}
 
 /// Open the settings screen as a floating pane, or reach the one already
 /// open. `zellij:OWN_URL` stands for this plugin's own location, and a
@@ -1863,6 +2004,11 @@ impl State {
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        if let Some(popup) = PreviewPopup::from_configuration(&configuration) {
+            popup.load();
+            self.preview_popup = Some(popup);
+            return;
+        }
         if configuration.get("settings").map(String::as_str) == Some("true") {
             let mut screen = SettingsScreen::default();
             screen.load(&configuration);
@@ -1905,6 +2051,9 @@ impl ZellijPlugin for State {
     }
 
     fn update(&mut self, event: Event) -> bool {
+        if let Some(popup) = &mut self.preview_popup {
+            return popup.update(event);
+        }
         if let Some(screen) = &mut self.settings {
             return screen.update(event);
         }
@@ -2011,8 +2160,13 @@ impl ZellijPlugin for State {
             // Still subscribed after `mouse` is turned off by a preview, so
             // checked here as well.
             Event::Mouse(mouse) if self.mouse => {
+                self.follow_mouse_with_preview(&mouse);
                 let outcome = mouse::click_outcome(&self.click_map, &mouse);
                 self.perform_mouse_outcome(outcome);
+            }
+            Event::Timer(_) => {
+                let step = self.preview_memory.timer_fired();
+                self.take_preview_step(step);
             }
             Event::PromptResult(request_id, result) => {
                 let entries = self.pending_menus.remove(&request_id);
@@ -2029,6 +2183,10 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
+        if let Some(popup) = &self.preview_popup {
+            popup.pipe(&message);
+            return false;
+        }
         if self.settings.is_some() {
             // Clicking the mode prefix again while the screen is hidden.
             if message.name == OPEN_SETTINGS_MESSAGE {
@@ -2046,6 +2204,9 @@ impl ZellijPlugin for State {
         if message.name == VISIBILITY_MESSAGE {
             return self.take_visibility_answer(&message.source, payload);
         }
+        if self.take_popup_message(&message) {
+            return false;
+        }
         if let Some(visibility) = Visibility::from_message(&message.name) {
             let payload = message.payload.as_deref();
             if self.ends_a_cli_stream(&message.source, payload) {
@@ -2057,6 +2218,10 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
+        if let Some(popup) = &self.preview_popup {
+            popup.render(rows, cols);
+            return;
+        }
         if let Some(screen) = &mut self.settings {
             screen.render(rows, cols);
             return;
@@ -2081,7 +2246,13 @@ impl ZellijPlugin for State {
             );
         }
         print!("{}", output);
+        // A preview of a hint that is no longer there would mislead.
+        if click_map != self.click_map {
+            let step = self.preview_memory.dismiss();
+            self.take_preview_step(step);
+        }
         self.click_map = click_map;
+        self.pane_rows = rows;
     }
 }
 
@@ -2138,6 +2309,25 @@ fn calculate_visible_length(text: &str, wide_ambiguous: bool) -> usize {
     len
 }
 
+/// `text` with every control character written out as an escape, such as
+/// `\u{1b}` for ESC or `\n` for a newline, so that it shows as text instead
+/// of acting on the terminal. For plain text from the config or a nested
+/// session, never for ANSI the plugin styled itself.
+fn show_controls(text: &str) -> Cow<'_, str> {
+    if !text.chars().any(char::is_control) {
+        return Cow::Borrowed(text);
+    }
+    let mut shown = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_control() {
+            shown.extend(ch.escape_default());
+        } else {
+            shown.push(ch);
+        }
+    }
+    Cow::Owned(shown)
+}
+
 fn char_width(ch: char, wide_ambiguous: bool) -> usize {
     let width = if wide_ambiguous {
         ch.width_cjk()
@@ -2155,8 +2345,9 @@ fn truncate_ansi_string(
     wide_ambiguous: bool,
 ) -> String {
     let visible_len = calculate_visible_length(text, wide_ambiguous);
-    // Width on screen, not bytes: an overflow marker like `…` is one column.
-    let overflow_len = overflow_str.chars().count();
+    // Columns on screen, not characters or bytes: `…` is one column, or two
+    // where ambiguous characters are wide.
+    let overflow_len = calculate_visible_length(overflow_str, wide_ambiguous);
 
     if visible_len <= max_len {
         return text.to_string();
@@ -2165,34 +2356,48 @@ fn truncate_ansi_string(
     // Too narrow for even the marker, so show as much of it as fits rather than
     // overshooting the limit the caller asked for.
     if max_len <= overflow_len {
-        return overflow_str.chars().take(max_len).collect();
+        let mut shown = String::new();
+        let mut columns = 0;
+        for ch in overflow_str.chars() {
+            columns += char_width(ch, wide_ambiguous);
+            if columns > max_len {
+                break;
+            }
+            shown.push(ch);
+        }
+        return shown;
     }
 
     let target_len = max_len - overflow_len;
     let mut result = String::new();
     let mut visible_count = 0;
+    let mut styled = overflow_str.contains('\u{1b}');
     let mut parser = AnsiParser::new(text);
 
     while let Some(segment) = parser.next_segment() {
         match segment {
             AnsiSegment::EscapeSequence(seq) => {
                 result.push_str(&seq);
+                styled = true;
             }
             AnsiSegment::VisibleChar(ch) => {
-                if visible_count >= target_len {
+                // A wide character that would cross the limit is left out
+                // whole, so the cut can fall a column short of it.
+                let width = char_width(ch, wide_ambiguous);
+                if visible_count + width > target_len {
                     break;
                 }
                 result.push(ch);
-                visible_count += 1;
+                visible_count += width;
             }
         }
     }
 
     result.push_str(overflow_str);
     // `ANSIStrings` closes the styled run with a reset, which the loop above
-    // discards by breaking early. Without one, whatever colour was active at the
-    // cut keeps painting the rest of the status bar.
-    if !result.ends_with(ANSI_RESET) {
+    // discards by breaking early. Without one, whatever color was active at the
+    // cut keeps painting the rest of the status bar. Plain text needs none.
+    if styled && !result.ends_with(ANSI_RESET) {
         result.push_str(ANSI_RESET);
     }
     result
@@ -4565,6 +4770,11 @@ mod tests {
     }
 
     #[test]
+    fn truncating_plain_text_adds_no_reset() {
+        assert_eq!(truncate_ansi_string("a long entry", "…", 5, false), "a lo…");
+    }
+
+    #[test]
     fn truncating_keeps_the_visible_width_within_the_limit() {
         for limit in 1..=10 {
             let truncated = truncate_ansi_string(&styled_line(), "...", limit, false);
@@ -4575,6 +4785,48 @@ mod tests {
                 truncated
             );
         }
+    }
+
+    #[test]
+    fn control_characters_are_shown_as_escapes() {
+        assert_eq!(
+            show_controls("\u{1b}]52;c;aGk=\u{7}"),
+            "\\u{1b}]52;c;aGk=\\u{7}"
+        );
+        assert_eq!(
+            show_controls("a\nb\tc\u{7f}\u{9b}"),
+            "a\\nb\\tc\\u{7f}\\u{9b}"
+        );
+        assert!(matches!(show_controls("漢字 → ok"), Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn truncating_counts_wide_characters_as_two_columns() {
+        let line = "漢字テスト";
+        // Five columns leave four for the text and one for the marker.
+        let truncated = truncate_ansi_string(line, "…", 6, false);
+        assert_eq!(truncated, "漢字…");
+        // A character that would cross the limit is left out, not split.
+        let truncated = truncate_ansi_string(line, "…", 7, false);
+        assert_eq!(truncated, "漢字テ…");
+        for limit in 0..=10 {
+            for wide_ambiguous in [false, true] {
+                let truncated = truncate_ansi_string(line, "…", limit, wide_ambiguous);
+                assert!(
+                    calculate_visible_length(&truncated, wide_ambiguous) <= limit,
+                    "limit {limit} produced {truncated:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_ambiguous_marker_takes_two_columns_where_they_are_wide() {
+        // `…` is two columns, so a three-column cut keeps one of the text.
+        let truncated = truncate_ansi_string("abcdef", "…", 3, true);
+        assert_eq!(truncated, "a…");
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, true), "");
+        assert_eq!(truncate_ansi_string("abcdef", "…", 1, false), "…");
     }
 
     #[test]
@@ -6489,6 +6741,112 @@ mod tests {
                 direction: Direction::Left
             }])
         );
+    }
+
+    /// Bar 7, drawn once with a drop marker that opens a menu, and the
+    /// marker's column.
+    fn previewing_bar() -> (State, usize) {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.drop_indicator = Some("…".to_string());
+        state.max_length = 23;
+        state.plugin_id = Some(7);
+        state.own_url = Some("zjhints".to_string());
+        state.render(1, 23);
+        let marker = column_of(&state, "…");
+        (state, marker)
+    }
+
+    /// Rest the pointer on `column` until its preview opens.
+    fn rest_on(state: &mut State, column: usize) {
+        state.update(Event::Mouse(Mouse::Hover(0, column)));
+        state.update(Event::Timer(mouse::HOVER_DELAY_SECONDS));
+    }
+
+    fn message_from(source: PipeSource, name: &str, payload: &str) -> PipeMessage {
+        PipeMessage::new(source, name, &Some(payload.to_string()), &None, false)
+    }
+
+    #[test]
+    fn resting_on_a_picker_opens_its_preview_after_the_delay() {
+        let (mut state, marker) = previewing_bar();
+        state.update(Event::Mouse(Mouse::Hover(0, marker)));
+        assert!(!state.preview_memory.is_idle());
+        state.update(Event::Timer(mouse::HOVER_DELAY_SECONDS));
+        // Preview 1 of bar 7 says where it is, and is the one closed.
+        let opened = message_from(PipeSource::Plugin(30), mouse::HOVER_OPENED_MESSAGE, "7-1");
+        assert!(!state.pipe(opened));
+        assert_eq!(state.preview_memory.dismiss().close, Some(30));
+    }
+
+    #[test]
+    fn a_bar_that_does_not_know_its_url_yet_opens_no_preview() {
+        let (mut state, marker) = previewing_bar();
+        state.own_url = None;
+        state.update(Event::Mouse(Mouse::Hover(0, marker)));
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn a_click_closes_the_preview() {
+        let (mut state, marker) = previewing_bar();
+        rest_on(&mut state, marker);
+        // The leading space, which does nothing else.
+        state.update(Event::Mouse(Mouse::LeftClick(0, 0)));
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn drawing_other_hints_closes_the_preview_and_the_same_ones_keep_it() {
+        let (mut state, marker) = previewing_bar();
+        rest_on(&mut state, marker);
+        state.render(1, 23);
+        assert!(!state.preview_memory.is_idle());
+        // Every hint fits, so the marker is gone.
+        state.max_length = 40;
+        state.render(1, 40);
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn only_the_bar_s_own_popups_are_heard() {
+        let (mut state, marker) = previewing_bar();
+        rest_on(&mut state, marker);
+        let closed = mouse::HOVER_CLOSED_MESSAGE;
+        for message in [
+            message_from(PipeSource::Plugin(30), closed, "8-1"),
+            message_from(PipeSource::Plugin(30), closed, "stray"),
+            message_from(PipeSource::Cli("pipe".to_string()), closed, "7-1"),
+        ] {
+            assert!(!state.pipe(message));
+        }
+        assert!(!state.preview_memory.is_idle());
+        state.pipe(message_from(PipeSource::Plugin(30), closed, "7-1"));
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn a_popup_instance_ignores_what_the_bar_handles() {
+        let configuration = popup::configuration("7-1", &["a".to_string()], false);
+        let mut state = State {
+            preview_popup: PreviewPopup::from_configuration(&configuration),
+            ..Default::default()
+        };
+        let pane_mode = ModeInfo {
+            mode: InputMode::Pane,
+            ..Default::default()
+        };
+        assert!(!state.update(Event::ModeUpdate(pane_mode)));
+        assert_eq!(state.mode_info.mode, ModeInfo::default().mode);
+        let preview = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
+        let message = PipeMessage::new(
+            PipeSource::Plugin(5),
+            live::MESSAGE_NAME,
+            &None,
+            &Some(preview),
+            false,
+        );
+        assert!(!state.pipe(message));
+        assert!(!state.show_mode);
     }
 
     #[test]
