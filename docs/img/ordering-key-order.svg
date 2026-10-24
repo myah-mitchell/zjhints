@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The tab mode bar with key_order qwerty and none, changing the order of the tab and focus keys</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="18" y="18" width="90" height="18" fill="#cba6f7"/>
+<rect x="108" y="18" width="36" height="18" fill="#313244"/>
+<rect x="171" y="18" width="81" height="18" fill="#cba6f7"/>
+<rect x="252" y="18" width="54" height="18" fill="#313244"/>
+<rect x="333" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="351" y="18" width="36" height="18" fill="#313244"/>
+<rect x="414" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="432" y="18" width="54" height="18" fill="#313244"/>
+<rect x="513" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="531" y="18" width="99" height="18" fill="#313244"/>
+<rect x="657" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="675" y="18" width="45" height="18" fill="#313244"/>
+<rect x="747" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="765" y="18" width="63" height="18" fill="#313244"/>
+<rect x="855" y="18" width="54" height="18" fill="#cba6f7"/>
+<rect x="909" y="18" width="63" height="18" fill="#313244"/>
+<rect x="999" y="18" width="9" height="18" fill="#313244"/>
+<rect x="18" y="72" width="90" height="18" fill="#cba6f7"/>
+<rect x="108" y="72" width="36" height="18" fill="#313244"/>
+<rect x="171" y="72" width="81" height="18" fill="#cba6f7"/>
+<rect x="252" y="72" width="54" height="18" fill="#313244"/>
+<rect x="333" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="351" y="72" width="36" height="18" fill="#313244"/>
+<rect x="414" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="432" y="72" width="54" height="18" fill="#313244"/>
+<rect x="513" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="531" y="72" width="99" height="18" fill="#313244"/>
+<rect x="657" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="675" y="72" width="45" height="18" fill="#313244"/>
+<rect x="747" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="765" y="72" width="63" height="18" fill="#313244"/>
+<rect x="855" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="909" y="72" width="63" height="18" fill="#313244"/>
+<rect x="999" y="72" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 90 99 108 117 126 135 144 153" fill="#878ca4">key_order"qwerty"</tspan></text>
+<path d="M18 18A9 9 0 0 0 18 36Z" fill="#cba6f7"/>
+<path d="M144 18A9 9 0 0 1 144 36Z" fill="#313244"/>
+<path d="M171 18A9 9 0 0 0 171 36Z" fill="#cba6f7"/>
+<path d="M306 18A9 9 0 0 1 306 36Z" fill="#313244"/>
+<path d="M333 18A9 9 0 0 0 333 36Z" fill="#cba6f7"/>
+<path d="M387 18A9 9 0 0 1 387 36Z" fill="#313244"/>
+<path d="M414 18A9 9 0 0 0 414 36Z" fill="#cba6f7"/>
+<path d="M486 18A9 9 0 0 1 486 36Z" fill="#313244"/>
+<path d="M513 18A9 9 0 0 0 513 36Z" fill="#cba6f7"/>
+<path d="M630 18A9 9 0 0 1 630 36Z" fill="#313244"/>
+<path d="M657 18A9 9 0 0 0 657 36Z" fill="#cba6f7"/>
+<path d="M720 18A9 9 0 0 1 720 36Z" fill="#313244"/>
+<path d="M747 18A9 9 0 0 0 747 36Z" fill="#cba6f7"/>
+<path d="M828 18A9 9 0 0 1 828 36Z" fill="#313244"/>
+<path d="M855 18A9 9 0 0 0 855 36Z" fill="#cba6f7"/>
+<path d="M972 18A9 9 0 0 1 972 36Z" fill="#313244"/>
+<path d="M999 18A9 9 0 0 0 999 36Z" fill="#313244"/>
+<path d="M1008 18A9 9 0 0 1 1008 36Z" fill="#313244"/>
+<text y="31"><tspan x="18 27 36 45 54 63 72 81 90" fill="#1e1e2e" font-weight="bold">123456789</tspan><tspan x="117 126 135" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="171 180 189 198 207 216 225 234" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→</tspan><tspan x="261 270 279 288 297" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="333" fill="#1e1e2e" font-weight="bold">n</tspan><tspan x="360 369 378" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="414" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="441 450 459 468 477" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="513" fill="#1e1e2e" font-weight="bold">b</tspan><tspan x="540 549 558 567 576 594 603 612 621" fill="#cba6f7" font-weight="bold">breakpane</tspan><tspan x="657" fill="#1e1e2e" font-weight="bold">s</tspan><tspan x="684 693 702 711" fill="#cba6f7" font-weight="bold">sync</tspan><tspan x="747" fill="#1e1e2e" font-weight="bold">r</tspan><tspan x="774 783 792 801 810 819" fill="#cba6f7" font-weight="bold">rename</tspan><tspan x="855 864 882 891" fill="#1e1e2e" font-weight="bold">⎋⏎^t</tspan><tspan x="918 927 936 945 954 963" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="999" fill="#cdd6f4">…</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 90 99 108 117 126 135" fill="#878ca4">key_order"none"</tspan></text>
+<path d="M18 72A9 9 0 0 0 18 90Z" fill="#cba6f7"/>
+<path d="M144 72A9 9 0 0 1 144 90Z" fill="#313244"/>
+<path d="M171 72A9 9 0 0 0 171 90Z" fill="#cba6f7"/>
+<path d="M306 72A9 9 0 0 1 306 90Z" fill="#313244"/>
+<path d="M333 72A9 9 0 0 0 333 90Z" fill="#cba6f7"/>
+<path d="M387 72A9 9 0 0 1 387 90Z" fill="#313244"/>
+<path d="M414 72A9 9 0 0 0 414 90Z" fill="#cba6f7"/>
+<path d="M486 72A9 9 0 0 1 486 90Z" fill="#313244"/>
+<path d="M513 72A9 9 0 0 0 513 90Z" fill="#cba6f7"/>
+<path d="M630 72A9 9 0 0 1 630 90Z" fill="#313244"/>
+<path d="M657 72A9 9 0 0 0 657 90Z" fill="#cba6f7"/>
+<path d="M720 72A9 9 0 0 1 720 90Z" fill="#313244"/>
+<path d="M747 72A9 9 0 0 0 747 90Z" fill="#cba6f7"/>
+<path d="M828 72A9 9 0 0 1 828 90Z" fill="#313244"/>
+<path d="M855 72A9 9 0 0 0 855 90Z" fill="#cba6f7"/>
+<path d="M972 72A9 9 0 0 1 972 90Z" fill="#313244"/>
+<path d="M999 72A9 9 0 0 0 999 90Z" fill="#313244"/>
+<path d="M1008 72A9 9 0 0 1 1008 90Z" fill="#313244"/>
+<text y="85"><tspan x="18 27 36 45 54 63 72 81 90" fill="#1e1e2e" font-weight="bold">123456789</tspan><tspan x="117 126 135" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="171 180 189 198 207 216 225 234" fill="#1e1e2e" font-weight="bold">←↑hk↓→jl</tspan><tspan x="261 270 279 288 297" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="333" fill="#1e1e2e" font-weight="bold">n</tspan><tspan x="360 369 378" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="414" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="441 450 459 468 477" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="513" fill="#1e1e2e" font-weight="bold">b</tspan><tspan x="540 549 558 567 576 594 603 612 621" fill="#cba6f7" font-weight="bold">breakpane</tspan><tspan x="657" fill="#1e1e2e" font-weight="bold">s</tspan><tspan x="684 693 702 711" fill="#cba6f7" font-weight="bold">sync</tspan><tspan x="747" fill="#1e1e2e" font-weight="bold">r</tspan><tspan x="774 783 792 801 810 819" fill="#cba6f7" font-weight="bold">rename</tspan><tspan x="855 864 882 891" fill="#1e1e2e" font-weight="bold">^t⎋⏎</tspan><tspan x="918 927 936 945 954 963" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="999" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>

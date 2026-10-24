@@ -45,6 +45,10 @@ A color theme defines eleven color aliases, which the format themes and your own
 | `gruvbox-dark` | [Gruvbox](https://github.com/morhetz/gruvbox#palette) dark, with its bright accents |
 | `tokyo-night` | [Tokyo Night](https://github.com/folke/tokyonight.nvim), the night variant |
 
+The same bar in each color theme, drawn with `format_theme "flat"` and `show_mode` on:
+
+![Eight rows, each a zjhints bar in normal mode under the name of its color theme: zellij, custom, catppuccin-mocha, catppuccin-latte, dracula, nord, gruvbox-dark and tokyo-night. Each shows a NORMAL block and hints as a key block beside a description block in that theme's colors; the custom row has no colors, since it defines no aliases](img/color-themes.svg)
+
 Every color theme defines the same aliases, so a format that refers to `$accent` works under any of them:
 
 | Alias | Role | Zellij theme component |
@@ -72,6 +76,10 @@ A format theme sets `key_format`, `desc_format`, `hint_spacer`, `drop_indicator`
 | `powerline` | The flat blocks, each ending in a Powerline arrow |
 | `pills` | Each hint a rounded pill, the key at its left end on `$accent` |
 
+The same bar in each format theme, in `catppuccin-mocha` colors:
+
+![Five rows, each a zjhints bar in normal mode under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each hint](img/format-themes.svg)
+
 The mode prefix is colored by mode, the same in every format theme:
 
 | Color | Modes |
@@ -98,6 +106,10 @@ An alias theme sets `mod_alias_<name>` for the four modifiers, `key_alias_<name>
 | `ascii` | `C-` `M-` `S-` `s-` | `RET`, `ESC`, `TAB`, `<` `v` `^` `>` | No symbols |
 | `unicode` | `^` `⌥` `⇧` `⌘` | `⏎`, `⎋`, `⇥`, `←` `↓` `↑` `→` | `⌨` normal, `⊘` locked, and one per mode |
 | `nerd-font` | Nerd Font Apple-style modifier glyphs | Nerd Font key glyphs | A Nerd Font icon per mode |
+
+The same bar in the `ascii` and `unicode` alias themes, drawn as `catppuccin-mocha` pills:
+
+![Three rows, each a zjhints bar in normal mode drawn as pills: zellij spells keys as Ctrl p, ascii as C-p with M-hjkl<v^> for the arrow keys, and unicode as ^p with arrow symbols and a keyboard symbol after NORMAL](img/alias-themes.svg)
 
 To use a different symbol for one mode, set `mode_key_<mode>` yourself. To rename a mode, set `mode_label_<mode>`. See [One format for every mode](nested-sessions.md#one-format-for-every-mode).
 

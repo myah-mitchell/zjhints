@@ -13,6 +13,8 @@ use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 
 mod format;
+#[cfg(test)]
+mod images;
 mod keypress;
 mod mouse;
 mod popup;

@@ -27,6 +27,13 @@ discover_hints false
 
 While it is on, every remaining keybinding enabled in the current mode is found and appended after the curated list. Nothing your config binds is left out: custom binds appear, and so do the many defaults the curated list omits (the `Alt-*` quick keys, `lock` in Normal mode), along with modes like Locked and Tmux that have no curated entries at all.
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+Tmux mode has no curated entries, so it shows the difference most clearly:
+
+![Two zjhints bars in tmux mode, drawn as purple pills. With discover_hints false the only hint is ⎋⏎ normal. With discover_hints true normal gains ^b, and focus, next layout, split down, split right, rename and scroll follow it](img/hints-discovery.svg)
+
 Keys resolving to the same [id](labels.md#ids-and-labels) become a single hint, so the four directional focus keys collapse into one `focus` rather than four entries.
 
 Hints are collected before anything is drawn, so the two sources merge rather than duplicate: a curated `focus` on `hjkl` and a discovered `focus` on the arrows become one hint carrying all eight keys.
@@ -44,6 +51,10 @@ Everything else works the same either way: discovered hints have [ids](labels.md
 Zellij's default config binds the mode switches (pane, tab, session, and the rest) in every non-locked mode via `shared_except` groups. Discovering those in each mode means every mode re-lists the same globals, which is mostly noise.
 
 `hide_shared_hints` (default `true`) suppresses any discovered binding whose key maps to the same action in the base mode, so each mode shows only what is new in it. It has no effect on the base mode itself, where Normal still lists the globals, and it respects a non-Normal `default_mode` such as `locked`.
+
+Here is Pane mode with `hint_order` putting the mode switches first:
+
+![Two zjhints bars in pane mode, drawn as purple pills. With hide_shared_hints true the bar starts at n ⌥n new. With false it starts with ^t tab, ^n resize, ^h move and ^s scroll, the mode switches Normal mode also lists](img/hints-shared.svg)
 
 Locked mode is exempt when it is not the base mode. You can stay locked for a long time, for example under an autolock plugin while an editor runs, and the base mode's bar is not on screen meanwhile. So a key bound in a `shared` block, which works in locked too, shows there rather than being treated as a repeat.
 

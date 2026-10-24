@@ -47,6 +47,11 @@ This is not specific to nesting. `hide_in_base_mode` empties the bar too, and so
 
 This applies equally to the theme palette's default styling and to anything you have styled yourself, from `key_format` and `desc_format` through to the per-mode `mode_format_<mode>`. A `$alias` or `#hex` color in one of those fades the same amount, so a hand-styled bar dims along with everything else rather than staying at fixed brightness regardless of focus.
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+![Two zjhints bars in normal mode with purple key blocks and gray description blocks. The first is at full brightness, receiving input. The second is the same bar faded toward gray by dim_strength "0.5"](img/nested-dimming.svg)
+
 Only true RGB colors can be blended this way. A named ANSI color or an indexed `color<n>` has no RGB triple to fade, so it renders unaffected.
 
 If you also use the [zjstatus fork with the matching feature](https://github.com/myah-mitchell/zjstatus), its `dim_when_unfocused` and `dim_strength` use the same blend, so a host's top and bottom bars dim together rather than one changing and the other staying bright.
@@ -103,6 +108,8 @@ mode_format "#[fg=#cba6f7,bold] {mode} " // default unset, uses the ribbon_selec
 ```
 
 `show_mode` prefixes the hints line with the current input mode, rendering as " NORMAL ", so this plugin reads the same as `{mode}{hints}` did through the pipe, without needing zjstatus's widget alongside it. `mode_format` is a zjstatus-style format string with a `{mode}` placeholder standing in for the mode's name: `NORMAL`, `PANE`, `LOCKED`, and the rest. It also takes `{desc}` and `{key}`, described in [One format for every mode](#one-format-for-every-mode). When unset, the prefix uses the theme's `ribbon_selected` colors, the same "currently active" style Zellij's own ribbons use. The prefix dims along with the rest of the line under `dim_when_unfocused`, and counts against `max_length` the same way a hint would.
+
+![Three zjhints bars drawn as purple pills. With show_mode true in normal mode, a NORMAL label and a green keyboard symbol lead the hints. In locked mode a pink LOCKED label and symbol lead ^g normal. With one mode_format and mode_label_normal "NORM", a purple NORM block leads the hints](img/nested-show-mode.svg)
 
 Each mode can also have its own format, the same way zjstatus's own `mode_normal` and `mode_locked` do, so a mode can carry its own icon instead of sharing one generic look:
 

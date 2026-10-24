@@ -13,6 +13,11 @@ key_format  "#[fg=$black,bg=$blue,bold] {key} "
 desc_format "#[fg=#cdd6f4,bg=#313244,italic] {desc} "
 ```
 
+> [!NOTE]
+> The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
+
+![Two zjhints bars in normal mode. The first uses the Zellij theme's colors and key names, Ctrl p pane and so on, as light key blocks beside dark description blocks. The second sets key_format to dark text on a purple block and desc_format to light text on a gray block, with the hints sitting against each other](img/styling-formats.svg)
+
 ## Contents
 
 - [Placeholders](#placeholders)
@@ -50,6 +55,8 @@ key_format_quit  "#[fg=$red,bg=$bg,bold] {key} "
 ```
 
 Useful for the hints that are not like the others: a destructive action worth coloring, or the way out of a mode worth setting apart from the actions in it.
+
+![Two zjhints bars in normal mode with purple key blocks and gray description blocks. In the second, key_format_quit and desc_format_quit draw the quit hint's key on a pink block and its description in bold pink](img/styling-one-hint.svg)
 
 Resolution runs most specific first, and can be scoped to a mode exactly as [labels](labels.md#per-mode-labels) can:
 
@@ -102,6 +109,8 @@ hint_spacer "#[fg=$gray] │ " // a styled divider
 ```
 
 It is parsed as a format string like `key_format` and `desc_format`, without any placeholders, so `$name` color aliases and all the directives below work in it. The default key styling already emits one leading space per hint, so the spacer adds to that gap rather than replacing it.
+
+![Three zjhints bars in normal mode with purple key blocks. With hint_spacer "" the hints touch; with two spaces there is a gap between them; with a gray vertical bar a divider separates each hint, and the last hint, focus, no longer fits](img/styling-spacer.svg)
 
 ## Directives
 
@@ -178,6 +187,10 @@ Ctrl h  Alt <  Ctrl k  Alt l   renders as   ^hk ⌥<l
 ```
 
 How the modifier joins its keys depends on the alias: a word such as `Ctrl` is followed by a space (`Ctrl hk`), while a symbol such as `^` hugs them (`^hk`). This is decided by the last character, so you get the natural spacing either way without configuring it.
+
+Here is Pane mode, with `hint_order "focus, mode_normal, *"` bringing the hints with named keys to the front, before and after aliasing Esc, Enter, the arrows, Ctrl and Alt:
+
+![Two zjhints bars in pane mode, drawn as purple pills. The first shows Zellij's key names: hjkl and the arrows with Alt jk for focus, ESCENTER Ctrl p for normal, n Alt n for new. The second shows the same hints with aliases: Alt becomes ⌥, as in ⌥jk and ⌥n, Ctrl becomes ^ as in ^p, and Esc and Enter become ⎋⏎](img/styling-aliases.svg)
 
 ## Chord aliases
 

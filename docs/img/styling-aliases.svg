@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="114" viewBox="0 0 1108 114" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The pane mode bar with Zellij's key names, then with Alt, Ctrl, Esc, Enter and the arrows replaced by symbols</title>
+<rect width="1108" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="18" y="18" width="162" height="18" fill="#cba6f7"/>
+<rect x="180" y="18" width="54" height="18" fill="#313244"/>
+<rect x="261" y="18" width="144" height="18" fill="#cba6f7"/>
+<rect x="405" y="18" width="63" height="18" fill="#313244"/>
+<rect x="495" y="18" width="72" height="18" fill="#cba6f7"/>
+<rect x="567" y="18" width="36" height="18" fill="#313244"/>
+<rect x="630" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="648" y="18" width="54" height="18" fill="#313244"/>
+<rect x="729" y="18" width="18" height="18" fill="#cba6f7"/>
+<rect x="747" y="18" width="99" height="18" fill="#313244"/>
+<rect x="873" y="18" width="72" height="18" fill="#cba6f7"/>
+<rect x="945" y="18" width="54" height="18" fill="#313244"/>
+<rect x="1026" y="18" width="9" height="18" fill="#313244"/>
+<rect x="18" y="72" width="135" height="18" fill="#cba6f7"/>
+<rect x="153" y="72" width="54" height="18" fill="#313244"/>
+<rect x="234" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="288" y="72" width="63" height="18" fill="#313244"/>
+<rect x="378" y="72" width="45" height="18" fill="#cba6f7"/>
+<rect x="423" y="72" width="36" height="18" fill="#313244"/>
+<rect x="486" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="504" y="72" width="54" height="18" fill="#313244"/>
+<rect x="585" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="603" y="72" width="99" height="18" fill="#313244"/>
+<rect x="729" y="72" width="45" height="18" fill="#cba6f7"/>
+<rect x="774" y="72" width="54" height="18" fill="#313244"/>
+<rect x="855" y="72" width="18" height="18" fill="#cba6f7"/>
+<rect x="873" y="72" width="54" height="18" fill="#313244"/>
+<rect x="954" y="72" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 81 90 99 117 126 135 144 153" fill="#878ca4">Zellij'skeynames</tspan></text>
+<path d="M18 18A9 9 0 0 0 18 36Z" fill="#cba6f7"/>
+<path d="M234 18A9 9 0 0 1 234 36Z" fill="#313244"/>
+<path d="M261 18A9 9 0 0 0 261 36Z" fill="#cba6f7"/>
+<path d="M468 18A9 9 0 0 1 468 36Z" fill="#313244"/>
+<path d="M495 18A9 9 0 0 0 495 36Z" fill="#cba6f7"/>
+<path d="M603 18A9 9 0 0 1 603 36Z" fill="#313244"/>
+<path d="M630 18A9 9 0 0 0 630 36Z" fill="#cba6f7"/>
+<path d="M702 18A9 9 0 0 1 702 36Z" fill="#313244"/>
+<path d="M729 18A9 9 0 0 0 729 36Z" fill="#cba6f7"/>
+<path d="M846 18A9 9 0 0 1 846 36Z" fill="#313244"/>
+<path d="M873 18A9 9 0 0 0 873 36Z" fill="#cba6f7"/>
+<path d="M999 18A9 9 0 0 1 999 36Z" fill="#313244"/>
+<path d="M1026 18A9 9 0 0 0 1026 36Z" fill="#313244"/>
+<path d="M1035 18A9 9 0 0 1 1035 36Z" fill="#313244"/>
+<text y="31"><tspan x="18 27 36 45 54 63 72 81 99 108 117 135 144 153 162" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→Altjk↓↑</tspan><tspan x="189 198 207 216 225" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="261 270 279 288 297 306 315 324 342 351 360 369 387" fill="#1e1e2e" font-weight="bold">ESCENTERCtrlp</tspan><tspan x="414 423 432 441 450 459" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="495 513 522 531 549" fill="#1e1e2e" font-weight="bold">nAltn</tspan><tspan x="576 585 594" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="630" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="657 666 675 684 693" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="729" fill="#1e1e2e" font-weight="bold">f</tspan><tspan x="756 765 774 783 792 801 810 819 828 837" fill="#cba6f7" font-weight="bold">fullscreen</tspan><tspan x="873 891 900 909 927" fill="#1e1e2e" font-weight="bold">wAltf</tspan><tspan x="954 963 972 981 990" fill="#cba6f7" font-weight="bold">float</tspan><tspan x="1026" fill="#cdd6f4">…</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 153 162 171 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324" fill="#878ca4">key_alias_&lt;name&gt;andmod_alias_&lt;name&gt;</tspan></text>
+<path d="M18 72A9 9 0 0 0 18 90Z" fill="#cba6f7"/>
+<path d="M207 72A9 9 0 0 1 207 90Z" fill="#313244"/>
+<path d="M234 72A9 9 0 0 0 234 90Z" fill="#cba6f7"/>
+<path d="M351 72A9 9 0 0 1 351 90Z" fill="#313244"/>
+<path d="M378 72A9 9 0 0 0 378 90Z" fill="#cba6f7"/>
+<path d="M459 72A9 9 0 0 1 459 90Z" fill="#313244"/>
+<path d="M486 72A9 9 0 0 0 486 90Z" fill="#cba6f7"/>
+<path d="M558 72A9 9 0 0 1 558 90Z" fill="#313244"/>
+<path d="M585 72A9 9 0 0 0 585 90Z" fill="#cba6f7"/>
+<path d="M702 72A9 9 0 0 1 702 90Z" fill="#313244"/>
+<path d="M729 72A9 9 0 0 0 729 90Z" fill="#cba6f7"/>
+<path d="M828 72A9 9 0 0 1 828 90Z" fill="#313244"/>
+<path d="M855 72A9 9 0 0 0 855 90Z" fill="#cba6f7"/>
+<path d="M927 72A9 9 0 0 1 927 90Z" fill="#313244"/>
+<path d="M954 72A9 9 0 0 0 954 90Z" fill="#313244"/>
+<path d="M963 72A9 9 0 0 1 963 90Z" fill="#313244"/>
+<text y="85"><tspan x="18 27 36 45 54 63 72 81 99 108 117 126 135" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→⌥jk↓↑</tspan><tspan x="162 171 180 189 198" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="234 243 261 270" fill="#1e1e2e" font-weight="bold">⎋⏎^p</tspan><tspan x="297 306 315 324 333 342" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="378 396 405" fill="#1e1e2e" font-weight="bold">n⌥n</tspan><tspan x="432 441 450" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="486" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="513 522 531 540 549" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="585" fill="#1e1e2e" font-weight="bold">f</tspan><tspan x="612 621 630 639 648 657 666 675 684 693" fill="#cba6f7" font-weight="bold">fullscreen</tspan><tspan x="729 747 756" fill="#1e1e2e" font-weight="bold">w⌥f</tspan><tspan x="783 792 801 810 819" fill="#cba6f7" font-weight="bold">float</tspan><tspan x="855" fill="#1e1e2e" font-weight="bold">e</tspan><tspan x="882 891 900 909 918" fill="#cba6f7" font-weight="bold">embed</tspan><tspan x="954" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>

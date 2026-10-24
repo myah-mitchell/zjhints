@@ -10,6 +10,12 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 > [!NOTE]
 > zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
+Here is the bar in normal mode with `show_mode` on: the mode first, then each key beside what it does.
+
+![The zjhints bar in normal mode: a green NORMAL block, then Ctrl p pane, Ctrl t tab, Ctrl n resize, Ctrl h move, Ctrl s scroll and Ctrl o session, each key on a light block beside its description](docs/img/bar-normal.svg)
+
+[Themes](docs/themes.md) restyle it in one line, and the [settings screen](docs/settings.md) edits every option while you watch the bar change.
+
 ![zjhints example](docs/img/zjhints-v0.5.0.png)
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->

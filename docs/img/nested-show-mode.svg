@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="168" viewBox="0 0 1108 168" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>The bar with the mode shown before the hints, in normal and locked mode, then drawn from one mode_format with a shorter label</title>
+<rect width="1108" height="168" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#313244"/>
+<rect x="72" y="18" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="18" width="45" height="18" fill="#313244"/>
+<rect x="225" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="18" width="36" height="18" fill="#313244"/>
+<rect x="315" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="18" width="63" height="18" fill="#313244"/>
+<rect x="432" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="18" width="45" height="18" fill="#313244"/>
+<rect x="531" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="18" width="63" height="18" fill="#313244"/>
+<rect x="648" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="18" width="72" height="18" fill="#313244"/>
+<rect x="774" y="18" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="18" width="45" height="18" fill="#313244"/>
+<rect x="873" y="18" width="90" height="18" fill="#cba6f7"/>
+<rect x="963" y="18" width="54" height="18" fill="#313244"/>
+<rect x="1044" y="18" width="9" height="18" fill="#313244"/>
+<rect x="0" y="72" width="72" height="18" fill="#313244"/>
+<rect x="72" y="72" width="27" height="18" fill="#f38ba8"/>
+<rect x="126" y="72" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="72" width="63" height="18" fill="#313244"/>
+<rect x="0" y="126" width="54" height="18" fill="#cba6f7"/>
+<rect x="72" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="99" y="126" width="45" height="18" fill="#313244"/>
+<rect x="171" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="198" y="126" width="36" height="18" fill="#313244"/>
+<rect x="261" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="288" y="126" width="63" height="18" fill="#313244"/>
+<rect x="378" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="405" y="126" width="45" height="18" fill="#313244"/>
+<rect x="477" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="504" y="126" width="63" height="18" fill="#313244"/>
+<rect x="594" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="621" y="126" width="72" height="18" fill="#313244"/>
+<rect x="720" y="126" width="27" height="18" fill="#cba6f7"/>
+<rect x="747" y="126" width="45" height="18" fill="#313244"/>
+<rect x="819" y="126" width="90" height="18" fill="#cba6f7"/>
+<rect x="909" y="126" width="54" height="18" fill="#313244"/>
+<rect x="990" y="126" width="9" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 90 99 108 117" fill="#878ca4">show_modetrue</tspan></text>
+<path d="M99 18A9 9 0 0 1 99 36Z" fill="#a6e3a1"/>
+<path d="M126 18A9 9 0 0 0 126 36Z" fill="#cba6f7"/>
+<path d="M198 18A9 9 0 0 1 198 36Z" fill="#313244"/>
+<path d="M225 18A9 9 0 0 0 225 36Z" fill="#cba6f7"/>
+<path d="M288 18A9 9 0 0 1 288 36Z" fill="#313244"/>
+<path d="M315 18A9 9 0 0 0 315 36Z" fill="#cba6f7"/>
+<path d="M405 18A9 9 0 0 1 405 36Z" fill="#313244"/>
+<path d="M432 18A9 9 0 0 0 432 36Z" fill="#cba6f7"/>
+<path d="M504 18A9 9 0 0 1 504 36Z" fill="#313244"/>
+<path d="M531 18A9 9 0 0 0 531 36Z" fill="#cba6f7"/>
+<path d="M621 18A9 9 0 0 1 621 36Z" fill="#313244"/>
+<path d="M648 18A9 9 0 0 0 648 36Z" fill="#cba6f7"/>
+<path d="M747 18A9 9 0 0 1 747 36Z" fill="#313244"/>
+<path d="M774 18A9 9 0 0 0 774 36Z" fill="#cba6f7"/>
+<path d="M846 18A9 9 0 0 1 846 36Z" fill="#313244"/>
+<path d="M873 18A9 9 0 0 0 873 36Z" fill="#cba6f7"/>
+<path d="M1017 18A9 9 0 0 1 1017 36Z" fill="#313244"/>
+<path d="M1044 18A9 9 0 0 0 1044 36Z" fill="#313244"/>
+<path d="M1053 18A9 9 0 0 1 1053 36Z" fill="#313244"/>
+<text y="31"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 882 891 900 909 918 927 936 945" fill="#1e1e2e" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="972 981 990 999 1008" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="1044" fill="#cdd6f4">…</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 90 99 108 117 126 144 153 171 180 189 198 207 216 234 243 252 261" fill="#878ca4">show_modetrue,inlockedmode</tspan></text>
+<path d="M99 72A9 9 0 0 1 99 90Z" fill="#f38ba8"/>
+<path d="M126 72A9 9 0 0 0 126 90Z" fill="#cba6f7"/>
+<path d="M216 72A9 9 0 0 1 216 90Z" fill="#313244"/>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#f38ba8" font-weight="bold">LOCKED</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⊘^g</tspan><tspan x="162 171 180 189 198 207" fill="#cba6f7" font-weight="bold">normal</tspan></text>
+<text y="121"><tspan x="0 9 18 36 45 54 63 72 81 90 99 108 117 126 135 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 315 324 333 342 351 360" fill="#878ca4">onemode_format,mode_label_normal"NORM"</tspan></text>
+<path d="M72 126A9 9 0 0 0 72 144Z" fill="#cba6f7"/>
+<path d="M144 126A9 9 0 0 1 144 144Z" fill="#313244"/>
+<path d="M171 126A9 9 0 0 0 171 144Z" fill="#cba6f7"/>
+<path d="M234 126A9 9 0 0 1 234 144Z" fill="#313244"/>
+<path d="M261 126A9 9 0 0 0 261 144Z" fill="#cba6f7"/>
+<path d="M351 126A9 9 0 0 1 351 144Z" fill="#313244"/>
+<path d="M378 126A9 9 0 0 0 378 144Z" fill="#cba6f7"/>
+<path d="M450 126A9 9 0 0 1 450 144Z" fill="#313244"/>
+<path d="M477 126A9 9 0 0 0 477 144Z" fill="#cba6f7"/>
+<path d="M567 126A9 9 0 0 1 567 144Z" fill="#313244"/>
+<path d="M594 126A9 9 0 0 0 594 144Z" fill="#cba6f7"/>
+<path d="M693 126A9 9 0 0 1 693 144Z" fill="#313244"/>
+<path d="M720 126A9 9 0 0 0 720 144Z" fill="#cba6f7"/>
+<path d="M792 126A9 9 0 0 1 792 144Z" fill="#313244"/>
+<path d="M819 126A9 9 0 0 0 819 144Z" fill="#cba6f7"/>
+<path d="M963 126A9 9 0 0 1 963 144Z" fill="#313244"/>
+<path d="M990 126A9 9 0 0 0 990 144Z" fill="#313244"/>
+<path d="M999 126A9 9 0 0 1 999 144Z" fill="#313244"/>
+<text y="139"><tspan x="9 18 27 36" fill="#181825" font-weight="bold">NORM</tspan><tspan x="72 81" fill="#1e1e2e" font-weight="bold">^p</tspan><tspan x="108 117 126 135" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="171 180" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="207 216 225" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="261 270" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="297 306 315 324 333 342" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="378 387" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="414 423 432 441" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="477 486" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="513 522 531 540 549 558" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="594 603" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="630 639 648 657 666 675 684" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="720 729" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="756 765 774 783" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="819 828 837 846 855 864 873 882 891" fill="#1e1e2e" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="918 927 936 945 954" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="990" fill="#cdd6f4">…</tspan></text>
+</g>
+</g>
+</svg>
