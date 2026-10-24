@@ -65,8 +65,8 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
-      # `nix flake update` (no args) moves every input, not just rust-overlay —
-      # this is what stops flake.lock going stale relative to Cargo.toml's
+      # `nix flake update` (no args) moves every input, not just rust-overlay.
+      # This is what stops flake.lock going stale relative to Cargo.toml's
       # rust-version the way it did in #11, and keeps crane/nixpkgs/etc. fresh
       # the same way `cargo update` below keeps Cargo.lock fresh.
       - name: Update flake inputs
@@ -81,7 +81,7 @@ jobs:
           fi
 
       # Confirms the update did not leave rust-overlay resolving a toolchain
-      # too old for Cargo.toml's rust-version — flake.nix asserts that itself
+      # too old for Cargo.toml's rust-version. flake.nix asserts that itself
       # (see #11), so a stale resolution fails here with a clear message
       # instead of silently landing in the PR.
       - name: Verify the flake still builds
@@ -165,7 +165,7 @@ jobs:
             <details>
             <summary>What ran before this was opened</summary>
 
-            - `cargo update` — semver-compatible updates only
+            - `cargo update`, semver-compatible updates only
             - `cargo test --all-features`
             - `cargo build --release --target=wasm32-wasip1`
             ${{ steps.flake.outputs.changed == 'true' && '- `nix flake update`, then `nix build .#default` to confirm it still resolves' || '' }}
@@ -176,22 +176,22 @@ jobs:
             first.
 
       # Surfaced in the run as well as on the pull request, because this is the
-      # one update that is not safe to take on its own — the crates have to move
+      # one update that is not safe to take on its own: the crates have to move
       # in step with the Zellij actually installed.
       - name: Warn about a Zellij minor release
         if: steps.deps.outputs.zellij_minor_available == 'true'
         run: |
           echo "::warning::A Zellij crate has a new minor release. Upgrade" \
-               "Zellij before taking this update — a mismatch shows up as" \
+               "Zellij before taking this update; a mismatch shows up as" \
                "hints with wrong labels, not as a build failure."
 
-  # `cargo update` above never proposes this move on its own — zellij-tile's
+  # `cargo update` above never proposes this move on its own: zellij-tile's
   # requirement caps it at a minor deliberately (PINNED_TO_ZELLIJ in
   # check_deps.py), because a zellij-tile ahead of the Zellij you actually run
   # drops actions it cannot decode at the plugin boundary, silently: hints
   # render with the wrong label, not a build error. So this proposes the move
   # instead of applying it, as its own pull request that needs a human who has
-  # already upgraded their running Zellij to merge it — never on a green build
+  # already upgraded their running Zellij to merge it, never on a green build
   # alone. Kept separate from the `update` job above rather than folded into
   # its conditionals: a different branch, a different reviewer action, and a
   # title/body that says "wait" instead of "merge when ready".

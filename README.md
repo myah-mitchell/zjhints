@@ -13,9 +13,11 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 ![zjhints example](docs/img/zjhints-v0.5.0.png)
 
 <!-- GitHub only renders an attachment as an inline video from a bare URL. -->
-<!-- markdownlint-disable-next-line MD034 -->
+<!-- markdownlint-disable MD034 -->
 
 https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
+
+<!-- markdownlint-enable MD034 -->
 
 ## Zellij support
 
@@ -191,6 +193,20 @@ plugins {
         // (see docs/styling.md#chord-aliases).
         chord_mods_leader  "ctrl+alt+super+shift"
         chord_alias_leader "&"
+    }
+}
+
+// With mouse on, right-clicking the bar offers this item, which opens the
+// settings screen. See docs/settings.md.
+context_menu {
+    bar {
+        item "zjhints settings" {
+            LaunchOrFocusPlugin "zjhints" {
+                floating true
+                move_to_focused_tab true
+                settings true
+            }
+        }
     }
 }
 

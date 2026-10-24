@@ -21,30 +21,25 @@ jobs:
     name: cleanup
     runs-on: ubuntu-latest
     steps:
-      # Two refs, because ci.yml caches under both: the merge ref from
-      # pull_request-triggered runs, and the branch's own ref from
-      # push-triggered runs on the same branch. Missing either leaves half
-      # the PR's caches behind.
+      # ci.yml caches a pull request's runs under its merge ref. Pushes run
+      # CI only on main, so the branch's own ref holds no caches of its own.
       #
       # Forked-repo PRs run with a read-only GITHUB_TOKEN regardless of the
       # permissions above, so this step no-ops there rather than failing the
-      # job — acceptable for a single-maintainer repo where fork PRs are rare
-      # and reviewed by hand anyway.
+      # job. That is acceptable for a single-maintainer repo where fork PRs
+      # are rare and reviewed by hand anyway.
       - name: Delete this PR's caches
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           MERGE_REF: refs/pull/${{ github.event.pull_request.number }}/merge
-          HEAD_REF: refs/heads/${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          for ref in "$MERGE_REF" "$HEAD_REF"; do
-            ids="$(gh cache list --repo "$REPO" --ref "$ref" --json id --jq '.[].id')"
-            if [ -z "$ids" ]; then
-              echo "No caches for $ref"
-              continue
-            fi
-            echo "$ids" | while read -r id; do
-              gh cache delete "$id" --repo "$REPO"
-            done
+          ids="$(gh cache list --repo "$REPO" --ref "$MERGE_REF" --json id --jq '.[].id')"
+          if [ -z "$ids" ]; then
+            echo "No caches for $MERGE_REF"
+            exit 0
+          fi
+          echo "$ids" | while read -r id; do
+            gh cache delete "$id" --repo "$REPO"
           done

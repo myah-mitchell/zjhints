@@ -1,7 +1,11 @@
 ---
 name: CI
 on:
+  # A pull request's own run covers its branch, so pushes run CI only on main.
+  # Otherwise every push to an open pull request runs everything twice.
   push:
+    branches:
+      - main
   pull_request:
   workflow_call: # so other workflows can gate on a green CI run
 
@@ -104,7 +108,7 @@ jobs:
       - run: nix eval .#packages.x86_64-linux.default.drvPath
 
   # Known vulnerabilities in the dependency tree. Advisories appear without any
-  # code changing, so this runs on every push rather than only on updates.
+  # code changing, so this runs with every CI run rather than only on updates.
   audit:
     name: cargo audit
     runs-on: ubuntu-latest
