@@ -3,7 +3,7 @@
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
 
 > [!IMPORTANT]
-> Three of this release's features need Zellij APIs that are not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
+> Four of this release's features need Zellij APIs that are merged but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
 
 <!-- Separates the two alerts; adjacent blockquotes would merge into one. -->
 
@@ -16,29 +16,20 @@ Here it is at the bottom of a Zellij session: the mode first, then each key besi
 
 [Themes](docs/themes.md) restyle it in one line, and the [settings screen](docs/settings.md) edits every option while you watch the bar change.
 
-![zjhints example](docs/img/zjhints-v0.5.0.png)
-
-<!-- GitHub only renders an attachment as an inline video from a bare URL. -->
-<!-- markdownlint-disable MD034 -->
-
-https://github.com/user-attachments/assets/2e766052-5ee6-4c1f-83c0-29c750459654
-
-<!-- markdownlint-enable MD034 -->
-
 ## Zellij support
 
-Four features in this release need plugin APIs that are not in a released Zellij yet. #5589 and #5590 are merged and expected in Zellij's next minor release. #5685 is still an open pull request, and the config APIs the settings screen uses exist only in the fork so far:
+Four features in this release need plugin APIs that are not in a released Zellij yet. All of them are merged and expected in the next Zellij release:
 
-| Zellij PR                                               | What it gives zjhints                                                                                                                                                                                       |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session) |
-| [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                   |
-| [#5685](https://github.com/zellij-org/zellij/pull/5685) | Zellij's context menu, prompt and popup APIs, which [mouse](docs/mouse.md) uses for the right-click menu, the menus of hints and their hover previews                                                       |
-| Fork only                                               | Plugin APIs that read, preview and save config blocks, which the [settings screen](docs/settings.md) edits the zjhints alias through                                                                        |
+| Zellij PR                                               | What it gives zjhints                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#5589](https://github.com/zellij-org/zellij/pull/5589) | A nested session reports its input mode and key bindings to its host, which is what draws [the hints of the session you have descended into](docs/nested-sessions.md#while-descended-into-a-nested-session)                                                            |
+| [#5590](https://github.com/zellij-org/zellij/pull/5590) | A plugin can hand its layout row back while it has nothing to draw, which is what [collapse_when_empty](docs/nested-sessions.md#giving-the-row-back) uses                                                                                                              |
+| [#5685](https://github.com/zellij-org/zellij/pull/5685) | Zellij's context menu, prompt and popup APIs, which [mouse](docs/mouse.md) uses for the right-click menu, the menus of hints and their hover previews, and the config APIs the [settings screen](docs/settings.md) reads, previews and saves the zjhints alias through |
+| [#5729](https://github.com/zellij-org/zellij/pull/5729) | A config save edits the alias in place, keeping the file's comments, blank lines and spaces inside values, which is how the [settings screen](docs/settings.md#previewing-and-saving) leaves the rest of your config as it was                                         |
 
 Until they are released, a Zellij build carrying all of them is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
 
-Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the fork. See [Versioning](#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. See [Versioning](#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 

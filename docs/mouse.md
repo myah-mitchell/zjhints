@@ -108,4 +108,4 @@ Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse
 
 ## Zellij support
 
-Right-click and the menus use the context menu and prompt APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), an open Zellij pull request, so `mouse` needs a Zellij build that includes it. See [Zellij support](../README.md#zellij-support).
+Right-click and the menus use the context menu and prompt APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), which is merged and expected in the next Zellij release. Until then, `mouse` needs a Zellij build that includes it. See [Zellij support](../README.md#zellij-support).
