@@ -1297,6 +1297,20 @@ fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
     })
 }
 
+/// Every hover preview the bar `map` was drawn with opens, left to right,
+/// on a screen `columns` wide.
+fn hovers_of(map: &ClickMap, columns: usize) -> Vec<Hover> {
+    let mut hovers: Vec<Hover> = Vec::new();
+    for column in 0..columns {
+        if let Some(hover) = hover_at(map, column, columns) {
+            if hovers.last().is_none_or(|last| last.hint != hover.hint) {
+                hovers.push(hover);
+            }
+        }
+    }
+    hovers
+}
+
 impl Hover {
     /// The middle column of the hint, where a pointer resting on it points.
     fn middle(&self) -> usize {
@@ -1327,14 +1341,7 @@ fn draw_pointer(screen: &mut Screen, row: usize, column: usize) {
 fn hover_sweep() -> Animation {
     let options = [("show_mode", "true"), ("mouse", "true")];
     let (line, map) = bar(&options, InputMode::Pane, BAR_COLUMNS);
-    let mut hovers: Vec<Hover> = Vec::new();
-    for column in 0..BAR_COLUMNS {
-        if let Some(hover) = hover_at(&map, column, BAR_COLUMNS) {
-            if hovers.last().is_none_or(|last| last.hint != hover.hint) {
-                hovers.push(hover);
-            }
-        }
-    }
+    let hovers = hovers_of(&map, BAR_COLUMNS);
     // The last hint before the drop indicator, so the sweep crosses others.
     let [.., hint, indicator] = hovers.as_slice() else {
         panic!("a hint and the drop indicator that open popups");
@@ -1467,8 +1474,28 @@ fn images() -> Vec<(&'static str, String)> {
     }
     vec![
         (
-            "session-demo.svg",
-            session::demo().to_svg("A Zellij session with the zjhints bar at the bottom, played through its features: the bar following each mode, dropping hints as the terminal narrows, previewing the hints that did not fit, the settings screen restyling it live, and the hints of a nested session"),
+            "session-modes.svg",
+            session::modes().to_svg("A Zellij session with the zjhints bar at the bottom, showing the keys of each mode as the session moves through them"),
+        ),
+        (
+            "session-fitting.svg",
+            session::fitting().to_svg("A Zellij session narrowing, its zjhints bar dropping whole hints to fit and offering the ones that did not fit from the drop indicator"),
+        ),
+        (
+            "session-settings.svg",
+            session::settings().to_svg("A Zellij session opening the zjhints settings screen and restyling the bar, each change previewed on it before saving"),
+        ),
+        (
+            "session-mouse.svg",
+            session::mouse().to_svg("A Zellij session with the pointer resting on zjhints hints, each one's menu opening over the bar and following the mode"),
+        ),
+        (
+            "session-themes.svg",
+            session::themes().to_svg("A Zellij session with its zjhints bar drawn in one combination of color, format and alias themes after another"),
+        ),
+        (
+            "session-nested.svg",
+            session::nested().to_svg("A Zellij session with a nested session in one pane, its zjhints bar showing the keys of whichever session has the keyboard"),
         ),
         (
             "color-themes.svg",
