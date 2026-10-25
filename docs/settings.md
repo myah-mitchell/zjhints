@@ -2,11 +2,11 @@
 
 The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
-It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.4-261025](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.4-261025). It edits the config through plugin APIs that are not in a released Zellij yet (see [Zellij support](../README.md#zellij-support)).
+It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.4-261025](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.4-261025). It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
 
 ## Prerequisites
 
-- zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](../README.md#installation). The screen edits that alias, so options set only in a layout are not shown and not changed.
+- zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](installation.md#example-configuration). The screen edits that alias, so options set only in a layout are not shown and not changed.
 - Your config is loaded from a file Zellij can write to.
 
 ## Opening it
@@ -183,6 +183,8 @@ Each group with families ends in a button per family to add a key, such as *+ ad
 ## Previewing and saving
 
 Every change shows on the bars started from the alias as soon as you make it. Nothing is written to the file until you press `Ctrl a` or click the save button. Only the keys you changed are rewritten, so the file's comments and layout stay as they were.
+
+![The settings screen on the Theme group, over a bar started from the alias. format_theme is set to flat, then powerline, then pills, then color_theme to dracula and alias_theme to unicode. With each change the header counts the unsaved changes, the preview under the theme options redraws, and the bar under the screen restyles to match it, from Zellij's ribbons to purple dracula pills with ^p style keys](img/settings-live.svg)
 
 `r` reverts the selected option, and `Ctrl r` reverts them all after asking. A revert puts the bars back to the file's values too.
 

@@ -15,6 +15,8 @@
 //! files, so `cargo test` in CI fails when a change to the bar leaves an image
 //! out of date.
 
+mod session;
+
 use crate::mouse;
 use crate::popup::{self, PreviewPopup};
 use crate::settings::editor::{Editor, Field, Focus};
@@ -46,9 +48,6 @@ const MARGIN_X: usize = 14;
 const MARGIN_Y: usize = 12;
 /// Where the text sits below the top of its cell.
 const BASELINE: usize = 13;
-const FONT_SIZE: usize = 15;
-const FONT_FAMILY: &str =
-    "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace";
 
 /// The Powerline right-pointing arrow. It lives in a Nerd Font's private use
 /// area, which a viewer is unlikely to have, so it is drawn as a triangle.
@@ -56,6 +55,10 @@ const POWERLINE_ARROW: char = '\u{e0b0}';
 /// The round caps the pills format theme draws at each end of a block.
 const PILL_LEFT: char = '\u{e0b6}';
 const PILL_RIGHT: char = '\u{e0b4}';
+
+/// The mouse pointer, drawn as an arrow with its tip at the top left of its
+/// cell. A private use character, so no text the plugin draws is taken for it.
+const MOUSE_POINTER: char = '\u{f8fe}';
 
 /// Marks the second column of a character two columns wide.
 const COVERED: char = '\0';
@@ -227,13 +230,14 @@ struct Look {
     strike: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Cell {
     character: char,
     look: Look,
 }
 
 /// A terminal screen of fixed size, and the SVG it comes out as.
+#[derive(Clone)]
 struct Screen {
     rows: Vec<Vec<Cell>>,
 }
@@ -287,6 +291,21 @@ impl Screen {
         }
     }
 
+    /// Lay `other` over this screen with its top left corner at a spot of the
+    /// grid, clipped to this screen's edges.
+    fn paste(&mut self, row: usize, column: usize, other: &Screen) {
+        for (offset, cells) in other.rows.iter().enumerate() {
+            let Some(target) = self.rows.get_mut(row + offset) else {
+                break;
+            };
+            for (index, cell) in cells.iter().enumerate() {
+                if let Some(spot) = target.get_mut(column + index) {
+                    *spot = *cell;
+                }
+            }
+        }
+    }
+
     /// Print `text` from a spot of the grid, each character in the pen
     /// `pen_of` gives for its index.
     fn print_with(&mut self, row: usize, column: usize, text: &str, pen_of: impl Fn(usize) -> Pen) {
@@ -298,61 +317,248 @@ impl Screen {
 
     /// The screen as an SVG, titled `title` for the viewers that read one.
     fn to_svg(&self, title: &str) -> String {
-        let width = self.columns() * CELL_WIDTH + 2 * MARGIN_X;
-        let height = self.rows.len() * CELL_HEIGHT + 2 * MARGIN_Y;
-        let mut svg = String::new();
-        let _ = writeln!(
-            svg,
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" role=\"img\">"
-        );
-        let _ = writeln!(svg, "{GENERATED_MARK}");
-        let _ = writeln!(svg, "<title>{}</title>", escape(title));
-        let _ = writeln!(
-            svg,
-            "<rect width=\"{width}\" height=\"{height}\" rx=\"8\" fill=\"{}\"/>",
-            hex(TERMINAL_BACKGROUND)
-        );
-        let _ = writeln!(svg, "<g transform=\"translate({MARGIN_X} {MARGIN_Y})\">");
+        let mut svg = svg_start(self.rows.len(), self.columns(), title);
         let _ = writeln!(svg, "<g shape-rendering=\"crispEdges\">");
         for (row, cells) in self.rows.iter().enumerate() {
-            self.write_backgrounds(&mut svg, row, cells);
+            write_backgrounds(&mut svg, row, cells);
         }
         let _ = writeln!(svg, "</g>");
-        let _ = writeln!(
-            svg,
-            "<g font-family=\"{FONT_FAMILY}\" font-size=\"{FONT_SIZE}\" xml:space=\"preserve\">"
-        );
+        let _ = writeln!(svg, "{TEXT_GROUP}");
         for (row, cells) in self.rows.iter().enumerate() {
             write_arrows(&mut svg, row, cells);
             write_text(&mut svg, row, cells);
         }
-        let _ = writeln!(svg, "</g>");
-        let _ = writeln!(svg, "</g>");
-        let _ = writeln!(svg, "</svg>");
-        svg
+        svg_end(svg)
+    }
+}
+
+/// The opening of an SVG for a grid of `rows` by `columns`: the terminal's
+/// background, and the margin the grid is drawn inside.
+fn svg_start(rows: usize, columns: usize, title: &str) -> String {
+    let width = columns * CELL_WIDTH + 2 * MARGIN_X;
+    let height = rows * CELL_HEIGHT + 2 * MARGIN_Y;
+    let mut svg = String::new();
+    let _ = writeln!(
+        svg,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\" role=\"img\">"
+    );
+    let _ = writeln!(svg, "{GENERATED_MARK}");
+    let _ = writeln!(svg, "<title>{}</title>", escape(title));
+    let _ = writeln!(
+        svg,
+        "<rect width=\"{width}\" height=\"{height}\" rx=\"8\" fill=\"{}\"/>",
+        hex(TERMINAL_BACKGROUND)
+    );
+    let _ = writeln!(svg, "<g transform=\"translate({MARGIN_X} {MARGIN_Y})\">");
+    svg
+}
+
+/// The text group's opening tag, which sets the font for every row in it.
+const TEXT_GROUP: &str = concat!(
+    "<g font-family=\"ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace\"",
+    " font-size=\"15\" xml:space=\"preserve\">"
+);
+
+/// `svg` closed: the text group, the margin's group and the SVG itself.
+fn svg_end(mut svg: String) -> String {
+    let _ = writeln!(svg, "</g>");
+    let _ = writeln!(svg, "</g>");
+    let _ = writeln!(svg, "</svg>");
+    svg
+}
+
+/// One rectangle for each stretch of a row with the same background.
+fn write_backgrounds(svg: &mut String, row: usize, cells: &[Cell]) {
+    let mut column = 0;
+    while column < cells.len() {
+        let Some(background) = cells[column].look.background else {
+            column += 1;
+            continue;
+        };
+        let start = column;
+        while column < cells.len() && cells[column].look.background == Some(background) {
+            column += 1;
+        }
+        let _ = writeln!(
+            svg,
+            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{CELL_HEIGHT}\" fill=\"{}\"/>",
+            start * CELL_WIDTH,
+            row * CELL_HEIGHT,
+            (column - start) * CELL_WIDTH,
+            hex(background)
+        );
+    }
+}
+
+/// One screen of an animation, and how long it stays up.
+struct Frame {
+    screen: Screen,
+    milliseconds: u32,
+}
+
+impl Frame {
+    fn new(screen: Screen, milliseconds: u32) -> Self {
+        Frame {
+            screen,
+            milliseconds,
+        }
+    }
+}
+
+/// Screens shown one after another on a loop, and the SVG they come out as.
+///
+/// The SVG plays with CSS alone, which a browser runs even in an `<img>`,
+/// where scripts do not. Each row is written once for every different way it
+/// looks across the frames, and shown only during the frames that look that
+/// way, so the rows a scene leaves alone cost nothing per frame. A reader who
+/// has asked for less motion sees the frame `still` and nothing moves.
+struct Animation {
+    frames: Vec<Frame>,
+    still: usize,
+}
+
+/// One way a row looks, and the frames it looks that way in.
+struct RowLook<'a> {
+    row: usize,
+    cells: &'a [Cell],
+    frames: Vec<usize>,
+}
+
+impl Animation {
+    /// `frames` on a loop, standing still on the frame `still` for readers
+    /// who prefer less motion. Every frame is the same size.
+    fn new(frames: Vec<Frame>, still: usize) -> Self {
+        assert!(still < frames.len(), "the still frame is one of the frames");
+        assert!(
+            frames.iter().all(|frame| frame.milliseconds > 0),
+            "every frame shows for some time"
+        );
+        let size = |frame: &Frame| (frame.screen.rows.len(), frame.screen.columns());
+        assert!(
+            frames.iter().all(|frame| size(frame) == size(&frames[0])),
+            "every frame is the same size"
+        );
+        Animation { frames, still }
     }
 
-    /// One rectangle for each stretch of a row with the same background.
-    fn write_backgrounds(&self, svg: &mut String, row: usize, cells: &[Cell]) {
-        let mut column = 0;
-        while column < cells.len() {
-            let Some(background) = cells[column].look.background else {
-                column += 1;
-                continue;
-            };
-            let start = column;
-            while column < cells.len() && cells[column].look.background == Some(background) {
-                column += 1;
+    fn milliseconds(&self) -> u32 {
+        self.frames.iter().map(|frame| frame.milliseconds).sum()
+    }
+
+    /// Every way each row looks, row by row, in the order they first appear.
+    fn row_looks(&self) -> Vec<RowLook<'_>> {
+        let mut looks: Vec<RowLook> = Vec::new();
+        let rows = self.frames[0].screen.rows.len();
+        for row in 0..rows {
+            let first = looks.len();
+            for (index, frame) in self.frames.iter().enumerate() {
+                let cells = frame.screen.rows[row].as_slice();
+                match looks[first..].iter_mut().find(|look| look.cells == cells) {
+                    Some(look) => look.frames.push(index),
+                    None => looks.push(RowLook {
+                        row,
+                        cells,
+                        frames: vec![index],
+                    }),
+                }
             }
+        }
+        // A blank row draws nothing, so it needs no frames of its own. A
+        // space draws something only with a background or a line through it.
+        looks.retain(|look| {
+            look.cells.iter().any(|cell| {
+                cell.character != ' '
+                    || cell.look.background.is_some()
+                    || cell.look.underline
+                    || cell.look.strike
+            })
+        });
+        looks
+    }
+
+    /// The CSS keyframes that show something only during `frames`: visible
+    /// from the start of each run of them to the start of the next frame.
+    fn keyframes(&self, name: &str, frames: &[usize]) -> String {
+        let total = u64::from(self.milliseconds());
+        let mut css = format!("@keyframes {name}{{");
+        let mut start = 0u64;
+        let mut was_visible = None;
+        for (index, frame) in self.frames.iter().enumerate() {
+            let visible = frames.contains(&index);
+            if was_visible != Some(visible) {
+                // Thousandths of a percent, worked out in integers so the
+                // output is the same everywhere.
+                let at = start * 100_000 / total;
+                let state = if visible { "visible" } else { "hidden" };
+                let _ = write!(css, "{}.{:03}%{{visibility:{state}}}", at / 1000, at % 1000);
+                was_visible = Some(visible);
+            }
+            start += u64::from(frame.milliseconds);
+        }
+        css.push('}');
+        css
+    }
+
+    /// The animation as an SVG, titled `title` for the viewers that read one.
+    fn to_svg(&self, title: &str) -> String {
+        let first = &self.frames[0].screen;
+        let mut svg = svg_start(first.rows.len(), first.columns(), title);
+        let looks = self.row_looks();
+
+        // One class per set of frames, shared by every row shown in them.
+        let mut classes: Vec<&[usize]> = Vec::new();
+        let mut indices = Vec::new();
+        for look in &looks {
+            let frames = look.frames.as_slice();
+            let index = match classes.iter().position(|known| *known == frames) {
+                Some(index) => index,
+                None => {
+                    classes.push(frames);
+                    classes.len() - 1
+                }
+            };
+            indices.push(index);
+        }
+
+        let total = self.milliseconds();
+        let _ = writeln!(svg, "<style>");
+        for (class, frames) in classes.iter().enumerate() {
+            let _ = writeln!(svg, "{}", self.keyframes(&format!("f{class}"), frames));
+            let hidden = if frames.contains(&self.still) {
+                ""
+            } else {
+                "visibility:hidden;"
+            };
             let _ = writeln!(
                 svg,
-                "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{CELL_HEIGHT}\" fill=\"{}\"/>",
-                start * CELL_WIDTH,
-                row * CELL_HEIGHT,
-                (column - start) * CELL_WIDTH,
-                hex(background)
+                ".f{class}{{{hidden}animation:f{class} {total}ms step-end infinite}}"
             );
         }
+        let _ = writeln!(
+            svg,
+            "@media (prefers-reduced-motion:reduce){{g[class]{{animation:none}}}}"
+        );
+        let _ = writeln!(svg, "</style>");
+
+        let _ = writeln!(svg, "<g shape-rendering=\"crispEdges\">");
+        for (look, class) in looks.iter().zip(&indices) {
+            let mut rects = String::new();
+            write_backgrounds(&mut rects, look.row, look.cells);
+            if !rects.is_empty() {
+                let _ = write!(svg, "<g class=\"f{class}\">\n{rects}</g>\n");
+            }
+        }
+        let _ = writeln!(svg, "</g>");
+        let _ = writeln!(svg, "{TEXT_GROUP}");
+        for (look, class) in looks.iter().zip(&indices) {
+            let mut text = String::new();
+            write_arrows(&mut text, look.row, look.cells);
+            write_text(&mut text, look.row, look.cells);
+            if !text.is_empty() {
+                let _ = write!(svg, "<g class=\"f{class}\">\n{text}</g>\n");
+            }
+        }
+        svg_end(svg)
     }
 }
 
@@ -367,6 +573,23 @@ fn write_arrows(svg: &mut String, row: usize, cells: &[Cell]) {
             POWERLINE_ARROW => format!("M{left} {top}L{right} {middle}L{left} {bottom}Z"),
             PILL_RIGHT => format!("M{left} {top}A{radius_x} {radius_y} 0 0 1 {left} {bottom}Z"),
             PILL_LEFT => format!("M{right} {top}A{radius_x} {radius_y} 0 0 0 {right} {bottom}Z"),
+            MOUSE_POINTER => {
+                let point = |x: usize, y: usize| format!("{} {}", left + x, top + y);
+                let _ = writeln!(
+                    svg,
+                    "<path d=\"M{}L{}L{}L{}L{}L{}L{}Z\" fill=\"{}\" stroke=\"{}\"/>",
+                    point(0, 0),
+                    point(0, 15),
+                    point(4, 11),
+                    point(7, 17),
+                    point(9, 16),
+                    point(6, 10),
+                    point(11, 10),
+                    hex(cell.look.foreground),
+                    hex(TERMINAL_BACKGROUND)
+                );
+                continue;
+            }
             _ => continue,
         };
         let _ = writeln!(
@@ -386,7 +609,10 @@ fn write_text(svg: &mut String, row: usize, cells: &[Cell]) {
             underline, strike, ..
         } = cell.look;
         let invisible = cell.character == COVERED
-            || matches!(cell.character, POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT)
+            || matches!(
+                cell.character,
+                POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT | MOUSE_POINTER
+            )
             || (cell.character == ' ' && !underline && !strike);
         if invisible {
             continue;
@@ -498,11 +724,26 @@ fn bar_in_session(
     columns: usize,
     ascended: bool,
 ) -> (String, ClickMap) {
+    bar_state(options, mode, columns, ascended).draw_bar()
+}
+
+/// The plugin's state for `bar_in_session`, before it draws.
+fn bar_state(options: &[(&str, &str)], mode: InputMode, columns: usize, ascended: bool) -> State {
     let mut state = State::default();
     state.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
     state.pane_width = Some(columns);
     state.mode_info = ModeInfo {
+        session_ascended: ascended.then_some(true),
+        ..mode_info(mode)
+    };
+    state
+}
+
+/// What Zellij tells a plugin about `mode`: the default keybindings, in the
+/// Zellij theme the images are drawn in.
+fn mode_info(mode: InputMode) -> ModeInfo {
+    ModeInfo {
         mode,
         base_mode: Some(InputMode::Normal),
         keybinds: default_keybinds(),
@@ -510,10 +751,8 @@ fn bar_in_session(
             colors: palette(),
             ..Default::default()
         },
-        session_ascended: ascended.then_some(true),
         ..Default::default()
-    };
-    state.draw_bar()
+    }
 }
 
 /// How wide the bars are drawn, in columns.
@@ -625,6 +864,44 @@ fn shots(shots: &[Shot]) -> Screen {
         screen.print(row + 1, 0, &line);
     }
     screen
+}
+
+/// The bar of `shot` narrowing from its width to `narrowest` columns and
+/// widening back, `step` columns a frame, under a caption giving the width
+/// and with the edge of its pane marked. It stands still at `still` columns.
+fn narrowing(shot: &Shot, narrowest: usize, step: usize, still: usize) -> Animation {
+    let widest = shot.columns;
+    assert_eq!(
+        (widest - narrowest) % step,
+        0,
+        "the steps land on the narrowest width"
+    );
+    let mut widths: Vec<usize> = (narrowest..=widest).rev().step_by(step).collect();
+    let mut back: Vec<usize> = widths.iter().rev().skip(1).copied().collect();
+    back.pop();
+    widths.extend(back);
+    let edge = Pen {
+        dim: true,
+        ..Pen::default()
+    };
+    let frames = widths
+        .iter()
+        .map(|&columns| {
+            let mut screen = Screen::new(2, widest + 1);
+            screen.print_with(0, 0, &format!("{columns} columns"), |_| edge);
+            let line = bar_in_session(&shot.options, shot.mode, columns, shot.ascended).0;
+            screen.print(1, 0, &line);
+            screen.print_with(1, columns, "│", |_| edge);
+            // The ends are held, so each width can be read before it moves.
+            let hold = columns == widest || columns == narrowest;
+            Frame::new(screen, if hold { 2000 } else { 400 })
+        })
+        .collect();
+    let still = widths
+        .iter()
+        .position(|&columns| columns == still)
+        .expect("the still width is one of the steps");
+    Animation::new(frames, still)
 }
 
 /// The pens Zellij's widgets draw with, from the palette, standing in for
@@ -837,11 +1114,11 @@ fn print_row(
 }
 
 /// The settings screen, `rows` by `columns`, the way `SettingsScreen::render`
-/// lays it out, with `edit` made and left unsaved and `select` selected.
+/// lays it out, with `edits` made and left unsaved and `select` selected.
 fn settings_screen(
     options: &[(&str, &str)],
     select: &str,
-    edit: (&str, &str),
+    edits: &[(&str, &str)],
     rows: usize,
     columns: usize,
 ) -> Screen {
@@ -855,12 +1132,14 @@ fn settings_screen(
         },
     }];
     let mut editor = Editor::new(alias.clone(), alias, None).expect("an alias loading zjhints");
-    editor.submit(
-        &Field::Value {
-            key: edit.0.to_string(),
-        },
-        edit.1,
-    );
+    for (key, value) in edits {
+        editor.submit(
+            &Field::Value {
+                key: key.to_string(),
+            },
+            value,
+        );
+    }
     let (section, row) = editor.locate(select).expect("a key the screen lists");
     let index = editor
         .sections()
@@ -871,7 +1150,8 @@ fn settings_screen(
     editor.select(row);
 
     let items = view::menu_items(&editor);
-    let layout = Layout::new(rows, columns, &items, None).expect("room for the screen");
+    let preview_rows = view::is_previewed(editor.section()).then_some(editor.rows().len());
+    let layout = Layout::new(rows, columns, &items, preview_rows).expect("room for the screen");
     let mut screen = Screen::new(rows, columns);
 
     // The header.
@@ -941,6 +1221,32 @@ fn settings_screen(
         );
     }
 
+    // The preview, under a Theme list: a dim caption, then the bar.
+    if let Some(y) = layout.preview_y {
+        let mode_info = mode_info(InputMode::Normal);
+        let overrides = view::theme_overrides(editor.working(), Some(&mode_info.style.colors));
+        let caption = view::truncate(&view::preview_caption(overrides.len(), true), width);
+        let dim = Pen {
+            dim: true,
+            ..pens.plain
+        };
+        screen.print_with(y, layout.content_x, &caption, |_| dim);
+        if !overrides.is_empty() {
+            let x = layout.content_x + view::columns(&caption) + 2;
+            let button = view::overrides_button(true);
+            print_buttons(
+                &mut screen,
+                y,
+                x,
+                layout.content_x + width,
+                &[button],
+                &pens,
+            );
+        }
+        let bar = view::theme_preview(editor.working(), &mode_info, true, width);
+        screen.print(y + 1, layout.content_x, &bar);
+    }
+
     // The footer.
     if let Some(description) = view::describe(&editor) {
         let description = view::truncate(&description, layout.width);
@@ -966,29 +1272,140 @@ fn settings_screen(
     screen
 }
 
-/// The bar with the hover preview of its last hint or marker that has one open
-/// below it, as the popup draws it.
-fn hover_preview() -> Screen {
-    let options = [("show_mode", "true"), ("mouse", "true")];
-    let (line, map) = bar(&options, InputMode::Pane, BAR_COLUMNS);
-    // The last one is the drop indicator's, which lists the most.
-    let preview = (0..BAR_COLUMNS)
-        .rev()
-        .find_map(|column| mouse::hover_preview(&map, &Mouse::Hover(0, column)))
-        .expect("a hint that opens a menu");
+/// The hover preview popup of a hint, placed on a screen.
+struct Hover {
+    /// The columns of the hint or marker it previews.
+    hint: std::ops::Range<usize>,
+    /// The column of its left edge.
+    left: usize,
+    lines: Vec<String>,
+}
+
+/// The hover preview of what is under `column` of the bar `map` was drawn
+/// with, as the popup draws it on a screen `columns` wide, or `None` when
+/// that spot shows none. The popup hangs from the hint it previews, shifted
+/// left when that would put it off the screen.
+fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
+    let preview = mouse::hover_preview(map, &Mouse::Hover(0, column))?;
     let configuration = popup::configuration("1-1", &preview.entries, false);
     let popup = PreviewPopup::from_configuration(&configuration).expect("a preview popup");
     let (width, height) = popup::size(&preview.entries, false);
+    Some(Hover {
+        left: preview.columns.start.min(columns.saturating_sub(width)),
+        hint: preview.columns,
+        lines: popup.lines(height, width),
+    })
+}
 
-    let mut screen = Screen::new(1 + height, BAR_COLUMNS);
-    screen.print(0, 0, &line);
-    // A popup hangs from the hint it previews, shifted left when that would
-    // put it off the screen.
-    let left = preview.columns.start.min(BAR_COLUMNS.saturating_sub(width));
-    for (offset, popup_line) in popup.lines(height, width).iter().enumerate() {
-        screen.print(1 + offset, left, popup_line);
+impl Hover {
+    /// The middle column of the hint, where a pointer resting on it points.
+    fn middle(&self) -> usize {
+        (self.hint.start + self.hint.end) / 2
     }
-    screen
+
+    /// The popup with its bottom edge on the row above `bar_row`, as it opens
+    /// over a bar at the bottom of the screen.
+    fn draw_above(&self, screen: &mut Screen, bar_row: usize) {
+        let top = bar_row - self.lines.len();
+        for (offset, line) in self.lines.iter().enumerate() {
+            screen.print(top + offset, self.left, line);
+        }
+    }
+}
+
+/// The mouse pointer with its tip at the top left of the cell at `row` and
+/// `column`, so it touches the cell above from below.
+fn draw_pointer(screen: &mut Screen, row: usize, column: usize) {
+    let pointer = Pen::colored((0xff, 0xff, 0xff));
+    screen.print_with(row, column, &MOUSE_POINTER.to_string(), |_| pointer);
+}
+
+/// The pointer moving along a bar at the bottom of the screen: swept across
+/// the first hints it opens no popup, then it rests on a hint whose keys do
+/// different things and on the drop indicator, and each one's popup opens
+/// over the bar. It stands still on the drop indicator's popup.
+fn hover_sweep() -> Animation {
+    let options = [("show_mode", "true"), ("mouse", "true")];
+    let (line, map) = bar(&options, InputMode::Pane, BAR_COLUMNS);
+    let mut hovers: Vec<Hover> = Vec::new();
+    for column in 0..BAR_COLUMNS {
+        if let Some(hover) = hover_at(&map, column, BAR_COLUMNS) {
+            if hovers.last().is_none_or(|last| last.hint != hover.hint) {
+                hovers.push(hover);
+            }
+        }
+    }
+    // The last hint before the drop indicator, so the sweep crosses others.
+    let [.., hint, indicator] = hovers.as_slice() else {
+        panic!("a hint and the drop indicator that open popups");
+    };
+    let bar_row = hovers
+        .iter()
+        .map(|hover| hover.lines.len())
+        .max()
+        .unwrap_or(0);
+    let frame = |pointer: usize, hover: Option<&Hover>, milliseconds: u32| {
+        let mut screen = Screen::new(bar_row + 2, BAR_COLUMNS);
+        screen.print(bar_row, 0, &line);
+        if let Some(hover) = hover {
+            hover.draw_above(&mut screen, bar_row);
+        }
+        draw_pointer(&mut screen, bar_row + 1, pointer);
+        Frame::new(screen, milliseconds)
+    };
+    // The pointer starts on the mode prefix, which shows nothing.
+    let mut frames = vec![frame(2, None, 1200)];
+    let sweep = hint.hint.start.saturating_sub(2) / 4;
+    frames.extend((1..4).map(|step| frame(2 + sweep * step, None, 200)));
+    for hover in [hint, indicator] {
+        // The popup opens once the pointer has rested a moment.
+        frames.push(frame(hover.middle(), None, 600));
+        frames.push(frame(hover.middle(), Some(hover), 3000));
+    }
+    let still = frames.len() - 1;
+    Animation::new(frames, still)
+}
+
+/// The settings screen on the Theme group as each theme option is picked,
+/// over a bar started from the alias, which takes each change as it is made.
+/// It stands still once `format_theme` is pills.
+fn settings_live() -> Animation {
+    let options = [("show_mode", "true")];
+    let edits = [
+        ("format_theme", "flat"),
+        ("format_theme", "powerline"),
+        ("format_theme", "pills"),
+        ("color_theme", "dracula"),
+        ("alias_theme", "unicode"),
+    ];
+    let (rows, columns) = (22, 100);
+    let caption = Pen {
+        dim: true,
+        ..Pen::default()
+    };
+    let frames = (0..=edits.len())
+        .map(|made| {
+            let made = &edits[..made];
+            let select = made.last().map_or("format_theme", |(key, _)| key);
+            let mut screen = Screen::new(rows + 3, columns);
+            screen.paste(
+                0,
+                0,
+                &settings_screen(&options, select, made, rows, columns),
+            );
+            screen.print_with(rows + 1, 0, "A bar started from the alias", |_| caption);
+            let running = [options.as_slice(), made].concat();
+            screen.print(rows + 2, 0, &bar(&running, InputMode::Normal, columns).0);
+            let last = made.len() == edits.len();
+            Frame::new(screen, if last { 3000 } else { 1800 })
+        })
+        .collect();
+    let pills = edits
+        .iter()
+        .position(|edit| *edit == ("format_theme", "pills"))
+        .expect("an edit to pills");
+    // Frame 0 has no edits, so the frame after an edit is one past it.
+    Animation::new(frames, pills + 1)
 }
 
 /// The alias the settings screens show: the colors and formats of a theme
@@ -1009,7 +1426,6 @@ const SETTINGS_OPTIONS: [(&str, &str); 11] = [
 
 /// Every image as the name of its file and its SVG.
 fn images() -> Vec<(&'static str, String)> {
-    let show_mode = [("show_mode", "true")];
     // Each kind of theme shown on its own, the others held still.
     let rows =
         |option: &'static str, names: &[&'static str], rest: &[(&'static str, &'static str)]| {
@@ -1051,14 +1467,8 @@ fn images() -> Vec<(&'static str, String)> {
     }
     vec![
         (
-            "bar-normal.svg",
-            bars(&[("normal mode", &show_mode)], InputMode::Normal)
-                .to_svg("The zjhints bar in normal mode, with the mode shown"),
-        ),
-        (
-            "bar-locked.svg",
-            bars(&[("locked mode", &show_mode)], InputMode::Locked)
-                .to_svg("The zjhints bar in locked mode, with the mode shown"),
+            "session-demo.svg",
+            session::demo().to_svg("A Zellij session with the zjhints bar at the bottom, played through its features: the bar following each mode, dropping hints as the terminal narrows, previewing the hints that did not fit, the settings screen restyling it live, and the hints of a nested session"),
         ),
         (
             "color-themes.svg",
@@ -1080,7 +1490,7 @@ fn images() -> Vec<(&'static str, String)> {
             settings_screen(
                 &SETTINGS_OPTIONS,
                 "hint_spacer",
-                ("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} "),
+                &[("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} ")],
                 22,
                 100,
             )
@@ -1091,15 +1501,19 @@ fn images() -> Vec<(&'static str, String)> {
             settings_screen(
                 &SETTINGS_OPTIONS,
                 "color_accent",
-                ("color_accent", "#f5c2e7"),
+                &[("color_accent", "#f5c2e7")],
                 22,
                 100,
             )
             .to_svg("The settings screen on the Colors group, with a swatch beside each color"),
         ),
         (
+            "settings-live.svg",
+            settings_live().to_svg("The settings screen picking themes, with a bar under it restyled by each pick"),
+        ),
+        (
             "mouse-preview.svg",
-            hover_preview().to_svg("The hover preview of a hint, listing what clicking it offers"),
+            hover_sweep().to_svg("The pointer resting on hints of the bar, each one's hover preview opening over it"),
         ),
     ]
     .into_iter()
@@ -1128,8 +1542,8 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     };
     // Each image names in its doc whichever of these shared settings it uses
     // to bring the hints it is about into view.
-    let fitted = [("hint_order", "*, quit"), ("drop_indicator", "…")];
-    let precedence = [("hint_order", "pane, *, quit"), ("drop_indicator", "…")];
+    let fitted = [("hint_order", "*, quit")];
+    let precedence = [("hint_order", "pane, *, quit")];
     let formats = with_colors(&[
         ("key_format", "#[fg=$bg,bg=$accent,bold] {key} "),
         ("desc_format", "#[fg=$fg,bg=$surface] {desc} "),
@@ -1181,11 +1595,9 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     let show_mode = [("show_mode", "true")];
     vec![
         (
-            "fitting-widths.svg",
-            shots(&[120, 90, 60, 40].map(|columns| {
-                Shot::new(format!("{columns} columns"), &fitted, Normal).columns(columns)
-            }))
-            .to_svg("The normal mode bar at 120, 90, 60 and 40 columns, losing hints from the middle while quit stays last"),
+            "fitting-narrowing.svg",
+            narrowing(&Shot::new("", &fitted, Normal), 36, 6, 60)
+                .to_svg("The normal mode bar narrowing from 120 to 36 columns and widening back, losing hints from the middle while quit stays last"),
         ),
         (
             "fitting-precedence.svg",
@@ -1454,6 +1866,61 @@ mod tests {
         ));
         let quoting = format!("<svg>\n<title>t</title>\n<g/>\n<g/>\n{GENERATED_MARK}\n</svg>\n");
         assert!(!is_generated(&quoting));
+    }
+
+    /// A one-row screen showing `text`.
+    fn showing(text: &str) -> Screen {
+        let mut screen = Screen::new(2, 4);
+        screen.print(0, 0, text);
+        screen
+    }
+
+    #[test]
+    fn a_row_that_stays_the_same_is_written_once() {
+        let mut first = showing("ab");
+        let mut second = showing("cd");
+        first.print(1, 0, "zz");
+        second.print(1, 0, "zz");
+        let animation = Animation::new(vec![Frame::new(first, 100), Frame::new(second, 300)], 0);
+        let svg = animation.to_svg("t");
+        assert_eq!(svg.matches(">zz</tspan>").count(), 1, "{svg}");
+        assert_eq!(svg.matches(">ab</tspan>").count(), 1);
+        assert_eq!(svg.matches(">cd</tspan>").count(), 1);
+    }
+
+    #[test]
+    fn a_row_shows_only_during_its_frames() {
+        let frames = vec![
+            Frame::new(showing("a"), 1000),
+            Frame::new(showing("b"), 2000),
+            Frame::new(showing("a"), 1000),
+        ];
+        let svg = Animation::new(frames, 1).to_svg("t");
+        // "a" is shown in the first and last frames, as one class.
+        assert!(
+            svg.contains("@keyframes f0{0.000%{visibility:visible}25.000%{visibility:hidden}75.000%{visibility:visible}}"),
+            "{svg}"
+        );
+        assert!(svg.contains("@keyframes f1{0.000%{visibility:hidden}25.000%{visibility:visible}75.000%{visibility:hidden}}"));
+        assert!(svg.contains("animation:f0 4000ms step-end infinite"));
+        assert_eq!(svg.matches(">a</tspan>").count(), 1);
+    }
+
+    #[test]
+    fn without_motion_only_the_still_frame_shows() {
+        let frames = vec![Frame::new(showing("a"), 100), Frame::new(showing("b"), 100)];
+        let svg = Animation::new(frames, 1).to_svg("t");
+        assert!(svg.contains(".f0{visibility:hidden;animation:"), "{svg}");
+        assert!(svg.contains(".f1{animation:"));
+        assert!(svg.contains("@media (prefers-reduced-motion:reduce){g[class]{animation:none}}"));
+    }
+
+    #[test]
+    fn a_blank_row_draws_nothing() {
+        let frames = vec![Frame::new(showing("a"), 100), Frame::new(showing("b"), 100)];
+        let svg = Animation::new(frames, 0).to_svg("t");
+        assert_eq!(svg.matches("<g class=").count(), 2, "{svg}");
+        assert!(is_generated(&svg));
     }
 
     #[test]

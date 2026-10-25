@@ -22,7 +22,7 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `max_length` | `0` | Hard cap on the line's width in columns, `0` for unlimited |
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
-| `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
+| `overflow_str` | `...` | Format string appended when a lone hint is too wide to fit and must be cut mid-hint |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
@@ -147,7 +147,7 @@ Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
 | --- | --- | --- |
 | `pipe_name` | `zjhints` | Name of the pipe zjstatus reads the hints from |
 
-`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](../README.md#displaying-the-hints).
+`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](installation.md#displaying-the-hints).
 
 Left unset, the hints also go out on `zjstatus_hints`, the name this plugin published on before it was renamed, so a zjstatus config written against `{pipe_zjstatus_hints}` keeps rendering untouched. Setting `pipe_name` publishes on that name alone.
 

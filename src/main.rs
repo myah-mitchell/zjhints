@@ -345,6 +345,7 @@ const CONFIG_DIRECTION_KEYS: &str = "direction_keys";
 const CONFIG_KEY_ORDER: &str = "key_order";
 const CONFIG_HINT_ORDER: &str = "hint_order";
 const CONFIG_DROP_INDICATOR: &str = "drop_indicator";
+const CONFIG_OVERFLOW_STR: &str = "overflow_str";
 const CONFIG_HINT_PRECEDENCE: &str = "hint_precedence";
 const CONFIG_AUTO_WIDTH: &str = "auto_width";
 const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
@@ -1230,6 +1231,7 @@ impl State {
                     segments,
                     start,
                     0..prefix_width,
+                    dim,
                 );
                 if self.mouse_nested {
                     (line, click_map)
@@ -1444,30 +1446,32 @@ impl State {
             segments,
             leading_space + mode_prefix_len,
             0..mode_prefix_len,
+            dim,
         )
     }
 
     /// Cut `line` down to `max_length` when it is longer, and say which of its
     /// columns hold what. `segments` are laid out from column `start`, and
     /// the mode prefix, which opens the settings screen, takes `prefix`.
+    /// `overflow_str` is drawn faded by `dim`, as the line it ends is.
     fn fit_line(
         &self,
         line: String,
         segments: Vec<LineSegment>,
         start: usize,
         prefix: Range<usize>,
+        dim: f32,
     ) -> (String, ClickMap) {
         let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
         match self.length_limit() {
             Some(limit) if visible_len > limit => {
-                let truncated =
-                    truncate_ansi_string(&line, &self.overflow_str, limit, self.wide_ambiguous);
+                let overflow = render_overflow(&self.overflow_str, &self.config, dim);
+                let truncated = truncate_ansi_string(&line, &overflow, limit, self.wide_ambiguous);
                 // Measured from what was drawn rather than worked out from
                 // `limit`, since the cut keeps whole characters and a wide one
                 // can leave it short of the limit.
                 let shown = calculate_visible_length(&truncated, self.wide_ambiguous);
-                let marker =
-                    calculate_visible_length(&self.overflow_str, self.wide_ambiguous).min(shown);
+                let marker = calculate_visible_length(&overflow, self.wide_ambiguous).min(shown);
                 let cut = Cut {
                     at: shown - marker,
                     overflow: shown - marker..shown,
@@ -1481,6 +1485,19 @@ impl State {
                 ClickMap::lay_out(segments, start, None).with_settings(prefix),
             ),
         }
+    }
+}
+
+/// `overflow_str` as drawn: a format string like `drop_indicator`, so a theme
+/// can shape it. A styled one opens with a reset, so nothing of the hint the
+/// cut went through, such as its bold, carries into it.
+fn render_overflow(overflow_str: &str, config: &BTreeMap<String, String>, dim: f32) -> String {
+    let rendered =
+        ANSIStrings(&format::render_template(overflow_str, &[], config, dim)).to_string();
+    if rendered.contains('\u{1b}') {
+        format!("{ANSI_RESET}{rendered}")
+    } else {
+        rendered
     }
 }
 
@@ -1523,7 +1540,7 @@ impl State {
             .and_then(|s| s.parse().ok())
             .unwrap_or(DEFAULT_MAX_LENGTH);
         self.overflow_str = configuration
-            .get("overflow_str")
+            .get(CONFIG_OVERFLOW_STR)
             .cloned()
             .unwrap_or_else(|| DEFAULT_OVERFLOW_STR.to_string());
         self.pipe_names = pipe_names_from_config(&configuration);
@@ -2425,16 +2442,30 @@ fn truncate_ansi_string(
     }
 
     // Too narrow for even the marker, so show as much of it as fits rather than
-    // overshooting the limit the caller asked for.
+    // overshooting the limit the caller asked for. A styled marker keeps its
+    // escape sequences whole, and is reset after the cut.
     if max_len <= overflow_len {
         let mut shown = String::new();
         let mut columns = 0;
-        for ch in overflow_str.chars() {
-            columns += char_width(ch, wide_ambiguous);
-            if columns > max_len {
-                break;
+        let mut styled = false;
+        let mut parser = AnsiParser::new(overflow_str);
+        while let Some(segment) = parser.next_segment() {
+            match segment {
+                AnsiSegment::EscapeSequence(seq) => {
+                    shown.push_str(&seq);
+                    styled = true;
+                }
+                AnsiSegment::VisibleChar(ch) => {
+                    columns += char_width(ch, wide_ambiguous);
+                    if columns > max_len {
+                        break;
+                    }
+                    shown.push(ch);
+                }
             }
-            shown.push(ch);
+        }
+        if styled {
+            shown.push_str(ANSI_RESET);
         }
         return shown;
     }
@@ -4918,6 +4949,14 @@ mod tests {
     }
 
     #[test]
+    fn a_styled_marker_cut_short_keeps_its_escapes_whole() {
+        let marker = "\u{1b}[0m\u{1b}[38;2;255;0;0m…>";
+        let truncated = truncate_ansi_string("abcdef", marker, 1, false);
+        assert_eq!(truncated, "\u{1b}[0m\u{1b}[38;2;255;0;0m…\u{1b}[0m");
+        assert_eq!(calculate_visible_length(&truncated, false), 1);
+    }
+
+    #[test]
     fn a_line_that_fits_is_left_exactly_as_it_was() {
         let line = styled_line();
         assert_eq!(truncate_ansi_string(&line, "...", 100, false), line);
@@ -7018,6 +7057,20 @@ mod tests {
             vec!["a  close", "b  fullscreen", "c  frames", "d  pin"]
         );
         assert_eq!(left_click(&state, 5), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn overflow_str_is_a_format_string() {
+        let mut state = clickable_state(InputMode::Pane, four_hints());
+        state.overflow_str = "#[fg=#ff0000]>".to_string();
+        state.max_length = 5;
+        let (line, _) = state.draw_bar();
+        // Reset first, so the bold of the cut key does not reach the marker.
+        assert!(line.contains("\u{1b}[0m\u{1b}[38;2;255;0;0m>"), "{line:?}");
+        assert_eq!(calculate_visible_length(&line, false), 5);
+        // Plain text is drawn as it is.
+        state.overflow_str = "...".to_string();
+        assert_eq!(rendered_bar(&state), " a...");
     }
 
     #[test]
