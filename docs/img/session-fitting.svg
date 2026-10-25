@@ -1,0 +1,1270 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="510" viewBox="0 0 1108 510" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>A Zellij session narrowing, its zjhints bar dropping whole hints to fit and offering the ones that did not fit from the drop indicator</title>
+<rect width="1108" height="510" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<style>
+@keyframes f0{0.000%{visibility:visible}16.853%{visibility:hidden}86.516%{visibility:visible}}
+.f0{visibility:hidden;animation:f0 17800ms step-end infinite}
+@keyframes f1{0.000%{visibility:hidden}16.853%{visibility:visible}18.820%{visibility:hidden}84.831%{visibility:visible}86.516%{visibility:hidden}}
+.f1{visibility:hidden;animation:f1 17800ms step-end infinite}
+@keyframes f2{0.000%{visibility:hidden}18.820%{visibility:visible}20.786%{visibility:hidden}83.146%{visibility:visible}84.831%{visibility:hidden}}
+.f2{visibility:hidden;animation:f2 17800ms step-end infinite}
+@keyframes f3{0.000%{visibility:hidden}20.786%{visibility:visible}22.752%{visibility:hidden}81.460%{visibility:visible}83.146%{visibility:hidden}}
+.f3{visibility:hidden;animation:f3 17800ms step-end infinite}
+@keyframes f4{0.000%{visibility:hidden}22.752%{visibility:visible}24.719%{visibility:hidden}79.775%{visibility:visible}81.460%{visibility:hidden}}
+.f4{visibility:hidden;animation:f4 17800ms step-end infinite}
+@keyframes f5{0.000%{visibility:hidden}24.719%{visibility:visible}26.685%{visibility:hidden}78.089%{visibility:visible}79.775%{visibility:hidden}}
+.f5{visibility:hidden;animation:f5 17800ms step-end infinite}
+@keyframes f6{0.000%{visibility:hidden}26.685%{visibility:visible}28.651%{visibility:hidden}76.404%{visibility:visible}78.089%{visibility:hidden}}
+.f6{visibility:hidden;animation:f6 17800ms step-end infinite}
+@keyframes f7{0.000%{visibility:hidden}28.651%{visibility:visible}30.617%{visibility:hidden}74.719%{visibility:visible}76.404%{visibility:hidden}}
+.f7{visibility:hidden;animation:f7 17800ms step-end infinite}
+@keyframes f8{0.000%{visibility:hidden}30.617%{visibility:visible}32.584%{visibility:hidden}73.033%{visibility:visible}74.719%{visibility:hidden}}
+.f8{visibility:hidden;animation:f8 17800ms step-end infinite}
+@keyframes f9{0.000%{visibility:hidden}32.584%{visibility:visible}73.033%{visibility:hidden}}
+.f9{animation:f9 17800ms step-end infinite}
+@keyframes f10{0.000%{visibility:hidden}32.584%{visibility:visible}47.191%{visibility:hidden}}
+.f10{visibility:hidden;animation:f10 17800ms step-end infinite}
+@keyframes f11{0.000%{visibility:hidden}47.191%{visibility:visible}73.033%{visibility:hidden}}
+.f11{animation:f11 17800ms step-end infinite}
+@keyframes f12{0.000%{visibility:hidden}43.820%{visibility:visible}73.033%{visibility:hidden}}
+.f12{animation:f12 17800ms step-end infinite}
+@keyframes f13{0.000%{visibility:visible}}
+.f13{animation:f13 17800ms step-end infinite}
+@keyframes f14{0.000%{visibility:visible}16.853%{visibility:hidden}}
+.f14{visibility:hidden;animation:f14 17800ms step-end infinite}
+@keyframes f15{0.000%{visibility:hidden}16.853%{visibility:visible}43.820%{visibility:hidden}}
+.f15{visibility:hidden;animation:f15 17800ms step-end infinite}
+@keyframes f16{0.000%{visibility:hidden}73.033%{visibility:visible}}
+.f16{visibility:hidden;animation:f16 17800ms step-end infinite}
+@media (prefers-reduced-motion:reduce){g[class]{animation:none}}
+</style>
+<g shape-rendering="crispEdges">
+<g class="f0">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f1">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f2">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f3">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f4">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f5">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f6">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f7">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f8">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f9">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f0">
+<rect x="702" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f1">
+<rect x="675" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f2">
+<rect x="648" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f3">
+<rect x="621" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f4">
+<rect x="594" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f5">
+<rect x="567" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f6">
+<rect x="540" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f7">
+<rect x="513" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f8">
+<rect x="486" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f9">
+<rect x="459" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f0">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f1">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f2">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f3">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f4">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f5">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f6">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f7">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f8">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f10">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f11">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f0">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="414" width="45" height="18" fill="#313244"/>
+<rect x="873" y="414" width="90" height="18" fill="#cba6f7"/>
+<rect x="963" y="414" width="54" height="18" fill="#313244"/>
+<rect x="1044" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f1">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="414" width="45" height="18" fill="#313244"/>
+<rect x="873" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f2">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="414" width="45" height="18" fill="#313244"/>
+<rect x="873" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f3">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="414" width="45" height="18" fill="#313244"/>
+<rect x="873" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f4">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f5">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f6">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f7">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f8">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f9">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f12">
+<rect x="9" y="468" width="63" height="18" fill="#a6e3a1"/>
+</g>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<g class="f0">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan></text>
+</g>
+<g class="f1">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">┌~/src/zjhints───────────────────────────────────────────┐</tspan><tspan x="540 558 567 576 585 594 603 612 621 630 639 648 657 666 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────────────────────────────┐</tspan></text>
+</g>
+<g class="f1">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504" fill="#cdd6f4">┌~/src/zjhints────────────────────────────────────────┐</tspan><tspan x="513 531 540 549 558 567 576 585 594 603 612 621 630 639 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints────────────────────────────────────────┐</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477" fill="#cdd6f4">┌~/src/zjhints─────────────────────────────────────┐</tspan><tspan x="486 504 513 522 531 540 549 558 567 576 585 594 603 612 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints─────────────────────────────────────┐</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450" fill="#cdd6f4">┌~/src/zjhints──────────────────────────────────┐</tspan><tspan x="459 477 486 495 504 513 522 531 540 549 558 567 576 585 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints──────────────────────────────────┐</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423" fill="#cdd6f4">┌~/src/zjhints───────────────────────────────┐</tspan><tspan x="432 450 459 468 477 486 495 504 513 522 531 540 549 558 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────────────────┐</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396" fill="#cdd6f4">┌~/src/zjhints────────────────────────────┐</tspan><tspan x="405 423 432 441 450 459 468 477 486 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints────────────────────────────┐</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369" fill="#cdd6f4">┌~/src/zjhints─────────────────────────┐</tspan><tspan x="378 396 405 414 423 432 441 450 459 468 477 486 495 504 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints─────────────────────────┐</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342" fill="#cdd6f4">┌~/src/zjhints──────────────────────┐</tspan><tspan x="351 369 378 387 396 405 414 423 432 441 450 459 468 477 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints──────────────────────┐</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">┌~/src/zjhints───────────────────┐</tspan><tspan x="324 342 351 360 369 378 387 396 405 414 423 432 441 450 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────┐</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288" fill="#cdd6f4">┌~/src/zjhints────────────────┐</tspan><tspan x="297 315 324 333 342 351 360 369 378 387 396 405 414 423 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints────────────────┐</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 531" fill="#cdd6f4">cargotest│</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="558 567 576 585 594 603 612 621 630 639 648 657 666" fill="#fab387">~/src/zjhints</tspan><tspan x="684" fill="#a6e3a1">❯</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f1">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 504" fill="#cdd6f4">cargotest│</tspan><tspan x="513" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="531 540 549 558 567 576 585 594 603 612 621 630 639" fill="#fab387">~/src/zjhints</tspan><tspan x="657" fill="#a6e3a1">❯</tspan><tspan x="1017" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 477" fill="#cdd6f4">cargotest│</tspan><tspan x="486" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="504 513 522 531 540 549 558 567 576 585 594 603 612" fill="#fab387">~/src/zjhints</tspan><tspan x="630" fill="#a6e3a1">❯</tspan><tspan x="963" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 450" fill="#cdd6f4">cargotest│</tspan><tspan x="459" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="477 486 495 504 513 522 531 540 549 558 567 576 585" fill="#fab387">~/src/zjhints</tspan><tspan x="603" fill="#a6e3a1">❯</tspan><tspan x="909" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 423" fill="#cdd6f4">cargotest│</tspan><tspan x="432" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="450 459 468 477 486 495 504 513 522 531 540 549 558" fill="#fab387">~/src/zjhints</tspan><tspan x="576" fill="#a6e3a1">❯</tspan><tspan x="855" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 396" fill="#cdd6f4">cargotest│</tspan><tspan x="405" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#fab387">~/src/zjhints</tspan><tspan x="549" fill="#a6e3a1">❯</tspan><tspan x="801" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 369" fill="#cdd6f4">cargotest│</tspan><tspan x="378" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="396 405 414 423 432 441 450 459 468 477 486 495 504" fill="#fab387">~/src/zjhints</tspan><tspan x="522" fill="#a6e3a1">❯</tspan><tspan x="747" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 342" fill="#cdd6f4">cargotest│</tspan><tspan x="351" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="369 378 387 396 405 414 423 432 441 450 459 468 477" fill="#fab387">~/src/zjhints</tspan><tspan x="495" fill="#a6e3a1">❯</tspan><tspan x="693" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 315" fill="#cdd6f4">cargotest│</tspan><tspan x="324" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="342 351 360 369 378 387 396 405 414 423 432 441 450" fill="#fab387">~/src/zjhints</tspan><tspan x="468" fill="#a6e3a1">❯</tspan><tspan x="639" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 288" fill="#cdd6f4">cargotest│</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="315 324 333 342 351 360 369 378 387 396 405 414 423" fill="#fab387">~/src/zjhints</tspan><tspan x="441" fill="#a6e3a1">❯</tspan><tspan x="585" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 531" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 504" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 477" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 450" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 423" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 396" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 369" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">│Compilingzjhints(~/src/zjhin│</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288" fill="#cdd6f4">│Compilingzjhints(~/src/zj│</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 531" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 504" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 477" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 450" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 423" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 396" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 369" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 342" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315" fill="#cdd6f4">│Finished`test`profilein4.│</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 288" fill="#cdd6f4">│Finished`test`profilein│</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 531" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 504" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 477" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 450" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 423" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 396" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 369" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 342" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">│Runningunittestssrc/main.r│</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f9">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288" fill="#cdd6f4">│Runningunittestssrc/mai│</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f0">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 531" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 504" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 477" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 450" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 423" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 396" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 369" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342" fill="#cdd6f4">.373passed;0faile│</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315" fill="#cdd6f4">.373passed;0fa│</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 288" fill="#cdd6f4">.373passed;0│</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 288" fill="#cdd6f4">.373passed;0│</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594" fill="#cdd6f4">┌─────────────────────────┐▕</tspan></text>
+</g>
+<g class="f0">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="531" fill="#cdd6f4">│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="504" fill="#cdd6f4">│</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="477" fill="#cdd6f4">│</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="450" fill="#cdd6f4">│</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="423" fill="#cdd6f4">│</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="396" fill="#cdd6f4">│</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="369" fill="#cdd6f4">│</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="342" fill="#cdd6f4">│</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="315" fill="#cdd6f4">│</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="288" fill="#cdd6f4">│</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="288" fill="#cdd6f4">│</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 450 585 594" fill="#cdd6f4">│^sscroll│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="157"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="157"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="157"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="157"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="157"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="157"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="157"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="157"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="157"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="157"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="157"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 450 459 585 594" fill="#cdd6f4">│^osession│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="175"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="175"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="175"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="175"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="175"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="175"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="175"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="175"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="175"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="175"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="175"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 585 594" fill="#cdd6f4">│^qquit│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="193"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="193"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="193"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="193"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="193"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="193"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="193"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="193"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="193"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="193"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="193"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 387 396 405 414 423 432 441 468 477 486 495 504 585 594" fill="#cdd6f4">│⌥h←j↓k↑l→focus│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="211"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="211"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="211"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="211"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="211"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="211"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="211"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="211"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="211"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="211"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="211"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 450 468 477 486 495 504 513 522 540 549 558 567 585 594" fill="#cdd6f4">│F9togglesessioncard│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="229"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="229"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="229"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="229"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="229"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="229"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="229"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="229"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="229"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="229"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="229"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 387 396 423 432 441 450 459 468 585 594" fill="#cdd6f4">│⌥-=+resize│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="247"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="247"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="247"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="247"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="247"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="247"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="247"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="247"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="247"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="247"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="247"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 450 459 468 477 486 495 585 594" fill="#cdd6f4">│⌥[prevlayout│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="265"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="265"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="265"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="265"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="265"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="265"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="265"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="265"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="265"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="265"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="265"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 450 459 468 477 486 495 585 594" fill="#cdd6f4">│⌥]nextlayout│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="283"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="283"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="283"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="283"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="283"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="283"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="283"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="283"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="283"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="283"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="283"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 585 594" fill="#cdd6f4">│^btmux│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="301"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="301"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="301"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="301"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="301"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="301"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="301"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="301"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="301"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="301"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="301"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 585 594" fill="#cdd6f4">│⌥ffloat│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="319"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="319"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="319"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="319"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="319"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="319"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="319"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="319"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="319"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="319"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="319"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 585 594" fill="#cdd6f4">│^glock│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="337"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="337"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="337"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="337"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="337"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="337"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="337"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="337"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="337"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="337"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="337"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 387 414 423 432 441 459 468 477 585 594" fill="#cdd6f4">│⌥iomovetab│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="355"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="355"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="355"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="355"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="355"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="355"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="355"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="355"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="355"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="355"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="355"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 585 594" fill="#cdd6f4">│⌥nnew│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="373"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="373"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="373"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="373"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="373"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="373"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="373"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="373"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="373"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="373"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="373"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 585 594" fill="#cdd6f4">│⌥pgroup│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="391"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="391"><tspan x="0 504" fill="#cdd6f4">││</tspan><tspan x="513 1017" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="391"><tspan x="0 477" fill="#cdd6f4">││</tspan><tspan x="486 963" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="391"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="459 909" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="391"><tspan x="0 423" fill="#cdd6f4">││</tspan><tspan x="432 855" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="391"><tspan x="0 396" fill="#cdd6f4">││</tspan><tspan x="405 801" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="391"><tspan x="0 369" fill="#cdd6f4">││</tspan><tspan x="378 747" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="391"><tspan x="0 342" fill="#cdd6f4">││</tspan><tspan x="351 693" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="391"><tspan x="0 315" fill="#cdd6f4">││</tspan><tspan x="324 639" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="391"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297 585" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="391"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 387 414 423 432 441 585 594" fill="#cdd6f4">│⌥⇧pmark│▕</tspan></text>
+</g>
+<g class="f0">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">└──────────────────────────────────────────────────────────┘</tspan><tspan x="540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────────────────────────────┘</tspan></text>
+</g>
+<g class="f1">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504" fill="#cdd6f4">└───────────────────────────────────────────────────────┘</tspan><tspan x="513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017" fill="#a6e3a1" font-weight="bold">└───────────────────────────────────────────────────────┘</tspan><tspan x="1026" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f2">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477" fill="#cdd6f4">└────────────────────────────────────────────────────┘</tspan><tspan x="486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963" fill="#a6e3a1" font-weight="bold">└────────────────────────────────────────────────────┘</tspan><tspan x="972" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f3">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450" fill="#cdd6f4">└─────────────────────────────────────────────────┘</tspan><tspan x="459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909" fill="#a6e3a1" font-weight="bold">└─────────────────────────────────────────────────┘</tspan><tspan x="918" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f4">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423" fill="#cdd6f4">└──────────────────────────────────────────────┘</tspan><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────────────────┘</tspan><tspan x="864" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f5">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396" fill="#cdd6f4">└───────────────────────────────────────────┘</tspan><tspan x="405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801" fill="#a6e3a1" font-weight="bold">└───────────────────────────────────────────┘</tspan><tspan x="810" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f6">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369" fill="#cdd6f4">└────────────────────────────────────────┘</tspan><tspan x="378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747" fill="#a6e3a1" font-weight="bold">└────────────────────────────────────────┘</tspan><tspan x="756" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f7">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342" fill="#cdd6f4">└─────────────────────────────────────┘</tspan><tspan x="351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693" fill="#a6e3a1" font-weight="bold">└─────────────────────────────────────┘</tspan><tspan x="702" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f8">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">└──────────────────────────────────┘</tspan><tspan x="324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────┘</tspan><tspan x="648" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f10">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288" fill="#cdd6f4">└───────────────────────────────┘</tspan><tspan x="297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585" fill="#a6e3a1" font-weight="bold">└───────────────────────────────┘</tspan><tspan x="594" fill="#cdd6f4">▕</tspan></text>
+</g>
+<g class="f11">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288" fill="#cdd6f4">└───────────────────────────────┘</tspan><tspan x="297 306 315 324 333 342" fill="#a6e3a1" font-weight="bold">└─────</tspan><tspan x="351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594" fill="#cdd6f4">└─────────────────────────┘▕</tspan></text>
+</g>
+<g class="f0">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#cba6f7"/>
+<path d="M846 414A9 9 0 0 1 846 432Z" fill="#313244"/>
+<path d="M873 414A9 9 0 0 0 873 432Z" fill="#cba6f7"/>
+<path d="M1017 414A9 9 0 0 1 1017 432Z" fill="#313244"/>
+<path d="M1044 414A9 9 0 0 0 1044 432Z" fill="#313244"/>
+<path d="M1053 414A9 9 0 0 1 1053 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 882 891 900 909 918 927 936 945" fill="#1e1e2e" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="972 981 990 999 1008" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="1044" fill="#cdd6f4">…</tspan></text>
+</g>
+<g class="f1">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#cba6f7"/>
+<path d="M846 414A9 9 0 0 1 846 432Z" fill="#313244"/>
+<path d="M873 414A9 9 0 0 0 873 432Z" fill="#313244"/>
+<path d="M882 414A9 9 0 0 1 882 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 1026" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f2">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#cba6f7"/>
+<path d="M846 414A9 9 0 0 1 846 432Z" fill="#313244"/>
+<path d="M873 414A9 9 0 0 0 873 432Z" fill="#313244"/>
+<path d="M882 414A9 9 0 0 1 882 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 972" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f3">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#cba6f7"/>
+<path d="M846 414A9 9 0 0 1 846 432Z" fill="#313244"/>
+<path d="M873 414A9 9 0 0 0 873 432Z" fill="#313244"/>
+<path d="M882 414A9 9 0 0 1 882 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 918" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f4">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#313244"/>
+<path d="M783 414A9 9 0 0 1 783 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 864" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f5">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#313244"/>
+<path d="M783 414A9 9 0 0 1 783 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 810" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f6">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#313244"/>
+<path d="M657 414A9 9 0 0 1 657 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 756" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f7">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#313244"/>
+<path d="M657 414A9 9 0 0 1 657 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 702" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f8">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#313244"/>
+<path d="M540 414A9 9 0 0 1 540 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 648" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f9">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#313244"/>
+<path d="M540 414A9 9 0 0 1 540 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 594" fill="#cdd6f4">…▕</tspan></text>
+</g>
+<g class="f12">
+<path d="M531 432L531 447L535 443L538 449L540 448L537 442L542 442Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f13">
+<text y="463"><tspan x="0 9 27 36 45 54 63 72 81 90 99 108 126 135 144 162 171 180 189 207 216 234 243 252 270 279 288 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#878ca4">╌╌narration,notpartofthesession╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</tspan></text>
+</g>
+<g class="f14">
+<text y="481"><tspan x="9 18 27 45 54 63 81 90 108 117 126 144 153 162 171 189 198 207 216 225 243 252 270 279 288 306 315 324 333 342 351 360 369" fill="#cdd6f4" font-style="italic">thebaratthefullwidthoftheterminal</tspan></text>
+</g>
+<g class="f15">
+<text y="481"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 180 189 207 216 225 234 243 261 270 279 288 297 315 324 333 342 360 369 387 396 405" fill="#cdd6f4" font-style="italic">theterminalnarrows:wholehintsdroptofit</tspan></text>
+</g>
+<g class="f12">
+<path d="M72 468A9 9 0 0 1 72 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 54" fill="#181825" font-weight="bold">hover</tspan><tspan x="90 99 108 126 135 144 153 171 180 189 198 216 225 234 252 261 270 288 297 306 315 333 351 360 369 378 387 405 414 423 432" fill="#cdd6f4" font-style="italic">theonesthatdidnotfit,aclickaway</tspan></text>
+</g>
+<g class="f16">
+<text y="481"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 189 198 207 216 225" fill="#cdd6f4" font-style="italic">theterminalwidensagain</tspan></text>
+</g>
+</g>
+</g>
+</svg>
