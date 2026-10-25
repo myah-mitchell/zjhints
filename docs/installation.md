@@ -79,6 +79,10 @@ plugins {
         // With mouse on, also make the hints of a nested session you have
         // descended into clickable; a click types their keys into it.
         mouse_nested false // default
+        // With mouse on, preview a hint's menu while the pointer rests on
+        // it, and open the menu when the hint is clicked.
+        mouse_hover true // default
+        mouse_menus true // default
 
         // Also show every other keybinding your config enables, beyond the
         // curated list. Set it to false for the curated list alone.

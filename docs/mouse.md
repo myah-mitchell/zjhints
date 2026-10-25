@@ -40,6 +40,14 @@ l→  move focus right
 
 Choosing an entry runs it, and dismissing the menu runs nothing. Clicking outside the menu dismisses it, as it does Zellij's context menu; that click goes no further, so clicking another hint while a menu is open closes the menu and takes a second click to reach the hint. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
 
+To have a click only run hints that do one thing, turn the menus off:
+
+```kdl
+mouse_menus false
+```
+
+Clicking a hint whose keys do different things then does nothing, and so does clicking the drop indicator or `overflow_str`. The [hover preview](#hover-preview) still lists their entries, and clicking one there runs it.
+
 Only the keys the hint shows count. With [`direction_keys arrows`](ordering.md#direction-keys), clicking `focus` offers the arrows and not `hjkl`.
 
 Clicking the mode prefix opens the [settings screen](settings.md#by-clicking-the-mode-prefix). The spacers between hints and the empty end of the line do nothing when clicked.
@@ -65,13 +73,19 @@ Resting the pointer on a hint that would open a menu when clicked shows what the
 ╰─────────────────────────────╯
 ```
 
+To turn the preview off, set:
+
+```kdl
+mouse_hover false
+```
+
 In the animation, the pointer moves along a bar in pane mode at the bottom of the screen. Swept across the first hints, it opens nothing. Resting on `float` opens that hint's preview, and resting on the [drop indicator](fitting.md#marking-the-gap) opens a list of the hints that did not fit:
 
 ![A zjhints bar in pane mode at the bottom of the screen, with a mouse pointer under it. The pointer sweeps from the PANE label across new, close and fullscreen and nothing opens. It rests on w Alt f float, and a framed popup above the bar lists w and Alt f, each toggle floating panes. It then rests on the drop indicator at the end of the bar, and a popup at the right lists the dropped hints: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
 
 The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
 
-The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu.
+The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu unless `mouse_menus` is off.
 
 You can move the pointer onto the popup, and it stays open while the pointer is on it. The entry under the pointer is highlighted, and clicking it does what choosing it in the menu would: it runs, or opens the hint's own menu for a hint that did not fit. Clicking the popup's frame closes it and runs nothing. A list of more than twelve entries scrolls, with the mouse wheel or the arrows above and below it, as the menu does.
 
