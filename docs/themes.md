@@ -88,7 +88,7 @@ The mode prefix is colored by mode, the same in every format theme:
 | `$red` | `locked` |
 | `$yellow` | `resize`, `move` |
 | `$blue` | `pane`, `rename_pane` |
-| `$magenta` | `tab`, `rename_tab`, `session` |
+| `$magenta` | `tab`, `rename_tab`, `session`, `rename_session` |
 | `$cyan` | `scroll`, `search`, `enter_search` |
 | `$accent` | `prompt` |
 
