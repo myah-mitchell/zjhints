@@ -18,7 +18,7 @@
 use crate::{
     CONFIG_DESC_FORMAT, CONFIG_DROP_INDICATOR, CONFIG_HINT_SPACER, CONFIG_KEY_ALIAS_PREFIX,
     CONFIG_KEY_FORMAT, CONFIG_MODE_FORMAT, CONFIG_MODE_FORMAT_PREFIX, CONFIG_MODE_KEY_PREFIX,
-    CONFIG_MOD_ALIAS_PREFIX,
+    CONFIG_MOD_ALIAS_PREFIX, CONFIG_OVERFLOW_STR,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, PaletteColor, Styling};
@@ -454,18 +454,21 @@ fn color_value(color: PaletteColor) -> String {
 /// and for modes it has no own entry for.
 fn format_entries(shape: Shape) -> Vec<(String, String)> {
     // The drop indicator is drawn like a description, so the gap where
-    // hints were dropped reads as part of the bar.
-    let (key, desc, spacer, drop) = match shape {
+    // hints were dropped reads as part of the bar. The overflow marker ends a
+    // hint the cut went through, so it closes that hint's shape.
+    let (key, desc, spacer, drop, overflow) = match shape {
         Shape::Flat => (
             "#[fg=$bg,bg=$accent,bold] {key} ".to_string(),
             "#[fg=$fg,bg=$surface] {desc} ".to_string(),
             " ",
             "#[fg=$fg,bg=$surface] … ".to_string(),
+            "#[fg=$fg,bg=$surface]… ".to_string(),
         ),
         Shape::Plain => (
             "#[fg=$accent,bold]{key}".to_string(),
             "#[fg=$fg] {desc}".to_string(),
             "  ",
+            "#[fg=$muted]…".to_string(),
             "#[fg=$muted]…".to_string(),
         ),
         Shape::Powerline => (
@@ -473,12 +476,14 @@ fn format_entries(shape: Shape) -> Vec<(String, String)> {
             format!("#[fg=$fg,bg=$surface] {{desc}} #[fg=$surface]{ARROW}"),
             " ",
             format!("#[fg=$fg,bg=$surface] … #[fg=$surface]{ARROW}"),
+            format!("#[fg=$fg,bg=$surface]… #[fg=$surface]{ARROW}"),
         ),
         Shape::Pills => (
             format!("#[fg=$accent]{PILL_LEFT}#[fg=$bg,bg=$accent,bold]{{key}} "),
             format!("#[fg=$accent,bg=$surface,bold] {{desc}}#[fg=$surface]{PILL_RIGHT}"),
             " ",
             format!("#[fg=$surface]{PILL_LEFT}#[fg=$fg,bg=$surface]…#[fg=$surface]{PILL_RIGHT}"),
+            format!("#[fg=$fg,bg=$surface]…#[fg=$surface]{PILL_RIGHT}"),
         ),
     };
     vec![
@@ -486,6 +491,7 @@ fn format_entries(shape: Shape) -> Vec<(String, String)> {
         (CONFIG_DESC_FORMAT.to_string(), desc),
         (CONFIG_HINT_SPACER.to_string(), spacer.to_string()),
         (CONFIG_DROP_INDICATOR.to_string(), drop),
+        (CONFIG_OVERFLOW_STR.to_string(), overflow),
         (
             CONFIG_MODE_FORMAT.to_string(),
             mode_format("accent", shape, false),
@@ -665,7 +671,11 @@ mod tests {
             for (key, format) in layered.iter().filter(|(key, _)| {
                 matches!(
                     key.as_str(),
-                    "key_format" | "desc_format" | "hint_spacer" | "drop_indicator"
+                    "key_format"
+                        | "desc_format"
+                        | "hint_spacer"
+                        | "drop_indicator"
+                        | "overflow_str"
                 ) || key.starts_with("mode_format")
             }) {
                 let parts = crate::format::render_template(
@@ -691,6 +701,7 @@ mod tests {
                 "desc_format",
                 "hint_spacer",
                 "drop_indicator",
+                "overflow_str",
                 "mode_format",
             ] {
                 assert!(layered.contains_key(key), "{name} lacks {key}");
@@ -817,6 +828,17 @@ mod tests {
         assert_eq!(layered["color_bg"], "#2e3440");
         assert!(layered["desc_format"].contains("{desc}"));
         assert_eq!(layered["mod_alias_alt"], "\u{2325}");
+    }
+
+    #[test]
+    fn a_format_theme_s_overflow_str_closes_the_cut_hint_in_its_shape() {
+        let pills = themed(&[(CONFIG_FORMAT_THEME, "pills")]);
+        assert!(pills["overflow_str"].ends_with(PILL_RIGHT));
+        let powerline = themed(&[(CONFIG_FORMAT_THEME, "powerline")]);
+        assert!(powerline["overflow_str"].ends_with(ARROW));
+        // The user's own marker outranks the theme's.
+        let own = themed(&[(CONFIG_FORMAT_THEME, "pills"), ("overflow_str", "~")]);
+        assert_eq!(own["overflow_str"], "~");
     }
 
     #[test]

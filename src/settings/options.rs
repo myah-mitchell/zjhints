@@ -145,9 +145,9 @@ pub const OPTIONS: &[OptionSpec] = &[
     option(
         "overflow_str",
         "Fitting",
-        Kind::Text,
+        Kind::Format,
         Some("..."),
-        "Appended when a lone hint is too wide to fit and must be cut mid-hint",
+        "Format string appended when a lone hint is too wide to fit and must be cut mid-hint",
     ),
     option(
         "hint_precedence",
@@ -642,7 +642,7 @@ mod tests {
         assert_eq!(kind_of("key_format_quit"), Kind::Format);
         assert_eq!(kind_of("mode_format_locked"), Kind::Format);
         assert_eq!(kind_of("label_quit"), Kind::Text);
-        assert_eq!(kind_of("overflow_str"), Kind::Text);
+        assert_eq!(kind_of("overflow_str"), Kind::Format);
         assert_eq!(kind_of("max_length"), Kind::Integer);
         assert_eq!(kind_of("something_else"), Kind::Text);
         assert_eq!(

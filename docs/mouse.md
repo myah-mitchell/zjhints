@@ -8,7 +8,7 @@ mouse true
 
 It is off by default, because it needs permissions a bar that only shows hints has no reason to ask for (see [Permissions](#permissions)).
 
-Mouse support needs the plugin in [a pane of its own](../README.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
+Mouse support needs the plugin in [a pane of its own](installation.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
 
 ## Right-click
 
@@ -65,9 +65,9 @@ Resting the pointer on a hint that would open a menu when clicked shows what the
 └──────────────────────┘
 ```
 
-The image shows the preview of the [drop indicator](fitting.md#marking-the-gap) on a bar in pane mode, which lists the hints that did not fit:
+In the animation, the pointer moves along a bar in pane mode at the bottom of the screen. Swept across the first hints, it opens nothing. Resting on `float` opens that hint's preview, and resting on the [drop indicator](fitting.md#marking-the-gap) opens a list of the hints that did not fit:
 
-![A zjhints bar in pane mode ending in the drop indicator, with a framed popup below it at the right listing the hints that were dropped: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
+![A zjhints bar in pane mode at the bottom of the screen, with a mouse pointer under it. The pointer sweeps from the PANE label across new, close and fullscreen and nothing opens. It rests on w Alt f float, and a framed popup above the bar lists w and Alt f, each toggle floating panes. It then rests on the drop indicator at the end of the bar, and a popup at the right lists the dropped hints: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
 
 The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
 
@@ -108,4 +108,4 @@ Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse
 
 ## Zellij support
 
-Right-click and the menus use the context menu and prompt APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), an open Zellij pull request, so `mouse` needs a Zellij build that includes it. See [Zellij support](../README.md#zellij-support).
+Right-click and the menus use the context menu and prompt APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), which is merged and expected in the next Zellij release. Until then, `mouse` needs a Zellij build that includes it. See [Zellij support](../README.md#zellij-support).

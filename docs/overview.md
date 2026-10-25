@@ -1,9 +1,10 @@
 # Documentation overview
 
-The pages in this directory, and what each one is for. Start with the [configuration reference](configuration.md) if you are looking for a specific option, or with the [README](../README.md) if you have not installed the plugin yet.
+The pages in this directory, and what each one is for. Start with the [configuration reference](configuration.md) if you are looking for a specific option, or with [Installation](installation.md) if you have not installed the plugin yet.
 
 | Page | What it covers |
 | --- | --- |
+| [Installation](installation.md) | Adding the plugin to Zellij, release channels, versioning, and showing the hints in a pane or in zjstatus |
 | [Configuration](configuration.md) | Every option the plugin reads, with its default |
 | [Hints](hints.md) | Where hints come from: the curated list, discovery, and shared bindings |
 | [Labels](labels.md) | Ids, renaming and hiding hints, per-mode labels, and merging two hints into one |
