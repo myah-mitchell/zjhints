@@ -238,6 +238,46 @@
 <g class="f28">
 <rect x="162" y="180" width="180" height="18" fill="#585b70"/>
 </g>
+<g class="f25">
+<rect x="369" y="216" width="72" height="18" fill="#a6e3a1"/>
+<rect x="450" y="216" width="72" height="18" fill="#cdd6f4"/>
+<rect x="522" y="216" width="54" height="18" fill="#181825"/>
+<rect x="585" y="216" width="72" height="18" fill="#cdd6f4"/>
+<rect x="657" y="216" width="45" height="18" fill="#181825"/>
+<rect x="711" y="216" width="72" height="18" fill="#cdd6f4"/>
+<rect x="783" y="216" width="72" height="18" fill="#181825"/>
+</g>
+<g class="f20">
+<rect x="369" y="216" width="72" height="18" fill="#585b70"/>
+<rect x="468" y="216" width="63" height="18" fill="#a6e3a1"/>
+<rect x="531" y="216" width="45" height="18" fill="#585b70"/>
+<rect x="603" y="216" width="63" height="18" fill="#a6e3a1"/>
+<rect x="666" y="216" width="36" height="18" fill="#585b70"/>
+<rect x="729" y="216" width="63" height="18" fill="#a6e3a1"/>
+<rect x="792" y="216" width="63" height="18" fill="#585b70"/>
+<rect x="882" y="216" width="9" height="18" fill="#585b70"/>
+</g>
+<g class="f21">
+<rect x="369" y="216" width="72" height="18" fill="#44475a"/>
+<rect x="468" y="216" width="63" height="18" fill="#bd93f9"/>
+<rect x="531" y="216" width="45" height="18" fill="#44475a"/>
+<rect x="603" y="216" width="63" height="18" fill="#bd93f9"/>
+<rect x="666" y="216" width="36" height="18" fill="#44475a"/>
+<rect x="729" y="216" width="63" height="18" fill="#bd93f9"/>
+<rect x="792" y="216" width="63" height="18" fill="#44475a"/>
+<rect x="882" y="216" width="9" height="18" fill="#44475a"/>
+</g>
+<g class="f29">
+<rect x="369" y="216" width="72" height="18" fill="#44475a"/>
+<rect x="441" y="216" width="27" height="18" fill="#50fa7b"/>
+<rect x="495" y="216" width="27" height="18" fill="#bd93f9"/>
+<rect x="522" y="216" width="45" height="18" fill="#44475a"/>
+<rect x="594" y="216" width="27" height="18" fill="#bd93f9"/>
+<rect x="621" y="216" width="36" height="18" fill="#44475a"/>
+<rect x="684" y="216" width="27" height="18" fill="#bd93f9"/>
+<rect x="711" y="216" width="63" height="18" fill="#44475a"/>
+<rect x="801" y="216" width="9" height="18" fill="#44475a"/>
+</g>
 <g class="f31">
 <rect x="0" y="414" width="72" height="18" fill="#a6e3a1"/>
 <rect x="81" y="414" width="72" height="18" fill="#cdd6f4"/>
@@ -1083,7 +1123,7 @@
 <text y="211"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 405 414 423 432 441 450 468 477 486 495 504 513 522 540 549 558 567 585 594" fill="#cdd6f4">│F9togglesessioncard│▕</tspan></text>
 </g>
 <g class="f13">
-<text y="211"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 225 342" fill="#cdd6f4">Styling│</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
+<text y="211"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 225 342" fill="#cdd6f4">Styling│</tspan><tspan x="369 378 387 396 405 414 423 441 459 468 486 495 504 513 522 531 540 549 558" fill="#878ca4">Preview·nooverrides</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
 </g>
 <g class="f10">
 <text y="211"><tspan x="0 531" fill="#878ca4">││</tspan><tspan x="540" fill="#6f9473" font-weight="bold">│</tspan><tspan x="549 1062" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1071" fill="#6f9473" font-weight="bold">│</tspan></text>
@@ -1127,8 +1167,44 @@
 <g class="f18">
 <text y="229"><tspan x="0 288" fill="#cdd6f4">││</tspan><tspan x="297" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="351 369 378 387 405 414 423 450 459 468 477 486 495 585 594" fill="#cdd6f4">│Alt-=+resize│▕</tspan></text>
 </g>
-<g class="f13">
-<text y="229"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 342" fill="#cdd6f4">Colors│</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
+<g class="f25">
+<text y="229"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 342" fill="#cdd6f4">Colors│</tspan><tspan x="378 387 396 405 414 423 459 468 477 486 504" fill="#181825" font-weight="bold">NORMALCtrlp</tspan><tspan x="531 540 549 558" fill="#cdd6f4">pane</tspan><tspan x="594 603 612 621 639" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="666 675 684" fill="#cdd6f4">tab</tspan><tspan x="720 729 738 747 765" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="792 801 810 819 828 837 855" fill="#cdd6f4">resize…</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
+</g>
+<g class="f20">
+<path d="M441 216A9 9 0 0 1 441 234Z" fill="#585b70"/>
+<path d="M468 216A9 9 0 0 0 468 234Z" fill="#a6e3a1"/>
+<path d="M576 216A9 9 0 0 1 576 234Z" fill="#585b70"/>
+<path d="M603 216A9 9 0 0 0 603 234Z" fill="#a6e3a1"/>
+<path d="M702 216A9 9 0 0 1 702 234Z" fill="#585b70"/>
+<path d="M729 216A9 9 0 0 0 729 234Z" fill="#a6e3a1"/>
+<path d="M855 216A9 9 0 0 1 855 234Z" fill="#585b70"/>
+<path d="M882 216A9 9 0 0 0 882 234Z" fill="#585b70"/>
+<path d="M891 216A9 9 0 0 1 891 234Z" fill="#585b70"/>
+<text y="229"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 342" fill="#cdd6f4">Colors│</tspan><tspan x="378 387 396 405 414 423" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="468 477 486 495 513" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="540 549 558 567" fill="#a6e3a1" font-weight="bold">pane</tspan><tspan x="603 612 621 630 648" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="675 684 693" fill="#a6e3a1" font-weight="bold">tab</tspan><tspan x="729 738 747 756 774" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="801 810 819 828 837 846" fill="#a6e3a1" font-weight="bold">resize</tspan><tspan x="882" fill="#cdd6f4">…</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
+</g>
+<g class="f21">
+<path d="M441 216A9 9 0 0 1 441 234Z" fill="#44475a"/>
+<path d="M468 216A9 9 0 0 0 468 234Z" fill="#bd93f9"/>
+<path d="M576 216A9 9 0 0 1 576 234Z" fill="#44475a"/>
+<path d="M603 216A9 9 0 0 0 603 234Z" fill="#bd93f9"/>
+<path d="M702 216A9 9 0 0 1 702 234Z" fill="#44475a"/>
+<path d="M729 216A9 9 0 0 0 729 234Z" fill="#bd93f9"/>
+<path d="M855 216A9 9 0 0 1 855 234Z" fill="#44475a"/>
+<path d="M882 216A9 9 0 0 0 882 234Z" fill="#44475a"/>
+<path d="M891 216A9 9 0 0 1 891 234Z" fill="#44475a"/>
+<text y="229"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 342" fill="#cdd6f4">Colors│</tspan><tspan x="378 387 396 405 414 423" fill="#50fa7b" font-weight="bold">NORMAL</tspan><tspan x="468 477 486 495 513" fill="#282a36" font-weight="bold">Ctrlp</tspan><tspan x="540 549 558 567" fill="#bd93f9" font-weight="bold">pane</tspan><tspan x="603 612 621 630 648" fill="#282a36" font-weight="bold">Ctrlt</tspan><tspan x="675 684 693" fill="#bd93f9" font-weight="bold">tab</tspan><tspan x="729 738 747 756 774" fill="#282a36" font-weight="bold">Ctrln</tspan><tspan x="801 810 819 828 837 846" fill="#bd93f9" font-weight="bold">resize</tspan><tspan x="882" fill="#f8f8f2">…</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
+</g>
+<g class="f29">
+<path d="M468 216A9 9 0 0 1 468 234Z" fill="#50fa7b"/>
+<path d="M495 216A9 9 0 0 0 495 234Z" fill="#bd93f9"/>
+<path d="M567 216A9 9 0 0 1 567 234Z" fill="#44475a"/>
+<path d="M594 216A9 9 0 0 0 594 234Z" fill="#bd93f9"/>
+<path d="M657 216A9 9 0 0 1 657 234Z" fill="#44475a"/>
+<path d="M684 216A9 9 0 0 0 684 234Z" fill="#bd93f9"/>
+<path d="M774 216A9 9 0 0 1 774 234Z" fill="#44475a"/>
+<path d="M801 216A9 9 0 0 0 801 234Z" fill="#44475a"/>
+<path d="M810 216A9 9 0 0 1 810 234Z" fill="#44475a"/>
+<text y="229"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="153" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="171 180 189 198 207 216 342" fill="#cdd6f4">Colors│</tspan><tspan x="378 387 396 405 414 423" fill="#50fa7b" font-weight="bold">NORMAL</tspan><tspan x="450 495 504" fill="#282a36" font-weight="bold">⌨^p</tspan><tspan x="531 540 549 558" fill="#bd93f9" font-weight="bold">pane</tspan><tspan x="594 603" fill="#282a36" font-weight="bold">^t</tspan><tspan x="630 639 648" fill="#bd93f9" font-weight="bold">tab</tspan><tspan x="684 693" fill="#282a36" font-weight="bold">^n</tspan><tspan x="720 729 738 747 756 765" fill="#bd93f9" font-weight="bold">resize</tspan><tspan x="801" fill="#f8f8f2">…</tspan><tspan x="918" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
 </g>
 <g class="f10">
 <text y="229"><tspan x="0 531" fill="#878ca4">││</tspan><tspan x="540" fill="#6f9473" font-weight="bold">│</tspan><tspan x="549 1062" fill="#a6e3a1" font-weight="bold">││</tspan><tspan x="1071" fill="#6f9473" font-weight="bold">│</tspan></text>

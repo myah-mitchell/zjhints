@@ -726,6 +726,16 @@ fn bar_state(options: &[(&str, &str)], mode: InputMode, columns: usize, ascended
     state.apply_configuration(configuration_of(options));
     state.pane_width = Some(columns);
     state.mode_info = ModeInfo {
+        session_ascended: ascended.then_some(true),
+        ..mode_info(mode)
+    };
+    state
+}
+
+/// What Zellij tells a plugin about `mode`: the default keybindings, in the
+/// Zellij theme the images are drawn in.
+fn mode_info(mode: InputMode) -> ModeInfo {
+    ModeInfo {
         mode,
         base_mode: Some(InputMode::Normal),
         keybinds: default_keybinds(),
@@ -733,10 +743,8 @@ fn bar_state(options: &[(&str, &str)], mode: InputMode, columns: usize, ascended
             colors: palette(),
             ..Default::default()
         },
-        session_ascended: ascended.then_some(true),
         ..Default::default()
-    };
-    state
+    }
 }
 
 /// How wide the bars are drawn, in columns.
@@ -1129,7 +1137,8 @@ fn settings_screen(
     editor.select(row);
 
     let items = view::menu_items(&editor);
-    let layout = Layout::new(rows, columns, &items, None).expect("room for the screen");
+    let preview_rows = view::is_previewed(editor.section()).then_some(editor.rows().len());
+    let layout = Layout::new(rows, columns, &items, preview_rows).expect("room for the screen");
     let mut screen = Screen::new(rows, columns);
 
     // The header.
@@ -1197,6 +1206,25 @@ fn settings_screen(
             focused,
             &pens,
         );
+    }
+
+    // The preview, under a Theme list: a dim caption, then the bar.
+    if let Some(y) = layout.preview_y {
+        let mode_info = mode_info(InputMode::Normal);
+        let overrides = view::theme_overrides(editor.working(), Some(&mode_info.style.colors));
+        let caption = view::truncate(&view::preview_caption(overrides.len(), true), width);
+        let dim = Pen {
+            dim: true,
+            ..pens.plain
+        };
+        screen.print_with(y, layout.content_x, &caption, |_| dim);
+        if !overrides.is_empty() {
+            let x = layout.content_x + view::columns(&caption) + 2;
+            let button = view::overrides_button(true);
+            print_buttons(&mut screen, y, x, layout.content_x + width, &[button], &pens);
+        }
+        let bar = view::theme_preview(editor.working(), &mode_info, true, width);
+        screen.print(y + 1, layout.content_x, &bar);
     }
 
     // The footer.
