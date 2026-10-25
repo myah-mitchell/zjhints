@@ -1305,10 +1305,11 @@ impl State {
             return;
         };
         let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
-        let (width, height) = popup::size(&preview.entries, self.wide_ambiguous);
+        let labels = preview.labels();
+        let (width, height) = popup::size(&labels, self.wide_ambiguous);
         open_preview_popup(
             url,
-            popup::configuration(&tag, &preview.entries, self.wide_ambiguous),
+            popup::configuration(&tag, &labels, self.wide_ambiguous),
             self.pane_rows.max(1),
             preview.columns.start,
             width,
@@ -1316,11 +1317,12 @@ impl State {
         );
     }
 
-    /// A popup of this bar saying it opened or closed. Returns whether the
-    /// message was one.
+    /// A popup of this bar saying it opened, closed or had an entry clicked.
+    /// Returns whether the message was one.
     fn take_popup_message(&mut self, message: &PipeMessage) -> bool {
         let opened = message.name == mouse::HOVER_OPENED_MESSAGE;
-        if !opened && message.name != mouse::HOVER_CLOSED_MESSAGE {
+        let picked = message.name == mouse::HOVER_PICKED_MESSAGE;
+        if !opened && !picked && message.name != mouse::HOVER_CLOSED_MESSAGE {
             return false;
         }
         let PipeSource::Plugin(popup) = message.source else {
@@ -1335,7 +1337,16 @@ impl State {
         else {
             return true;
         };
-        if opened {
+        if picked {
+            let index = message
+                .args
+                .get(mouse::HOVER_PICKED_ENTRY_ARG)
+                .and_then(|index| index.parse().ok());
+            if let Some(index) = index {
+                let outcome = self.preview_memory.picked(popup, generation, index);
+                self.perform_mouse_outcome(outcome);
+            }
+        } else if opened {
             let step = self.preview_memory.popup_opened(popup, generation);
             self.take_preview_step(step);
         } else {
@@ -2289,7 +2300,7 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
-        if let Some(popup) = &self.preview_popup {
+        if let Some(popup) = &mut self.preview_popup {
             popup.render(rows, cols);
             return;
         }

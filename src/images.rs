@@ -976,9 +976,10 @@ fn hover_preview() -> Screen {
         .rev()
         .find_map(|column| mouse::hover_preview(&map, &Mouse::Hover(0, column)))
         .expect("a hint that opens a menu");
-    let configuration = popup::configuration("1-1", &preview.entries, false);
+    let labels = preview.labels();
+    let configuration = popup::configuration("1-1", &labels, false);
     let popup = PreviewPopup::from_configuration(&configuration).expect("a preview popup");
-    let (width, height) = popup::size(&preview.entries, false);
+    let (width, height) = popup::size(&labels, false);
 
     let mut screen = Screen::new(1 + height, BAR_COLUMNS);
     screen.print(0, 0, &line);

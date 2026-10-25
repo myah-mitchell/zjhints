@@ -1,12 +1,16 @@
-//! The popup of a hover preview: this plugin running as a read-only list of
-//! the entries a hint's menu would offer, opened by the bar below the hint.
-//! It tells the bar when it opens and closes, and closes itself when the
-//! pointer leaves it, a click lands on it, or it is never hovered.
+//! The popup of a hover preview: this plugin running as a list of the entries
+//! a hint's menu would offer, opened by the bar below the hint. Clicking an
+//! entry has the bar choose it, as it would in the menu. The popup tells the
+//! bar when it opens and closes, and closes itself when the pointer leaves
+//! it, a click lands on it, or it is never hovered.
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 
-use crate::mouse::{HOVER_CLOSED_MESSAGE, HOVER_CLOSE_MESSAGE, HOVER_OPENED_MESSAGE};
+use crate::mouse::{
+    HOVER_CLOSED_MESSAGE, HOVER_CLOSE_MESSAGE, HOVER_OPENED_MESSAGE, HOVER_PICKED_ENTRY_ARG,
+    HOVER_PICKED_MESSAGE,
+};
 
 /// How long a popup waits to be hovered before it closes itself, which is
 /// what keeps one from outliving a pointer that left the bar elsewhere.
@@ -100,6 +104,8 @@ const FRAME_ROWS: usize = 2;
 enum PopupAction {
     Stay,
     Close,
+    /// Have the bar choose this entry, then close.
+    Pick(usize),
 }
 
 #[derive(Debug)]
@@ -111,6 +117,10 @@ pub struct PreviewPopup {
     wide_ambiguous: bool,
     /// Whether the pointer has been over the popup.
     hovered: bool,
+    /// The entry under the pointer, which is drawn highlighted.
+    pointed: Option<usize>,
+    /// The rows the popup was last drawn in, which say which entries show.
+    rows: usize,
 }
 
 impl PreviewPopup {
@@ -139,6 +149,8 @@ impl PreviewPopup {
                 .unwrap_or_default(),
             wide_ambiguous: crate::parse_wide_ambiguous(configuration),
             hovered: false,
+            pointed: None,
+            rows: 0,
         })
     }
 
@@ -157,24 +169,32 @@ impl PreviewPopup {
     }
 
     pub fn update(&mut self, event: Event) -> bool {
+        let pointed = self.pointed;
         let action = match event {
             Event::PermissionRequestResult(PermissionStatus::Granted) => {
-                self.tell_owner(HOVER_OPENED_MESSAGE);
+                self.tell_owner(HOVER_OPENED_MESSAGE, BTreeMap::new());
                 PopupAction::Stay
             }
             // However the popup closes, so the bar can show it again.
             Event::BeforeClose => {
-                self.tell_owner(HOVER_CLOSED_MESSAGE);
+                self.tell_owner(HOVER_CLOSED_MESSAGE, BTreeMap::new());
                 PopupAction::Stay
             }
             Event::Mouse(mouse) => self.on_mouse(&mouse),
             Event::Timer(_) => self.on_timer(),
             _ => PopupAction::Stay,
         };
-        if action == PopupAction::Close {
-            close_self();
+        match action {
+            PopupAction::Stay => {}
+            PopupAction::Close => close_self(),
+            PopupAction::Pick(index) => {
+                let args =
+                    BTreeMap::from([(HOVER_PICKED_ENTRY_ARG.to_string(), index.to_string())]);
+                self.tell_owner(HOVER_PICKED_MESSAGE, args);
+                close_self();
+            }
         }
-        false
+        self.pointed != pointed
     }
 
     pub fn pipe(&self, message: &PipeMessage) {
@@ -183,33 +203,64 @@ impl PreviewPopup {
         }
     }
 
-    pub fn render(&self, rows: usize, cols: usize) {
+    pub fn render(&mut self, rows: usize, cols: usize) {
+        self.rows = rows;
+        let pointed_row = self.pointed.map(|index| index + 1);
         for (row, line) in self.lines(rows, cols).into_iter().enumerate() {
-            print_text_with_coordinates(Text::from(&line), 0, row, None, None);
+            let text = Text::from(&line);
+            let text = if Some(row) == pointed_row {
+                text.selected()
+            } else {
+                text
+            };
+            print_text_with_coordinates(text, 0, row, None, None);
         }
     }
 
-    fn tell_owner(&self, name: &str) {
+    fn tell_owner(&self, name: &str, args: BTreeMap<String, String>) {
         if let Some(owner) = self.owner {
             pipe_message_to_plugin(
                 MessageToPlugin::new(name)
                     .with_destination_plugin_id(owner)
-                    .with_payload(self.tag.clone()),
+                    .with_payload(self.tag.clone())
+                    .with_args(args),
             );
         }
     }
 
-    /// The pointer leaving the popup closes it, and so does a click, which
-    /// has nothing to choose here.
+    /// The pointer leaving the popup closes it. A left-click on an entry
+    /// picks it, and any other click closes the popup.
     fn on_mouse(&mut self, mouse: &Mouse) -> PopupAction {
         match mouse {
             Mouse::Hover(line, _) if *line < 0 => PopupAction::Close,
-            Mouse::Hover(..) => {
+            Mouse::Hover(line, _) => {
                 self.hovered = true;
+                self.pointed = self.entry_at(*line);
                 PopupAction::Stay
             }
-            Mouse::LeftClick(..) | Mouse::RightClick(..) => PopupAction::Close,
+            Mouse::LeftClick(line, _) => self
+                .entry_at(*line)
+                .map_or(PopupAction::Close, PopupAction::Pick),
+            Mouse::RightClick(..) => PopupAction::Close,
             _ => PopupAction::Stay,
+        }
+    }
+
+    /// The entry drawn on `line` of the popup, if one is: not the frame, nor
+    /// the `…` standing for entries that did not fit.
+    fn entry_at(&self, line: isize) -> Option<usize> {
+        let index = usize::try_from(line).ok()?.checked_sub(1)?;
+        (index < self.shown(self.rows)).then_some(index)
+    }
+
+    /// How many entries a popup of `rows` draws, leaving out any that need
+    /// the `…`.
+    fn shown(&self, rows: usize) -> usize {
+        let room = rows.saturating_sub(FRAME_ROWS);
+        if self.entries.len() > room {
+            room.saturating_sub(1)
+        } else {
+            self.entries.len()
         }
     }
 
@@ -239,9 +290,8 @@ impl PreviewPopup {
             return vec![];
         }
         let inner = cols - FRAME_COLUMNS;
-        let room = rows - FRAME_ROWS;
-        let cut = self.entries.len() > room;
-        let shown = if cut { room - 1 } else { self.entries.len() };
+        let shown = self.shown(rows);
+        let cut = shown < self.entries.len();
         let border = "─".repeat(cols - 2);
         let mut lines = vec![format!("┌{border}┐")];
         for entry in self.entries.iter().take(shown) {
@@ -325,11 +375,59 @@ mod tests {
         assert_eq!(popup.on_mouse(&Mouse::ScrollUp(1)), PopupAction::Stay);
     }
 
+    /// `popup`, drawn at the size its entries ask for.
+    fn drawn(labels: &[&str]) -> PreviewPopup {
+        let mut popup = popup(labels);
+        popup.rows = size(&popup.entries, false).1;
+        popup
+    }
+
     #[test]
-    fn clicking_the_popup_closes_it() {
-        let mut popup = popup(&["a"]);
-        assert_eq!(popup.on_mouse(&Mouse::LeftClick(1, 2)), PopupAction::Close);
-        assert_eq!(popup.on_mouse(&Mouse::RightClick(1, 2)), PopupAction::Close);
+    fn clicking_an_entry_picks_it() {
+        let mut popup = drawn(&["a", "b"]);
+        assert_eq!(
+            popup.on_mouse(&Mouse::LeftClick(1, 2)),
+            PopupAction::Pick(0)
+        );
+        assert_eq!(
+            popup.on_mouse(&Mouse::LeftClick(2, 0)),
+            PopupAction::Pick(1)
+        );
+    }
+
+    #[test]
+    fn any_other_click_closes_the_popup() {
+        let mut framed = drawn(&["a", "b"]);
+        // The frame above and below the entries.
+        assert_eq!(framed.on_mouse(&Mouse::LeftClick(0, 2)), PopupAction::Close);
+        assert_eq!(framed.on_mouse(&Mouse::LeftClick(3, 2)), PopupAction::Close);
+        assert_eq!(
+            framed.on_mouse(&Mouse::RightClick(1, 2)),
+            PopupAction::Close
+        );
+        // Not drawn yet, so nothing is on any line.
+        let mut fresh = popup(&["a"]);
+        assert_eq!(fresh.on_mouse(&Mouse::LeftClick(1, 2)), PopupAction::Close);
+    }
+
+    #[test]
+    fn the_ellipsis_stands_for_entries_that_cannot_be_picked() {
+        let mut popup = drawn(&["one", "two", "three"]);
+        popup.rows = 4;
+        assert_eq!(
+            popup.on_mouse(&Mouse::LeftClick(1, 2)),
+            PopupAction::Pick(0)
+        );
+        assert_eq!(popup.on_mouse(&Mouse::LeftClick(2, 2)), PopupAction::Close);
+    }
+
+    #[test]
+    fn the_entry_under_the_pointer_is_marked() {
+        let mut popup = drawn(&["a", "b"]);
+        popup.on_mouse(&Mouse::Hover(2, 3));
+        assert_eq!(popup.pointed, Some(1));
+        popup.on_mouse(&Mouse::Hover(0, 3));
+        assert_eq!(popup.pointed, None);
     }
 
     #[test]

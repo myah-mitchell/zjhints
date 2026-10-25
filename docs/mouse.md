@@ -54,7 +54,7 @@ When even a single hint does not fit and the line is cut short, `overflow_str` o
 
 ## Hover preview
 
-Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small read-only popup beside the bar. The popup lists the same entries, written the same way, so you can see what a hint such as `focus` covers before you click it.
+Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small popup beside the bar. The popup lists the same entries, written the same way, so you can see what a hint such as `focus` covers and pick one straight from the popup.
 
 ```text
 ┌──────────────────────┐
@@ -73,11 +73,13 @@ The popup appears for a hint whose keys do different things, for the [drop indic
 
 The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu.
 
-You can move the pointer onto the popup, and it stays open while the pointer is on it. It closes when the pointer leaves it, or three seconds after it opens if the pointer never reaches it, so a pointer that leaves the bar for another pane cannot strand it.
+You can move the pointer onto the popup, and it stays open while the pointer is on it. The entry under the pointer is highlighted, and clicking it does what choosing it in the menu would: it runs, or opens the hint's own menu for a hint that did not fit. Clicking the popup's frame closes it and runs nothing.
+
+The popup closes when the pointer leaves it, or three seconds after it opens if the pointer never reaches it, so a pointer that leaves the bar for another pane cannot strand it.
 
 The bar only sees the pointer when Zellij sends it hover events, so the preview needs Zellij's `mouse_hover_effects` option left on, which is the default.
 
-The popup is this plugin again, opened in a mode that only draws the entries. It is granted the bar's own permissions, so it never prompts.
+The popup is this plugin again, opened in a mode that only draws the entries and reports which one is clicked. The bar runs the entry, so the popup never holds an action of its own. It is granted the bar's own permissions, so it never prompts.
 
 ## While descended into a nested session
 
