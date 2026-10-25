@@ -40,6 +40,9 @@ struct State {
     preview_popup: Option<PreviewPopup>,
     /// This instance's plugin id, to find its own pane in `PaneUpdate`.
     plugin_id: Option<u32>,
+    /// The client this instance draws for, to answer only the settings
+    /// requests made from that client. See `settings_requested_by`.
+    client_id: Option<ClientId>,
     /// The URL this bar's pane reports, which is the alias name when the bar
     /// was started from an alias. A bar loaded to feed zjstatus has a hidden
     /// pane that reports it too. `None` until the first `PaneUpdate`.
@@ -1697,17 +1700,18 @@ fn pipe_names_from_config(configuration: &BTreeMap<String, String>) -> Vec<Strin
 }
 
 /// What the bar always asks for.
-const BAR_PERMISSIONS: [PermissionType; 2] = [
+const BAR_PERMISSIONS: [PermissionType; 3] = [
     PermissionType::ReadApplicationState,
     PermissionType::MessageAndLaunchOtherPlugins,
+    // Adding the bar's entry to Zellij's settings screen, and with `mouse`,
+    // opening Zellij's context menu and the popup of a hover preview.
+    PermissionType::ChangeApplicationState,
 ];
 
 /// What `mouse` needs beyond what the bar always asks for.
-pub const MOUSE_PERMISSIONS: [PermissionType; 3] = [
+const MOUSE_PERMISSIONS: [PermissionType; 2] = [
     // Running a clicked hint's actions.
     PermissionType::RunActionsAsUser,
-    // Opening Zellij's context menu and the popup of a hover preview.
-    PermissionType::ChangeApplicationState,
     // Showing the menus of hints and keys, which are prompts.
     PermissionType::OpenTerminalsOrPlugins,
 ];
@@ -1891,6 +1895,26 @@ fn open_settings(own_url: Option<&str>) {
     );
 }
 
+/// Add the bar's entry to Zellij's settings screen. Bars started the same way
+/// share one entry, which opens the settings screen from whichever of them
+/// Zellij picks.
+#[cfg(not(test))]
+fn add_settings_entry() {
+    register_settings_entry("zjhints");
+}
+
+#[cfg(test)]
+fn add_settings_entry() {}
+
+/// Whether a request from Zellij's settings screen, with `args`, came from
+/// the client `client_id` draws for. Every client's instance of the chosen
+/// bar receives it, and only the one the user is looking at should answer.
+fn settings_requested_by(args: &BTreeMap<String, String>, client_id: Option<ClientId>) -> bool {
+    args.get(OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG)
+        .and_then(|id| id.parse::<ClientId>().ok())
+        .is_some_and(|id| Some(id) == client_id)
+}
+
 /// The configuration the settings screen is opened with from a bar running
 /// as `own_url`. See `open_settings`.
 fn settings_configuration(own_url: Option<&str>) -> BTreeMap<String, String> {
@@ -2043,7 +2067,9 @@ impl ZellijPlugin for State {
             return;
         }
         self.initialized = false;
-        self.plugin_id = Some(get_plugin_ids().plugin_id);
+        let ids = get_plugin_ids();
+        self.plugin_id = Some(ids.plugin_id);
+        self.client_id = Some(ids.client_id);
         log_unknown_themes(&configuration);
         self.apply_configuration(configuration);
 
@@ -2189,8 +2215,11 @@ impl ZellijPlugin for State {
             }
             // Answered, or granted from the cache. Either way the prompt is
             // gone and the pane has no further reason to take focus.
-            Event::PermissionRequestResult(_) => {
+            Event::PermissionRequestResult(status) => {
                 set_selectable(false);
+                if status == PermissionStatus::Granted {
+                    add_settings_entry();
+                }
                 should_render = true;
             }
             // Still subscribed after `mouse` is turned off by a preview, so
@@ -2227,6 +2256,12 @@ impl ZellijPlugin for State {
             // Clicking the mode prefix again while the screen is hidden.
             if message.name == OPEN_SETTINGS_MESSAGE {
                 show_self(true);
+            }
+            return false;
+        }
+        if message.name == OPEN_PLUGIN_SETTINGS_MESSAGE {
+            if settings_requested_by(&message.args, self.client_id) {
+                open_settings(self.own_url.as_deref());
             }
             return false;
         }
@@ -7528,6 +7563,26 @@ mod tests {
         let configuration = settings_configuration(Some("file:/x/zjhints.wasm"));
         assert_eq!(configuration.get("alias"), None);
         assert_eq!(settings_configuration(None).get("alias"), None);
+    }
+
+    #[test]
+    fn only_the_client_that_chose_the_settings_entry_opens_settings() {
+        let from = |client: &str| {
+            BTreeMap::from([(
+                OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG.to_string(),
+                client.to_string(),
+            )])
+        };
+        assert!(settings_requested_by(&from("3"), Some(3)));
+        assert!(!settings_requested_by(&from("4"), Some(3)));
+        assert!(!settings_requested_by(&from("3"), None));
+        assert!(!settings_requested_by(&from("three"), Some(3)));
+        assert!(!settings_requested_by(&BTreeMap::new(), Some(3)));
+    }
+
+    #[test]
+    fn a_bar_without_mouse_can_add_its_settings_entry() {
+        assert!(bar_permissions(false).contains(&PermissionType::ChangeApplicationState));
     }
 
     #[test]
