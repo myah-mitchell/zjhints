@@ -13,10 +13,12 @@ use super::{
 use crate::{ActiveTab, ClickMap, NestedGuest, TabFocus};
 use zellij_tile::prelude::{InputMode, PaneId};
 
-/// The terminal's size, and the rows under it that say what was pressed.
+/// The terminal's size, and the rows under it that narrate the demo: one
+/// for the pointer under the bar, a rule setting the narration apart from
+/// the session, and the narration itself.
 const ROWS: usize = 24;
 const COLUMNS: usize = 120;
-const CAPTION_ROWS: usize = 2;
+const CAPTION_ROWS: usize = 3;
 /// The row the bar sits on, in a borderless pane of its own at the bottom.
 const BAR_ROW: usize = ROWS - 1;
 /// How narrow the terminal gets when it is resized.
@@ -403,6 +405,14 @@ fn draw_hover(screen: &mut Screen, columns: usize, map: &ClickMap) {
 /// The key pressed for a step, as a key cap, and what it did beside it.
 fn draw_caption(screen: &mut Screen, scene: &Scene) {
     let styling = palette();
+    // A dashed rule, labeled, so the narration is not taken for the session.
+    let rule = Pen {
+        dim: true,
+        ..Pen::colored(rgb_of(styling.text_unselected.base))
+    };
+    let label = "╌╌ narration, not part of the session ";
+    let dashes = "╌".repeat(COLUMNS - label.chars().count());
+    paint(screen, ROWS + 1, 0, &format!("{label}{dashes}"), rule);
     let row = ROWS + CAPTION_ROWS - 1;
     let mut column = 1;
     if !scene.key.is_empty() {
@@ -427,7 +437,10 @@ fn draw_caption(screen: &mut Screen, scene: &Scene) {
         row,
         column,
         scene.caption,
-        Pen::colored(rgb_of(styling.text_unselected.base)),
+        Pen {
+            italic: true,
+            ..Pen::colored(rgb_of(styling.text_unselected.base))
+        },
     );
 }
 
@@ -529,36 +542,36 @@ fn script() -> Vec<(Scene, u32)> {
         caption: "zjhints shows the keys of the mode you are in",
     };
     let mut step = |scene: &Scene, milliseconds: u32| steps.push((*scene, milliseconds));
-    step(&scene, 3000);
+    step(&scene, 4000);
 
     scene.mode = Pane;
     (scene.key, scene.caption) = ("Ctrl p", "pane mode: the bar follows");
-    step(&scene, 2400);
+    step(&scene, 3200);
     scene.mode = Normal;
     scene.right = RightPane::Shell { typed: "" };
     (scene.key, scene.caption) = ("r", "split right, and back to normal mode");
-    step(&scene, 2400);
+    step(&scene, 3200);
     scene.mode = Tab;
     (scene.key, scene.caption) = ("Ctrl t", "tab mode");
-    step(&scene, 2000);
+    step(&scene, 2800);
     scene.mode = Normal;
     (scene.key, scene.caption) = ("Esc", "back to normal mode");
-    step(&scene, 1600);
+    step(&scene, 2200);
 
     // The terminal narrows, and the bar drops hints to fit.
     (scene.key, scene.caption) = ("", "the terminal narrows: whole hints drop to fit");
     for columns in (NARROWEST..COLUMNS).step_by(6).rev() {
         scene.columns = columns;
-        step(&scene, if columns == NARROWEST { 1400 } else { 250 });
+        step(&scene, if columns == NARROWEST { 2000 } else { 350 });
     }
     scene.hover = true;
     (scene.key, scene.caption) = ("hover", "the ones that did not fit, a click away");
-    step(&scene, 3600);
+    step(&scene, 4600);
     scene.hover = false;
     (scene.key, scene.caption) = ("", "the terminal widens again");
     for columns in (NARROWEST..=COLUMNS).step_by(6).skip(1) {
         scene.columns = columns;
-        step(&scene, if columns == COLUMNS { 1200 } else { 200 });
+        step(&scene, if columns == COLUMNS { 1600 } else { 300 });
     }
 
     // The settings screen picks a theme, and the bar previews each change.
@@ -567,7 +580,7 @@ fn script() -> Vec<(Scene, u32)> {
         saved: false,
     });
     (scene.key, scene.caption) = ("Alt ,", "open the settings screen");
-    step(&scene, 2400);
+    step(&scene, 3200);
     let captions = [
         "format_theme \"pills\": the bar previews each change",
         "color_theme \"dracula\"",
@@ -579,7 +592,7 @@ fn script() -> Vec<(Scene, u32)> {
             saved: false,
         });
         (scene.key, scene.caption) = ("", caption);
-        step(&scene, 2400);
+        step(&scene, 3200);
     }
     scene.settings = Some(Settings {
         edits: THEME_EDITS.len(),
@@ -587,39 +600,39 @@ fn script() -> Vec<(Scene, u32)> {
     });
     scene.theme = THEME_EDITS.len();
     (scene.key, scene.caption) = ("Ctrl a", "save it to the config file");
-    step(&scene, 2000);
+    step(&scene, 2800);
     scene.settings = None;
     (scene.key, scene.caption) = ("Esc", "close the settings screen");
-    step(&scene, 1600);
+    step(&scene, 2200);
 
     // A nested session: the bar shows the keys of the session that has them.
     scene.right = RightPane::Shell {
         typed: "zellij attach work",
     };
     (scene.key, scene.caption) = ("", "start a nested session in the right pane");
-    step(&scene, 2000);
+    step(&scene, 2800);
     scene.right = RightPane::Nested {
         mode: Normal,
         descended: true,
     };
     (scene.key, scene.caption) = ("", "descended into it: the bar shows its keys");
-    step(&scene, 3000);
+    step(&scene, 4000);
     scene.right = RightPane::Nested {
         mode: Pane,
         descended: true,
     };
     (scene.key, scene.caption) = ("Ctrl p", "the nested session's pane mode");
-    step(&scene, 2400);
+    step(&scene, 3200);
     scene.right = RightPane::Nested {
         mode: Normal,
         descended: false,
     };
     (scene.key, scene.caption) = ("", "back in the host session");
-    step(&scene, 2200);
+    step(&scene, 3000);
 
     scene.mode = Locked;
     (scene.key, scene.caption) = ("Ctrl g", "locked mode: only the way out is shown");
-    step(&scene, 2600);
+    step(&scene, 3400);
     steps
 }
 

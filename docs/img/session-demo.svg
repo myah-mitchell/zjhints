@@ -1,99 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="492" viewBox="0 0 1108 492" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="510" viewBox="0 0 1108 510" role="img">
 <!-- Drawn by src/images.rs: edit the code and run `make images`. -->
 <title>A Zellij session with the zjhints bar at the bottom, played through its features: the bar following each mode, dropping hints as the terminal narrows, previewing the hints that did not fit, the settings screen restyling it live, and the hints of a nested session</title>
-<rect width="1108" height="492" rx="8" fill="#1e1e2e"/>
+<rect width="1108" height="510" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <style>
-@keyframes f0{0.000%{visibility:visible}24.463%{visibility:hidden}42.918%{visibility:visible}78.111%{visibility:hidden}89.699%{visibility:visible}}
-.f0{animation:f0 46600ms step-end infinite}
-@keyframes f1{0.000%{visibility:hidden}24.463%{visibility:visible}25.000%{visibility:hidden}42.489%{visibility:visible}42.918%{visibility:hidden}}
-.f1{visibility:hidden;animation:f1 46600ms step-end infinite}
-@keyframes f2{0.000%{visibility:hidden}25.000%{visibility:visible}25.536%{visibility:hidden}42.060%{visibility:visible}42.489%{visibility:hidden}}
-.f2{visibility:hidden;animation:f2 46600ms step-end infinite}
-@keyframes f3{0.000%{visibility:hidden}25.536%{visibility:visible}26.072%{visibility:hidden}41.630%{visibility:visible}42.060%{visibility:hidden}}
-.f3{visibility:hidden;animation:f3 46600ms step-end infinite}
-@keyframes f4{0.000%{visibility:hidden}26.072%{visibility:visible}26.609%{visibility:hidden}41.201%{visibility:visible}41.630%{visibility:hidden}}
-.f4{visibility:hidden;animation:f4 46600ms step-end infinite}
-@keyframes f5{0.000%{visibility:hidden}26.609%{visibility:visible}27.145%{visibility:hidden}40.772%{visibility:visible}41.201%{visibility:hidden}}
-.f5{visibility:hidden;animation:f5 46600ms step-end infinite}
-@keyframes f6{0.000%{visibility:hidden}27.145%{visibility:visible}27.682%{visibility:hidden}40.343%{visibility:visible}40.772%{visibility:hidden}}
-.f6{visibility:hidden;animation:f6 46600ms step-end infinite}
-@keyframes f7{0.000%{visibility:hidden}27.682%{visibility:visible}28.218%{visibility:hidden}39.914%{visibility:visible}40.343%{visibility:hidden}}
-.f7{visibility:hidden;animation:f7 46600ms step-end infinite}
-@keyframes f8{0.000%{visibility:hidden}28.218%{visibility:visible}28.755%{visibility:hidden}39.484%{visibility:visible}39.914%{visibility:hidden}}
-.f8{visibility:hidden;animation:f8 46600ms step-end infinite}
-@keyframes f9{0.000%{visibility:hidden}28.755%{visibility:visible}39.484%{visibility:hidden}}
-.f9{visibility:hidden;animation:f9 46600ms step-end infinite}
-@keyframes f10{0.000%{visibility:hidden}78.111%{visibility:visible}89.699%{visibility:hidden}}
-.f10{visibility:hidden;animation:f10 46600ms step-end infinite}
-@keyframes f11{0.000%{visibility:visible}11.587%{visibility:hidden}}
-.f11{visibility:hidden;animation:f11 46600ms step-end infinite}
-@keyframes f12{0.000%{visibility:hidden}11.587%{visibility:visible}24.463%{visibility:hidden}42.918%{visibility:visible}45.493%{visibility:hidden}70.386%{visibility:visible}78.111%{visibility:hidden}}
-.f12{visibility:hidden;animation:f12 46600ms step-end infinite}
-@keyframes f13{0.000%{visibility:hidden}45.493%{visibility:visible}70.386%{visibility:hidden}}
-.f13{animation:f13 46600ms step-end infinite}
-@keyframes f14{0.000%{visibility:hidden}89.699%{visibility:visible}}
-.f14{visibility:hidden;animation:f14 46600ms step-end infinite}
-@keyframes f15{0.000%{visibility:hidden}11.587%{visibility:visible}24.463%{visibility:hidden}42.918%{visibility:visible}45.493%{visibility:hidden}70.386%{visibility:visible}73.819%{visibility:hidden}}
-.f15{visibility:hidden;animation:f15 46600ms step-end infinite}
-@keyframes f16{0.000%{visibility:hidden}73.819%{visibility:visible}78.111%{visibility:hidden}}
-.f16{visibility:hidden;animation:f16 46600ms step-end infinite}
-@keyframes f17{0.000%{visibility:hidden}28.755%{visibility:visible}31.759%{visibility:hidden}}
-.f17{visibility:hidden;animation:f17 46600ms step-end infinite}
-@keyframes f18{0.000%{visibility:hidden}31.759%{visibility:visible}39.484%{visibility:hidden}}
-.f18{visibility:hidden;animation:f18 46600ms step-end infinite}
-@keyframes f19{0.000%{visibility:hidden}45.493%{visibility:visible}50.643%{visibility:hidden}66.094%{visibility:visible}70.386%{visibility:hidden}}
-.f19{visibility:hidden;animation:f19 46600ms step-end infinite}
-@keyframes f20{0.000%{visibility:hidden}50.643%{visibility:visible}55.793%{visibility:hidden}}
-.f20{visibility:hidden;animation:f20 46600ms step-end infinite}
-@keyframes f21{0.000%{visibility:hidden}55.793%{visibility:visible}60.944%{visibility:hidden}}
-.f21{animation:f21 46600ms step-end infinite}
-@keyframes f22{0.000%{visibility:hidden}60.944%{visibility:visible}66.094%{visibility:hidden}}
-.f22{visibility:hidden;animation:f22 46600ms step-end infinite}
-@keyframes f23{0.000%{visibility:hidden}45.493%{visibility:visible}55.793%{visibility:hidden}}
-.f23{visibility:hidden;animation:f23 46600ms step-end infinite}
-@keyframes f24{0.000%{visibility:hidden}66.094%{visibility:visible}70.386%{visibility:hidden}}
-.f24{visibility:hidden;animation:f24 46600ms step-end infinite}
-@keyframes f25{0.000%{visibility:hidden}45.493%{visibility:visible}50.643%{visibility:hidden}}
-.f25{visibility:hidden;animation:f25 46600ms step-end infinite}
-@keyframes f26{0.000%{visibility:hidden}55.793%{visibility:visible}66.094%{visibility:hidden}}
-.f26{animation:f26 46600ms step-end infinite}
-@keyframes f27{0.000%{visibility:hidden}45.493%{visibility:visible}60.944%{visibility:hidden}}
-.f27{animation:f27 46600ms step-end infinite}
-@keyframes f28{0.000%{visibility:hidden}50.643%{visibility:visible}66.094%{visibility:hidden}}
-.f28{animation:f28 46600ms step-end infinite}
-@keyframes f29{0.000%{visibility:hidden}60.944%{visibility:visible}70.386%{visibility:hidden}}
-.f29{visibility:hidden;animation:f29 46600ms step-end infinite}
-@keyframes f30{0.000%{visibility:hidden}11.587%{visibility:visible}24.463%{visibility:hidden}42.918%{visibility:visible}45.493%{visibility:hidden}70.386%{visibility:visible}78.111%{visibility:hidden}89.699%{visibility:visible}}
-.f30{visibility:hidden;animation:f30 46600ms step-end infinite}
-@keyframes f31{0.000%{visibility:visible}6.437%{visibility:hidden}11.587%{visibility:visible}16.738%{visibility:hidden}21.030%{visibility:visible}24.463%{visibility:hidden}42.918%{visibility:visible}50.643%{visibility:hidden}}
-.f31{visibility:hidden;animation:f31 46600ms step-end infinite}
-@keyframes f32{0.000%{visibility:hidden}6.437%{visibility:visible}11.587%{visibility:hidden}}
-.f32{visibility:hidden;animation:f32 46600ms step-end infinite}
-@keyframes f33{0.000%{visibility:hidden}16.738%{visibility:visible}21.030%{visibility:hidden}}
-.f33{visibility:hidden;animation:f33 46600ms step-end infinite}
-@keyframes f34{0.000%{visibility:hidden}60.944%{visibility:visible}84.549%{visibility:hidden}89.699%{visibility:visible}94.420%{visibility:hidden}}
-.f34{visibility:hidden;animation:f34 46600ms step-end infinite}
-@keyframes f35{0.000%{visibility:hidden}84.549%{visibility:visible}89.699%{visibility:hidden}}
-.f35{visibility:hidden;animation:f35 46600ms step-end infinite}
-@keyframes f36{0.000%{visibility:hidden}94.420%{visibility:visible}}
-.f36{visibility:hidden;animation:f36 46600ms step-end infinite}
-@keyframes f37{0.000%{visibility:visible}6.437%{visibility:hidden}}
-.f37{visibility:hidden;animation:f37 46600ms step-end infinite}
-@keyframes f38{0.000%{visibility:hidden}11.587%{visibility:visible}16.738%{visibility:hidden}}
-.f38{visibility:hidden;animation:f38 46600ms step-end infinite}
-@keyframes f39{0.000%{visibility:hidden}21.030%{visibility:visible}24.463%{visibility:hidden}}
-.f39{visibility:hidden;animation:f39 46600ms step-end infinite}
-@keyframes f40{0.000%{visibility:hidden}24.463%{visibility:visible}31.759%{visibility:hidden}}
-.f40{visibility:hidden;animation:f40 46600ms step-end infinite}
-@keyframes f41{0.000%{visibility:hidden}39.484%{visibility:visible}45.493%{visibility:hidden}}
-.f41{visibility:hidden;animation:f41 46600ms step-end infinite}
-@keyframes f42{0.000%{visibility:hidden}70.386%{visibility:visible}73.819%{visibility:hidden}}
-.f42{visibility:hidden;animation:f42 46600ms step-end infinite}
-@keyframes f43{0.000%{visibility:hidden}78.111%{visibility:visible}84.549%{visibility:hidden}}
-.f43{visibility:hidden;animation:f43 46600ms step-end infinite}
-@keyframes f44{0.000%{visibility:hidden}89.699%{visibility:visible}94.420%{visibility:hidden}}
-.f44{visibility:hidden;animation:f44 46600ms step-end infinite}
+@keyframes f0{0.000%{visibility:visible}24.444%{visibility:hidden}43.174%{visibility:visible}78.412%{visibility:hidden}89.841%{visibility:visible}}
+.f0{animation:f0 63000ms step-end infinite}
+@keyframes f1{0.000%{visibility:hidden}24.444%{visibility:visible}25.000%{visibility:hidden}42.698%{visibility:visible}43.174%{visibility:hidden}}
+.f1{visibility:hidden;animation:f1 63000ms step-end infinite}
+@keyframes f2{0.000%{visibility:hidden}25.000%{visibility:visible}25.555%{visibility:hidden}42.222%{visibility:visible}42.698%{visibility:hidden}}
+.f2{visibility:hidden;animation:f2 63000ms step-end infinite}
+@keyframes f3{0.000%{visibility:hidden}25.555%{visibility:visible}26.111%{visibility:hidden}41.746%{visibility:visible}42.222%{visibility:hidden}}
+.f3{visibility:hidden;animation:f3 63000ms step-end infinite}
+@keyframes f4{0.000%{visibility:hidden}26.111%{visibility:visible}26.666%{visibility:hidden}41.269%{visibility:visible}41.746%{visibility:hidden}}
+.f4{visibility:hidden;animation:f4 63000ms step-end infinite}
+@keyframes f5{0.000%{visibility:hidden}26.666%{visibility:visible}27.222%{visibility:hidden}40.793%{visibility:visible}41.269%{visibility:hidden}}
+.f5{visibility:hidden;animation:f5 63000ms step-end infinite}
+@keyframes f6{0.000%{visibility:hidden}27.222%{visibility:visible}27.777%{visibility:hidden}40.317%{visibility:visible}40.793%{visibility:hidden}}
+.f6{visibility:hidden;animation:f6 63000ms step-end infinite}
+@keyframes f7{0.000%{visibility:hidden}27.777%{visibility:visible}28.333%{visibility:hidden}39.841%{visibility:visible}40.317%{visibility:hidden}}
+.f7{visibility:hidden;animation:f7 63000ms step-end infinite}
+@keyframes f8{0.000%{visibility:hidden}28.333%{visibility:visible}28.888%{visibility:hidden}39.365%{visibility:visible}39.841%{visibility:hidden}}
+.f8{visibility:hidden;animation:f8 63000ms step-end infinite}
+@keyframes f9{0.000%{visibility:hidden}28.888%{visibility:visible}39.365%{visibility:hidden}}
+.f9{visibility:hidden;animation:f9 63000ms step-end infinite}
+@keyframes f10{0.000%{visibility:hidden}78.412%{visibility:visible}89.841%{visibility:hidden}}
+.f10{visibility:hidden;animation:f10 63000ms step-end infinite}
+@keyframes f11{0.000%{visibility:visible}11.428%{visibility:hidden}}
+.f11{visibility:hidden;animation:f11 63000ms step-end infinite}
+@keyframes f12{0.000%{visibility:hidden}11.428%{visibility:visible}24.444%{visibility:hidden}43.174%{visibility:visible}45.714%{visibility:hidden}70.476%{visibility:visible}78.412%{visibility:hidden}}
+.f12{visibility:hidden;animation:f12 63000ms step-end infinite}
+@keyframes f13{0.000%{visibility:hidden}45.714%{visibility:visible}70.476%{visibility:hidden}}
+.f13{animation:f13 63000ms step-end infinite}
+@keyframes f14{0.000%{visibility:hidden}89.841%{visibility:visible}}
+.f14{visibility:hidden;animation:f14 63000ms step-end infinite}
+@keyframes f15{0.000%{visibility:hidden}11.428%{visibility:visible}24.444%{visibility:hidden}43.174%{visibility:visible}45.714%{visibility:hidden}70.476%{visibility:visible}73.968%{visibility:hidden}}
+.f15{visibility:hidden;animation:f15 63000ms step-end infinite}
+@keyframes f16{0.000%{visibility:hidden}73.968%{visibility:visible}78.412%{visibility:hidden}}
+.f16{visibility:hidden;animation:f16 63000ms step-end infinite}
+@keyframes f17{0.000%{visibility:hidden}28.888%{visibility:visible}32.063%{visibility:hidden}}
+.f17{visibility:hidden;animation:f17 63000ms step-end infinite}
+@keyframes f18{0.000%{visibility:hidden}32.063%{visibility:visible}39.365%{visibility:hidden}}
+.f18{visibility:hidden;animation:f18 63000ms step-end infinite}
+@keyframes f19{0.000%{visibility:hidden}45.714%{visibility:visible}50.793%{visibility:hidden}66.031%{visibility:visible}70.476%{visibility:hidden}}
+.f19{visibility:hidden;animation:f19 63000ms step-end infinite}
+@keyframes f20{0.000%{visibility:hidden}50.793%{visibility:visible}55.873%{visibility:hidden}}
+.f20{visibility:hidden;animation:f20 63000ms step-end infinite}
+@keyframes f21{0.000%{visibility:hidden}55.873%{visibility:visible}60.952%{visibility:hidden}}
+.f21{animation:f21 63000ms step-end infinite}
+@keyframes f22{0.000%{visibility:hidden}60.952%{visibility:visible}66.031%{visibility:hidden}}
+.f22{visibility:hidden;animation:f22 63000ms step-end infinite}
+@keyframes f23{0.000%{visibility:hidden}45.714%{visibility:visible}55.873%{visibility:hidden}}
+.f23{visibility:hidden;animation:f23 63000ms step-end infinite}
+@keyframes f24{0.000%{visibility:hidden}66.031%{visibility:visible}70.476%{visibility:hidden}}
+.f24{visibility:hidden;animation:f24 63000ms step-end infinite}
+@keyframes f25{0.000%{visibility:hidden}45.714%{visibility:visible}50.793%{visibility:hidden}}
+.f25{visibility:hidden;animation:f25 63000ms step-end infinite}
+@keyframes f26{0.000%{visibility:hidden}55.873%{visibility:visible}66.031%{visibility:hidden}}
+.f26{animation:f26 63000ms step-end infinite}
+@keyframes f27{0.000%{visibility:hidden}45.714%{visibility:visible}60.952%{visibility:hidden}}
+.f27{animation:f27 63000ms step-end infinite}
+@keyframes f28{0.000%{visibility:hidden}50.793%{visibility:visible}66.031%{visibility:hidden}}
+.f28{animation:f28 63000ms step-end infinite}
+@keyframes f29{0.000%{visibility:hidden}60.952%{visibility:visible}70.476%{visibility:hidden}}
+.f29{visibility:hidden;animation:f29 63000ms step-end infinite}
+@keyframes f30{0.000%{visibility:hidden}11.428%{visibility:visible}24.444%{visibility:hidden}43.174%{visibility:visible}45.714%{visibility:hidden}70.476%{visibility:visible}78.412%{visibility:hidden}89.841%{visibility:visible}}
+.f30{visibility:hidden;animation:f30 63000ms step-end infinite}
+@keyframes f31{0.000%{visibility:visible}6.349%{visibility:hidden}11.428%{visibility:visible}16.507%{visibility:hidden}20.952%{visibility:visible}24.444%{visibility:hidden}43.174%{visibility:visible}50.793%{visibility:hidden}}
+.f31{visibility:hidden;animation:f31 63000ms step-end infinite}
+@keyframes f32{0.000%{visibility:hidden}6.349%{visibility:visible}11.428%{visibility:hidden}}
+.f32{visibility:hidden;animation:f32 63000ms step-end infinite}
+@keyframes f33{0.000%{visibility:hidden}16.507%{visibility:visible}20.952%{visibility:hidden}}
+.f33{visibility:hidden;animation:f33 63000ms step-end infinite}
+@keyframes f34{0.000%{visibility:hidden}60.952%{visibility:visible}84.761%{visibility:hidden}89.841%{visibility:visible}94.603%{visibility:hidden}}
+.f34{visibility:hidden;animation:f34 63000ms step-end infinite}
+@keyframes f35{0.000%{visibility:hidden}84.761%{visibility:visible}89.841%{visibility:hidden}}
+.f35{visibility:hidden;animation:f35 63000ms step-end infinite}
+@keyframes f36{0.000%{visibility:hidden}94.603%{visibility:visible}}
+.f36{visibility:hidden;animation:f36 63000ms step-end infinite}
+@keyframes f37{0.000%{visibility:visible}}
+.f37{animation:f37 63000ms step-end infinite}
+@keyframes f38{0.000%{visibility:visible}6.349%{visibility:hidden}}
+.f38{visibility:hidden;animation:f38 63000ms step-end infinite}
+@keyframes f39{0.000%{visibility:hidden}11.428%{visibility:visible}16.507%{visibility:hidden}}
+.f39{visibility:hidden;animation:f39 63000ms step-end infinite}
+@keyframes f40{0.000%{visibility:hidden}20.952%{visibility:visible}24.444%{visibility:hidden}}
+.f40{visibility:hidden;animation:f40 63000ms step-end infinite}
+@keyframes f41{0.000%{visibility:hidden}24.444%{visibility:visible}32.063%{visibility:hidden}}
+.f41{visibility:hidden;animation:f41 63000ms step-end infinite}
+@keyframes f42{0.000%{visibility:hidden}39.365%{visibility:visible}45.714%{visibility:hidden}}
+.f42{visibility:hidden;animation:f42 63000ms step-end infinite}
+@keyframes f43{0.000%{visibility:hidden}70.476%{visibility:visible}73.968%{visibility:hidden}}
+.f43{visibility:hidden;animation:f43 63000ms step-end infinite}
+@keyframes f44{0.000%{visibility:hidden}78.412%{visibility:visible}84.761%{visibility:hidden}}
+.f44{visibility:hidden;animation:f44 63000ms step-end infinite}
+@keyframes f45{0.000%{visibility:hidden}89.841%{visibility:visible}94.603%{visibility:hidden}}
+.f45{visibility:hidden;animation:f45 63000ms step-end infinite}
 @media (prefers-reduced-motion:reduce){g[class]{animation:none}}
 </style>
 <g shape-rendering="crispEdges">
@@ -519,34 +521,34 @@
 <rect x="153" y="414" width="63" height="18" fill="#44475a"/>
 </g>
 <g class="f32">
-<rect x="9" y="450" width="72" height="18" fill="#a6e3a1"/>
-</g>
-<g class="f38">
-<rect x="9" y="450" width="27" height="18" fill="#a6e3a1"/>
-</g>
-<g class="f33">
-<rect x="9" y="450" width="72" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f39">
-<rect x="9" y="450" width="45" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="27" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f33">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f40">
+<rect x="9" y="468" width="45" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f18">
-<rect x="9" y="450" width="63" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="63" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f25">
-<rect x="9" y="450" width="63" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="63" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f24">
-<rect x="9" y="450" width="72" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
 </g>
-<g class="f42">
-<rect x="9" y="450" width="45" height="18" fill="#a6e3a1"/>
+<g class="f43">
+<rect x="9" y="468" width="45" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f35">
-<rect x="9" y="450" width="72" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f36">
-<rect x="9" y="450" width="72" height="18" fill="#a6e3a1"/>
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
 </g>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
@@ -1789,71 +1791,74 @@
 <path d="M486 432L486 447L490 443L493 449L495 448L492 442L497 442Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f37">
-<text y="463"><tspan x="9 18 27 36 45 54 63 81 90 99 108 117 135 144 153 171 180 189 198 216 225 243 252 261 279 288 297 306 324 333 342 360 369 378 396 405" fill="#cdd6f4">zjhintsshowsthekeysofthemodeyouarein</tspan></text>
-</g>
-<g class="f32">
-<path d="M81 450A9 9 0 0 1 81 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 126 144 153 162 171 180 198 207 216 234 243 252 270 279 288 297 306 315 324" fill="#cdd6f4">panemode:thebarfollows</tspan></text>
+<text y="463"><tspan x="0 9 27 36 45 54 63 72 81 90 99 108 126 135 144 162 171 180 189 207 216 234 243 252 270 279 288 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#878ca4">╌╌narration,notpartofthesession╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</tspan></text>
 </g>
 <g class="f38">
-<path d="M36 450A9 9 0 0 1 36 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18" fill="#181825" font-weight="bold">r</tspan><tspan x="54 63 72 81 90 108 117 126 135 144 153 171 180 189 207 216 225 234 252 261 279 288 297 306 315 324 342 351 360 369" fill="#cdd6f4">splitright,andbacktonormalmode</tspan></text>
+<text y="481"><tspan x="9 18 27 36 45 54 63 81 90 99 108 117 135 144 153 171 180 189 198 216 225 243 252 261 279 288 297 306 324 333 342 360 369 378 396 405" fill="#cdd6f4" font-style="italic">zjhintsshowsthekeysofthemodeyouarein</tspan></text>
 </g>
-<g class="f33">
-<path d="M81 450A9 9 0 0 1 81 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="99 108 117 135 144 153 162" fill="#cdd6f4">tabmode</tspan></text>
+<g class="f32">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 126 144 153 162 171 180 198 207 216 234 243 252 270 279 288 297 306 315 324" fill="#cdd6f4" font-style="italic">panemode:thebarfollows</tspan></text>
 </g>
 <g class="f39">
-<path d="M54 450A9 9 0 0 1 54 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36" fill="#181825" font-weight="bold">Esc</tspan><tspan x="72 81 90 99 117 126 144 153 162 171 180 189 207 216 225 234" fill="#cdd6f4">backtonormalmode</tspan></text>
+<path d="M36 468A9 9 0 0 1 36 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18" fill="#181825" font-weight="bold">r</tspan><tspan x="54 63 72 81 90 108 117 126 135 144 153 171 180 189 207 216 225 234 252 261 279 288 297 306 315 324 342 351 360 369" fill="#cdd6f4" font-style="italic">splitright,andbacktonormalmode</tspan></text>
+</g>
+<g class="f33">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="99 108 117 135 144 153 162" fill="#cdd6f4" font-style="italic">tabmode</tspan></text>
 </g>
 <g class="f40">
-<text y="463"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 180 189 207 216 225 234 243 261 270 279 288 297 315 324 333 342 360 369 387 396 405" fill="#cdd6f4">theterminalnarrows:wholehintsdroptofit</tspan></text>
-</g>
-<g class="f18">
-<path d="M72 450A9 9 0 0 1 72 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 54" fill="#181825" font-weight="bold">hover</tspan><tspan x="90 99 108 126 135 144 153 171 180 189 198 216 225 234 252 261 270 288 297 306 315 333 351 360 369 378 387 405 414 423 432" fill="#cdd6f4">theonesthatdidnotfit,aclickaway</tspan></text>
+<path d="M54 468A9 9 0 0 1 54 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36" fill="#181825" font-weight="bold">Esc</tspan><tspan x="72 81 90 99 117 126 144 153 162 171 180 189 207 216 225 234" fill="#cdd6f4" font-style="italic">backtonormalmode</tspan></text>
 </g>
 <g class="f41">
-<text y="463"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 189 198 207 216 225" fill="#cdd6f4">theterminalwidensagain</tspan></text>
+<text y="481"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 180 189 207 216 225 234 243 261 270 279 288 297 315 324 333 342 360 369 387 396 405" fill="#cdd6f4" font-style="italic">theterminalnarrows:wholehintsdroptofit</tspan></text>
 </g>
-<g class="f25">
-<path d="M72 450A9 9 0 0 1 72 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 54" fill="#181825" font-weight="bold">Alt,</tspan><tspan x="90 99 108 117 135 144 153 171 180 189 198 207 216 225 234 252 261 270 279 288 297" fill="#cdd6f4">openthesettingsscreen</tspan></text>
-</g>
-<g class="f20">
-<text y="463"><tspan x="9 18 27 36 45 54 63 72 81 90 99 108 126 135 144 153 162 171 180 189 207 216 225 243 252 261 279 288 297 306 315 324 333 342 360 369 378 387 405 414 423 432 441 450" fill="#cdd6f4">format_theme"pills":thebarpreviewseachchange</tspan></text>
-</g>
-<g class="f21">
-<text y="463"><tspan x="9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189" fill="#cdd6f4">color_theme"dracula"</tspan></text>
-</g>
-<g class="f22">
-<text y="463"><tspan x="9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189" fill="#cdd6f4">alias_theme"unicode"</tspan></text>
-</g>
-<g class="f24">
-<path d="M81 450A9 9 0 0 1 81 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrla</tspan><tspan x="99 108 117 126 144 153 171 180 198 207 216 234 243 252 261 270 279 297 306 315 324" fill="#cdd6f4">saveittotheconfigfile</tspan></text>
+<g class="f18">
+<path d="M72 468A9 9 0 0 1 72 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 54" fill="#181825" font-weight="bold">hover</tspan><tspan x="90 99 108 126 135 144 153 171 180 189 198 216 225 234 252 261 270 288 297 306 315 333 351 360 369 378 387 405 414 423 432" fill="#cdd6f4" font-style="italic">theonesthatdidnotfit,aclickaway</tspan></text>
 </g>
 <g class="f42">
-<path d="M54 450A9 9 0 0 1 54 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36" fill="#181825" font-weight="bold">Esc</tspan><tspan x="72 81 90 99 108 126 135 144 162 171 180 189 198 207 216 225 243 252 261 270 279 288" fill="#cdd6f4">closethesettingsscreen</tspan></text>
+<text y="481"><tspan x="9 18 27 45 54 63 72 81 90 99 108 126 135 144 153 162 171 189 198 207 216 225" fill="#cdd6f4" font-style="italic">theterminalwidensagain</tspan></text>
 </g>
-<g class="f16">
-<text y="463"><tspan x="9 18 27 36 45 63 81 90 99 108 117 126 144 153 162 171 180 189 198 216 225 243 252 261 279 288 297 306 315 333 342 351 360" fill="#cdd6f4">startanestedsessionintherightpane</tspan></text>
+<g class="f25">
+<path d="M72 468A9 9 0 0 1 72 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 54" fill="#181825" font-weight="bold">Alt,</tspan><tspan x="90 99 108 117 135 144 153 171 180 189 198 207 216 225 234 252 261 270 279 288 297" fill="#cdd6f4" font-style="italic">openthesettingsscreen</tspan></text>
+</g>
+<g class="f20">
+<text y="481"><tspan x="9 18 27 36 45 54 63 72 81 90 99 108 126 135 144 153 162 171 180 189 207 216 225 243 252 261 279 288 297 306 315 324 333 342 360 369 378 387 405 414 423 432 441 450" fill="#cdd6f4" font-style="italic">format_theme"pills":thebarpreviewseachchange</tspan></text>
+</g>
+<g class="f21">
+<text y="481"><tspan x="9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189" fill="#cdd6f4" font-style="italic">color_theme"dracula"</tspan></text>
+</g>
+<g class="f22">
+<text y="481"><tspan x="9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189" fill="#cdd6f4" font-style="italic">alias_theme"unicode"</tspan></text>
+</g>
+<g class="f24">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrla</tspan><tspan x="99 108 117 126 144 153 171 180 198 207 216 234 243 252 261 270 279 297 306 315 324" fill="#cdd6f4" font-style="italic">saveittotheconfigfile</tspan></text>
 </g>
 <g class="f43">
-<text y="463"><tspan x="9 18 27 36 45 54 63 72 81 99 108 117 126 144 153 162 180 189 198 216 225 234 252 261 270 279 288 306 315 324 342 351 360 369" fill="#cdd6f4">descendedintoit:thebarshowsitskeys</tspan></text>
+<path d="M54 468A9 9 0 0 1 54 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36" fill="#181825" font-weight="bold">Esc</tspan><tspan x="72 81 90 99 108 126 135 144 162 171 180 189 198 207 216 225 243 252 261 270 279 288" fill="#cdd6f4" font-style="italic">closethesettingsscreen</tspan></text>
 </g>
-<g class="f35">
-<path d="M81 450A9 9 0 0 1 81 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 261 270 288 297 306 315 333 342 351 360" fill="#cdd6f4">thenestedsession'spanemode</tspan></text>
+<g class="f16">
+<text y="481"><tspan x="9 18 27 36 45 63 81 90 99 108 117 126 144 153 162 171 180 189 198 216 225 243 252 261 279 288 297 306 315 333 342 351 360" fill="#cdd6f4" font-style="italic">startanestedsessionintherightpane</tspan></text>
 </g>
 <g class="f44">
-<text y="463"><tspan x="9 18 27 36 54 63 81 90 99 117 126 135 144 162 171 180 189 198 207 216" fill="#cdd6f4">backinthehostsession</tspan></text>
+<text y="481"><tspan x="9 18 27 36 45 54 63 72 81 99 108 117 126 144 153 162 180 189 198 216 225 234 252 261 270 279 288 306 315 324 342 351 360 369" fill="#cdd6f4" font-style="italic">descendedintoit:thebarshowsitskeys</tspan></text>
+</g>
+<g class="f35">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 261 270 288 297 306 315 333 342 351 360" fill="#cdd6f4" font-style="italic">thenestedsession'spanemode</tspan></text>
+</g>
+<g class="f45">
+<text y="481"><tspan x="9 18 27 36 54 63 81 90 99 117 126 135 144 162 171 180 189 198 207 216" fill="#cdd6f4" font-style="italic">backinthehostsession</tspan></text>
 </g>
 <g class="f36">
-<path d="M81 450A9 9 0 0 1 81 468Z" fill="#a6e3a1"/>
-<text y="463"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlg</tspan><tspan x="99 108 117 126 135 144 162 171 180 189 198 216 225 234 243 261 270 279 297 306 315 333 342 351 369 378 396 405 414 423 432" fill="#cdd6f4">lockedmode:onlythewayoutisshown</tspan></text>
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlg</tspan><tspan x="99 108 117 126 135 144 162 171 180 189 198 216 225 234 243 261 270 279 297 306 315 333 342 351 369 378 396 405 414 423 432" fill="#cdd6f4" font-style="italic">lockedmode:onlythewayoutisshown</tspan></text>
 </g>
 </g>
 </g>

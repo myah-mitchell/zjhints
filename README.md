@@ -10,7 +10,7 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 > [!NOTE]
 > zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
-Here it is at the bottom of a Zellij session: the mode first, then each key beside what it does. The caption under the session names each key pressed.
+Here it is at the bottom of a Zellij session: the mode first, then each key beside what it does. The narration under the dashed line names each key pressed; it is not part of the session.
 
 ![A Zellij session with the zjhints bar at the bottom. The bar shows the normal mode hints, then the pane mode hints after Ctrl p. After a split and a trip to tab mode, the terminal narrows and the bar drops whole hints to fit, ending in an ellipsis; hovering the ellipsis opens a popup listing the hints that did not fit. Alt comma opens the settings screen in a floating pane, where format_theme pills, color_theme dracula and alias_theme unicode restyle the bar one by one as they are picked, and Ctrl a saves them. A nested Zellij session started in the right pane takes the keyboard: the host's frames fade and the bar shows the nested session's hints, including its pane mode. Back in the host, Ctrl g locks the session and the bar shows only the key that unlocks it.](docs/img/session-demo.svg)
 
