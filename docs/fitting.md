@@ -66,7 +66,7 @@ new … exit                              <- leading group being consumed
 
 Dropping from the far ends instead would open a second gap and need a second indicator.
 
-A single hint wider than the whole bar survives this and is cut with `overflow_str` as a last resort.
+A single hint wider than the whole bar survives this and is cut with `overflow_str` as a last resort. Like `drop_indicator`, it is a format string, so `overflow_str "#[fg=$gray]…"` styles the marker.
 
 ### Which pinned group goes first
 

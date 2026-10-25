@@ -22,7 +22,7 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `max_length` | `0` | Hard cap on the line's width in columns, `0` for unlimited |
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
 | `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
-| `overflow_str` | `...` | Appended when a lone hint is too wide to fit and must be cut mid-hint |
+| `overflow_str` | `...` | Format string appended when a lone hint is too wide to fit and must be cut mid-hint |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
 ## Hints
