@@ -6,7 +6,7 @@ It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://gi
 
 ## Prerequisites
 
-- zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](../README.md#installation). The screen edits that alias, so options set only in a layout are not shown and not changed.
+- zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](installation.md#example-configuration). The screen edits that alias, so options set only in a layout are not shown and not changed.
 - Your config is loaded from a file Zellij can write to.
 
 ## Opening it

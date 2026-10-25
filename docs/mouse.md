@@ -8,7 +8,7 @@ mouse true
 
 It is off by default, because it needs permissions a bar that only shows hints has no reason to ask for (see [Permissions](#permissions)).
 
-Mouse support needs the plugin in [a pane of its own](../README.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
+Mouse support needs the plugin in [a pane of its own](installation.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
 
 ## Right-click
 

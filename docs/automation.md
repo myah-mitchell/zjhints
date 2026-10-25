@@ -99,7 +99,7 @@ The `cargo test` step of `ci.yml` also checks the images in `docs/img`. It draws
 
 - `vX.Y.Z`: one per release, permanent. `/releases/latest/download/<asset>` resolves to the newest of these.
 - `nightly`: a single moving tag, force-updated each night. Published as a prerelease so it never becomes `latest`.
-- `zellij-<line>`: one per Zellij minor this project has ever targeted, such as `zellij-0.44`, force-updated by `release.yml` every time a release ships for that line. It is a real release rather than a prerelease, just aliased, but `make_latest: false` keeps it from contending with `latest`. See [the README's Versioning section](../README.md#versioning) for why this exists.
+- `zellij-<line>`: one per Zellij minor this project has ever targeted, such as `zellij-0.44`, force-updated by `release.yml` every time a release ships for that line. It is a real release rather than a prerelease, just aliased, but `make_latest: false` keeps it from contending with `latest`. See [Versioning](installation.md#versioning) for why this exists.
 - `ea-<label>`: one per EA/beta channel you have ever named, force-updated by `beta.yml` each time you run it with that label. Always a prerelease. See [EA/beta releases](#eabeta-releases).
 
 There is deliberately no tag named `latest`. GitHub already tracks the newest release, and a real tag by that name would have to be force-pushed on every release for no gain.
@@ -110,7 +110,7 @@ Every version bump is yours to make, deliberately. Neither pull request from `up
 
 To release, edit `version` in `Cargo.toml` and push that to `main`. You can do this on the update branch before merging it, on a follow-up commit, or directly on `main` if your ruleset allows it. `release.yml` picks it up from there, and only checks whether the version in `Cargo.toml` has been tagged yet, not how it got there. Pushing a `v*.*.*` tag yourself works too, and does not require touching `Cargo.toml` or waiting on a push to `main` at all.
 
-Patch, minor, or major is your call each time. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; make it while merging, once you have confirmed hints render right. See [the README's Versioning section](../README.md#versioning) for the convention this project uses.
+Patch, minor, or major is your call each time. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; make it while merging, once you have confirmed hints render right. See [Versioning](installation.md#versioning) for the convention this project uses.
 
 ### How dependencies are chosen
 

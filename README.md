@@ -29,7 +29,7 @@ Four features in this release need plugin APIs that are not in a released Zellij
 
 Until they are released, a Zellij build carrying all of them is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
 
-Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. See [Versioning](#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 
@@ -53,172 +53,14 @@ zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.
 
 Every option is listed under [Configuration](#configuration) below.
 
-## Placeholders
-
-Some option names and tag names below are families rather than fixed strings. Each family's variable part is written in angle brackets.
-
-| Placeholder | You replace it with                                        |
-| ----------- | ---------------------------------------------------------- |
-| `<mode>`    | A lowercased Zellij mode name, giving `mode_format_locked` |
-| `<name>`    | An alias name you choose, giving `color_blue`              |
-| `<line>`    | A Zellij minor, giving the tag `zellij-0.46`               |
-| `<label>`   | An EA channel name, giving the tag `ea-nested-sessions`    |
-
 ## Installation
 
-Add zjhints to your Zellij configuration and give it a pane of its own; no zjstatus required. See [Displaying the hints](#displaying-the-hints) below to pipe it into zjstatus instead.
+Add zjhints to your Zellij config and give it a pane one row high at the bottom of each tab. No zjstatus is required:
 
 ```kdl
 plugins {
     zjhints location="https://github.com/myah-mitchell/zjhints/releases/latest/download/zjhints.wasm" {
-        // Hard cap on the width of the hint line, in columns
-        max_length 0 // 0 = unlimited
-        // Fit the hints to the bar, dropping hints as it narrows. In its own
-        // pane the bar uses the pane's width; feeding zjstatus, it uses the
-        // terminal's, less reserve_columns for whatever shares the bar.
-        auto_width true // default
-        reserve_columns 0 // default, used only when feeding zjstatus
-        // Set to 2 if your terminal draws Nerd Font glyphs double-width.
-        ambiguous_width 1 // default
-        // Appended when a single hint is too wide to fit even alone
-        overflow_str "..." // default
-        // Name of the pipe for zjstatus integration
-        pipe_name "zjhints" // default
-        // Hide hints in base mode (a.k.a. default mode)
-        // E.g. if you have set default_mode to "locked", then
-        // you can hide hints in the locked mode by setting this to true
-        hide_in_base_mode false // default
-        // Start with the bar hidden. A keybinding sending zjhints::toggle
-        // or zjhints::show brings it back. See docs/hiding.md.
-        hidden false // default
-
-        // Render nothing while this session is nested inside another, so
-        // one shared layout can serve both. See docs/nested-sessions.md.
-        hide_when_nested true // default
-        // Hand this plugin's layout row back to the panes around it while
-        // the bar has nothing to draw, rather than leaving a blank line.
-        // See docs/nested-sessions.md#giving-the-row-back.
-        collapse_when_empty true // default
-        // Dim hints while this session isn't the one receiving input.
-        dim_when_unfocused true // default
-        dim_strength       "0.5" // default, 0.0-1.0 (quoted: Zellij's plugin-config
-                                 // parser only accepts strings, ints, and bools for a
-                                 // node value, so a bare decimal like 0.5 fails to load)
-
-        // Prefix the hints line with the current mode. Useful when this
-        // plugin runs in its own pane rather than piped into zjstatus's
-        // {mode} widget. mode_format_<mode> (e.g. mode_format_normal) gives
-        // a single mode its own icon, the same as zjstatus's mode_normal.
-        // See docs/nested-sessions.md#standing-alone.
-        show_mode true // default false
-        // Style the mode prefix with a format string; {desc} is the mode's
-        // label, {key} its symbol, and {mode} its name. Unset uses the
-        // theme's ribbon colors.
-        mode_format "#[fg=$black,bg=$blue,bold] {key} {desc} "
-        // Give one mode its own prefix, falling back to mode_format.
-        mode_format_locked "#[fg=$black,bg=$fg,bold] 🔒 "
-        // Rename a mode, or give it a symbol, for one shared mode_format.
-        mode_label_normal "NORM" // default unset, the uppercase mode name
-        mode_key_normal   "⌨"    // default unset, no symbol
-
-        // Right-click the bar for Zellij's context menu, click a hint to run
-        // it, and click the drop indicator for the hints that did not fit.
-        // Needs the plugin in its own pane and asks for extra permissions.
-        // With mouse and show_mode on, clicking the mode prefix opens the
-        // settings screen. See docs/mouse.md and docs/settings.md.
-        mouse true // default false
-        // With mouse on, also make the hints of a nested session you have
-        // descended into clickable; a click types their keys into it.
-        mouse_nested false // default
-
-        // Also show every other keybinding your config enables, beyond the
-        // curated list. Set it to false for the curated list alone.
-        // See docs/hints.md.
-        discover_hints true // default
-        // Hide bindings that every mode inherits from the base mode, so each
-        // mode only advertises what is new in it. Locked mode still shows
-        // everything that works in it. See docs/hints.md.
-        hide_shared_hints true // default
-        // When a hint is bound to both hjkl and the arrows, show only one
-        // family: "both" (default), "arrows", or "letters".
-        direction_keys "both" // default
-        // How keys within a hint are ordered: a keyboard layout
-        // ("qwerty", "dvorak", "colemak"), "abcdef", or "none".
-        key_order "qwerty" // default
-        // Pin hints to the start or end of each mode; "*" is everything
-        // else. Unset leaves the order each mode builds.
-        hint_order "*, exit"
-        // Override or hide any hint's label by its concept id; an empty
-        // value hides it. See docs/labels.md for the full list of ids.
-        label_mode_locked "lock"
-        label_split_down  "split ↓"
-
-        // Built-in themes, each picked on its own. "zellij" follows the
-        // active Zellij theme. The color_, *_format and *_alias options
-        // below override them. See docs/themes.md.
-        // Colors: "custom" adds none, or a name such as "catppuccin-mocha".
-        color_theme "catppuccin-mocha" // default "zellij"
-        // Shape: "flat", "plain", "powerline" or "pills".
-        format_theme "pills" // default "zellij"
-        // Symbols: "ascii", "unicode" or "nerd-font".
-        alias_theme "unicode" // default "zellij"
-
-        // Optionally style the hints using zjstatus-style format strings.
-        // When unset, the current Zellij theme palette is used automatically.
-        // `{key}` and `{desc}` are replaced with the keybinding and its label.
-        // See docs/styling.md for the full syntax.
-        key_format  "#[fg=$black,bg=$blue,bold] {key} "
-        desc_format "#[fg=$fg,bg=$bg] {desc} "
-        // Style a single hint differently by its concept id, overriding
-        // key_format and desc_format for that hint only.
-        key_format_quit  "#[fg=$black,bg=$fg,bold] {key} "
-        desc_format_quit "#[fg=$fg,bg=$bg,italic] {desc} "
-        // Show a fixed string in place of a hint's keys.
-        keys_go_to_tab "1-9"
-        // Drawn between hints, and between the mode prefix and the first
-        // hint; never after the last.
-        // Also a format string, so it can be a styled glyph, not just space.
-        hint_spacer "#[fg=$fg] │ "
-        // Shown where hints were dropped because the window is too narrow.
-        drop_indicator "#[fg=$fg]…"
-        // Which pinned group outlives the other: "tl" or "lt".
-        hint_precedence "tl" // default
-
-        // `$name` colors resolve to the matching `color_<name>` option, exactly
-        // like zjstatus color aliases.
-        color_black "#1e1e2e"
-        color_blue  "#89b4fa"
-        color_fg    "#cdd6f4"
-        color_bg    "#313244"
-
-        // Optionally replace key names with symbols, e.g. show ENTER as ↵.
-        // Uses the same per-line alias pattern (see docs/styling.md).
-        key_alias_enter "↵"
-        key_alias_space "␣"
-        key_alias_esc   "⎋"
-
-        // Likewise for modifiers: show Ctrl as ^ and Alt as ⌥.
-        mod_alias_ctrl "^"
-        mod_alias_alt  "⌥"
-
-        // Collapse a custom leader key's full modifier chord to one symbol
-        // (see docs/styling.md#chord-aliases).
-        chord_mods_leader  "ctrl+alt+super+shift"
-        chord_alias_leader "&"
-    }
-}
-
-// With mouse on, right-clicking the bar offers this item, which opens the
-// settings screen. See docs/settings.md.
-context_menu {
-    bar {
-        item "zjhints settings" {
-            LaunchOrFocusPlugin "zjhints" {
-                floating true
-                move_to_focused_tab true
-                settings true
-            }
-        }
+        show_mode true
     }
 }
 
@@ -226,94 +68,13 @@ layout {
     default_tab_template {
         children
         pane size=1 borderless=true {
-            plugin location="zjhints" {
-                show_mode true
-            }
+            plugin location="zjhints"
         }
     }
 }
 ```
 
-### Release channels
-
-Four channels are published:
-
-| Channel         | Contents                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `latest`        | Tagged releases. What the URL above resolves to.                                                                               |
-| `nightly`       | Rebuilt from `main` every night, tests green. Prerelease.                                                                      |
-| `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`.                                                         |
-| `ea-<label>`    | An on-demand build of any ref, published on request. Prerelease; see [docs/automation.md](docs/automation.md#eabeta-releases). |
-
-Zellij caches remote plugins by URL, so pointing the config at the nightly URL will keep serving whatever it downloaded first. To track nightlies, fetch into the plugin path instead and start a new session:
-
-```bash
-make nightly   # or: make latest
-```
-
-#### Matching your Zellij version
-
-`latest` is not always built for the Zellij you run: this plugin's own version and the Zellij it targets move independently (see [Versioning](#versioning) below). Mixing them is silent, not a build error: Zellij's plugin boundary decodes a binding's actions with `.filter_map(|a| a.try_into().ok())`, so an action a mismatched plugin does not recognize is just dropped, and hints render with the wrong label rather than failing to load.
-
-Check what your build targets, or fetch one for the Zellij you actually run:
-
-```bash
-zellij --version                 # e.g. 0.44.3
-make zellij VERSION=0.44         # newest release built for that line
-```
-
-`zellij-<line>` always resolves to the newest zjhints release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij line instead of to everything).
-
-### Versioning
-
-Most releases are patch bumps on their own schedule, unrelated to when Zellij releases. They carry fixes, dependency updates and smaller additions. A minor version bump marks one of three things: a move to a new Zellij minor, a breaking change to the configuration, or a major zjhints feature.
-
-| zjhints                 | Targets Zellij |
-| ----------------------- | -------------- |
-| 0.3.x                   | 0.44.x         |
-| 0.4.x                   | 0.45.x         |
-| 0.5.x (current release) | 0.46.x         |
-
-A new row means the Zellij line moved. The reverse does not hold: a minor bump for a breaking change or a major feature keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
-
-Bumping past a Zellij minor is deliberately not automatic, and the previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag. See [docs/automation.md](docs/automation.md) for why and how that update is proposed instead of applied.
-
-### Displaying the hints
-
-Wire the plugin into your default layout (`layouts/default.kdl`) either of two ways. Both read the same configuration above.
-
-#### Option A: its own pane
-
-This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjhints` alias defined in the `plugins {}` block. Set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](docs/nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](docs/nested-sessions.md) hiding and dimming work at all.
-
-#### Option B: piped into zjstatus
-
-If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into its bar instead of giving zjhints a pane of its own. Two changes from the layout above:
-
-1. Replace the `pane { plugin location="zjhints" { ... } }` block with a headless load, since a piped plugin draws nothing of its own:
-
-   ```kdl
-   load_plugins {
-       zjhints
-   }
-   ```
-
-2. Add `{pipe_zjhints}` to whichever of zjstatus's own format options should carry the hints: `format_left`, `format_center` or `format_right`. The placeholder name follows `pipe_name`, which defaults to `zjhints`. Then set `pipe_zjhints_format "{output}"`; without it, zjstatus won't render the pipe at all:
-
-   ```kdl
-   pane size=1 borderless=true {
-       plugin location="zjstatus" {
-           format_left  "{mode} {tabs}"
-           format_right "{pipe_zjhints}{datetime} "
-
-           pipe_zjhints_format "{output}"
-       }
-   }
-   ```
-
-   Left unset, `pipe_name` also publishes on `zjstatus_hints`, the name this plugin used before it was renamed, so an existing zjstatus config reading `{pipe_zjstatus_hints}` keeps working as it is.
-
-`show_mode` and `mode_format` are unnecessary here, since zjstatus's own `{mode}` widget already covers that.
+[Installation](docs/installation.md) has a full example with the common options annotated, the release channels, which build matches your Zellij version, and how to pipe the hints into zjstatus instead.
 
 ## Configuration
 
