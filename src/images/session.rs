@@ -1,5 +1,5 @@
-//! The session the README opens with: a Zellij session drawn by hand around
-//! the real bar, played through the plugin's features a keypress at a time.
+//! The sessions the README shows: a Zellij session drawn by hand around the
+//! real bar, played through one of the plugin's features a keypress at a time.
 //!
 //! Only the chrome is a stand-in. The tab bar, the pane frames and what runs
 //! in the panes are drawn here to look like Zellij's, while the bar, its hover
@@ -7,8 +7,8 @@
 //! plugin, so the demo cannot show the plugin doing anything it does not.
 
 use super::{
-    bar_state, draw_pointer, hover_at, palette, rgb_of, settings_screen, Animation, Frame, Pen,
-    Rgb, Screen, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
+    bar_state, draw_pointer, hover_at, hovers_of, palette, rgb_of, settings_screen, Animation,
+    Frame, Hover, Pen, Rgb, Screen, BASE_THEME, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
 };
 use crate::{ActiveTab, ClickMap, NestedGuest, TabFocus};
 use zellij_tile::prelude::{InputMode, PaneId};
@@ -31,15 +31,46 @@ const _: () = assert!((COLUMNS - NARROWEST) % RESIZE_STEP == 0);
 const SETTINGS_ROWS: usize = 18;
 const SETTINGS_COLUMNS: usize = 84;
 
-/// The options of the alias the session loads zjhints from: Zellij's own
-/// look, with the mode shown and the mouse on.
+/// The options of the alias the session loads zjhints from, besides its
+/// themes: the mode shown and the mouse on.
 const BASE_OPTIONS: [(&str, &str); 2] = [("show_mode", "true"), ("mouse", "true")];
 
-/// The theme the settings screen picks in the demo, one option at a time.
-const THEME_EDITS: [(&str, &str); 3] = [
-    ("format_theme", "pills"),
-    ("color_theme", "dracula"),
-    ("alias_theme", "unicode"),
+/// The themes the settings screen picks in its demo, one option at a time.
+const THEME_EDITS: [(&str, &str); 2] = [
+    ("format_theme", "powerline"),
+    ("color_theme", "tokyo-night"),
+];
+
+/// A color, format and alias theme, as the alias sets them.
+type Look = [(&'static str, &'static str); 3];
+
+const fn look(color: &'static str, format: &'static str, alias: &'static str) -> Look {
+    [
+        ("color_theme", color),
+        ("format_theme", format),
+        ("alias_theme", alias),
+    ]
+}
+
+/// The combinations of themes the themes demo shows, varied so that no two
+/// in a row share a color or a format. The nerd-font symbols are left out,
+/// as in the alias themes image: the image has no font to draw them.
+static THEME_TOUR: [Look; 15] = [
+    look("catppuccin-mocha", "pills", "unicode"),
+    look("dracula", "powerline", "ascii"),
+    look("nord", "flat", "unicode"),
+    look("gruvbox-dark", "pills", "zellij"),
+    look("tokyo-night", "plain", "unicode"),
+    look("catppuccin-latte", "powerline", "unicode"),
+    look("zellij", "zellij", "zellij"),
+    look("dracula", "flat", "unicode"),
+    look("nord", "pills", "ascii"),
+    look("gruvbox-dark", "powerline", "unicode"),
+    look("tokyo-night", "pills", "zellij"),
+    look("catppuccin-latte", "flat", "ascii"),
+    look("catppuccin-mocha", "powerline", "zellij"),
+    look("dracula", "plain", "unicode"),
+    look("nord", "powerline", "unicode"),
 ];
 
 /// The pane a nested session runs in, as the host knows it.
@@ -65,28 +96,66 @@ struct Settings {
     saved: bool,
 }
 
-/// Everything on screen at one step of the demo.
+/// The mouse pointer under the bar.
+#[derive(Clone, Copy)]
+struct Pointer {
+    column: usize,
+    /// Whether it has rested long enough for the hover preview to open.
+    open: bool,
+}
+
+/// Everything on screen at one step of a demo.
 #[derive(Clone, Copy)]
 struct Scene {
     columns: usize,
     mode: InputMode,
+    /// The themes the alias sets.
+    look: &'static Look,
     /// How many of `THEME_EDITS` the bar has saved into its options.
     theme: usize,
     right: RightPane,
     settings: Option<Settings>,
-    hover: bool,
+    pointer: Option<Pointer>,
     /// The key pressed for this step, if any, and what it did.
     key: &'static str,
     caption: &'static str,
+    /// Whether the narration names the themes of `look` after the caption.
+    name_look: bool,
 }
 
 impl Scene {
-    fn options(&self) -> Vec<(&'static str, &'static str)> {
-        let edits = self
-            .settings
-            .map_or(self.theme, |settings| settings.edits.max(self.theme));
+    /// A session in normal mode with one pane, drawn in the base themes.
+    fn new(caption: &'static str) -> Self {
+        Scene {
+            columns: COLUMNS,
+            mode: InputMode::Normal,
+            look: &BASE_THEME,
+            theme: 0,
+            right: RightPane::None,
+            settings: None,
+            pointer: None,
+            key: "",
+            caption,
+            name_look: false,
+        }
+    }
+
+    /// The options of the alias, with the themes saved from the settings
+    /// screen over the ones it started with.
+    fn saved_options(&self) -> Vec<(&'static str, &'static str)> {
         let mut options = BASE_OPTIONS.to_vec();
-        options.extend_from_slice(&THEME_EDITS[..edits]);
+        options.extend_from_slice(self.look);
+        options.extend_from_slice(&THEME_EDITS[..self.theme]);
+        options
+    }
+
+    /// The options the bar runs with, which take the settings screen's edits
+    /// as it previews them.
+    fn options(&self) -> Vec<(&'static str, &'static str)> {
+        let mut options = self.saved_options();
+        if let Some(settings) = self.settings {
+            options.extend_from_slice(&THEME_EDITS[..settings.edits]);
+        }
         options
     }
 
@@ -129,6 +198,11 @@ impl Scene {
             );
         }
         state.draw_bar()
+    }
+
+    /// Every hover preview the bar opens, left to right.
+    fn hovers(&self) -> Vec<Hover> {
+        hovers_of(&self.bar().1, self.columns)
     }
 }
 
@@ -376,15 +450,13 @@ fn draw_settings(screen: &mut Screen, scene: &Scene, settings: Settings, chrome:
         rows: SETTINGS_ROWS + 2,
         columns: SETTINGS_COLUMNS + 2,
     };
-    let (options, edits) = if settings.saved {
-        let mut options = BASE_OPTIONS.to_vec();
-        options.extend_from_slice(&THEME_EDITS[..settings.edits]);
-        (options, Vec::new())
+    // The settings screen shows the alias as saved, and its edits until
+    // they are.
+    let options = scene.saved_options();
+    let edits = if settings.saved {
+        Vec::new()
     } else {
-        (
-            BASE_OPTIONS.to_vec(),
-            THEME_EDITS[..settings.edits].to_vec(),
-        )
+        THEME_EDITS[..settings.edits].to_vec()
     };
     // The row of the option being changed, or of the first one before any is.
     let select = THEME_EDITS[settings.edits.saturating_sub(1)].0;
@@ -399,15 +471,15 @@ fn draw_settings(screen: &mut Screen, scene: &Scene, settings: Settings, chrome:
     );
 }
 
-/// The hover preview of the bar's last hint that has one, the drop
-/// indicator's, open over the bar with the pointer on that hint.
-fn draw_hover(screen: &mut Screen, columns: usize, map: &ClickMap) {
-    let hover = (0..columns)
-        .rev()
-        .find_map(|column| hover_at(map, column, columns))
-        .expect("a hint that opens a menu");
-    hover.draw_above(screen, BAR_ROW);
-    draw_pointer(screen, BAR_ROW + 1, hover.middle());
+/// The pointer under the bar, and the hover preview of the hint it rests
+/// on once that has opened.
+fn draw_mouse(screen: &mut Screen, pointer: Pointer, columns: usize, map: &ClickMap) {
+    if pointer.open {
+        hover_at(map, pointer.column, columns)
+            .expect("a hint that opens a menu under the pointer")
+            .draw_above(screen, BAR_ROW);
+    }
+    draw_pointer(screen, BAR_ROW + 1, pointer.column);
 }
 
 /// The key pressed for a step, as a key cap, and what it did beside it.
@@ -440,16 +512,20 @@ fn draw_caption(screen: &mut Screen, scene: &Scene) {
         );
         column += 1;
     }
-    paint(
-        screen,
-        row,
-        column,
-        scene.caption,
-        Pen {
-            italic: true,
-            ..Pen::colored(rgb_of(styling.text_unselected.base))
-        },
-    );
+    let narration = Pen {
+        italic: true,
+        ..Pen::colored(rgb_of(styling.text_unselected.base))
+    };
+    let column = paint(screen, row, column, scene.caption, narration);
+    if scene.name_look {
+        let names = scene
+            .look
+            .iter()
+            .map(|(key, value)| format!("{key} \"{value}\""))
+            .collect::<Vec<_>>()
+            .join("  ");
+        paint(screen, row, column, &names, narration);
+    }
 }
 
 /// One step of the demo as a screen.
@@ -521,8 +597,8 @@ fn draw(scene: &Scene) -> Screen {
 
     let (bar, map) = scene.bar();
     screen.print(BAR_ROW, 0, &bar);
-    if scene.hover {
-        draw_hover(&mut screen, columns, &map);
+    if let Some(pointer) = scene.pointer {
+        draw_mouse(&mut screen, pointer, columns, &map);
     }
     if columns < COLUMNS {
         // The terminal's right edge, as it narrows.
@@ -535,64 +611,143 @@ fn draw(scene: &Scene) -> Screen {
     screen
 }
 
-/// The steps of the demo, each with how long it stays up.
-fn script() -> Vec<(Scene, u32)> {
-    use InputMode::{Locked, Normal, Pane, Tab};
-    let mut steps = Vec::new();
-    let mut scene = Scene {
-        columns: COLUMNS,
-        mode: Normal,
-        theme: 0,
-        right: RightPane::None,
-        settings: None,
-        hover: false,
-        key: "",
-        caption: "zjhints shows the keys of the mode you are in",
-    };
-    let mut step = |scene: &Scene, milliseconds: u32| steps.push((*scene, milliseconds));
-    step(&scene, 4000);
+/// The steps of a demo, each with how long it stays up, and the step a
+/// reader who prefers reduced motion sees.
+#[derive(Default)]
+struct Script {
+    steps: Vec<(Scene, u32)>,
+    still: usize,
+}
 
+impl Script {
+    fn show(&mut self, scene: &Scene, milliseconds: u32) {
+        self.steps.push((*scene, milliseconds));
+    }
+
+    /// `show`, standing still on this step without motion.
+    fn show_still(&mut self, scene: &Scene, milliseconds: u32) {
+        self.still = self.steps.len();
+        self.show(scene, milliseconds);
+    }
+
+    /// The pointer moving from `from` to `to` along the bar, too quickly for
+    /// a hover preview to open, then resting on `to` until it does.
+    fn move_pointer(&mut self, scene: &mut Scene, from: usize, to: usize) {
+        for step in 1..4 {
+            let column = from as isize + (to as isize - from as isize) * step / 4;
+            scene.pointer = Some(Pointer {
+                column: column as usize,
+                open: false,
+            });
+            self.show(scene, 200);
+        }
+        scene.pointer = Some(Pointer {
+            column: to,
+            open: false,
+        });
+        self.show(scene, 600);
+    }
+
+    fn animation(self) -> Animation {
+        let frames = self
+            .steps
+            .iter()
+            .map(|(scene, milliseconds)| Frame::new(draw(scene), *milliseconds))
+            .collect();
+        Animation::new(frames, self.still)
+    }
+}
+
+/// The bar following the session from mode to mode. It stands still in
+/// pane mode.
+pub(super) fn modes() -> Animation {
+    use InputMode::{Locked, Normal, Pane, Resize, Tab};
+    let mut script = Script::default();
+    let mut scene = Scene::new("zjhints shows the keys of the mode you are in");
+    script.show(&scene, 4000);
     scene.mode = Pane;
     (scene.key, scene.caption) = ("Ctrl p", "pane mode: the bar follows");
-    step(&scene, 3200);
+    script.show_still(&scene, 3200);
     scene.mode = Normal;
     scene.right = RightPane::Shell { typed: "" };
     (scene.key, scene.caption) = ("r", "split right, and back to normal mode");
-    step(&scene, 3200);
+    script.show(&scene, 3000);
     scene.mode = Tab;
     (scene.key, scene.caption) = ("Ctrl t", "tab mode");
-    step(&scene, 2800);
+    script.show(&scene, 2800);
     scene.mode = Normal;
     (scene.key, scene.caption) = ("Esc", "back to normal mode");
-    step(&scene, 2200);
+    script.show(&scene, 2000);
+    scene.mode = Resize;
+    (scene.key, scene.caption) = ("Ctrl n", "resize mode");
+    script.show(&scene, 2800);
+    scene.mode = Normal;
+    (scene.key, scene.caption) = ("Esc", "back to normal mode");
+    script.show(&scene, 2000);
+    scene.mode = Locked;
+    (scene.key, scene.caption) = ("Ctrl g", "locked mode: only the way out is shown");
+    script.show(&scene, 3400);
+    scene.mode = Normal;
+    (scene.key, scene.caption) = ("Ctrl g", "unlocked, back to normal mode");
+    script.show(&scene, 2400);
+    script.animation()
+}
 
-    // The terminal narrows, and the bar drops hints to fit.
-    (scene.key, scene.caption) = ("", "the terminal narrows: whole hints drop to fit");
+/// The terminal narrowing and widening again, the bar dropping whole hints
+/// to fit and the drop indicator offering the ones that did not. It stands
+/// still on the drop indicator's preview.
+pub(super) fn fitting() -> Animation {
+    let mut script = Script::default();
+    let mut scene = Scene::new("the bar at the full width of the terminal");
+    scene.right = RightPane::Shell { typed: "" };
+    script.show(&scene, 3000);
+    scene.caption = "the terminal narrows: whole hints drop to fit";
     for columns in (NARROWEST..COLUMNS).step_by(RESIZE_STEP).rev() {
         scene.columns = columns;
-        step(&scene, if columns == NARROWEST { 2000 } else { 350 });
+        script.show(&scene, if columns == NARROWEST { 2000 } else { 350 });
     }
-    scene.hover = true;
+    // The drop indicator is the last thing on the bar that opens a preview.
+    let indicator = scene
+        .hovers()
+        .last()
+        .expect("a drop indicator once the bar narrows")
+        .middle();
     (scene.key, scene.caption) = ("hover", "the ones that did not fit, a click away");
-    step(&scene, 4600);
-    scene.hover = false;
+    scene.pointer = Some(Pointer {
+        column: indicator,
+        open: false,
+    });
+    script.show(&scene, 600);
+    scene.pointer = Some(Pointer {
+        column: indicator,
+        open: true,
+    });
+    script.show_still(&scene, 4600);
+    scene.pointer = None;
     (scene.key, scene.caption) = ("", "the terminal widens again");
     for columns in (NARROWEST..=COLUMNS).step_by(RESIZE_STEP).skip(1) {
         scene.columns = columns;
-        step(&scene, if columns == COLUMNS { 1600 } else { 300 });
+        script.show(&scene, if columns == COLUMNS { 2400 } else { 300 });
     }
+    script.animation()
+}
 
-    // The settings screen picks a theme, and the bar previews each change.
+/// The settings screen restyling the bar, which previews each change, then
+/// saving it. It stands still once every change is previewed.
+pub(super) fn settings() -> Animation {
+    let mut script = Script::default();
+    let mut scene = Scene::new("the bar in catppuccin-mocha, pills and unicode");
+    scene.right = RightPane::Shell { typed: "" };
+    script.show(&scene, 3000);
     scene.settings = Some(Settings {
         edits: 0,
         saved: false,
     });
     (scene.key, scene.caption) = ("Alt ,", "open the settings screen");
-    step(&scene, 3200);
+    script.show(&scene, 3200);
     let captions = [
-        "format_theme \"pills\": the bar previews each change",
-        "color_theme \"dracula\"",
-        "alias_theme \"unicode\"",
+        "format_theme \"powerline\": the bar previews each change",
+        "color_theme \"tokyo-night\"",
     ];
     for (edits, caption) in captions.into_iter().enumerate() {
         scene.settings = Some(Settings {
@@ -600,7 +755,11 @@ fn script() -> Vec<(Scene, u32)> {
             saved: false,
         });
         (scene.key, scene.caption) = ("", caption);
-        step(&scene, 3200);
+        if edits + 1 == THEME_EDITS.len() {
+            script.show_still(&scene, 3400);
+        } else {
+            script.show(&scene, 3400);
+        }
     }
     scene.settings = Some(Settings {
         edits: THEME_EDITS.len(),
@@ -608,53 +767,131 @@ fn script() -> Vec<(Scene, u32)> {
     });
     scene.theme = THEME_EDITS.len();
     (scene.key, scene.caption) = ("Ctrl a", "save it to the config file");
-    step(&scene, 2800);
+    script.show(&scene, 2800);
     scene.settings = None;
-    (scene.key, scene.caption) = ("Esc", "close the settings screen");
-    step(&scene, 2200);
+    (scene.key, scene.caption) = ("Esc", "close the settings screen: the new look stays");
+    script.show(&scene, 3000);
+    script.animation()
+}
 
-    // A nested session: the bar shows the keys of the session that has them.
+/// The hint the mouse demo rests on in a mode: the last before the drop
+/// indicator, so the pointer crosses others on its way.
+fn resting_hint(hovers: &[Hover]) -> &Hover {
+    match hovers {
+        [.., hint, _] | [hint] => hint,
+        [] => panic!("a hint that opens a menu"),
+    }
+}
+
+/// The pointer resting on hints of the bar, each one's menu opening over it,
+/// in normal mode and then in pane mode. A menu closes when the mode
+/// changes the bar under it, as the plugin closes it. It stands still on a
+/// pane mode menu.
+pub(super) fn mouse() -> Animation {
+    let mut script = Script::default();
+    let mut scene = Scene::new("the pointer on the bar's mode prefix opens nothing");
+    scene.right = RightPane::Shell { typed: "" };
+    let start = 2;
+    scene.pointer = Some(Pointer {
+        column: start,
+        open: false,
+    });
+    script.show(&scene, 2000);
+
+    let hint = resting_hint(&scene.hovers()).middle();
+    scene.caption = "moving across hints opens nothing until the pointer rests";
+    script.move_pointer(&mut scene, start, hint);
+    (scene.key, scene.caption) = ("hover", "rest on a hint: its menu opens");
+    scene.pointer = Some(Pointer {
+        column: hint,
+        open: true,
+    });
+    script.show(&scene, 3600);
+
+    scene.mode = InputMode::Pane;
+    (scene.key, scene.caption) = (
+        "Ctrl p",
+        "pane mode: the menu closes with the bar it came from",
+    );
+    scene.pointer = Some(Pointer {
+        column: hint,
+        open: false,
+    });
+    script.show(&scene, 2400);
+    let hovers = scene.hovers();
+    let pane_hint = resting_hint(&hovers).middle();
+    (scene.key, scene.caption) = ("", "the menus follow the mode");
+    script.move_pointer(&mut scene, hint, pane_hint);
+    (scene.key, scene.caption) = ("hover", "a pane mode hint's menu");
+    scene.pointer = Some(Pointer {
+        column: pane_hint,
+        open: true,
+    });
+    script.show_still(&scene, 3600);
+
+    let indicator = hovers.last().expect("a drop indicator").middle();
+    if indicator != pane_hint {
+        (scene.key, scene.caption) = ("", "on to the drop indicator");
+        script.move_pointer(&mut scene, pane_hint, indicator);
+        (scene.key, scene.caption) = ("hover", "the pane mode hints that did not fit");
+        scene.pointer = Some(Pointer {
+            column: indicator,
+            open: true,
+        });
+        script.show(&scene, 3600);
+    }
+    scene.mode = InputMode::Normal;
+    scene.pointer = None;
+    (scene.key, scene.caption) = ("Esc", "back to normal mode");
+    script.show(&scene, 2000);
+    script.animation()
+}
+
+/// The bar in one combination of themes after another. It stands still on
+/// the first, the base themes.
+pub(super) fn themes() -> Animation {
+    let mut script = Script::default();
+    let mut scene = Scene::new("");
+    scene.right = RightPane::Shell { typed: "" };
+    scene.name_look = true;
+    for look in &THEME_TOUR {
+        scene.look = look;
+        script.show(&scene, 1600);
+    }
+    script.animation()
+}
+
+/// A nested session in the right pane: the bar shows the keys of the session
+/// that has the keyboard, and the host's chrome fades while it does not. It
+/// stands still descended into the nested session.
+pub(super) fn nested() -> Animation {
+    use InputMode::{Normal, Pane};
+    let mut script = Script::default();
+    let mut scene = Scene::new("a host session with a shell in the right pane");
+    scene.right = RightPane::Shell { typed: "" };
+    script.show(&scene, 3000);
     scene.right = RightPane::Shell {
         typed: "zellij attach work",
     };
-    (scene.key, scene.caption) = ("", "start a nested session in the right pane");
-    step(&scene, 2800);
+    scene.caption = "start a nested session in the right pane";
+    script.show(&scene, 2800);
     scene.right = RightPane::Nested {
         mode: Normal,
         descended: true,
     };
-    (scene.key, scene.caption) = ("", "descended into it: the bar shows its keys");
-    step(&scene, 4000);
+    scene.caption = "descended into it: the bar shows its keys";
+    script.show_still(&scene, 4000);
     scene.right = RightPane::Nested {
         mode: Pane,
         descended: true,
     };
     (scene.key, scene.caption) = ("Ctrl p", "the nested session's pane mode");
-    step(&scene, 3200);
+    script.show(&scene, 3200);
     scene.right = RightPane::Nested {
         mode: Normal,
         descended: false,
     };
-    (scene.key, scene.caption) = ("", "back in the host session");
-    step(&scene, 3000);
-
-    scene.mode = Locked;
-    (scene.key, scene.caption) = ("Ctrl g", "locked mode: only the way out is shown");
-    step(&scene, 3400);
-    steps
-}
-
-/// The demo as an animation, standing still on the step with the settings
-/// screen previewing a theme.
-pub(super) fn demo() -> Animation {
-    let steps = script();
-    let still = steps
-        .iter()
-        .position(|(scene, _)| scene.settings.is_some_and(|settings| settings.edits == 2))
-        .expect("a step with the settings screen open");
-    let frames = steps
-        .iter()
-        .map(|(scene, milliseconds)| Frame::new(draw(scene), *milliseconds))
-        .collect();
-    Animation::new(frames, still)
+    (scene.key, scene.caption) = ("", "back in the host session: its own keys again");
+    script.show(&scene, 3400);
+    script.animation()
 }

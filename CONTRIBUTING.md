@@ -92,7 +92,7 @@ An animation is a list of frames, each a `Screen` and how long it shows, written
 2. Add `animation.to_svg(title)` to `images()` as with a still image, and run `make images`.
 3. In the page, give it alt text that tells the whole sequence, since a reader with motion turned off sees only the still frame.
 
-Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demo in the README, drawn by `src/images/session.rs`, is about 180 KB for 63 seconds. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does a viewer that applies CSS but does not animate it. A viewer that ignores the `<style>` block altogether draws every frame on top of the others, so check a new image in a browser.
+Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demos in the README, drawn by `src/images/session.rs`, run 16 to 26 seconds each and take 30 to 110 KB, the fitting demo the most for its resize. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does a viewer that applies CSS but does not animate it. A viewer that ignores the `<style>` block altogether draws every frame on top of the others, so check a new image in a browser.
 
 The session demo draws Zellij's tab bar, pane frames and pane contents by hand. Only the bar, its hover preview and the settings screen come from the plugin, so change the hand-drawn parts there when Zellij's look changes.
 

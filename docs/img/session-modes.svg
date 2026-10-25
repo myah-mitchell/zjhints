@@ -1,0 +1,399 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="510" viewBox="0 0 1108 510" role="img">
+<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<title>A Zellij session with the zjhints bar at the bottom, showing the keys of each mode as the session moves through them</title>
+<rect width="1108" height="510" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<style>
+@keyframes f0{0.000%{visibility:visible}}
+.f0{animation:f0 25600ms step-end infinite}
+@keyframes f1{0.000%{visibility:visible}28.125%{visibility:hidden}}
+.f1{animation:f1 25600ms step-end infinite}
+@keyframes f2{0.000%{visibility:hidden}28.125%{visibility:visible}}
+.f2{visibility:hidden;animation:f2 25600ms step-end infinite}
+@keyframes f3{0.000%{visibility:visible}15.625%{visibility:hidden}28.125%{visibility:visible}39.843%{visibility:hidden}50.781%{visibility:visible}58.593%{visibility:hidden}69.531%{visibility:visible}77.343%{visibility:hidden}90.625%{visibility:visible}}
+.f3{visibility:hidden;animation:f3 25600ms step-end infinite}
+@keyframes f4{0.000%{visibility:hidden}15.625%{visibility:visible}28.125%{visibility:hidden}}
+.f4{animation:f4 25600ms step-end infinite}
+@keyframes f5{0.000%{visibility:hidden}39.843%{visibility:visible}50.781%{visibility:hidden}}
+.f5{visibility:hidden;animation:f5 25600ms step-end infinite}
+@keyframes f6{0.000%{visibility:hidden}58.593%{visibility:visible}69.531%{visibility:hidden}}
+.f6{visibility:hidden;animation:f6 25600ms step-end infinite}
+@keyframes f7{0.000%{visibility:hidden}77.343%{visibility:visible}90.625%{visibility:hidden}}
+.f7{visibility:hidden;animation:f7 25600ms step-end infinite}
+@keyframes f8{0.000%{visibility:visible}15.625%{visibility:hidden}}
+.f8{visibility:hidden;animation:f8 25600ms step-end infinite}
+@keyframes f9{0.000%{visibility:hidden}28.125%{visibility:visible}39.843%{visibility:hidden}}
+.f9{visibility:hidden;animation:f9 25600ms step-end infinite}
+@keyframes f10{0.000%{visibility:hidden}50.781%{visibility:visible}58.593%{visibility:hidden}69.531%{visibility:visible}77.343%{visibility:hidden}}
+.f10{visibility:hidden;animation:f10 25600ms step-end infinite}
+@keyframes f11{0.000%{visibility:hidden}90.625%{visibility:visible}}
+.f11{visibility:hidden;animation:f11 25600ms step-end infinite}
+@media (prefers-reduced-motion:reduce){g[class]{animation:none}}
+</style>
+<g shape-rendering="crispEdges">
+<g class="f0">
+<rect x="135" y="0" width="81" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f2">
+<rect x="702" y="36" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f1">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f2">
+<rect x="162" y="126" width="9" height="18" fill="#cdd6f4"/>
+</g>
+<g class="f3">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#a6e3a1"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="45" height="18" fill="#313244"/>
+<rect x="225" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="252" y="414" width="36" height="18" fill="#313244"/>
+<rect x="315" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="342" y="414" width="63" height="18" fill="#313244"/>
+<rect x="432" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="459" y="414" width="45" height="18" fill="#313244"/>
+<rect x="531" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="558" y="414" width="63" height="18" fill="#313244"/>
+<rect x="648" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="675" y="414" width="72" height="18" fill="#313244"/>
+<rect x="774" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="801" y="414" width="45" height="18" fill="#313244"/>
+<rect x="873" y="414" width="90" height="18" fill="#cba6f7"/>
+<rect x="963" y="414" width="54" height="18" fill="#313244"/>
+<rect x="1044" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f4">
+<rect x="0" y="414" width="54" height="18" fill="#313244"/>
+<rect x="54" y="414" width="27" height="18" fill="#89b4fa"/>
+<rect x="108" y="414" width="45" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="36" height="18" fill="#313244"/>
+<rect x="216" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="234" y="414" width="54" height="18" fill="#313244"/>
+<rect x="315" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="333" y="414" width="99" height="18" fill="#313244"/>
+<rect x="459" y="414" width="45" height="18" fill="#cba6f7"/>
+<rect x="504" y="414" width="54" height="18" fill="#313244"/>
+<rect x="585" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="603" y="414" width="54" height="18" fill="#313244"/>
+<rect x="684" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="702" y="414" width="108" height="18" fill="#313244"/>
+<rect x="837" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="855" y="414" width="99" height="18" fill="#313244"/>
+<rect x="981" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f5">
+<rect x="0" y="414" width="45" height="18" fill="#313244"/>
+<rect x="45" y="414" width="27" height="18" fill="#f5c2e7"/>
+<rect x="99" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="117" y="414" width="36" height="18" fill="#313244"/>
+<rect x="180" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="198" y="414" width="54" height="18" fill="#313244"/>
+<rect x="279" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="297" y="414" width="99" height="18" fill="#313244"/>
+<rect x="423" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="441" y="414" width="45" height="18" fill="#313244"/>
+<rect x="513" y="414" width="18" height="18" fill="#cba6f7"/>
+<rect x="531" y="414" width="63" height="18" fill="#313244"/>
+<rect x="621" y="414" width="81" height="18" fill="#cba6f7"/>
+<rect x="702" y="414" width="54" height="18" fill="#313244"/>
+<rect x="783" y="414" width="54" height="18" fill="#cba6f7"/>
+<rect x="837" y="414" width="63" height="18" fill="#313244"/>
+<rect x="927" y="414" width="9" height="18" fill="#313244"/>
+</g>
+<g class="f6">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#f9e2af"/>
+<rect x="126" y="414" width="81" height="18" fill="#cba6f7"/>
+<rect x="207" y="414" width="63" height="18" fill="#313244"/>
+<rect x="297" y="414" width="81" height="18" fill="#cba6f7"/>
+<rect x="378" y="414" width="81" height="18" fill="#313244"/>
+<rect x="486" y="414" width="45" height="18" fill="#cba6f7"/>
+<rect x="531" y="414" width="81" height="18" fill="#313244"/>
+<rect x="639" y="414" width="54" height="18" fill="#cba6f7"/>
+<rect x="693" y="414" width="63" height="18" fill="#313244"/>
+</g>
+<g class="f7">
+<rect x="0" y="414" width="72" height="18" fill="#313244"/>
+<rect x="72" y="414" width="27" height="18" fill="#f38ba8"/>
+<rect x="126" y="414" width="27" height="18" fill="#cba6f7"/>
+<rect x="153" y="414" width="63" height="18" fill="#313244"/>
+</g>
+<g class="f4">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f9">
+<rect x="9" y="468" width="27" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f5">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f10">
+<rect x="9" y="468" width="45" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f6">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f7">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+<g class="f11">
+<rect x="9" y="468" width="72" height="18" fill="#a6e3a1"/>
+</g>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<g class="f0">
+<path d="M135 0L144 9L135 18Z" fill="#1e1e2e"/>
+<path d="M216 0L225 9L216 18Z" fill="#a6e3a1"/>
+<text y="13"><tspan x="9 18 27 36 45 54 72 81 90 99 108 117" fill="#cdd6f4" font-weight="bold">Zellij(demo)</tspan><tspan x="153 162 171 189 198" fill="#181825" font-weight="bold">Tab#1</tspan></text>
+</g>
+<g class="f1">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────────────────────────────────────────────────────────────────────────────────────────┐</tspan></text>
+</g>
+<g class="f2">
+<text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">┌~/src/zjhints───────────────────────────────────────────┐</tspan><tspan x="540 558 567 576 585 594 603 612 621 630 639 648 657 666 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────────────────────────────┐</tspan></text>
+</g>
+<g class="f1">
+<text y="49"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243" fill="#cdd6f4">cargotest</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="49"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="162 171 180 189 198 216 225 234 243 531" fill="#cdd6f4">cargotest│</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="558 567 576 585 594 603 612 621 630 639 648 657 666" fill="#fab387">~/src/zjhints</tspan><tspan x="684" fill="#a6e3a1">❯</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f1">
+<text y="67"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333" fill="#cdd6f4">Compilingzjhints(~/src/zjhints)</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="67"><tspan x="0 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 531" fill="#cdd6f4">│Compilingzjhints(~/src/zjhints)│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="85"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333" fill="#cdd6f4">Finished`test`profilein4.21s</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="85"><tspan x="0 54 63 72 81 90 99 108 117 135 144 153 162 171 180 198 207 216 225 234 243 252 270 279 297 306 315 324 333 531" fill="#cdd6f4">│Finished`test`profilein4.21s│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="103"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315" fill="#cdd6f4">Runningunittestssrc/main.rs</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="103"><tspan x="0 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 225 234 243 252 261 270 279 288 297 306 315 531" fill="#cdd6f4">│Runningunittestssrc/main.rs│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="121"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342" fill="#cdd6f4">.373passed;0failed</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="121"><tspan x="0 18 27 36 45 63 72 81 90 99 108 117" fill="#cdd6f4">│testresult:</tspan><tspan x="135 144" fill="#a6e3a1">ok</tspan><tspan x="153 171 180 189 207 216 225 234 243 252 261 279 297 306 315 324 333 342 531" fill="#cdd6f4">.373passed;0failed│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="139"><tspan x="0" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
+</g>
+<g class="f2">
+<text y="139"><tspan x="0" fill="#cdd6f4">│</tspan><tspan x="18 27 36 45 54 63 72 81 90 99 108 117 126" fill="#fab387">~/src/zjhints</tspan><tspan x="144" fill="#a6e3a1">❯</tspan><tspan x="531" fill="#cdd6f4">│</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="157"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="157"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="175"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="175"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="193"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="193"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="211"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="211"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="229"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="229"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="247"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="247"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="265"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="265"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="283"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="283"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="301"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="301"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="319"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="319"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="337"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="337"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="355"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="355"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="373"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="373"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="391"><tspan x="0 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f2">
+<text y="391"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
+</g>
+<g class="f1">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</tspan></text>
+</g>
+<g class="f2">
+<text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">└──────────────────────────────────────────────────────────┘</tspan><tspan x="540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────────────────────────────┘</tspan></text>
+</g>
+<g class="f3">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#a6e3a1"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M198 414A9 9 0 0 1 198 432Z" fill="#313244"/>
+<path d="M225 414A9 9 0 0 0 225 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M405 414A9 9 0 0 1 405 432Z" fill="#313244"/>
+<path d="M432 414A9 9 0 0 0 432 432Z" fill="#cba6f7"/>
+<path d="M504 414A9 9 0 0 1 504 432Z" fill="#313244"/>
+<path d="M531 414A9 9 0 0 0 531 432Z" fill="#cba6f7"/>
+<path d="M621 414A9 9 0 0 1 621 432Z" fill="#313244"/>
+<path d="M648 414A9 9 0 0 0 648 432Z" fill="#cba6f7"/>
+<path d="M747 414A9 9 0 0 1 747 432Z" fill="#313244"/>
+<path d="M774 414A9 9 0 0 0 774 432Z" fill="#cba6f7"/>
+<path d="M846 414A9 9 0 0 1 846 432Z" fill="#313244"/>
+<path d="M873 414A9 9 0 0 0 873 432Z" fill="#cba6f7"/>
+<path d="M1017 414A9 9 0 0 1 1017 432Z" fill="#313244"/>
+<path d="M1044 414A9 9 0 0 0 1044 432Z" fill="#313244"/>
+<path d="M1053 414A9 9 0 0 1 1053 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⌨^p</tspan><tspan x="162 171 180 189" fill="#cba6f7" font-weight="bold">pane</tspan><tspan x="225 234" fill="#1e1e2e" font-weight="bold">^t</tspan><tspan x="261 270 279" fill="#cba6f7" font-weight="bold">tab</tspan><tspan x="315 324" fill="#1e1e2e" font-weight="bold">^n</tspan><tspan x="351 360 369 378 387 396" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="432 441" fill="#1e1e2e" font-weight="bold">^h</tspan><tspan x="468 477 486 495" fill="#cba6f7" font-weight="bold">move</tspan><tspan x="531 540" fill="#1e1e2e" font-weight="bold">^s</tspan><tspan x="567 576 585 594 603 612" fill="#cba6f7" font-weight="bold">scroll</tspan><tspan x="648 657" fill="#1e1e2e" font-weight="bold">^o</tspan><tspan x="684 693 702 711 720 729 738" fill="#cba6f7" font-weight="bold">session</tspan><tspan x="774 783" fill="#1e1e2e" font-weight="bold">^q</tspan><tspan x="810 819 828 837" fill="#cba6f7" font-weight="bold">quit</tspan><tspan x="873 882 891 900 909 918 927 936 945" fill="#1e1e2e" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="972 981 990 999 1008" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="1044" fill="#cdd6f4">…</tspan></text>
+</g>
+<g class="f4">
+<path d="M81 414A9 9 0 0 1 81 432Z" fill="#89b4fa"/>
+<path d="M108 414A9 9 0 0 0 108 432Z" fill="#cba6f7"/>
+<path d="M189 414A9 9 0 0 1 189 432Z" fill="#313244"/>
+<path d="M216 414A9 9 0 0 0 216 432Z" fill="#cba6f7"/>
+<path d="M288 414A9 9 0 0 1 288 432Z" fill="#313244"/>
+<path d="M315 414A9 9 0 0 0 315 432Z" fill="#cba6f7"/>
+<path d="M432 414A9 9 0 0 1 432 432Z" fill="#313244"/>
+<path d="M459 414A9 9 0 0 0 459 432Z" fill="#cba6f7"/>
+<path d="M558 414A9 9 0 0 1 558 432Z" fill="#313244"/>
+<path d="M585 414A9 9 0 0 0 585 432Z" fill="#cba6f7"/>
+<path d="M657 414A9 9 0 0 1 657 432Z" fill="#313244"/>
+<path d="M684 414A9 9 0 0 0 684 432Z" fill="#cba6f7"/>
+<path d="M810 414A9 9 0 0 1 810 432Z" fill="#313244"/>
+<path d="M837 414A9 9 0 0 0 837 432Z" fill="#cba6f7"/>
+<path d="M954 414A9 9 0 0 1 954 432Z" fill="#313244"/>
+<path d="M981 414A9 9 0 0 0 981 432Z" fill="#313244"/>
+<path d="M990 414A9 9 0 0 1 990 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36" fill="#89b4fa" font-weight="bold">PANE</tspan><tspan x="63 108 126 135" fill="#1e1e2e" font-weight="bold">▣n⌥n</tspan><tspan x="162 171 180" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="216" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="243 252 261 270 279" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="315" fill="#1e1e2e" font-weight="bold">f</tspan><tspan x="342 351 360 369 378 387 396 405 414 423" fill="#cba6f7" font-weight="bold">fullscreen</tspan><tspan x="459 477 486" fill="#1e1e2e" font-weight="bold">w⌥f</tspan><tspan x="513 522 531 540 549" fill="#cba6f7" font-weight="bold">float</tspan><tspan x="585" fill="#1e1e2e" font-weight="bold">e</tspan><tspan x="612 621 630 639 648" fill="#cba6f7" font-weight="bold">embed</tspan><tspan x="684" fill="#1e1e2e" font-weight="bold">r</tspan><tspan x="711 720 729 738 747 765 774 783 792 801" fill="#cba6f7" font-weight="bold">splitright</tspan><tspan x="837" fill="#1e1e2e" font-weight="bold">d</tspan><tspan x="864 873 882 891 900 918 927 936 945" fill="#cba6f7" font-weight="bold">splitdown</tspan><tspan x="981" fill="#cdd6f4">…</tspan></text>
+</g>
+<g class="f5">
+<path d="M72 414A9 9 0 0 1 72 432Z" fill="#f5c2e7"/>
+<path d="M99 414A9 9 0 0 0 99 432Z" fill="#cba6f7"/>
+<path d="M153 414A9 9 0 0 1 153 432Z" fill="#313244"/>
+<path d="M180 414A9 9 0 0 0 180 432Z" fill="#cba6f7"/>
+<path d="M252 414A9 9 0 0 1 252 432Z" fill="#313244"/>
+<path d="M279 414A9 9 0 0 0 279 432Z" fill="#cba6f7"/>
+<path d="M396 414A9 9 0 0 1 396 432Z" fill="#313244"/>
+<path d="M423 414A9 9 0 0 0 423 432Z" fill="#cba6f7"/>
+<path d="M486 414A9 9 0 0 1 486 432Z" fill="#313244"/>
+<path d="M513 414A9 9 0 0 0 513 432Z" fill="#cba6f7"/>
+<path d="M594 414A9 9 0 0 1 594 432Z" fill="#313244"/>
+<path d="M621 414A9 9 0 0 0 621 432Z" fill="#cba6f7"/>
+<path d="M756 414A9 9 0 0 1 756 432Z" fill="#313244"/>
+<path d="M783 414A9 9 0 0 0 783 432Z" fill="#cba6f7"/>
+<path d="M900 414A9 9 0 0 1 900 432Z" fill="#313244"/>
+<path d="M927 414A9 9 0 0 0 927 432Z" fill="#313244"/>
+<path d="M936 414A9 9 0 0 1 936 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27" fill="#f5c2e7" font-weight="bold">TAB</tspan><tspan x="54 99" fill="#1e1e2e" font-weight="bold">⧉n</tspan><tspan x="126 135 144" fill="#cba6f7" font-weight="bold">new</tspan><tspan x="180" fill="#1e1e2e" font-weight="bold">x</tspan><tspan x="207 216 225 234 243" fill="#cba6f7" font-weight="bold">close</tspan><tspan x="279" fill="#1e1e2e" font-weight="bold">b</tspan><tspan x="306 315 324 333 342 360 369 378 387" fill="#cba6f7" font-weight="bold">breakpane</tspan><tspan x="423" fill="#1e1e2e" font-weight="bold">s</tspan><tspan x="450 459 468 477" fill="#cba6f7" font-weight="bold">sync</tspan><tspan x="513" fill="#1e1e2e" font-weight="bold">r</tspan><tspan x="540 549 558 567 576 585" fill="#cba6f7" font-weight="bold">rename</tspan><tspan x="621 630 639 648 657 666 675 684" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→</tspan><tspan x="711 720 729 738 747" fill="#cba6f7" font-weight="bold">focus</tspan><tspan x="783 792 810 819" fill="#1e1e2e" font-weight="bold">⎋⏎^t</tspan><tspan x="846 855 864 873 882 891" fill="#cba6f7" font-weight="bold">normal</tspan><tspan x="927" fill="#cdd6f4">…</tspan></text>
+</g>
+<g class="f6">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#f9e2af"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M270 414A9 9 0 0 1 270 432Z" fill="#313244"/>
+<path d="M297 414A9 9 0 0 0 297 432Z" fill="#cba6f7"/>
+<path d="M459 414A9 9 0 0 1 459 432Z" fill="#313244"/>
+<path d="M486 414A9 9 0 0 0 486 432Z" fill="#cba6f7"/>
+<path d="M612 414A9 9 0 0 1 612 432Z" fill="#313244"/>
+<path d="M639 414A9 9 0 0 0 639 432Z" fill="#cba6f7"/>
+<path d="M756 414A9 9 0 0 1 756 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#f9e2af" font-weight="bold">RESIZE</tspan><tspan x="81 126 135 144 162 171 180 189" fill="#1e1e2e" font-weight="bold">⤡-=+⌥-=+</tspan><tspan x="216 225 234 243 252 261" fill="#cba6f7" font-weight="bold">resize</tspan><tspan x="297 306 315 324 333 342 351 360" fill="#1e1e2e" font-weight="bold">hjkl←↓↑→</tspan><tspan x="387 396 405 414 423 432 441 450" fill="#cba6f7" font-weight="bold">increase</tspan><tspan x="486 495 504 513" fill="#1e1e2e" font-weight="bold">HJKL</tspan><tspan x="540 549 558 567 576 585 594 603" fill="#cba6f7" font-weight="bold">decrease</tspan><tspan x="639 648 666 675" fill="#1e1e2e" font-weight="bold">⎋⏎^n</tspan><tspan x="702 711 720 729 738 747" fill="#cba6f7" font-weight="bold">normal</tspan></text>
+</g>
+<g class="f7">
+<path d="M99 414A9 9 0 0 1 99 432Z" fill="#f38ba8"/>
+<path d="M126 414A9 9 0 0 0 126 432Z" fill="#cba6f7"/>
+<path d="M216 414A9 9 0 0 1 216 432Z" fill="#313244"/>
+<text y="427"><tspan x="9 18 27 36 45 54" fill="#f38ba8" font-weight="bold">LOCKED</tspan><tspan x="81 126 135" fill="#1e1e2e" font-weight="bold">⊘^g</tspan><tspan x="162 171 180 189 198 207" fill="#cba6f7" font-weight="bold">normal</tspan></text>
+</g>
+<g class="f0">
+<text y="463"><tspan x="0 9 27 36 45 54 63 72 81 90 99 108 126 135 144 162 171 180 189 207 216 234 243 252 270 279 288 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#878ca4">╌╌narration,notpartofthesession╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌</tspan></text>
+</g>
+<g class="f8">
+<text y="481"><tspan x="9 18 27 36 45 54 63 81 90 99 108 117 135 144 153 171 180 189 198 216 225 243 252 261 279 288 297 306 324 333 342 360 369 378 396 405" fill="#cdd6f4" font-style="italic">zjhintsshowsthekeysofthemodeyouarein</tspan></text>
+</g>
+<g class="f4">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlp</tspan><tspan x="99 108 117 126 144 153 162 171 180 198 207 216 234 243 252 270 279 288 297 306 315 324" fill="#cdd6f4" font-style="italic">panemode:thebarfollows</tspan></text>
+</g>
+<g class="f9">
+<path d="M36 468A9 9 0 0 1 36 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18" fill="#181825" font-weight="bold">r</tspan><tspan x="54 63 72 81 90 108 117 126 135 144 153 171 180 189 207 216 225 234 252 261 279 288 297 306 315 324 342 351 360 369" fill="#cdd6f4" font-style="italic">splitright,andbacktonormalmode</tspan></text>
+</g>
+<g class="f5">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlt</tspan><tspan x="99 108 117 135 144 153 162" fill="#cdd6f4" font-style="italic">tabmode</tspan></text>
+</g>
+<g class="f10">
+<path d="M54 468A9 9 0 0 1 54 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36" fill="#181825" font-weight="bold">Esc</tspan><tspan x="72 81 90 99 117 126 144 153 162 171 180 189 207 216 225 234" fill="#cdd6f4" font-style="italic">backtonormalmode</tspan></text>
+</g>
+<g class="f6">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrln</tspan><tspan x="99 108 117 126 135 144 162 171 180 189" fill="#cdd6f4" font-style="italic">resizemode</tspan></text>
+</g>
+<g class="f7">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlg</tspan><tspan x="99 108 117 126 135 144 162 171 180 189 198 216 225 234 243 261 270 279 297 306 315 333 342 351 369 378 396 405 414 423 432" fill="#cdd6f4" font-style="italic">lockedmode:onlythewayoutisshown</tspan></text>
+</g>
+<g class="f11">
+<path d="M81 468A9 9 0 0 1 81 486Z" fill="#a6e3a1"/>
+<text y="481"><tspan x="18 27 36 45 63" fill="#181825" font-weight="bold">Ctrlg</tspan><tspan x="99 108 117 126 135 144 153 162 171 189 198 207 216 234 243 261 270 279 288 297 306 324 333 342 351" fill="#cdd6f4" font-style="italic">unlocked,backtonormalmode</tspan></text>
+</g>
+</g>
+</g>
+</svg>
