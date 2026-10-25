@@ -178,6 +178,8 @@ Each group with families ends in a button per family to add a key, such as *+ ad
 
 Every change shows on the bars started from the alias as soon as you make it. Nothing is written to the file until you press `Ctrl a` or click the save button. Only the keys you changed are rewritten, so the file's comments and layout stay as they were.
 
+![The settings screen on the Theme group, over a bar started from the alias. format_theme is set to flat, then powerline, then pills, then color_theme to dracula and alias_theme to unicode. With each change the header counts the unsaved changes, the preview under the theme options redraws, and the bar under the screen restyles to match it, from Zellij's ribbons to purple dracula pills with ^p style keys](img/settings-live.svg)
+
 `r` reverts the selected option, and `Ctrl r` reverts them all after asking. A revert puts the bars back to the file's values too.
 
 If the file changed on disk since Zellij read it, saving stops and asks what to do:

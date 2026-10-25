@@ -1,39 +1,118 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="258" viewBox="0 0 1108 258" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="276" viewBox="0 0 1108 276" role="img">
 <!-- Drawn by src/images.rs: edit the code and run `make images`. -->
-<title>The hover preview of a hint, listing what clicking it offers</title>
-<rect width="1108" height="258" rx="8" fill="#1e1e2e"/>
+<title>The pointer resting on hints of the bar, each one's hover preview opening over it</title>
+<rect width="1108" height="276" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
+<style>
+@keyframes f0{0.000%{visibility:hidden}66.666%{visibility:visible}}
+.f0{animation:f0 9000ms step-end infinite}
+@keyframes f1{0.000%{visibility:hidden}26.666%{visibility:visible}60.000%{visibility:hidden}}
+.f1{visibility:hidden;animation:f1 9000ms step-end infinite}
+@keyframes f2{0.000%{visibility:visible}}
+.f2{animation:f2 9000ms step-end infinite}
+@keyframes f3{0.000%{visibility:visible}13.333%{visibility:hidden}}
+.f3{visibility:hidden;animation:f3 9000ms step-end infinite}
+@keyframes f4{0.000%{visibility:hidden}13.333%{visibility:visible}15.555%{visibility:hidden}}
+.f4{visibility:hidden;animation:f4 9000ms step-end infinite}
+@keyframes f5{0.000%{visibility:hidden}15.555%{visibility:visible}17.777%{visibility:hidden}}
+.f5{visibility:hidden;animation:f5 9000ms step-end infinite}
+@keyframes f6{0.000%{visibility:hidden}17.777%{visibility:visible}20.000%{visibility:hidden}}
+.f6{visibility:hidden;animation:f6 9000ms step-end infinite}
+@keyframes f7{0.000%{visibility:hidden}20.000%{visibility:visible}60.000%{visibility:hidden}}
+.f7{visibility:hidden;animation:f7 9000ms step-end infinite}
+@keyframes f8{0.000%{visibility:hidden}60.000%{visibility:visible}}
+.f8{animation:f8 9000ms step-end infinite}
+@media (prefers-reduced-motion:reduce){g[class]{animation:none}}
+</style>
 <g shape-rendering="crispEdges">
-<rect x="0" y="0" width="54" height="18" fill="#a6e3a1"/>
-<rect x="63" y="0" width="81" height="18" fill="#cdd6f4"/>
-<rect x="144" y="0" width="45" height="18" fill="#181825"/>
-<rect x="198" y="0" width="27" height="18" fill="#cdd6f4"/>
-<rect x="225" y="0" width="63" height="18" fill="#181825"/>
-<rect x="297" y="0" width="27" height="18" fill="#cdd6f4"/>
-<rect x="324" y="0" width="108" height="18" fill="#181825"/>
-<rect x="441" y="0" width="81" height="18" fill="#cdd6f4"/>
-<rect x="522" y="0" width="63" height="18" fill="#181825"/>
-<rect x="594" y="0" width="27" height="18" fill="#cdd6f4"/>
-<rect x="621" y="0" width="63" height="18" fill="#181825"/>
-<rect x="693" y="0" width="27" height="18" fill="#cdd6f4"/>
-<rect x="720" y="0" width="117" height="18" fill="#181825"/>
-<rect x="846" y="0" width="27" height="18" fill="#cdd6f4"/>
-<rect x="873" y="0" width="108" height="18" fill="#181825"/>
+<g class="f2">
+<rect x="0" y="216" width="54" height="18" fill="#a6e3a1"/>
+<rect x="63" y="216" width="81" height="18" fill="#cdd6f4"/>
+<rect x="144" y="216" width="45" height="18" fill="#181825"/>
+<rect x="198" y="216" width="27" height="18" fill="#cdd6f4"/>
+<rect x="225" y="216" width="63" height="18" fill="#181825"/>
+<rect x="297" y="216" width="27" height="18" fill="#cdd6f4"/>
+<rect x="324" y="216" width="108" height="18" fill="#181825"/>
+<rect x="441" y="216" width="81" height="18" fill="#cdd6f4"/>
+<rect x="522" y="216" width="63" height="18" fill="#181825"/>
+<rect x="594" y="216" width="27" height="18" fill="#cdd6f4"/>
+<rect x="621" y="216" width="63" height="18" fill="#181825"/>
+<rect x="693" y="216" width="27" height="18" fill="#cdd6f4"/>
+<rect x="720" y="216" width="117" height="18" fill="#181825"/>
+<rect x="846" y="216" width="27" height="18" fill="#cdd6f4"/>
+<rect x="873" y="216" width="108" height="18" fill="#181825"/>
+</g>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
-<text y="13"><tspan x="9 18 27 36 72 90 99 108 126" fill="#181825" font-weight="bold">PANEnAltn</tspan><tspan x="153 162 171" fill="#cdd6f4">new</tspan><tspan x="207" fill="#181825" font-weight="bold">x</tspan><tspan x="234 243 252 261 270" fill="#cdd6f4">close</tspan><tspan x="306" fill="#181825" font-weight="bold">f</tspan><tspan x="333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">fullscreen</tspan><tspan x="450 468 477 486 504" fill="#181825" font-weight="bold">wAltf</tspan><tspan x="531 540 549 558 567" fill="#cdd6f4">float</tspan><tspan x="603" fill="#181825" font-weight="bold">e</tspan><tspan x="630 639 648 657 666" fill="#cdd6f4">embed</tspan><tspan x="702" fill="#181825" font-weight="bold">r</tspan><tspan x="729 738 747 756 765 783 792 801 810 819" fill="#cdd6f4">splitright</tspan><tspan x="855" fill="#181825" font-weight="bold">d</tspan><tspan x="882 891 900 909 918 936 945 954 963 981" fill="#cdd6f4">splitdown…</tspan></text>
-<text y="31"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">┌────────────────────────────────────────┐</tspan></text>
-<text y="49"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│crename│</tspan></text>
-<text y="67"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 837 846 855 864 891 900 909 918 927 1071" fill="#cdd6f4">│h←j↓k↑l→Altj↓k↑focus│</tspan></text>
-<text y="85"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 828 846 873 882 891 900 909 918 1071" fill="#cdd6f4">│ESCENTERCtrlpnormal│</tspan></text>
-<text y="103"><tspan x="702 720 747 756 765 774 783 801 810 819 828 846 855 864 873 1071" fill="#cdd6f4">│;focuslastpane│</tspan></text>
-<text y="121"><tspan x="702 720 747 756 765 774 783 792 801 810 1071" fill="#cdd6f4">│afloating│</tspan></text>
-<text y="139"><tspan x="702 720 729 738 747 756 774 801 810 819 828 837 846 864 873 882 891 900 918 927 945 954 972 981 990 999 1008 1017 1026 1035 1044 1053 1071" fill="#cdd6f4">│Shiftftogglefocusnouifullscreen│</tspan></text>
-<text y="157"><tspan x="702 720 747 756 765 1071" fill="#cdd6f4">│ipin│</tspan></text>
-<text y="175"><tspan x="702 720 747 756 765 774 783 792 810 819 828 837 846 1071" fill="#cdd6f4">│ptogglefocus│</tspan></text>
-<text y="193"><tspan x="702 720 747 756 765 774 783 792 801 1071" fill="#cdd6f4">│sstacked│</tspan></text>
-<text y="211"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│zframes│</tspan></text>
-<text y="229"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">└────────────────────────────────────────┘</tspan></text>
+<g class="f0">
+<text y="13"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">┌────────────────────────────────────────┐</tspan></text>
+</g>
+<g class="f0">
+<text y="31"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│crename│</tspan></text>
+</g>
+<g class="f0">
+<text y="49"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 837 846 855 864 891 900 909 918 927 1071" fill="#cdd6f4">│h←j↓k↑l→Altj↓k↑focus│</tspan></text>
+</g>
+<g class="f0">
+<text y="67"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 828 846 873 882 891 900 909 918 1071" fill="#cdd6f4">│ESCENTERCtrlpnormal│</tspan></text>
+</g>
+<g class="f0">
+<text y="85"><tspan x="702 720 747 756 765 774 783 801 810 819 828 846 855 864 873 1071" fill="#cdd6f4">│;focuslastpane│</tspan></text>
+</g>
+<g class="f0">
+<text y="103"><tspan x="702 720 747 756 765 774 783 792 801 810 1071" fill="#cdd6f4">│afloating│</tspan></text>
+</g>
+<g class="f0">
+<text y="121"><tspan x="702 720 729 738 747 756 774 801 810 819 828 837 846 864 873 882 891 900 918 927 945 954 972 981 990 999 1008 1017 1026 1035 1044 1053 1071" fill="#cdd6f4">│Shiftftogglefocusnouifullscreen│</tspan></text>
+</g>
+<g class="f0">
+<text y="139"><tspan x="702 720 747 756 765 1071" fill="#cdd6f4">│ipin│</tspan></text>
+</g>
+<g class="f1">
+<text y="157"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711" fill="#cdd6f4">┌──────────────────────────────┐</tspan></text>
+</g>
+<g class="f0">
+<text y="157"><tspan x="702 720 747 756 765 774 783 792 810 819 828 837 846 1071" fill="#cdd6f4">│ptogglefocus│</tspan></text>
+</g>
+<g class="f1">
+<text y="175"><tspan x="432 450 477 486 495 504 513 522 540 549 558 567 576 585 594 603 621 630 639 648 657 711" fill="#cdd6f4">│wtogglefloatingpanes│</tspan></text>
+</g>
+<g class="f0">
+<text y="175"><tspan x="702 720 747 756 765 774 783 792 801 1071" fill="#cdd6f4">│sstacked│</tspan></text>
+</g>
+<g class="f1">
+<text y="193"><tspan x="432 450 459 468 486 513 522 531 540 549 558 576 585 594 603 612 621 630 639 657 666 675 684 693 711" fill="#cdd6f4">│Altftogglefloatingpanes│</tspan></text>
+</g>
+<g class="f0">
+<text y="193"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│zframes│</tspan></text>
+</g>
+<g class="f1">
+<text y="211"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711" fill="#cdd6f4">└──────────────────────────────┘</tspan></text>
+</g>
+<g class="f0">
+<text y="211"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">└────────────────────────────────────────┘</tspan></text>
+</g>
+<g class="f2">
+<text y="229"><tspan x="9 18 27 36 72 90 99 108 126" fill="#181825" font-weight="bold">PANEnAltn</tspan><tspan x="153 162 171" fill="#cdd6f4">new</tspan><tspan x="207" fill="#181825" font-weight="bold">x</tspan><tspan x="234 243 252 261 270" fill="#cdd6f4">close</tspan><tspan x="306" fill="#181825" font-weight="bold">f</tspan><tspan x="333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">fullscreen</tspan><tspan x="450 468 477 486 504" fill="#181825" font-weight="bold">wAltf</tspan><tspan x="531 540 549 558 567" fill="#cdd6f4">float</tspan><tspan x="603" fill="#181825" font-weight="bold">e</tspan><tspan x="630 639 648 657 666" fill="#cdd6f4">embed</tspan><tspan x="702" fill="#181825" font-weight="bold">r</tspan><tspan x="729 738 747 756 765 783 792 801 810 819" fill="#cdd6f4">splitright</tspan><tspan x="855" fill="#181825" font-weight="bold">d</tspan><tspan x="882 891 900 909 918 936 945 954 963 981" fill="#cdd6f4">splitdown…</tspan></text>
+</g>
+<g class="f3">
+<path d="M18 234L18 249L22 245L25 251L27 250L24 244L29 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f4">
+<path d="M117 234L117 249L121 245L124 251L126 250L123 244L128 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f5">
+<path d="M216 234L216 249L220 245L223 251L225 250L222 244L227 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f6">
+<path d="M315 234L315 249L319 245L322 251L324 250L321 244L326 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f7">
+<path d="M432 234L432 249L436 245L439 251L441 250L438 244L443 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
+<g class="f8">
+<path d="M981 234L981 249L985 245L988 251L990 250L987 244L992 244Z" fill="#ffffff" stroke="#1e1e2e"/>
+</g>
 </g>
 </g>
 </svg>

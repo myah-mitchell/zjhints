@@ -1221,7 +1221,14 @@ fn settings_screen(
         if !overrides.is_empty() {
             let x = layout.content_x + view::columns(&caption) + 2;
             let button = view::overrides_button(true);
-            print_buttons(&mut screen, y, x, layout.content_x + width, &[button], &pens);
+            print_buttons(
+                &mut screen,
+                y,
+                x,
+                layout.content_x + width,
+                &[button],
+                &pens,
+            );
         }
         let bar = view::theme_preview(editor.working(), &mode_info, true, width);
         screen.print(y + 1, layout.content_x, &bar);
@@ -1252,29 +1259,130 @@ fn settings_screen(
     screen
 }
 
-/// The bar with the hover preview of its last hint or marker that has one open
-/// below it, as the popup draws it.
-fn hover_preview() -> Screen {
-    let options = [("show_mode", "true"), ("mouse", "true")];
-    let (line, map) = bar(&options, InputMode::Pane, BAR_COLUMNS);
-    // The last one is the drop indicator's, which lists the most.
-    let preview = (0..BAR_COLUMNS)
-        .rev()
-        .find_map(|column| mouse::hover_preview(&map, &Mouse::Hover(0, column)))
-        .expect("a hint that opens a menu");
+/// The hover preview popup of a hint, placed on a screen.
+struct Hover {
+    /// The columns of the hint or marker it previews.
+    hint: std::ops::Range<usize>,
+    /// The column of its left edge.
+    left: usize,
+    lines: Vec<String>,
+}
+
+/// The hover preview of what is under `column` of the bar `map` was drawn
+/// with, as the popup draws it on a screen `columns` wide, or `None` when
+/// that spot shows none. The popup hangs from the hint it previews, shifted
+/// left when that would put it off the screen.
+fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
+    let preview = mouse::hover_preview(map, &Mouse::Hover(0, column))?;
     let configuration = popup::configuration("1-1", &preview.entries, false);
     let popup = PreviewPopup::from_configuration(&configuration).expect("a preview popup");
     let (width, height) = popup::size(&preview.entries, false);
+    Some(Hover {
+        left: preview.columns.start.min(columns.saturating_sub(width)),
+        hint: preview.columns,
+        lines: popup.lines(height, width),
+    })
+}
 
-    let mut screen = Screen::new(1 + height, BAR_COLUMNS);
-    screen.print(0, 0, &line);
-    // A popup hangs from the hint it previews, shifted left when that would
-    // put it off the screen.
-    let left = preview.columns.start.min(BAR_COLUMNS.saturating_sub(width));
-    for (offset, popup_line) in popup.lines(height, width).iter().enumerate() {
-        screen.print(1 + offset, left, popup_line);
+impl Hover {
+    /// The popup with its bottom edge on the row above `bar_row`, as it opens
+    /// over a bar at the bottom of the screen.
+    fn draw_above(&self, screen: &mut Screen, bar_row: usize) {
+        let top = bar_row - self.lines.len();
+        for (offset, line) in self.lines.iter().enumerate() {
+            screen.print(top + offset, self.left, line);
+        }
     }
-    screen
+}
+
+/// The mouse pointer with its tip at the top left of the cell at `row` and
+/// `column`, so it touches the cell above from below.
+fn draw_pointer(screen: &mut Screen, row: usize, column: usize) {
+    let pointer = Pen::colored((0xff, 0xff, 0xff));
+    screen.print_with(row, column, &MOUSE_POINTER.to_string(), |_| pointer);
+}
+
+/// The pointer moving along a bar at the bottom of the screen: swept across
+/// the first hints it opens no popup, then it rests on a hint whose keys do
+/// different things and on the drop indicator, and each one's popup opens
+/// over the bar. It stands still on the drop indicator's popup.
+fn hover_sweep() -> Animation {
+    let options = [("show_mode", "true"), ("mouse", "true")];
+    let (line, map) = bar(&options, InputMode::Pane, BAR_COLUMNS);
+    let mut hovers: Vec<Hover> = Vec::new();
+    for column in 0..BAR_COLUMNS {
+        if let Some(hover) = hover_at(&map, column, BAR_COLUMNS) {
+            if hovers.last().is_none_or(|last| last.hint != hover.hint) {
+                hovers.push(hover);
+            }
+        }
+    }
+    // The last hint before the drop indicator, so the sweep crosses others.
+    let [.., hint, indicator] = hovers.as_slice() else {
+        panic!("a hint and the drop indicator that open popups");
+    };
+    let bar_row = hovers
+        .iter()
+        .map(|hover| hover.lines.len())
+        .max()
+        .unwrap_or(0);
+    let frame = |pointer: usize, hover: Option<&Hover>, milliseconds: u32| {
+        let mut screen = Screen::new(bar_row + 2, BAR_COLUMNS);
+        screen.print(bar_row, 0, &line);
+        if let Some(hover) = hover {
+            hover.draw_above(&mut screen, bar_row);
+        }
+        draw_pointer(&mut screen, bar_row + 1, pointer);
+        Frame::new(screen, milliseconds)
+    };
+    // The pointer starts on the mode prefix, which shows nothing.
+    let mut frames = vec![frame(2, None, 1200)];
+    let sweep = hint.hint.start.saturating_sub(2) / 4;
+    frames.extend((1..4).map(|step| frame(2 + sweep * step, None, 200)));
+    for hover in [hint, indicator] {
+        // The popup opens once the pointer has rested a moment.
+        frames.push(frame(hover.hint.start, None, 600));
+        frames.push(frame(hover.hint.start, Some(hover), 3000));
+    }
+    let still = frames.len() - 1;
+    Animation::new(frames, still)
+}
+
+/// The settings screen on the Theme group as each theme option is picked,
+/// over a bar started from the alias, which takes each change as it is made.
+/// It stands still once `format_theme` is pills.
+fn settings_live() -> Animation {
+    let options = [("show_mode", "true")];
+    let edits = [
+        ("format_theme", "flat"),
+        ("format_theme", "powerline"),
+        ("format_theme", "pills"),
+        ("color_theme", "dracula"),
+        ("alias_theme", "unicode"),
+    ];
+    let (rows, columns) = (22, 100);
+    let caption = Pen {
+        dim: true,
+        ..Pen::default()
+    };
+    let frames = (0..=edits.len())
+        .map(|made| {
+            let made = &edits[..made];
+            let select = made.last().map_or("format_theme", |(key, _)| key);
+            let mut screen = Screen::new(rows + 3, columns);
+            screen.paste(
+                0,
+                0,
+                &settings_screen(&options, select, made, rows, columns),
+            );
+            screen.print_with(rows + 1, 0, "A bar started from the alias", |_| caption);
+            let running = [options.as_slice(), made].concat();
+            screen.print(rows + 2, 0, &bar(&running, InputMode::Normal, columns).0);
+            let last = made.len() == edits.len();
+            Frame::new(screen, if last { 3000 } else { 1800 })
+        })
+        .collect();
+    Animation::new(frames, 3)
 }
 
 /// The alias the settings screens show: the colors and formats of a theme
@@ -1377,8 +1485,12 @@ fn images() -> Vec<(&'static str, String)> {
             .to_svg("The settings screen on the Colors group, with a swatch beside each color"),
         ),
         (
+            "settings-live.svg",
+            settings_live().to_svg("The settings screen picking themes, with a bar under it restyled by each pick"),
+        ),
+        (
             "mouse-preview.svg",
-            hover_preview().to_svg("The hover preview of a hint, listing what clicking it offers"),
+            hover_sweep().to_svg("The pointer resting on hints of the bar, each one's hover preview opening over it"),
         ),
     ]
     .into_iter()

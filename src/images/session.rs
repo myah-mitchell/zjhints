@@ -7,11 +7,11 @@
 //! plugin, so the demo cannot show the plugin doing anything it does not.
 
 use super::{
-    bar_state, mouse, palette, popup, rgb_of, settings_screen, Animation, Frame, Pen, PreviewPopup,
-    Rgb, Screen, MOUSE_POINTER, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
+    bar_state, draw_pointer, hover_at, palette, rgb_of, settings_screen, Animation, Frame, Pen,
+    Rgb, Screen, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
 };
 use crate::{ActiveTab, ClickMap, NestedGuest, TabFocus};
-use zellij_tile::prelude::{InputMode, Mouse, PaneId};
+use zellij_tile::prelude::{InputMode, PaneId};
 
 /// The terminal's size, and the rows under it that say what was pressed.
 const ROWS: usize = 24;
@@ -389,28 +389,15 @@ fn draw_settings(screen: &mut Screen, scene: &Scene, settings: Settings, chrome:
     );
 }
 
-/// The hover preview of the bar's last hint that has one, hanging above the
-/// bar as Zellij keeps a popup on screen, with the pointer on that hint.
+/// The hover preview of the bar's last hint that has one, the drop
+/// indicator's, open over the bar with the pointer on that hint.
 fn draw_hover(screen: &mut Screen, columns: usize, map: &ClickMap) {
-    let preview = (0..columns)
+    let hover = (0..columns)
         .rev()
-        .find_map(|column| mouse::hover_preview(map, &Mouse::Hover(0, column)))
+        .find_map(|column| hover_at(map, column, columns))
         .expect("a hint that opens a menu");
-    let configuration = popup::configuration("1-1", &preview.entries, false);
-    let popup = PreviewPopup::from_configuration(&configuration).expect("a preview popup");
-    let (width, height) = popup::size(&preview.entries, false);
-    let left = preview.columns.start.min(columns.saturating_sub(width));
-    for (offset, line) in popup.lines(height, width).iter().enumerate() {
-        screen.print(BAR_ROW - height + offset, left, line);
-    }
-    // The pointer's tip touches the hint from the row below.
-    let pointer = Pen::colored((0xff, 0xff, 0xff));
-    screen.print_with(
-        BAR_ROW + 1,
-        preview.columns.start,
-        &MOUSE_POINTER.to_string(),
-        |_| pointer,
-    );
+    hover.draw_above(screen, BAR_ROW);
+    draw_pointer(screen, BAR_ROW + 1, hover.hint.start);
 }
 
 /// The key pressed for a step, as a key cap, and what it did beside it.

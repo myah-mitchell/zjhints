@@ -65,9 +65,9 @@ Resting the pointer on a hint that would open a menu when clicked shows what the
 └──────────────────────┘
 ```
 
-The image shows the preview of the [drop indicator](fitting.md#marking-the-gap) on a bar in pane mode, which lists the hints that did not fit:
+In the animation, the pointer moves along a bar in pane mode at the bottom of the screen. Swept across the first hints, it opens nothing. Resting on `float` opens that hint's preview, and resting on the [drop indicator](fitting.md#marking-the-gap) opens a list of the hints that did not fit:
 
-![A zjhints bar in pane mode ending in the drop indicator, with a framed popup below it at the right listing the hints that were dropped: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
+![A zjhints bar in pane mode at the bottom of the screen, with a mouse pointer under it. The pointer sweeps from the PANE label across new, close and fullscreen and nothing opens. It rests on w Alt f float, and a framed popup above the bar lists w and Alt f, each toggle floating panes. It then rests on the drop indicator at the end of the bar, and a popup at the right lists the dropped hints: rename, focus, normal, focus last pane, floating, toggle focus no ui fullscreen, pin, toggle focus, stacked and frames](img/mouse-preview.svg)
 
 The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
 
