@@ -1,6 +1,6 @@
 # zjhints
 
-A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](#installation).
+A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
 > [!IMPORTANT]
 > Four of this release's features need Zellij APIs that are merged but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
@@ -37,67 +37,25 @@ Zellij's built-in status bar shows keybinding hints for your current mode, but y
 
 ## What it does
 
-zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.md#the-curated-list) of the ones people reach for most, followed by everything else your config binds. A configuration layer sits over that:
+zjhints shows the keys the mode you are in accepts: a [curated list](docs/hints.md#the-curated-list) of the ones people reach for most, followed by everything else your config binds. It works with no configuration. [Installation](docs/installation.md) sets it up, and every option and its default is in the [configuration reference](docs/configuration.md).
 
-- [Standing alone](docs/nested-sessions.md#standing-alone): run in its own pane, with the current mode prefixed onto the line, no zjstatus required
-- [Styling](docs/styling.md): global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`
-- [Themes](docs/themes.md): pick colors, a shape such as pills or Powerline arrows, and a symbol set, each on its own, or style the bar yourself
-- [Discovery](docs/hints.md#discovered-hints): name every keybinding your config enables, not just the curated set, or turn it off for a compact bar
-- [Labels](docs/labels.md): rename, hide, merge, or reorder any hint, globally or in a single mode
-- [Ordering](docs/ordering.md): keyboard-layout-aware key order, and a pinned order for the hints themselves
-- [Fitting](docs/fitting.md): drop whole hints to fit the terminal as it narrows, in an order you choose, with an optional indicator for what was cut
-- [Mouse](docs/mouse.md): right-click for Zellij's context menu, click a hint to run it, and click the drop indicator for the hints that did not fit
-- [Settings screen](docs/settings.md): edit every option in a floating pane, see each change on the bar as you make it, and save it to your config file
-- [Hiding the bar](docs/hiding.md): hide and show it from a keybinding, giving its row back while hidden
-- [Nested sessions](docs/nested-sessions.md): show the hints of the nested session the keys are actually going to, and hide or dim this session's own while it is not the one receiving input, so a host and a nested session sharing one layout do not end up with doubled chrome, giving the layout row back rather than leaving a blank line behind
+Each part of it has its own page:
 
-Every option is listed under [Configuration](#configuration) below.
+| Page                                                     | What it covers                                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| [Standing alone](docs/nested-sessions.md#standing-alone) | Running in its own pane with the current mode prefixed onto the line, no zjstatus required                         |
+| [Styling](docs/styling.md)                               | Global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`             |
+| [Themes](docs/themes.md)                                 | Colors, a shape such as pills or Powerline arrows, and a symbol set, each picked on its own and overridable        |
+| [Hints](docs/hints.md)                                   | The curated list, discovery of every other keybinding your config enables, and shared bindings                     |
+| [Labels](docs/labels.md)                                 | Renaming, hiding and merging hints, globally or in a single mode                                                   |
+| [Keys and ordering](docs/ordering.md)                    | Which keys show for a hint, keyboard-layout-aware key order, and a pinned order for the hints                      |
+| [Fitting the bar](docs/fitting.md)                       | Dropping whole hints to fit the terminal as it narrows, in an order you choose, with an indicator for what was cut |
+| [Mouse](docs/mouse.md)                                   | Right-click for Zellij's context menu, clicking a hint to run it, and menus of the hints that did not fit          |
+| [Settings screen](docs/settings.md)                      | Editing every option in a floating pane, seeing each change on the bar, and saving it to your config file          |
+| [Hiding the bar](docs/hiding.md)                         | Hiding and showing it from a keybinding or a shell, giving its row back while hidden                               |
+| [Nested sessions](docs/nested-sessions.md)               | Showing the nested session's hints while you are in it, and hiding or dimming the host's own                       |
 
-## Installation
-
-Add zjhints to your Zellij config and give it a pane one row high at the bottom of each tab. No zjstatus is required:
-
-```kdl
-plugins {
-    zjhints location="https://github.com/myah-mitchell/zjhints/releases/latest/download/zjhints.wasm" {
-        show_mode true
-    }
-}
-
-layout {
-    default_tab_template {
-        children
-        pane size=1 borderless=true {
-            plugin location="zjhints"
-        }
-    }
-}
-```
-
-[Installation](docs/installation.md) has a full example with the common options annotated, the release channels, which build matches your Zellij version, and how to pipe the hints into zjstatus instead.
-
-## Configuration
-
-The plugin works with no configuration, so this section is only for changing something. Every option and its default is in the [configuration reference](docs/configuration.md), and the detail behind each group lives in its own page:
-
-| Topic                                      | What it covers                                                     |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| [Styling](docs/styling.md)                 | Format strings, colors, per-hint styling, key and modifier aliases |
-| [Themes](docs/themes.md)                   | Color, format and alias themes, and overriding them                |
-| [Keys and ordering](docs/ordering.md)      | Which keys show for a hint, and the order of keys and of hints     |
-| [Fitting the bar](docs/fitting.md)         | Fitting to the terminal, dropping hints, the drop indicator        |
-| [Hints](docs/hints.md)                     | The curated list, discovery, and shared bindings                   |
-| [Labels](docs/labels.md)                   | Renaming, hiding, merging, and per-mode labels                     |
-| [Nested sessions](docs/nested-sessions.md) | Hiding, dimming, and running the plugin in its own pane            |
-| [Mouse](docs/mouse.md)                     | Right-click menu, clickable hints, menus of hints that did not fit |
-| [Settings screen](docs/settings.md)        | Editing the options in a floating pane, with live preview          |
-| [Hiding the bar](docs/hiding.md)           | Hiding and showing the bar from a keybinding or a shell            |
-
-For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles.
-
-Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
-
-For how the repository builds, tests and releases itself, see [docs/automation.md](docs/automation.md).
+For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles. Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
 
 ## Known issues
 
