@@ -2,7 +2,7 @@
 
 The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
-It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
+It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.4-261025](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.4-261025). It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
 
 ## Prerequisites
 
@@ -11,9 +11,15 @@ It needs the Zellij build zjhints is compiled against, [fork-v0.46.4](https://gi
 
 ## Opening it
 
-There are three ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
+There are four ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
 
 The screen opens pinned, so it stays on screen while you click into other panes and type there, and the bars it previews on stay in view beside it. Clicking it again gives it the keyboard back. To let it hide with the other floating panes, unpin it from Zellij's pane menu.
+
+### From Zellij's settings screen
+
+Open Zellij's own settings screen and go to its *Plugins and environment* page. Each running bar adds a *zjhints* entry under *Plugin settings*; select it to open this screen on the alias that bar was started from. No config is needed for this one.
+
+Bars started the same way, such as one per tab from the same alias, share one entry. Bars started from different aliases each add their own, all titled *zjhints*.
 
 ### From a keybinding
 
@@ -208,4 +214,4 @@ The screen asks for permission to change the configuration and to message other 
 
 A bar granted its own, smaller set afterwards replaces the screen's grant in turn, so the screen can ask again the next time it opens. It is a floating pane, so the prompt can always be answered there.
 
-The bar asks for nothing new for the screen: clicking the mode prefix uses the permission to message plugins the bar already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.
+The bar asks for permission to change application state so it can add its entry to Zellij's settings screen, and opening the screen from that entry or the mode prefix uses the permission to message plugins it already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.

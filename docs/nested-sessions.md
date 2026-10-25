@@ -119,11 +119,12 @@ mode_format_locked "#[bg=red,bold] LOCKED #[bg=red,fg=black,bold] 󰌾 #[fg=red]
 mode_format_pane   "#[bg=cyan,bold]  PANE  #[bg=cyan,fg=black,bold] 󰯌 #[fg=cyan]"
 ```
 
-The suffix after `mode_format_` matches zjstatus's own per-mode config keys exactly:
+The suffix after `mode_format_` follows zjstatus's own per-mode config keys:
 
 ```text
 normal  locked   resize  pane    tab          scroll       enter_search
-search  session  move    prompt  rename_tab   rename_pane  tmux
+search  session  move    prompt  rename_tab   rename_pane  rename_session
+tmux
 ```
 
 A mode with its own `mode_format_<mode>` uses that. A mode without one falls back to the global `mode_format`, and with neither set every mode uses the same theme-colored default. Icons already set up for zjstatus's own per-mode keys copy over as-is, with `mode_normal` becoming `mode_format_normal`.

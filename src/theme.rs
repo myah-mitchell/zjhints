@@ -43,7 +43,7 @@ const ALIASES: [&str; 11] = [
 /// Every mode, by the suffix of its `mode_<option>_<mode>` options (see
 /// `mode_config_suffix` in `main.rs`), with the alias its prefix is colored
 /// with.
-const MODES: [(&str, &str); 14] = [
+const MODES: [(&str, &str); 15] = [
     ("normal", "green"),
     ("locked", "red"),
     ("resize", "yellow"),
@@ -55,6 +55,7 @@ const MODES: [(&str, &str); 14] = [
     ("search", "cyan"),
     ("rename_tab", "magenta"),
     ("rename_pane", "blue"),
+    ("rename_session", "magenta"),
     ("session", "magenta"),
     ("tmux", "green"),
     ("prompt", "accent"),
@@ -215,6 +216,7 @@ const ALIAS_THEMES: [AliasTheme; 3] = [
             ("search", "\u{2315}"),
             ("rename_tab", "\u{270e}"),
             ("rename_pane", "\u{270e}"),
+            ("rename_session", "\u{270e}"),
             ("session", "\u{25c9}"),
             ("tmux", "\u{2318}"),
             ("prompt", "\u{276f}"),
@@ -255,6 +257,7 @@ const ALIAS_THEMES: [AliasTheme; 3] = [
             ("search", "\u{f0349}"),
             ("rename_tab", "\u{f0455}"),
             ("rename_pane", "\u{f03eb}"),
+            ("rename_session", "\u{f0455}"),
             ("session", "\u{f037a}"),
             ("tmux", "\u{f0633}"),
             ("prompt", "\u{f07b7}"),

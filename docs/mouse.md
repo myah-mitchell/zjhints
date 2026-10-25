@@ -38,7 +38,7 @@ k↑  move focus up
 l→  move focus right
 ```
 
-Choosing an entry runs it, and dismissing the menu runs nothing. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
+Choosing an entry runs it, and dismissing the menu runs nothing. Clicking outside the menu dismisses it, as it does Zellij's context menu; that click goes no further, so clicking another hint while a menu is open closes the menu and takes a second click to reach the hint. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
 
 Only the keys the hint shows count. With [`direction_keys arrows`](ordering.md#direction-keys), clicking `focus` offers the arrows and not `hjkl`.
 
@@ -96,13 +96,14 @@ Keys are sent the way the nested session's pane expects them: re-encoded by Zell
 
 ## Permissions
 
-`mouse_nested` needs no permission of its own. Turning `mouse` on asks for three permissions on top of the ones the plugin always needs:
+`mouse_nested` needs no permission of its own. Turning `mouse` on asks for two permissions on top of the ones the plugin always needs:
 
 | Permission | Used for |
 | --- | --- |
 | Run actions as the user | Running a clicked hint's actions |
-| Change application state | Opening Zellij's context menu and the hover preview |
 | Open terminals or plugins | Showing the menus, which are Zellij prompts |
+
+Opening Zellij's context menu and the hover preview also needs permission to change application state, which the bar always asks for to add its [settings entry](settings.md#from-zellijs-settings-screen).
 
 Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the plugin was already granted its usual permissions asks again for the new ones.
 

@@ -443,6 +443,7 @@ const MODE_NAMES: &[&str] = &[
     "search",
     "rename_tab",
     "rename_pane",
+    "rename_session",
     "session",
     "move",
     "prompt",

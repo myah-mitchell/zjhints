@@ -116,8 +116,9 @@ Useful where one action means different things in different modes. Leaving Locke
 Mode names are the lowercased Zellij modes, and the suffix is an id or an action name, both of which work scoped:
 
 ```text
-normal  locked   pane         tab        resize      move  scroll
-search  session  entersearch  renametab  renamepane  tmux  prompt
+normal  locked   pane         tab        resize      move           scroll
+search  session  entersearch  renametab  renamepane  renamesession  tmux
+prompt
 ```
 
 ```kdl
@@ -125,7 +126,7 @@ label_locked_switch_to_mode_normal "unlock" // same thing, by action
 ```
 
 > [!NOTE]
-> `mode_format_<mode>` spells three of these differently: `enter_search`, `rename_tab` and `rename_pane`, matching zjstatus's own per-mode keys. Scoped labels and formats use the unseparated spelling above.
+> `mode_format_<mode>` spells four of these differently: `enter_search`, `rename_tab`, `rename_pane` and `rename_session`, in the style of zjstatus's own per-mode keys. Scoped labels and formats use the unseparated spelling above.
 
 Lookup runs most specific first, so a mode-scoped label always beats a global one:
 
