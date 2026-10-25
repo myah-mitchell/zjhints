@@ -1285,6 +1285,11 @@ fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
 }
 
 impl Hover {
+    /// The middle column of the hint, where a pointer resting on it points.
+    fn middle(&self) -> usize {
+        (self.hint.start + self.hint.end) / 2
+    }
+
     /// The popup with its bottom edge on the row above `bar_row`, as it opens
     /// over a bar at the bottom of the screen.
     fn draw_above(&self, screen: &mut Screen, bar_row: usize) {
@@ -1341,8 +1346,8 @@ fn hover_sweep() -> Animation {
     frames.extend((1..4).map(|step| frame(2 + sweep * step, None, 200)));
     for hover in [hint, indicator] {
         // The popup opens once the pointer has rested a moment.
-        frames.push(frame(hover.hint.start, None, 600));
-        frames.push(frame(hover.hint.start, Some(hover), 3000));
+        frames.push(frame(hover.middle(), None, 600));
+        frames.push(frame(hover.middle(), Some(hover), 3000));
     }
     let still = frames.len() - 1;
     Animation::new(frames, still)

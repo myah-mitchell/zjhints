@@ -399,7 +399,7 @@ fn draw_hover(screen: &mut Screen, columns: usize, map: &ClickMap) {
         .find_map(|column| hover_at(map, column, columns))
         .expect("a hint that opens a menu");
     hover.draw_above(screen, BAR_ROW);
-    draw_pointer(screen, BAR_ROW + 1, hover.hint.start);
+    draw_pointer(screen, BAR_ROW + 1, hover.middle());
 }
 
 /// The key pressed for a step, as a key cap, and what it did beside it.
