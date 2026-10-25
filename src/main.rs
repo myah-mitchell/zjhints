@@ -2406,16 +2406,30 @@ fn truncate_ansi_string(
     }
 
     // Too narrow for even the marker, so show as much of it as fits rather than
-    // overshooting the limit the caller asked for.
+    // overshooting the limit the caller asked for. A styled marker keeps its
+    // escape sequences whole, and is reset after the cut.
     if max_len <= overflow_len {
         let mut shown = String::new();
         let mut columns = 0;
-        for ch in overflow_str.chars() {
-            columns += char_width(ch, wide_ambiguous);
-            if columns > max_len {
-                break;
+        let mut styled = false;
+        let mut parser = AnsiParser::new(overflow_str);
+        while let Some(segment) = parser.next_segment() {
+            match segment {
+                AnsiSegment::EscapeSequence(seq) => {
+                    shown.push_str(&seq);
+                    styled = true;
+                }
+                AnsiSegment::VisibleChar(ch) => {
+                    columns += char_width(ch, wide_ambiguous);
+                    if columns > max_len {
+                        break;
+                    }
+                    shown.push(ch);
+                }
             }
-            shown.push(ch);
+        }
+        if styled {
+            shown.push_str(ANSI_RESET);
         }
         return shown;
     }
@@ -4890,6 +4904,14 @@ mod tests {
         assert_eq!(truncated, "a…");
         assert_eq!(truncate_ansi_string("abcdef", "…", 1, true), "");
         assert_eq!(truncate_ansi_string("abcdef", "…", 1, false), "…");
+    }
+
+    #[test]
+    fn a_styled_marker_cut_short_keeps_its_escapes_whole() {
+        let marker = "\u{1b}[0m\u{1b}[38;2;255;0;0m…>";
+        let truncated = truncate_ansi_string("abcdef", marker, 1, false);
+        assert_eq!(truncated, "\u{1b}[0m\u{1b}[38;2;255;0;0m…\u{1b}[0m");
+        assert_eq!(calculate_visible_length(&truncated, false), 1);
     }
 
     #[test]
