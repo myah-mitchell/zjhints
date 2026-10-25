@@ -43,6 +43,7 @@ Each part of it has its own page:
 
 | Page                                                     | What it covers                                                                                                     |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| [Installation](docs/installation.md)                     | Adding it to Zellij, release channels, versioning, and showing the hints in a pane or in zjstatus                  |
 | [Standing alone](docs/nested-sessions.md#standing-alone) | Running in its own pane with the current mode prefixed onto the line, no zjstatus required                         |
 | [Styling](docs/styling.md)                               | Global and per-hint format strings, colors, and key and modifier aliases, so `Ctrl Left` can read `^←`             |
 | [Themes](docs/themes.md)                                 | Colors, a shape such as pills or Powerline arrows, and a symbol set, each picked on its own and overridable        |
