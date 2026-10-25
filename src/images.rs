@@ -15,6 +15,8 @@
 //! files, so `cargo test` in CI fails when a change to the bar leaves an image
 //! out of date.
 
+mod session;
+
 use crate::mouse;
 use crate::popup::{self, PreviewPopup};
 use crate::settings::editor::{Editor, Field, Focus};
@@ -53,6 +55,10 @@ const POWERLINE_ARROW: char = '\u{e0b0}';
 /// The round caps the pills format theme draws at each end of a block.
 const PILL_LEFT: char = '\u{e0b6}';
 const PILL_RIGHT: char = '\u{e0b4}';
+
+/// The mouse pointer, drawn as an arrow with its tip at the top left of its
+/// cell. A private use character, so no text the plugin draws is taken for it.
+const MOUSE_POINTER: char = '\u{f8fe}';
 
 /// Marks the second column of a character two columns wide.
 const COVERED: char = '\0';
@@ -280,6 +286,21 @@ impl Screen {
                 AnsiSegment::EscapeSequence(sequence) => pen.apply(&sequence),
                 AnsiSegment::VisibleChar(character) => {
                     column += self.put(row, column, character, pen.look());
+                }
+            }
+        }
+    }
+
+    /// Lay `other` over this screen with its top left corner at a spot of the
+    /// grid, clipped to this screen's edges.
+    fn paste(&mut self, row: usize, column: usize, other: &Screen) {
+        for (offset, cells) in other.rows.iter().enumerate() {
+            let Some(target) = self.rows.get_mut(row + offset) else {
+                break;
+            };
+            for (index, cell) in cells.iter().enumerate() {
+                if let Some(spot) = target.get_mut(column + index) {
+                    *spot = *cell;
                 }
             }
         }
@@ -544,6 +565,23 @@ fn write_arrows(svg: &mut String, row: usize, cells: &[Cell]) {
             POWERLINE_ARROW => format!("M{left} {top}L{right} {middle}L{left} {bottom}Z"),
             PILL_RIGHT => format!("M{left} {top}A{radius_x} {radius_y} 0 0 1 {left} {bottom}Z"),
             PILL_LEFT => format!("M{right} {top}A{radius_x} {radius_y} 0 0 0 {right} {bottom}Z"),
+            MOUSE_POINTER => {
+                let point = |x: usize, y: usize| format!("{} {}", left + x, top + y);
+                let _ = writeln!(
+                    svg,
+                    "<path d=\"M{}L{}L{}L{}L{}L{}L{}Z\" fill=\"{}\" stroke=\"{}\"/>",
+                    point(0, 0),
+                    point(0, 15),
+                    point(4, 11),
+                    point(7, 17),
+                    point(9, 16),
+                    point(6, 10),
+                    point(11, 10),
+                    hex(cell.look.foreground),
+                    hex(TERMINAL_BACKGROUND)
+                );
+                continue;
+            }
             _ => continue,
         };
         let _ = writeln!(
@@ -563,7 +601,10 @@ fn write_text(svg: &mut String, row: usize, cells: &[Cell]) {
             underline, strike, ..
         } = cell.look;
         let invisible = cell.character == COVERED
-            || matches!(cell.character, POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT)
+            || matches!(
+                cell.character,
+                POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT | MOUSE_POINTER
+            )
             || (cell.character == ' ' && !underline && !strike);
         if invisible {
             continue;
@@ -675,6 +716,11 @@ fn bar_in_session(
     columns: usize,
     ascended: bool,
 ) -> (String, ClickMap) {
+    bar_state(options, mode, columns, ascended).draw_bar()
+}
+
+/// The plugin's state for `bar_in_session`, before it draws.
+fn bar_state(options: &[(&str, &str)], mode: InputMode, columns: usize, ascended: bool) -> State {
     let mut state = State::default();
     state.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
@@ -690,7 +736,7 @@ fn bar_in_session(
         session_ascended: ascended.then_some(true),
         ..Default::default()
     };
-    state.draw_bar()
+    state
 }
 
 /// How wide the bars are drawn, in columns.
@@ -1047,11 +1093,11 @@ fn print_row(
 }
 
 /// The settings screen, `rows` by `columns`, the way `SettingsScreen::render`
-/// lays it out, with `edit` made and left unsaved and `select` selected.
+/// lays it out, with `edits` made and left unsaved and `select` selected.
 fn settings_screen(
     options: &[(&str, &str)],
     select: &str,
-    edit: (&str, &str),
+    edits: &[(&str, &str)],
     rows: usize,
     columns: usize,
 ) -> Screen {
@@ -1065,12 +1111,14 @@ fn settings_screen(
         },
     }];
     let mut editor = Editor::new(alias.clone(), alias, None).expect("an alias loading zjhints");
-    editor.submit(
-        &Field::Value {
-            key: edit.0.to_string(),
-        },
-        edit.1,
-    );
+    for (key, value) in edits {
+        editor.submit(
+            &Field::Value {
+                key: key.to_string(),
+            },
+            value,
+        );
+    }
     let (section, row) = editor.locate(select).expect("a key the screen lists");
     let index = editor
         .sections()
@@ -1219,7 +1267,6 @@ const SETTINGS_OPTIONS: [(&str, &str); 11] = [
 
 /// Every image as the name of its file and its SVG.
 fn images() -> Vec<(&'static str, String)> {
-    let show_mode = [("show_mode", "true")];
     // Each kind of theme shown on its own, the others held still.
     let rows =
         |option: &'static str, names: &[&'static str], rest: &[(&'static str, &'static str)]| {
@@ -1261,14 +1308,8 @@ fn images() -> Vec<(&'static str, String)> {
     }
     vec![
         (
-            "bar-normal.svg",
-            bars(&[("normal mode", &show_mode)], InputMode::Normal)
-                .to_svg("The zjhints bar in normal mode, with the mode shown"),
-        ),
-        (
-            "bar-locked.svg",
-            bars(&[("locked mode", &show_mode)], InputMode::Locked)
-                .to_svg("The zjhints bar in locked mode, with the mode shown"),
+            "session-demo.svg",
+            session::demo().to_svg("A Zellij session with the zjhints bar at the bottom, played through its features: the bar following each mode, dropping hints as the terminal narrows, previewing the hints that did not fit, the settings screen restyling it live, and the hints of a nested session"),
         ),
         (
             "color-themes.svg",
@@ -1290,7 +1331,7 @@ fn images() -> Vec<(&'static str, String)> {
             settings_screen(
                 &SETTINGS_OPTIONS,
                 "hint_spacer",
-                ("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} "),
+                &[("desc_format", "#[fg=$fg,bg=$surface,italic] {desc} ")],
                 22,
                 100,
             )
@@ -1301,7 +1342,7 @@ fn images() -> Vec<(&'static str, String)> {
             settings_screen(
                 &SETTINGS_OPTIONS,
                 "color_accent",
-                ("color_accent", "#f5c2e7"),
+                &[("color_accent", "#f5c2e7")],
                 22,
                 100,
             )
