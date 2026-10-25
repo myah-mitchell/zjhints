@@ -1128,8 +1128,8 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     };
     // Each image names in its doc whichever of these shared settings it uses
     // to bring the hints it is about into view.
-    let fitted = [("hint_order", "*, quit"), ("drop_indicator", "…")];
-    let precedence = [("hint_order", "pane, *, quit"), ("drop_indicator", "…")];
+    let fitted = [("hint_order", "*, quit")];
+    let precedence = [("hint_order", "pane, *, quit")];
     let formats = with_colors(&[
         ("key_format", "#[fg=$bg,bg=$accent,bold] {key} "),
         ("desc_format", "#[fg=$fg,bg=$surface] {desc} "),

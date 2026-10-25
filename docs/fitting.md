@@ -51,7 +51,7 @@ So on a narrowing window the middle thins out while `exit` stays put, rather tha
 > [!NOTE]
 > The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
 
-Here is Normal mode with `hint_order "*, quit"` and `drop_indicator "…"`, at four widths:
+Here is Normal mode with `hint_order "*, quit"` at four widths. The pills theme marks the gap with its own `drop_indicator`, an ellipsis in a gray pill:
 
 ![Four zjhints bars in normal mode, drawn as purple pills, at 120, 90, 60 and 40 columns. At 120 the hints run from ^p pane to ⌥hjkl←↓↑→ focus, then an ellipsis, then ^q quit. Each narrower bar loses more hints from the middle, until at 40 columns only ^p pane, ^t tab, the ellipsis and ^q quit remain](img/fitting-widths.svg)
 
