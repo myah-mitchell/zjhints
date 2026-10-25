@@ -255,10 +255,16 @@ pub fn menu_answer_outcome(entries: Option<Vec<MenuEntry>>, result: &PromptResul
         let index = value.parse::<usize>().ok()?;
         entries.into_iter().nth(index)
     });
-    match entry.map(|entry| entry.pick) {
-        Some(MenuPick::Run(actions)) => MouseOutcome::Run(actions),
-        Some(MenuPick::Hint(hint)) => hint.activate(),
-        None => MouseOutcome::Nothing,
+    entry.map_or(MouseOutcome::Nothing, MenuEntry::chosen)
+}
+
+impl MenuEntry {
+    /// What choosing this entry, in a menu or its preview, leads to.
+    pub fn chosen(self) -> MouseOutcome {
+        match self.pick {
+            MenuPick::Run(actions) => MouseOutcome::Run(actions),
+            MenuPick::Hint(hint) => hint.activate(),
+        }
     }
 }
 
@@ -321,8 +327,18 @@ pub struct Preview {
     /// from the first. Hovering the same columns while they show the same
     /// entries is hovering the same thing.
     pub columns: Range<usize>,
+    /// The menu's entries, which the popup lists and a click on it chooses.
+    pub entries: Vec<MenuEntry>,
+}
+
+impl Preview {
     /// Each entry as the menu words it.
-    pub entries: Vec<String>,
+    pub fn labels(&self) -> Vec<String> {
+        self.entries
+            .iter()
+            .map(|entry| entry.label.clone())
+            .collect()
+    }
 }
 
 /// The preview a hover over the bar calls for, if any. Only a hint or marker
@@ -336,7 +352,7 @@ pub fn hover_preview(map: &ClickMap, mouse: &Mouse) -> Option<Preview> {
     match click_target_outcome(&region.target) {
         MouseOutcome::Menu(entries) if !entries.is_empty() => Some(Preview {
             columns: region.columns.clone(),
-            entries: entries.into_iter().map(|entry| entry.label).collect(),
+            entries,
         }),
         _ => None,
     }
@@ -353,6 +369,10 @@ pub const HOVER_OPENED_MESSAGE: &str = "zjhints::hover_opened";
 pub const HOVER_CLOSED_MESSAGE: &str = "zjhints::hover_closed";
 /// Sent by the bar to one of its popups to close it.
 pub const HOVER_CLOSE_MESSAGE: &str = "zjhints::hover_close";
+/// Sent by a preview popup to its bar, with the popup's tag, when one of its
+/// entries is clicked. `HOVER_PICKED_ENTRY_ARG` holds the entry's index.
+pub const HOVER_PICKED_MESSAGE: &str = "zjhints::hover_picked";
+pub const HOVER_PICKED_ENTRY_ARG: &str = "entry";
 
 /// The column of the hover Zellij sends a plugin pane the pointer has left,
 /// which includes moving onto a popup over the bar.
@@ -476,6 +496,17 @@ impl PreviewMemory {
         {
             self.shown = None;
         }
+    }
+
+    /// Entry `index` was clicked in popup `popup`, which says it shows
+    /// preview number `generation`. Only the popup showing that preview now
+    /// is believed, so a stale or forged message chooses nothing.
+    pub fn picked(&self, popup: u32, generation: u64, index: usize) -> MouseOutcome {
+        self.shown
+            .as_ref()
+            .filter(|shown| shown.generation == generation && shown.popup == Some(popup))
+            .and_then(|shown| shown.preview.entries.get(index).cloned())
+            .map_or(MouseOutcome::Nothing, MenuEntry::chosen)
     }
 
     #[cfg(test)]
@@ -858,23 +889,14 @@ mod tests {
         }
         // The hint with two choices, on every column it covers.
         for column in 5..=8 {
-            assert_eq!(
-                hover_preview(&map, &hover(column)),
-                Some(Preview {
-                    columns: 5..9,
-                    entries: entries(&["f1  first", "f2  second"]),
-                }),
-                "{column}"
-            );
+            let preview = hover_preview(&map, &hover(column)).expect("a preview");
+            assert_eq!(preview.columns, 5..9, "{column}");
+            assert_eq!(preview.labels(), entries(&["f1  first", "f2  second"]));
         }
         // The drop marker.
-        assert_eq!(
-            hover_preview(&map, &hover(10)),
-            Some(Preview {
-                columns: 10..11,
-                entries: entries(&["c", "d"]),
-            })
-        );
+        let marker = hover_preview(&map, &hover(10)).expect("a preview");
+        assert_eq!(marker.columns, 10..11);
+        assert_eq!(marker.labels(), entries(&["c", "d"]));
     }
 
     #[test]
@@ -910,13 +932,9 @@ mod tests {
             overflow: 2..5,
         };
         let map = ClickMap::lay_out(two_hints(), 1, Some(cut));
-        assert_eq!(
-            hover_preview(&map, &hover(3)),
-            Some(Preview {
-                columns: 2..5,
-                entries: entries(&["a", "b"]),
-            })
-        );
+        let preview = hover_preview(&map, &hover(3)).expect("a preview");
+        assert_eq!(preview.columns, 2..5);
+        assert_eq!(preview.labels(), entries(&["a", "b"]));
     }
 
     #[test]
@@ -929,10 +947,10 @@ mod tests {
         let map = ClickMap::lay_out(segments, 0, Some(cut));
         let visible = hover_preview(&map, &hover(1)).expect("the visible part");
         assert_eq!(visible.columns, 0..3);
-        assert_eq!(visible.entries, entries(&["f1  first", "f2  second"]));
+        assert_eq!(visible.labels(), entries(&["f1  first", "f2  second"]));
         // The overflow marker lists the hint whole, by its name.
         let marker = hover_preview(&map, &hover(4)).expect("the marker");
-        assert_eq!(marker.entries, entries(&["f"]));
+        assert_eq!(marker.labels(), entries(&["f"]));
     }
 
     #[test]
@@ -942,10 +960,9 @@ mod tests {
             let MouseOutcome::Menu(menu) = click_outcome(&map, &left(column)) else {
                 panic!("expected a menu");
             };
-            let labels: Vec<String> = menu.into_iter().map(|entry| entry.label).collect();
             assert_eq!(
                 hover_preview(&map, &hover(column)).map(|preview| preview.entries),
-                Some(labels)
+                Some(menu)
             );
         }
     }
@@ -972,7 +989,7 @@ mod tests {
         assert_eq!(memory.hover(&map, &hover(7)), PreviewStep::default());
         let (_, preview) = memory.timer_fired().open.expect("the preview to open");
         assert_eq!(preview.columns, 5..9);
-        assert_eq!(preview.entries, entries(&["f1  first", "f2  second"]));
+        assert_eq!(preview.labels(), entries(&["f1  first", "f2  second"]));
     }
 
     #[test]
@@ -984,7 +1001,7 @@ mod tests {
         // The first hint's timer finds the pointer gone.
         assert_eq!(memory.timer_fired(), PreviewStep::default());
         let (_, preview) = memory.timer_fired().open.expect("the second to open");
-        assert_eq!(preview.entries, entries(&["c", "d"]));
+        assert_eq!(preview.labels(), entries(&["c", "d"]));
     }
 
     #[test]
@@ -1104,7 +1121,46 @@ mod tests {
             None,
         );
         let (_, preview) = rest_on(&mut memory, &changed, 5);
-        assert_eq!(preview.entries, entries(&["g1  first", "g2  second"]));
+        assert_eq!(preview.labels(), entries(&["g1  first", "g2  second"]));
+    }
+
+    #[test]
+    fn clicking_an_entry_of_the_preview_chooses_it() {
+        let mut memory = PreviewMemory::default();
+        let (generation, _) = rest_on(&mut memory, &preview_bar(), 5);
+        // Before the popup has said which plugin it is, nothing is believed.
+        assert_eq!(memory.picked(40, generation, 1), MouseOutcome::Nothing);
+        memory.popup_opened(40, generation);
+        assert_eq!(
+            memory.picked(40, generation, 1),
+            MouseOutcome::Run(vec![Action::FocusNextPane])
+        );
+        // Another plugin, another preview, or an entry it does not have.
+        assert_eq!(memory.picked(41, generation, 1), MouseOutcome::Nothing);
+        assert_eq!(memory.picked(40, generation + 1, 1), MouseOutcome::Nothing);
+        assert_eq!(memory.picked(40, generation, 2), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn clicking_a_dropped_hint_in_the_preview_is_clicking_the_hint() {
+        let mut memory = PreviewMemory::default();
+        let (generation, preview) = rest_on(&mut memory, &preview_bar(), 10);
+        memory.popup_opened(40, generation);
+        for (index, entry) in preview.entries.iter().enumerate() {
+            let MenuPick::Hint(hint) = &entry.pick else {
+                panic!("a dropped hint");
+            };
+            assert_eq!(memory.picked(40, generation, index), hint.activate());
+        }
+    }
+
+    #[test]
+    fn a_closed_preview_chooses_nothing() {
+        let mut memory = PreviewMemory::default();
+        let (generation, _) = rest_on(&mut memory, &preview_bar(), 5);
+        memory.popup_opened(40, generation);
+        memory.popup_closed(generation);
+        assert_eq!(memory.picked(40, generation, 0), MouseOutcome::Nothing);
     }
 
     #[test]

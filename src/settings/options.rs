@@ -311,6 +311,20 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Also click a descended-into nested session's hints",
     ),
     option(
+        "mouse_hover",
+        "Mouse",
+        Kind::Bool,
+        Some("true"),
+        "Preview a hint's menu while the pointer rests on it",
+    ),
+    option(
+        "mouse_menus",
+        "Mouse",
+        Kind::Bool,
+        Some("true"),
+        "Open a hint's menu when it is clicked",
+    ),
+    option(
         "pipe_name",
         "Integration",
         Kind::Text,

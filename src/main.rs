@@ -142,6 +142,10 @@ struct State {
     /// the way back out of it clickable, by typing their keys into the pane
     /// that session runs in.
     mouse_nested: bool,
+    /// With `mouse` on, preview a hint's menu while the pointer rests on it.
+    mouse_hover: bool,
+    /// With `mouse` on, open a hint's menu when it is clicked.
+    mouse_menus: bool,
     /// Which columns of the line last drawn hold which hint.
     click_map: ClickMap,
     /// Menus shown and not yet answered, by prompt request id.
@@ -359,6 +363,8 @@ const CONFIG_SHOW_MODE: &str = "show_mode";
 const CONFIG_MODE_FORMAT: &str = "mode_format";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
+const CONFIG_MOUSE_HOVER: &str = "mouse_hover";
+const CONFIG_MOUSE_MENUS: &str = "mouse_menus";
 // Per-mode override of the mode prefix, e.g. `mode_format_normal`. Matches
 // zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
 // so an icon set up for zjstatus's {mode} widget can be reused here.
@@ -400,6 +406,10 @@ const DEFAULT_MOUSE: bool = false;
 // Off by default: a click on a nested session's bar types keys into it, which
 // is less obviously what clicking a bar does than running a binding here.
 const DEFAULT_MOUSE_NESTED: bool = false;
+// On by default: with `mouse` on, the menus and their previews are how the
+// hints a click cannot run directly are reached.
+const DEFAULT_MOUSE_HOVER: bool = true;
+const DEFAULT_MOUSE_MENUS: bool = true;
 // Drawn where hints were dropped when mouse support is on and no
 // `drop_indicator` is configured, so the hints that did not fit always have
 // something to click.
@@ -1242,6 +1252,15 @@ impl State {
         }
     }
 
+    /// What a mouse event on the bar leads to, with no menu when
+    /// `mouse_menus` is off.
+    fn bar_click_outcome(&self, mouse: &Mouse) -> MouseOutcome {
+        match mouse::click_outcome(&self.click_map, mouse) {
+            MouseOutcome::Menu(_) if !self.mouse_menus => MouseOutcome::Nothing,
+            outcome => outcome,
+        }
+    }
+
     /// Carry out what a click or a menu answer led to. With `run_mouse_action`,
     /// the only part of mouse support that talks to the host; see the `mouse`
     /// module for the rest.
@@ -1283,8 +1302,14 @@ impl State {
             return;
         }
         let step = match mouse {
-            Mouse::Hover(..) => self.preview_memory.hover(&self.click_map, mouse),
-            Mouse::LeftClick(..) | Mouse::RightClick(..) => self.preview_memory.dismiss(),
+            Mouse::Hover(..) if self.mouse_hover => {
+                self.preview_memory.hover(&self.click_map, mouse)
+            }
+            // With previews off, a hover only closes one still open from
+            // before they were turned off.
+            Mouse::Hover(..) | Mouse::LeftClick(..) | Mouse::RightClick(..) => {
+                self.preview_memory.dismiss()
+            }
             _ => PreviewStep::default(),
         };
         self.take_preview_step(step);
@@ -1307,10 +1332,11 @@ impl State {
             return;
         };
         let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
-        let (width, height) = popup::size(&preview.entries, self.wide_ambiguous);
+        let labels = preview.labels();
+        let (width, height) = popup::size(&labels);
         open_preview_popup(
             url,
-            popup::configuration(&tag, &preview.entries, self.wide_ambiguous),
+            popup::configuration(&tag, &labels),
             self.pane_rows.max(1),
             preview.columns.start,
             width,
@@ -1318,11 +1344,12 @@ impl State {
         );
     }
 
-    /// A popup of this bar saying it opened or closed. Returns whether the
-    /// message was one.
+    /// A popup of this bar saying it opened, closed or had an entry clicked.
+    /// Returns whether the message was one.
     fn take_popup_message(&mut self, message: &PipeMessage) -> bool {
         let opened = message.name == mouse::HOVER_OPENED_MESSAGE;
-        if !opened && message.name != mouse::HOVER_CLOSED_MESSAGE {
+        let picked = message.name == mouse::HOVER_PICKED_MESSAGE;
+        if !opened && !picked && message.name != mouse::HOVER_CLOSED_MESSAGE {
             return false;
         }
         let PipeSource::Plugin(popup) = message.source else {
@@ -1337,7 +1364,16 @@ impl State {
         else {
             return true;
         };
-        if opened {
+        if picked {
+            let index = message
+                .args
+                .get(mouse::HOVER_PICKED_ENTRY_ARG)
+                .and_then(|index| index.parse().ok());
+            if let Some(index) = index {
+                let outcome = self.preview_memory.picked(popup, generation, index);
+                self.perform_mouse_outcome(outcome);
+            }
+        } else if opened {
             let step = self.preview_memory.popup_opened(popup, generation);
             self.take_preview_step(step);
         } else {
@@ -1659,6 +1695,25 @@ impl State {
                         .unwrap_or(DEFAULT_MOUSE_NESTED)
                 })
                 .unwrap_or(DEFAULT_MOUSE_NESTED);
+        // The preview on hover and the menu on a click, which need `mouse`.
+        self.mouse_hover = self.mouse
+            && configuration
+                .get(CONFIG_MOUSE_HOVER)
+                .map(|s| {
+                    s.to_lowercase()
+                        .parse::<bool>()
+                        .unwrap_or(DEFAULT_MOUSE_HOVER)
+                })
+                .unwrap_or(DEFAULT_MOUSE_HOVER);
+        self.mouse_menus = self.mouse
+            && configuration
+                .get(CONFIG_MOUSE_MENUS)
+                .map(|s| {
+                    s.to_lowercase()
+                        .parse::<bool>()
+                        .unwrap_or(DEFAULT_MOUSE_MENUS)
+                })
+                .unwrap_or(DEFAULT_MOUSE_MENUS);
         // When enabled (the default), every enabled keybinding in a mode is
         // shown, not just the curated set. See `add_discovered_hints`.
         self.discover_hints = configuration
@@ -2243,8 +2298,7 @@ impl ZellijPlugin for State {
             // checked here as well.
             Event::Mouse(mouse) if self.mouse => {
                 self.follow_mouse_with_preview(&mouse);
-                let outcome = mouse::click_outcome(&self.click_map, &mouse);
-                self.perform_mouse_outcome(outcome);
+                self.perform_mouse_outcome(self.bar_click_outcome(&mouse));
             }
             Event::Timer(_) => {
                 let step = self.preview_memory.timer_fired();
@@ -2306,7 +2360,7 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
-        if let Some(popup) = &self.preview_popup {
+        if let Some(popup) = &mut self.preview_popup {
             popup.render(rows, cols);
             return;
         }
@@ -6694,6 +6748,8 @@ mod tests {
             discover_hints: true,
             overflow_str: DEFAULT_OVERFLOW_STR.to_string(),
             mouse: true,
+            mouse_hover: DEFAULT_MOUSE_HOVER,
+            mouse_menus: DEFAULT_MOUSE_MENUS,
             ..Default::default()
         }
     }
@@ -6939,6 +6995,64 @@ mod tests {
     }
 
     #[test]
+    fn with_mouse_hover_off_resting_on_a_picker_opens_no_preview() {
+        let (mut state, marker) = previewing_bar();
+        state.mouse_hover = false;
+        rest_on(&mut state, marker);
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn turning_mouse_hover_off_closes_a_preview_on_the_next_hover() {
+        let (mut state, marker) = previewing_bar();
+        rest_on(&mut state, marker);
+        let opened = message_from(PipeSource::Plugin(30), mouse::HOVER_OPENED_MESSAGE, "7-1");
+        state.pipe(opened);
+        state.mouse_hover = false;
+        state.update(Event::Mouse(Mouse::Hover(0, marker)));
+        assert!(state.preview_memory.is_idle());
+    }
+
+    #[test]
+    fn with_mouse_menus_off_a_click_opens_no_menu_but_still_runs_a_hint() {
+        let (mut state, marker) = previewing_bar();
+        assert!(matches!(
+            state.bar_click_outcome(&Mouse::LeftClick(0, marker)),
+            MouseOutcome::Menu(_)
+        ));
+        state.mouse_menus = false;
+        assert_eq!(
+            state.bar_click_outcome(&Mouse::LeftClick(0, marker)),
+            MouseOutcome::Nothing
+        );
+        // The first hint, after the leading space.
+        let hint = 1;
+        assert!(matches!(
+            state.bar_click_outcome(&Mouse::LeftClick(0, hint)),
+            MouseOutcome::Run(_)
+        ));
+        // The right-click menu is Zellij's, and stays.
+        assert!(matches!(
+            state.bar_click_outcome(&Mouse::RightClick(0, hint)),
+            MouseOutcome::ContextMenu { .. }
+        ));
+    }
+
+    #[test]
+    fn mouse_hover_and_mouse_menus_are_on_with_mouse_and_off_without_it() {
+        let on = bar_with(&[("mouse", "true")]);
+        assert!(on.mouse_hover && on.mouse_menus);
+        let off = bar_with(&[
+            ("mouse", "true"),
+            ("mouse_hover", "false"),
+            ("mouse_menus", "False"),
+        ]);
+        assert!(!off.mouse_hover && !off.mouse_menus);
+        let no_mouse = bar_with(&[("mouse_hover", "true"), ("mouse_menus", "true")]);
+        assert!(!no_mouse.mouse_hover && !no_mouse.mouse_menus);
+    }
+
+    #[test]
     fn a_bar_that_does_not_know_its_url_yet_opens_no_preview() {
         let (mut state, marker) = previewing_bar();
         state.own_url = None;
@@ -6986,7 +7100,7 @@ mod tests {
 
     #[test]
     fn a_popup_instance_ignores_what_the_bar_handles() {
-        let configuration = popup::configuration("7-1", &["a".to_string()], false);
+        let configuration = popup::configuration("7-1", &["a".to_string()]);
         let mut state = State {
             preview_popup: PreviewPopup::from_configuration(&configuration),
             ..Default::default()

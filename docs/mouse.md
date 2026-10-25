@@ -40,6 +40,14 @@ l→  move focus right
 
 Choosing an entry runs it, and dismissing the menu runs nothing. Clicking outside the menu dismisses it, as it does Zellij's context menu; that click goes no further, so clicking another hint while a menu is open closes the menu and takes a second click to reach the hint. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
 
+To have a click only run hints that do one thing, turn the menus off:
+
+```kdl
+mouse_menus false
+```
+
+Clicking a hint whose keys do different things then does nothing, and so does clicking the drop indicator or `overflow_str`. The [hover preview](#hover-preview) still lists their entries, and clicking one there runs it.
+
 Only the keys the hint shows count. With [`direction_keys arrows`](ordering.md#direction-keys), clicking `focus` offers the arrows and not `hjkl`.
 
 Clicking the mode prefix opens the [settings screen](settings.md#by-clicking-the-mode-prefix). The spacers between hints and the empty end of the line do nothing when clicked.
@@ -54,15 +62,21 @@ When even a single hint does not fit and the line is cut short, `overflow_str` o
 
 ## Hover preview
 
-Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small read-only popup beside the bar. The popup lists the same entries, written the same way, so you can see what a hint such as `focus` covers before you click it.
+Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small popup beside the bar. The popup lists the same entries, written and drawn the way the menu draws them, so you can see what a hint such as `focus` covers and pick one straight from the popup.
 
 ```text
-┌──────────────────────┐
-│ h←  move focus left  │
-│ j↓  move focus down  │
-│ k↑  move focus up    │
-│ l→  move focus right │
-└──────────────────────┘
+╭─────────────────────────────╮
+│    h←  move focus left      │
+│    j↓  move focus down      │
+│    k↑  move focus up        │
+│    l→  move focus right     │
+╰─────────────────────────────╯
+```
+
+To turn the preview off, set:
+
+```kdl
+mouse_hover false
 ```
 
 In the animation, the pointer moves along a bar in pane mode at the bottom of the screen. Swept across the first hints, it opens nothing. Resting on `float` opens that hint's preview, and resting on the [drop indicator](fitting.md#marking-the-gap) opens a list of the hints that did not fit:
@@ -71,13 +85,15 @@ In the animation, the pointer moves along a bar in pane mode at the bottom of th
 
 The popup appears for a hint whose keys do different things, for the [drop indicator](fitting.md#marking-the-gap), and for `overflow_str`. A hint that runs one thing when clicked, the mode prefix, the spacers and the rest of the line show nothing.
 
-The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu.
+The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu unless `mouse_menus` is off.
 
-You can move the pointer onto the popup, and it stays open while the pointer is on it. It closes when the pointer leaves it, or three seconds after it opens if the pointer never reaches it, so a pointer that leaves the bar for another pane cannot strand it.
+You can move the pointer onto the popup, and it stays open while the pointer is on it. The entry under the pointer is highlighted, and clicking it does what choosing it in the menu would: it runs, or opens the hint's own menu for a hint that did not fit. Clicking the popup's frame closes it and runs nothing. A list of more than twelve entries scrolls, with the mouse wheel or the arrows above and below it, as the menu does.
+
+The popup closes when the pointer leaves it, or three seconds after it opens if the pointer never reaches it, so a pointer that leaves the bar for another pane cannot strand it.
 
 The bar only sees the pointer when Zellij sends it hover events, so the preview needs Zellij's `mouse_hover_effects` option left on, which is the default.
 
-The popup is this plugin again, opened in a mode that only draws the entries. It is granted the bar's own permissions, so it never prompts.
+The popup is this plugin again, opened in a mode that only draws the entries and reports which one is clicked. The bar runs the entry, so the popup never holds an action of its own. It is granted the bar's own permissions, so it never prompts.
 
 ## While descended into a nested session
 

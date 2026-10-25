@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="330" viewBox="0 0 1108 330" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="312" viewBox="0 0 1108 312" role="img">
 <!-- Drawn by src/images.rs: edit the code and run `make images`. -->
 <title>The pointer resting on hints of the bar, each one's hover preview opening over it</title>
-<rect width="1108" height="330" rx="8" fill="#1e1e2e"/>
+<rect width="1108" height="312" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <style>
 @keyframes f0{0.000%{visibility:hidden}66.666%{visibility:visible}}
@@ -25,102 +25,105 @@
 @media (prefers-reduced-motion:reduce){g[class]{animation:none}}
 </style>
 <g shape-rendering="crispEdges">
+<g class="f0">
+<rect x="657" y="18" width="405" height="18" fill="#585b70"/>
+</g>
+<g class="f1">
+<rect x="450" y="198" width="315" height="18" fill="#585b70"/>
+</g>
 <g class="f2">
-<rect x="0" y="270" width="54" height="18" fill="#a6e3a1"/>
-<rect x="63" y="270" width="81" height="18" fill="#cdd6f4"/>
-<rect x="144" y="270" width="45" height="18" fill="#181825"/>
-<rect x="198" y="270" width="27" height="18" fill="#cdd6f4"/>
-<rect x="225" y="270" width="63" height="18" fill="#181825"/>
-<rect x="297" y="270" width="27" height="18" fill="#cdd6f4"/>
-<rect x="324" y="270" width="108" height="18" fill="#181825"/>
-<rect x="441" y="270" width="81" height="18" fill="#cdd6f4"/>
-<rect x="522" y="270" width="63" height="18" fill="#181825"/>
-<rect x="594" y="270" width="27" height="18" fill="#cdd6f4"/>
-<rect x="621" y="270" width="63" height="18" fill="#181825"/>
-<rect x="693" y="270" width="27" height="18" fill="#cdd6f4"/>
-<rect x="720" y="270" width="117" height="18" fill="#181825"/>
-<rect x="846" y="270" width="27" height="18" fill="#cdd6f4"/>
-<rect x="873" y="270" width="108" height="18" fill="#181825"/>
+<rect x="0" y="252" width="54" height="18" fill="#a6e3a1"/>
+<rect x="63" y="252" width="81" height="18" fill="#cdd6f4"/>
+<rect x="144" y="252" width="45" height="18" fill="#181825"/>
+<rect x="198" y="252" width="27" height="18" fill="#cdd6f4"/>
+<rect x="225" y="252" width="63" height="18" fill="#181825"/>
+<rect x="297" y="252" width="27" height="18" fill="#cdd6f4"/>
+<rect x="324" y="252" width="108" height="18" fill="#181825"/>
+<rect x="441" y="252" width="81" height="18" fill="#cdd6f4"/>
+<rect x="522" y="252" width="63" height="18" fill="#181825"/>
+<rect x="594" y="252" width="27" height="18" fill="#cdd6f4"/>
+<rect x="621" y="252" width="63" height="18" fill="#181825"/>
+<rect x="693" y="252" width="27" height="18" fill="#cdd6f4"/>
+<rect x="720" y="252" width="117" height="18" fill="#181825"/>
+<rect x="846" y="252" width="27" height="18" fill="#cdd6f4"/>
+<rect x="873" y="252" width="108" height="18" fill="#181825"/>
 </g>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <g class="f0">
-<text y="13"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">┌────────────────────────────────────────┐</tspan></text>
+<text y="13"><tspan x="639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">╭───────────────────────────────────────────────╮</tspan></text>
 </g>
 <g class="f0">
-<text y="31"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│crename│</tspan></text>
+<text y="31"><tspan x="639" fill="#cdd6f4">│</tspan><tspan x="684 711 720 729 738 747 756" fill="#cdd6f4" font-weight="bold">crename</tspan><tspan x="1071" fill="#cdd6f4">│</tspan></text>
 </g>
 <g class="f0">
-<text y="49"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 837 846 855 864 891 900 909 918 927 1071" fill="#cdd6f4">│h←j↓k↑l→Altj↓k↑focus│</tspan></text>
+<text y="49"><tspan x="639 684 693 702 711 720 729 738 747 765 774 783 801 810 819 828 855 864 873 882 891 1071" fill="#cdd6f4">│h←j↓k↑l→Altj↓k↑focus│</tspan></text>
 </g>
 <g class="f0">
-<text y="67"><tspan x="702 720 729 738 747 756 765 774 783 801 810 819 828 846 873 882 891 900 909 918 1071" fill="#cdd6f4">│ESCENTERCtrlpnormal│</tspan></text>
+<text y="67"><tspan x="639 684 693 702 711 720 729 738 747 765 774 783 792 810 837 846 855 864 873 882 1071" fill="#cdd6f4">│ESCENTERCtrlpnormal│</tspan></text>
 </g>
 <g class="f0">
-<text y="85"><tspan x="702 720 747 756 765 774 783 801 810 819 828 846 855 864 873 1071" fill="#cdd6f4">│;focuslastpane│</tspan></text>
+<text y="85"><tspan x="639 684 711 720 729 738 747 765 774 783 792 810 819 828 837 1071" fill="#cdd6f4">│;focuslastpane│</tspan></text>
 </g>
 <g class="f0">
-<text y="103"><tspan x="702 720 747 756 765 774 783 792 801 810 1071" fill="#cdd6f4">│afloating│</tspan></text>
+<text y="103"><tspan x="639 684 711 720 729 738 747 756 765 774 1071" fill="#cdd6f4">│afloating│</tspan></text>
 </g>
 <g class="f0">
-<text y="121"><tspan x="702 720 729 738 747 756 774 801 810 819 828 837 846 864 873 882 891 900 918 927 945 954 972 981 990 999 1008 1017 1026 1035 1044 1053 1071" fill="#cdd6f4">│Shiftftogglefocusnouifullscreen│</tspan></text>
+<text y="121"><tspan x="639 684 693 702 711 720 738 765 774 783 792 801 810 828 837 846 855 864 882 891 909 918 936 945 954 963 972 981 990 999 1008 1017 1071" fill="#cdd6f4">│Shiftftogglefocusnouifullscreen│</tspan></text>
 </g>
 <g class="f0">
-<text y="139"><tspan x="702 720 747 756 765 774 783 792 810 819 828 837 855 864 873 882 891 900 1071" fill="#cdd6f4">│gignorepaneoutput│</tspan></text>
+<text y="139"><tspan x="639 684 711 720 729 738 747 756 774 783 792 801 819 828 837 846 855 864 1071" fill="#cdd6f4">│gignorepaneoutput│</tspan></text>
 </g>
 <g class="f0">
-<text y="157"><tspan x="702 720 747 756 765 1071" fill="#cdd6f4">│ipin│</tspan></text>
+<text y="157"><tspan x="639 684 711 720 729 1071" fill="#cdd6f4">│ipin│</tspan></text>
 </g>
 <g class="f0">
-<text y="175"><tspan x="702 720 747 756 765 774 783 792 810 819 828 837 846 1071" fill="#cdd6f4">│ptogglefocus│</tspan></text>
-</g>
-<g class="f0">
-<text y="193"><tspan x="702 720 747 756 765 774 783 792 801 1071" fill="#cdd6f4">│sstacked│</tspan></text>
+<text y="175"><tspan x="639 684 711 720 729 738 747 756 774 783 792 801 810 1071" fill="#cdd6f4">│ptogglefocus│</tspan></text>
 </g>
 <g class="f1">
-<text y="211"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711" fill="#cdd6f4">┌──────────────────────────────┐</tspan></text>
+<text y="193"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774" fill="#cdd6f4">╭─────────────────────────────────────╮</tspan></text>
 </g>
 <g class="f0">
-<text y="211"><tspan x="702 720 747 756 765 774 792 801 810 819 1071" fill="#cdd6f4">│umutepane│</tspan></text>
+<text y="193"><tspan x="639 684 711 720 729 738 747 756 765 1071" fill="#cdd6f4">│sstacked│</tspan></text>
 </g>
 <g class="f1">
-<text y="229"><tspan x="432 450 477 486 495 504 513 522 540 549 558 567 576 585 594 603 621 630 639 648 657 711" fill="#cdd6f4">│wtogglefloatingpanes│</tspan></text>
+<text y="211"><tspan x="432" fill="#cdd6f4">│</tspan><tspan x="477 504 513 522 531 540 549 567 576 585 594 603 612 621 630 648 657 666 675 684" fill="#cdd6f4" font-weight="bold">wtogglefloatingpanes</tspan><tspan x="774" fill="#cdd6f4">│</tspan></text>
 </g>
 <g class="f0">
-<text y="229"><tspan x="702 720 747 756 765 774 783 801 810 819 828 1071" fill="#cdd6f4">│vwatchpane│</tspan></text>
+<text y="211"><tspan x="639 684 711 720 729 738 756 765 774 783 1071" fill="#cdd6f4">│umutepane│</tspan></text>
 </g>
 <g class="f1">
-<text y="247"><tspan x="432 450 459 468 486 513 522 531 540 549 558 576 585 594 603 612 621 630 639 657 666 675 684 693 711" fill="#cdd6f4">│Altftogglefloatingpanes│</tspan></text>
+<text y="229"><tspan x="432 477 486 495 513 540 549 558 567 576 585 603 612 621 630 639 648 657 666 684 693 702 711 720 774" fill="#cdd6f4">│Altftogglefloatingpanes│</tspan></text>
 </g>
 <g class="f0">
-<text y="247"><tspan x="702 720 747 756 765 774 783 792 1071" fill="#cdd6f4">│zframes│</tspan></text>
+<text y="229"><tspan x="639 684 711 720 729 738 747 765 774 783 792 1071" fill="#cdd6f4">│vwatchpane│</tspan></text>
 </g>
 <g class="f1">
-<text y="265"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711" fill="#cdd6f4">└──────────────────────────────┘</tspan></text>
+<text y="247"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774" fill="#cdd6f4">╰─────────────────────────────────────╯</tspan></text>
 </g>
 <g class="f0">
-<text y="265"><tspan x="702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">└────────────────────────────────────────┘</tspan></text>
+<text y="247"><tspan x="639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#cdd6f4">╰───────────────────────────────────────────────╯</tspan></text>
 </g>
 <g class="f2">
-<text y="283"><tspan x="9 18 27 36 72 90 99 108 126" fill="#181825" font-weight="bold">PANEnAltn</tspan><tspan x="153 162 171" fill="#cdd6f4">new</tspan><tspan x="207" fill="#181825" font-weight="bold">x</tspan><tspan x="234 243 252 261 270" fill="#cdd6f4">close</tspan><tspan x="306" fill="#181825" font-weight="bold">f</tspan><tspan x="333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">fullscreen</tspan><tspan x="450 468 477 486 504" fill="#181825" font-weight="bold">wAltf</tspan><tspan x="531 540 549 558 567" fill="#cdd6f4">float</tspan><tspan x="603" fill="#181825" font-weight="bold">e</tspan><tspan x="630 639 648 657 666" fill="#cdd6f4">embed</tspan><tspan x="702" fill="#181825" font-weight="bold">r</tspan><tspan x="729 738 747 756 765 783 792 801 810 819" fill="#cdd6f4">splitright</tspan><tspan x="855" fill="#181825" font-weight="bold">d</tspan><tspan x="882 891 900 909 918 936 945 954 963 981" fill="#cdd6f4">splitdown…</tspan></text>
+<text y="265"><tspan x="9 18 27 36 72 90 99 108 126" fill="#181825" font-weight="bold">PANEnAltn</tspan><tspan x="153 162 171" fill="#cdd6f4">new</tspan><tspan x="207" fill="#181825" font-weight="bold">x</tspan><tspan x="234 243 252 261 270" fill="#cdd6f4">close</tspan><tspan x="306" fill="#181825" font-weight="bold">f</tspan><tspan x="333 342 351 360 369 378 387 396 405 414" fill="#cdd6f4">fullscreen</tspan><tspan x="450 468 477 486 504" fill="#181825" font-weight="bold">wAltf</tspan><tspan x="531 540 549 558 567" fill="#cdd6f4">float</tspan><tspan x="603" fill="#181825" font-weight="bold">e</tspan><tspan x="630 639 648 657 666" fill="#cdd6f4">embed</tspan><tspan x="702" fill="#181825" font-weight="bold">r</tspan><tspan x="729 738 747 756 765 783 792 801 810 819" fill="#cdd6f4">splitright</tspan><tspan x="855" fill="#181825" font-weight="bold">d</tspan><tspan x="882 891 900 909 918 936 945 954 963 981" fill="#cdd6f4">splitdown…</tspan></text>
 </g>
 <g class="f3">
-<path d="M18 288L18 303L22 299L25 305L27 304L24 298L29 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M18 270L18 285L22 281L25 287L27 286L24 280L29 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f4">
-<path d="M117 288L117 303L121 299L124 305L126 304L123 298L128 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M117 270L117 285L121 281L124 287L126 286L123 280L128 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f5">
-<path d="M216 288L216 303L220 299L223 305L225 304L222 298L227 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M216 270L216 285L220 281L223 287L225 286L222 280L227 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f6">
-<path d="M315 288L315 303L319 299L322 305L324 304L321 298L326 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M315 270L315 285L319 281L322 287L324 286L321 280L326 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f7">
-<path d="M504 288L504 303L508 299L511 305L513 304L510 298L515 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M504 270L504 285L508 281L511 287L513 286L510 280L515 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 <g class="f8">
-<path d="M981 288L981 303L985 299L988 305L990 304L987 298L992 298Z" fill="#ffffff" stroke="#1e1e2e"/>
+<path d="M981 270L981 285L985 281L988 287L990 286L987 280L992 280Z" fill="#ffffff" stroke="#1e1e2e"/>
 </g>
 </g>
 </g>
