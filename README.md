@@ -36,7 +36,7 @@ Four features in this release need plugin APIs that are not in a released Zellij
 | [#5685](https://github.com/zellij-org/zellij/pull/5685) | Zellij's context menu, prompt and popup APIs, which [mouse](docs/mouse.md) uses for the right-click menu, the menus of hints and their hover previews                                                       |
 | Fork only                                               | Plugin APIs that read, preview and save config blocks, which the [settings screen](docs/settings.md) edits the zjhints alias through                                                                        |
 
-Until they are released, a Zellij build carrying all of them is published as [fork-v0.46.4](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.4). That is the build zjhints is compiled against, so it is the way to see these features working today.
+Until they are released, a Zellij build carrying all of them is published as [fork-ea-v0.46.4-261025](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.4-261025). That is the build zjhints is compiled against, so it is the way to see these features working today.
 
 Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the fork. See [Versioning](#versioning) for which zjhints line targets which Zellij.
 

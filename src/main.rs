@@ -1838,6 +1838,7 @@ fn open_preview_popup(
         PopupOptions {
             focused: false,
             corner: None,
+            ..PopupOptions::default()
         },
     );
 }
@@ -2947,6 +2948,7 @@ fn mode_config_suffix(mode: InputMode) -> &'static str {
         InputMode::Search => "search",
         InputMode::RenameTab => "rename_tab",
         InputMode::RenamePane => "rename_pane",
+        InputMode::RenameSession => "rename_session",
         InputMode::Session => "session",
         InputMode::Move => "move",
         InputMode::Prompt => "prompt",
@@ -4101,6 +4103,7 @@ fn is_hidden_action(action: &Action) -> bool {
             | Action::WriteChars { .. }
             | Action::PaneNameInput { .. }
             | Action::TabNameInput { .. }
+            | Action::SessionNameInput { .. }
             | Action::SearchInput { .. }
             | Action::RenameTab { .. }
             | Action::RenameTerminalPane { .. }
@@ -4239,7 +4242,9 @@ fn builtin_hint(action: &Action) -> Option<(&'static str, &'static str)> {
         Action::Confirm => ("confirm", "confirm"),
         Action::Deny => ("deny", "deny"),
         Action::RenameSession { name: _ } => ("rename_session", "rename"),
-        Action::UndoRenamePane | Action::UndoRenameTab => ("undo_rename", "undo"),
+        Action::UndoRenamePane | Action::UndoRenameTab | Action::UndoRenameSession => {
+            ("undo_rename", "undo")
+        }
 
         _ => return None,
     })
@@ -4259,7 +4264,9 @@ fn switch_mode_hint(mode: &InputMode) -> Option<(&'static str, &'static str)> {
         InputMode::Scroll => ("mode_scroll", "scroll"),
         InputMode::Search | InputMode::EnterSearch => ("mode_search", "search"),
         InputMode::Session => ("mode_session", "session"),
-        InputMode::RenameTab | InputMode::RenamePane => ("mode_rename", "rename"),
+        InputMode::RenameTab | InputMode::RenamePane | InputMode::RenameSession => {
+            ("mode_rename", "rename")
+        }
         InputMode::Tmux => ("mode_tmux", "tmux"),
         InputMode::Prompt => ("mode_prompt", "prompt"),
     })
@@ -5951,6 +5958,10 @@ mod tests {
         assert_eq!(mode_config_suffix(InputMode::EnterSearch), "enter_search");
         assert_eq!(mode_config_suffix(InputMode::RenameTab), "rename_tab");
         assert_eq!(mode_config_suffix(InputMode::RenamePane), "rename_pane");
+        assert_eq!(
+            mode_config_suffix(InputMode::RenameSession),
+            "rename_session"
+        );
     }
 
     /// The pane a nested session runs in throughout these tests.
@@ -7251,6 +7262,7 @@ mod tests {
             InputMode::Search,
             InputMode::RenameTab,
             InputMode::RenamePane,
+            InputMode::RenameSession,
             InputMode::Session,
             InputMode::Move,
             InputMode::Prompt,
