@@ -38,7 +38,7 @@ k↑  move focus up
 l→  move focus right
 ```
 
-Choosing an entry runs it, and dismissing the menu runs nothing. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
+Choosing an entry runs it, and dismissing the menu runs nothing. Clicking outside the menu dismisses it, as it does Zellij's context menu; that click goes no further, so clicking another hint while a menu is open closes the menu and takes a second click to reach the hint. Keys that do the same thing share an entry, so a hint whose keys all do one thing, like `close` on both `x` and `q`, runs it straight away with no menu.
 
 Only the keys the hint shows count. With [`direction_keys arrows`](ordering.md#direction-keys), clicking `focus` offers the arrows and not `hjkl`.
 

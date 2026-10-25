@@ -13,7 +13,7 @@ use std::collections::VecDeque;
 use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::{
-    ChoiceItem, Mouse, PromptPlacement, PromptRequest, PromptResult, PromptValue,
+    ChoiceItem, Mouse, OutsideClick, PromptPlacement, PromptRequest, PromptResult, PromptValue,
 };
 
 /// One hint, as something that can be clicked.
@@ -300,7 +300,8 @@ impl ActionQueue {
 }
 
 /// The prompt that shows `entries` as a menu at the mouse. Each entry's value
-/// is its index, which is how `menu_answer_outcome` finds it again.
+/// is its index, which is how `menu_answer_outcome` finds it again. A click
+/// outside it closes it, as it does Zellij's own context menu.
 pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
     PromptRequest::menu(
         entries
@@ -309,6 +310,7 @@ pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
             .map(|(index, entry)| ChoiceItem::labeled(index.to_string(), entry.label.clone())),
     )
     .placement(PromptPlacement::Mouse)
+    .outside_click(OutsideClick::Close)
 }
 
 /// What hovering a stretch of the bar shows: the entries of the menu a click
@@ -522,6 +524,18 @@ mod tests {
             segment(1, SegmentContent::Spacer),
             segment(4, SegmentContent::Hint(hint("b", vec![Action::Detach]))),
         ]
+    }
+
+    #[test]
+    fn a_click_outside_a_menu_closes_it() {
+        let entries = [MenuEntry {
+            label: "a".to_string(),
+            pick: MenuPick::Run(vec![Action::CloseFocus]),
+        }];
+        assert_eq!(
+            menu_request(&entries).outside_click_or_default(),
+            OutsideClick::Close
+        );
     }
 
     #[test]
