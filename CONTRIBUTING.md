@@ -84,6 +84,18 @@ make images    # rewrites the generated SVGs in docs/img
 
 The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. The nightly, release and EA workflows run the same tests, so a stale image blocks those builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
+#### Animated images
+
+An animation is a list of frames, each a `Screen` and how long it shows, written as one SVG that loops them with CSS alone. GitHub renders SVGs in an `<img>`, which runs neither scripts nor most SMIL, but does run CSS animations. To add one:
+
+1. Build an `Animation` from `Frame`s of the same size, naming the frame that stands for the whole: `Animation::new(frames, still)`.
+2. Add `animation.to_svg(title)` to `images()` as with a still image, and run `make images`.
+3. In the page, give it alt text that tells the whole sequence, since a reader with motion turned off sees only the still frame.
+
+Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demo in the README, drawn by `src/images/session.rs`, is about 170 KB for 46 seconds. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does any viewer that does not run CSS animations.
+
+The session demo draws Zellij's tab bar, pane frames and pane contents by hand. Only the bar, its hover preview and the settings screen come from the plugin, so change the hand-drawn parts there when Zellij's look changes.
+
 ## Pull requests
 
 1. Branch from `main`.
