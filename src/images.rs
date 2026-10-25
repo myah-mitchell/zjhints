@@ -804,6 +804,39 @@ fn shots(shots: &[Shot]) -> Screen {
     screen
 }
 
+/// The bar of `shot` narrowing from its width to `narrowest` columns and
+/// widening back, `step` columns a frame, under a caption giving the width
+/// and with the edge of its pane marked. It stands still at `still` columns.
+fn narrowing(shot: &Shot, narrowest: usize, step: usize, still: usize) -> Animation {
+    let widest = shot.columns;
+    let mut widths: Vec<usize> = (narrowest..=widest).rev().step_by(step).collect();
+    let mut back: Vec<usize> = widths.iter().rev().skip(1).copied().collect();
+    back.pop();
+    widths.extend(back);
+    let edge = Pen {
+        dim: true,
+        ..Pen::default()
+    };
+    let frames = widths
+        .iter()
+        .map(|&columns| {
+            let mut screen = Screen::new(2, widest + 1);
+            screen.print_with(0, 0, &format!("{columns} columns"), |_| edge);
+            let line = bar_in_session(&shot.options, shot.mode, columns, shot.ascended).0;
+            screen.print(1, 0, &line);
+            screen.print_with(1, columns, "│", |_| edge);
+            // The ends are held, so each width can be read before it moves.
+            let hold = columns == widest || columns == narrowest;
+            Frame::new(screen, if hold { 2000 } else { 400 })
+        })
+        .collect();
+    let still = widths
+        .iter()
+        .position(|&columns| columns == still)
+        .expect("the still width is one of the steps");
+    Animation::new(frames, still)
+}
+
 /// The pens Zellij's widgets draw with, from the palette, standing in for
 /// what the server paints `Text` and the widgets in.
 struct WidgetPens {
@@ -1358,11 +1391,9 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     let show_mode = [("show_mode", "true")];
     vec![
         (
-            "fitting-widths.svg",
-            shots(&[120, 90, 60, 40].map(|columns| {
-                Shot::new(format!("{columns} columns"), &fitted, Normal).columns(columns)
-            }))
-            .to_svg("The normal mode bar at 120, 90, 60 and 40 columns, losing hints from the middle while quit stays last"),
+            "fitting-narrowing.svg",
+            narrowing(&Shot::new("", &fitted, Normal), 36, 6, 60)
+                .to_svg("The normal mode bar narrowing from 120 to 36 columns and widening back, losing hints from the middle while quit stays last"),
         ),
         (
             "fitting-precedence.svg",

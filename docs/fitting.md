@@ -51,9 +51,9 @@ So on a narrowing window the middle thins out while `exit` stays put, rather tha
 > [!NOTE]
 > The images on this page use `color_theme "catppuccin-mocha"`, `format_theme "pills"` and `alias_theme "unicode"`. Without them the bar has Zellij's colors and key names such as `Ctrl p`. See [Themes](themes.md).
 
-Here is Normal mode with `hint_order "*, quit"` at four widths. The pills theme marks the gap with its own `drop_indicator`, an ellipsis in a gray pill:
+Here is Normal mode with `hint_order "*, quit"` as its pane narrows from 120 columns to 36 and widens again. The pills theme marks the gap with its own `drop_indicator`, an ellipsis in a gray pill:
 
-![Four zjhints bars in normal mode, drawn as purple pills, at 120, 90, 60 and 40 columns. At 120 the hints run from ^p pane to ⌥hjkl←↓↑→ focus, then an ellipsis, then ^q quit. Each narrower bar loses more hints from the middle, until at 40 columns only ^p pane, ^t tab, the ellipsis and ^q quit remain](img/fitting-widths.svg)
+![A zjhints bar in normal mode, drawn as purple pills, under a caption giving its width, with the pane's right edge marked. It starts at 120 columns with the hints from ^p pane to ⌥hjkl←↓↑→ focus, then an ellipsis, then ^q quit. As the pane narrows six columns at a time, hints drop from the middle, until at 36 columns only ^p pane, ^t tab, the ellipsis and ^q quit remain; then it widens back and the hints return](img/fitting-narrowing.svg)
 
 When the `*` runs out, dropping continues outward from that same gap: the leading group is consumed from its inner edge, then the trailing group from its inner edge. Hints given up therefore always form one contiguous run, so a single indicator can stand for all of them:
 
