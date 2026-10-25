@@ -429,6 +429,10 @@ impl Animation {
     /// who prefer less motion. Every frame is the same size.
     fn new(frames: Vec<Frame>, still: usize) -> Self {
         assert!(still < frames.len(), "the still frame is one of the frames");
+        assert!(
+            frames.iter().all(|frame| frame.milliseconds > 0),
+            "every frame shows for some time"
+        );
         let size = |frame: &Frame| (frame.screen.rows.len(), frame.screen.columns());
         assert!(
             frames.iter().all(|frame| size(frame) == size(&frames[0])),
@@ -459,11 +463,15 @@ impl Animation {
                 }
             }
         }
-        // A blank row draws nothing, so it needs no frames of its own.
+        // A blank row draws nothing, so it needs no frames of its own. A
+        // space draws something only with a background or a line through it.
         looks.retain(|look| {
-            look.cells
-                .iter()
-                .any(|cell| cell.character != ' ' || cell.look.background.is_some())
+            look.cells.iter().any(|cell| {
+                cell.character != ' '
+                    || cell.look.background.is_some()
+                    || cell.look.underline
+                    || cell.look.strike
+            })
         });
         looks
     }
@@ -863,6 +871,11 @@ fn shots(shots: &[Shot]) -> Screen {
 /// and with the edge of its pane marked. It stands still at `still` columns.
 fn narrowing(shot: &Shot, narrowest: usize, step: usize, still: usize) -> Animation {
     let widest = shot.columns;
+    assert_eq!(
+        (widest - narrowest) % step,
+        0,
+        "the steps land on the narrowest width"
+    );
     let mut widths: Vec<usize> = (narrowest..=widest).rev().step_by(step).collect();
     let mut back: Vec<usize> = widths.iter().rev().skip(1).copied().collect();
     back.pop();
@@ -1387,7 +1400,12 @@ fn settings_live() -> Animation {
             Frame::new(screen, if last { 3000 } else { 1800 })
         })
         .collect();
-    Animation::new(frames, 3)
+    let pills = edits
+        .iter()
+        .position(|edit| *edit == ("format_theme", "pills"))
+        .expect("an edit to pills");
+    // Frame 0 has no edits, so the frame after an edit is one past it.
+    Animation::new(frames, pills + 1)
 }
 
 /// The alias the settings screens show: the colors and formats of a theme

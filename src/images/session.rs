@@ -21,8 +21,11 @@ const COLUMNS: usize = 120;
 const CAPTION_ROWS: usize = 3;
 /// The row the bar sits on, in a borderless pane of its own at the bottom.
 const BAR_ROW: usize = ROWS - 1;
-/// How narrow the terminal gets when it is resized.
+/// How narrow the terminal gets when it is resized, and by how many columns
+/// a frame. The steps land on both ends.
 const NARROWEST: usize = 66;
+const RESIZE_STEP: usize = 6;
+const _: () = assert!((COLUMNS - NARROWEST) % RESIZE_STEP == 0);
 
 /// The settings screen's size inside its floating pane's frame.
 const SETTINGS_ROWS: usize = 18;
@@ -278,8 +281,15 @@ fn draw_frame(screen: &mut Screen, area: Area, title: &str, focused: bool, chrom
     paint(screen, area.row + area.rows - 1, area.column, &bottom, pen);
 }
 
-/// A shell prompt at a spot of `area`, with `typed` after it and the cursor.
-fn draw_prompt(screen: &mut Screen, row: usize, column: usize, typed: &str, chrome: &Chrome) {
+/// A shell prompt at a spot of `area` with `typed` after it, and the column
+/// after that.
+fn draw_command(
+    screen: &mut Screen,
+    row: usize,
+    column: usize,
+    typed: &str,
+    chrome: &Chrome,
+) -> usize {
     let column = paint(
         screen,
         row,
@@ -288,7 +298,13 @@ fn draw_prompt(screen: &mut Screen, row: usize, column: usize, typed: &str, chro
         chrome.pen(chrome.path),
     );
     let column = paint(screen, row, column, "❯ ", chrome.pen(chrome.prompt));
-    let column = paint(screen, row, column, typed, chrome.pen(chrome.text));
+    paint(screen, row, column, typed, chrome.pen(chrome.text))
+}
+
+/// A shell prompt waiting at a spot of `area`, with `typed` after it and the
+/// cursor.
+fn draw_prompt(screen: &mut Screen, row: usize, column: usize, typed: &str, chrome: &Chrome) {
+    let column = draw_command(screen, row, column, typed, chrome);
     paint(
         screen,
         row,
@@ -304,15 +320,7 @@ fn draw_prompt(screen: &mut Screen, row: usize, column: usize, typed: &str, chro
 /// The left pane's shell, with a test run in it.
 fn draw_test_run(screen: &mut Screen, area: Area, chrome: &Chrome) {
     let (row, column) = (area.row, area.column + 1);
-    let after = paint(
-        screen,
-        row,
-        column,
-        "~/src/zjhints ",
-        chrome.pen(chrome.path),
-    );
-    let after = paint(screen, row, after, "❯ ", chrome.pen(chrome.prompt));
-    paint(screen, row, after, "cargo test", chrome.pen(chrome.text));
+    draw_command(screen, row, column, "cargo test", chrome);
     let lines = [
         "   Compiling zjhints (~/src/zjhints)",
         "    Finished `test` profile in 4.21s",
@@ -560,7 +568,7 @@ fn script() -> Vec<(Scene, u32)> {
 
     // The terminal narrows, and the bar drops hints to fit.
     (scene.key, scene.caption) = ("", "the terminal narrows: whole hints drop to fit");
-    for columns in (NARROWEST..COLUMNS).step_by(6).rev() {
+    for columns in (NARROWEST..COLUMNS).step_by(RESIZE_STEP).rev() {
         scene.columns = columns;
         step(&scene, if columns == NARROWEST { 2000 } else { 350 });
     }
@@ -569,7 +577,7 @@ fn script() -> Vec<(Scene, u32)> {
     step(&scene, 4600);
     scene.hover = false;
     (scene.key, scene.caption) = ("", "the terminal widens again");
-    for columns in (NARROWEST..=COLUMNS).step_by(6).skip(1) {
+    for columns in (NARROWEST..=COLUMNS).step_by(RESIZE_STEP).skip(1) {
         scene.columns = columns;
         step(&scene, if columns == COLUMNS { 1600 } else { 300 });
     }
