@@ -1308,10 +1308,10 @@ impl State {
         };
         let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
         let labels = preview.labels();
-        let (width, height) = popup::size(&labels, self.wide_ambiguous);
+        let (width, height) = popup::size(&labels);
         open_preview_popup(
             url,
-            popup::configuration(&tag, &labels, self.wide_ambiguous),
+            popup::configuration(&tag, &labels),
             self.pane_rows.max(1),
             preview.columns.start,
             width,
@@ -6997,7 +6997,7 @@ mod tests {
 
     #[test]
     fn a_popup_instance_ignores_what_the_bar_handles() {
-        let configuration = popup::configuration("7-1", &["a".to_string()], false);
+        let configuration = popup::configuration("7-1", &["a".to_string()]);
         let mut state = State {
             preview_popup: PreviewPopup::from_configuration(&configuration),
             ..Default::default()

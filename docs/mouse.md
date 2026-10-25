@@ -54,15 +54,15 @@ When even a single hint does not fit and the line is cut short, `overflow_str` o
 
 ## Hover preview
 
-Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small popup beside the bar. The popup lists the same entries, written the same way, so you can see what a hint such as `focus` covers and pick one straight from the popup.
+Resting the pointer on a hint that would open a menu when clicked shows what the menu offers, in a small popup beside the bar. The popup lists the same entries, written and drawn the way the menu draws them, so you can see what a hint such as `focus` covers and pick one straight from the popup.
 
 ```text
-┌──────────────────────┐
-│ h←  move focus left  │
-│ j↓  move focus down  │
-│ k↑  move focus up    │
-│ l→  move focus right │
-└──────────────────────┘
+╭─────────────────────────────╮
+│    h←  move focus left      │
+│    j↓  move focus down      │
+│    k↑  move focus up        │
+│    l→  move focus right     │
+╰─────────────────────────────╯
 ```
 
 In the animation, the pointer moves along a bar in pane mode at the bottom of the screen. Swept across the first hints, it opens nothing. Resting on `float` opens that hint's preview, and resting on the [drop indicator](fitting.md#marking-the-gap) opens a list of the hints that did not fit:
@@ -73,7 +73,7 @@ The popup appears for a hint whose keys do different things, for the [drop indic
 
 The popup opens once the pointer has rested on the hint for a moment, so sweeping the pointer across the bar opens none. It opens below the bar, or above it when the bar is at the bottom of the screen, and never takes the focus. Moving the pointer to a different hint or off the picker hints closes it, and so does clicking the hint, which then opens the real menu.
 
-You can move the pointer onto the popup, and it stays open while the pointer is on it. The entry under the pointer is highlighted, and clicking it does what choosing it in the menu would: it runs, or opens the hint's own menu for a hint that did not fit. Clicking the popup's frame closes it and runs nothing.
+You can move the pointer onto the popup, and it stays open while the pointer is on it. The entry under the pointer is highlighted, and clicking it does what choosing it in the menu would: it runs, or opens the hint's own menu for a hint that did not fit. Clicking the popup's frame closes it and runs nothing. A list of more than twelve entries scrolls, with the mouse wheel or the arrows above and below it, as the menu does.
 
 The popup closes when the pointer leaves it, or three seconds after it opens if the pointer never reaches it, so a pointer that leaves the bar for another pane cannot strand it.
 

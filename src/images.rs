@@ -18,7 +18,7 @@
 mod session;
 
 use crate::mouse;
-use crate::popup::{self, PreviewPopup};
+use crate::popup;
 use crate::settings::editor::{Editor, Field, Focus};
 use crate::settings::view::{self, Control, FormatView, HelpState, Layout, Marker, Rgb, RowView};
 use crate::{char_width, AnsiParser, AnsiSegment, ClickMap, State};
@@ -1279,6 +1279,8 @@ struct Hover {
     /// The column of its left edge.
     left: usize,
     lines: Vec<String>,
+    /// The list's row of the first entry, which it highlights.
+    highlighted: Option<String>,
 }
 
 /// The hover preview of what is under `column` of the bar `map` was drawn
@@ -1288,14 +1290,30 @@ struct Hover {
 fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
     let preview = mouse::hover_preview(map, &Mouse::Hover(0, column))?;
     let labels = preview.labels();
-    let configuration = popup::configuration("1-1", &labels, false);
-    let popup = PreviewPopup::from_configuration(&configuration).expect("a preview popup");
-    let (width, height) = popup::size(&labels, false);
+    let (width, height) = popup::size(&labels);
     Some(Hover {
         left: preview.columns.start.min(columns.saturating_sub(width)),
         hint: preview.columns,
-        lines: popup.lines(height, width),
+        lines: menu_lines(&labels, height, width),
+        highlighted: labels.first().map(|label| menu_row(label, width)),
     })
+}
+
+/// A hover popup of `labels` as it shows at `rows` by `cols`: the frame the
+/// popup draws, and inside it the rows of Zellij's list widget, each a
+/// space, the empty mark column and a space before its label.
+fn menu_lines(labels: &[String], rows: usize, cols: usize) -> Vec<String> {
+    let mut lines = popup::frame_lines(rows, cols);
+    for (row, label) in labels.iter().take(rows.saturating_sub(2)).enumerate() {
+        lines[row + 1] = format!("│ {} │", menu_row(label, cols));
+    }
+    lines
+}
+
+/// The list widget's row of `label` in a hover popup `cols` wide, which
+/// fills the popup inside its frame and padding.
+fn menu_row(label: &str, cols: usize) -> String {
+    format!("   {} ", fit(label, cols.saturating_sub(8)))
 }
 
 impl Hover {
@@ -1305,11 +1323,16 @@ impl Hover {
     }
 
     /// The popup with its bottom edge on the row above `bar_row`, as it opens
-    /// over a bar at the bottom of the screen.
+    /// over a bar at the bottom of the screen. The list highlights its first
+    /// entry until the pointer moves onto another.
     fn draw_above(&self, screen: &mut Screen, bar_row: usize) {
         let top = bar_row - self.lines.len();
         for (offset, line) in self.lines.iter().enumerate() {
             screen.print(top + offset, self.left, line);
+        }
+        if let Some(row) = self.highlighted.as_ref().filter(|_| self.lines.len() > 2) {
+            let selected = WidgetPens::new().selected;
+            screen.print_with(top + 1, self.left + 2, row, |_| selected);
         }
     }
 }
