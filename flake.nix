@@ -31,7 +31,10 @@
       # its own MSRV, and the build fails deep in cargo rather than here.
       # Assert it instead, so the failure names the real cause and the fix.
       cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-      msrv = cargoToml.package.rust-version;
+      msrv = cargoToml.workspace.package.rust-version;
+      # The workspace root has no [package]; the plugin's own manifest names
+      # the package and carries its version.
+      zjhintsToml = builtins.fromTOML (builtins.readFile ./plugins/zjhints/Cargo.toml);
 
       rustWithWasiTarget = let
         toolchain = pkgs.rust-bin.stable.latest.default.override {
@@ -50,8 +53,10 @@
       craneLib = (crane.mkLib pkgs).overrideToolchain rustWithWasiTarget;
 
       zjhints = craneLib.buildPackage {
+        pname = zjhintsToml.package.name;
+        version = zjhintsToml.package.version;
         src = craneLib.cleanCargoSource (craneLib.path ./.);
-        cargoExtraArgs = "--target wasm32-wasip1";
+        cargoExtraArgs = "--package zjhints --target wasm32-wasip1";
         doCheck = false;
         doNotSign = true;
       };

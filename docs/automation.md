@@ -36,7 +36,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
                                                         |
  builds.yml <-------------------------------------------+
    sees a tag that builds.toml's `release` table matches
-   test + build, with 0.6.0 written into Cargo.toml for the build only
+   test + build, with 0.6.0 written into the plugin's Cargo.toml for the build only
    publish v0.6.0, becomes `latest`
    move the `zellij-<line>` tag to it too
 
@@ -128,7 +128,7 @@ python3 -m unittest discover -s tooling
 | `alias` | A second tag moved to each new build, with a release of its own that is never the latest |
 | `keep` | For a `{date}` tag, how many releases of the series to keep |
 
-In `tag`, `{date}` is `<date>` and `{zellij}` is the major and minor of the `zellij-tile` requirement in the build's `Cargo.toml`, such as `0.46`. A tag that already exists is skipped, except that a `{date}` tag gets a `.2`, `.3` and so on for a second build the same day.
+In `tag`, `{date}` is `<date>` and `{zellij}` is the major and minor of the `zellij-tile` requirement in the build's root `Cargo.toml`, such as `0.46`. A tag that already exists is skipped, except that a `{date}` tag gets a `.2`, `.3` and so on for a second build the same day.
 
 A ref in `base` or `stack` is a branch of this repository: `main`, `feat/x` or `origin:feat/x`. A pull request is listed by its branch name. One from a fork cannot be stacked, because a build runs the code it builds, tests included, in the context of `main`, where it could write to the Actions cache that `ci.yml` restores on `main`. To build a fork's change, push its branch to this repository after reviewing it.
 
@@ -160,9 +160,9 @@ There is deliberately no tag named `latest`. GitHub already tracks the newest re
 
 ### Versioning
 
-The version of a release is the tag you push. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`, and neither releases anything. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
+The version of a release is the tag you push. Neither pull request from `update-deps.yml` touches `version` in `plugins/zjhints/Cargo.toml`, and neither releases anything. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
 
-The `release` table writes the version from the tag into `Cargo.toml` for that build only. The `Cargo.toml` on `main` is never changed by a release, and editing its `version` cuts nothing.
+The `release` table writes the version from the tag into `plugins/zjhints/Cargo.toml` for that build only. The manifest on `main` is never changed by a release, and editing its `version` cuts nothing.
 
 Patch, minor, or major is your call each time, as the name of the tag. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; tag it once you have confirmed hints render right. See [Versioning](installation.md#versioning) for the convention this project uses.
 
@@ -232,7 +232,7 @@ How dependencies are updated and held back, and how to build against an upstream
 
 ### How dependencies are chosen
 
-`cargo update` only moves within the range each `Cargo.toml` entry allows. For `0.x` crates that is patch releases, so `zellij-tile = "0.45.0"` accepts 0.45.1 but never 0.46.0.
+`cargo update` only moves within the range each requirement in the root `Cargo.toml` allows. Every dependency's requirement lives in its `[workspace.dependencies]` table, and the crates under `crates/` and `plugins/` refer to it with `workspace = true`. For `0.x` crates that is patch releases, so `zellij-tile = "0.45.0"` accepts 0.45.1 but never 0.46.0.
 
 That is the policy on purpose.
 
@@ -245,15 +245,15 @@ That pull request is never safe to merge on a green build alone. CI passing only
 
 #### flake.lock moves alongside it
 
-`nix flake update` has no equivalent restraint: Nix flake inputs carry no semver range to stay within, so every input always moves to whatever is current, `nixpkgs`, `rust-overlay` and `crane` included. The workflow only opens the pull request after confirming `nix build .#default` still resolves a toolchain meeting `Cargo.toml`'s `rust-version`; a failure there fails the run instead of landing a broken lock. See `flake.nix` and [issue #11][gh-11].
+`nix flake update` has no equivalent restraint: Nix flake inputs carry no semver range to stay within, so every input always moves to whatever is current, `nixpkgs`, `rust-overlay` and `crane` included. The workflow only opens the pull request after confirming `nix build .#default` still resolves a toolchain meeting the `rust-version` in the root `Cargo.toml`'s `[workspace.package]`; a failure there fails the run instead of landing a broken lock. See `flake.nix` and [issue #11][gh-11].
 
 [gh-11]: https://github.com/myah-mitchell/zjhints/issues/11
 
 ### Depending on an unreleased upstream fix
 
-Sometimes a branch needs a zellij-tile or zellij-tile-utils fix that exists in a fork or an unmerged upstream pull request but has not shipped to crates.io yet. Widening the `[dependencies]` requirement to a version crates.io does not have yet just fails the build, with `cargo` reporting "candidate versions found" and listing everything except the one you asked for. Lowering it back defeats the point of taking the fix at all.
+Sometimes a branch needs a zellij-tile or zellij-tile-utils fix that exists in a fork or an unmerged upstream pull request but has not shipped to crates.io yet. Widening the `[workspace.dependencies]` requirement to a version crates.io does not have yet just fails the build, with `cargo` reporting "candidate versions found" and listing everything except the one you asked for. Lowering it back defeats the point of taking the fix at all.
 
-Instead, add a `[patch.crates-io]` block at the end of `Cargo.toml`, pointing the affected crates at the fork or branch that has the fix, and leave the `[dependencies]` requirement exactly as it already is:
+Instead, add a `[patch.crates-io]` block at the end of the root `Cargo.toml`, pointing the affected crates at the fork or branch that has the fix, and leave the `[workspace.dependencies]` requirement exactly as it already is:
 
 ```toml
 [patch.crates-io]
@@ -400,12 +400,12 @@ Pull requests labeled `needs-zellij-upgrade` accumulate rather than merge, and t
 | Merge button is blocked | A required status check has not passed; check the PR's Checks tab |
 | Release does not publish after merging an update PR | Expected: merging never releases; push a tag, see [Cutting a release](#cutting-a-release) |
 | Release does not publish after pushing a tag | The tag must be `vX.Y.Z` on a commit that is on `main`, and the tag's release must not exist yet; the *Builds* summary of the run says which build was skipped or failed to assemble |
-| Editing `version` in `Cargo.toml` released nothing | Expected: the tag decides the version; see [Versioning](#versioning) |
+| Editing `version` in `plugins/zjhints/Cargo.toml` released nothing | Expected: the tag decides the version; see [Versioning](#versioning) |
 | Build fails at `assemble` with a conflict | A ref in the stack does not merge; see [When a stack does not merge](#when-a-stack-does-not-merge) |
 | `cargo test` fails to link | OpenSSL headers missing; the workflows install `libssl-dev`, locally use your package manager |
 | Nightly is stale | Either `main` has not moved since the last nightly, or the scheduled run did not happen; scheduled workflows are paused after 60 days of repository inactivity |
 | `zellij-upgrade` pull request never appears | `zellij_minor_available` only goes true once crates.io has the new `zellij-tile`/`zellij-tile-utils`, which can lag a Zellij release by a day or so |
-| `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement in the tagged commit; the alias follows whatever line was pinned there, not the newest one available |
+| `zellij-<line>` did not move after a release | Check the root `Cargo.toml`'s `zellij-tile` requirement in the tagged commit; the alias follows whatever line was pinned there, not the newest one available |
 | An EA build fails to resolve a Zellij crate | The stack has no `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet; see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix) |
 | `make ea` finds no build | The table's `tag` is not of the form `ea-<label>-{date}`, or the table has not been built yet |
 

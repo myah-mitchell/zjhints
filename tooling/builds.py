@@ -538,7 +538,10 @@ def conflict_help(name: str, item: dict, unmerged: list[str], worktree: Path, st
 def zellij_line(cargo_toml: Path) -> str:
     """major.minor of the zellij-tile requirement: the Zellij this build targets."""
     data = tomllib.loads(cargo_toml.read_text())
-    requirement = data.get("dependencies", {}).get("zellij-tile")
+    # A workspace keeps its requirements in [workspace.dependencies].
+    requirement = data.get("workspace", {}).get("dependencies", {}).get("zellij-tile")
+    if requirement is None:
+        requirement = data.get("dependencies", {}).get("zellij-tile")
     if isinstance(requirement, dict):
         requirement = requirement.get("version")
     if not isinstance(requirement, str):

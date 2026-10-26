@@ -1782,9 +1782,10 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     ]
 }
 
-/// Where the images live.
+/// Where the images live: `docs/img` at the workspace root, two levels above
+/// this crate.
 fn image_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/img")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/img")
 }
 
 /// The SVGs in `directory` that this module drew, by file name.

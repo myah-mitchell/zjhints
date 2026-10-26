@@ -536,7 +536,7 @@ mod tests {
     /// The options the configuration reference lists: name -> default as
     /// written there (`None` for "unset"), and the heading each is under.
     fn documented() -> BTreeMap<String, (Option<String>, String)> {
-        let reference = include_str!("../../docs/configuration.md");
+        let reference = include_str!("../../../../docs/configuration.md");
         let mut heading = String::new();
         let mut options = BTreeMap::new();
         for line in reference.lines() {
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn groups_are_in_reference_order() {
-        let reference = include_str!("../../docs/configuration.md");
+        let reference = include_str!("../../../../docs/configuration.md");
         let headings: Vec<&str> = reference
             .lines()
             .filter_map(|line| line.strip_prefix("## "))

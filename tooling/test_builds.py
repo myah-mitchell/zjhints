@@ -146,6 +146,8 @@ class SeriesTest(unittest.TestCase):
             self.assertEqual(builds.zellij_line(path), "0.46")
             path.write_text('[package]\nname = "x"\n[dependencies]\nzellij-tile = { version = "^1.2", features = [] }\n')
             self.assertEqual(builds.zellij_line(path), "1.2")
+            path.write_text('[workspace]\nmembers = ["p"]\n[workspace.dependencies]\nzellij-tile = "0.47.1"\n')
+            self.assertEqual(builds.zellij_line(path), "0.47")
             path.write_text('[package]\nname = "x"\n')
             with self.assertRaises(Fail):
                 builds.zellij_line(path)
