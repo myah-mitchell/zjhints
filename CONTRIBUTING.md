@@ -35,7 +35,7 @@ The repository is a Cargo workspace. Run every command from its root: `make`, `c
 
 ### The shared crate
 
-zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls stay in the plugin, because `cfg(test)` is per crate and the plugin's tests stub them out.
+zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls the plugin's tests need to stub out stay in the plugin, because `cfg(test)` is per crate and a stub in the plugin does not reach zjkit. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
 
 | Module | What it does |
 | --- | --- |
