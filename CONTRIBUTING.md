@@ -33,6 +33,41 @@ The repository is a Cargo workspace. Run every command from its root: `make`, `c
 | `plugins/zjhints` | The zjhints plugin itself |
 | `docs/` | The zjhints documentation and the images its tests draw |
 
+### The shared crate
+
+zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls stay in the plugin, because `cfg(test)` is per crate and the plugin's tests stub them out.
+
+| Module | What it does |
+| --- | --- |
+| `ansi` | Measures and cuts ANSI-styled text by visible width |
+| `dim` | Fades palette colors while a session is not where the keyboard goes |
+| `fit` | Drops whole items until a line fits, leaving one gap for the indicator |
+| `format` | Renders zjstatus-style format strings |
+| `mouse` | Click maps, menus and the hover-preview state machine |
+| `nesting` | Reads nested-session state from `ModeInfo` |
+| `panes` | Focus and widths from a pane manifest |
+| `popup` | The floating pane a hover preview opens in |
+| `settings` | The settings screen, driven by the plugin's `Schema` |
+| `theme` | Color themes, format themes and symbol sets |
+| `visibility` | Hide, show and toggle messages, and collapsing an empty row |
+
+### The zjhints plugin
+
+| File | What it holds |
+| --- | --- |
+| `main.rs` | The plugin state, its options, and the Zellij event loop |
+| `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
+| `keys.rs` | Key grouping, key and modifier aliases, and key order |
+| `mode_prefix.rs` | The mode drawn ahead of the hints |
+| `host.rs` | Permissions, pipe names, and the host calls tests stub out |
+| `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
+| `popup.rs` | zjhints' names for the hover-preview popup |
+| `theme.rs` | The hint options each shared theme sets |
+| `settings/` | zjhints' option tables and `Schema` |
+| `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
+
+### Dependencies
+
 Dependency versions, the toolchain floor (`rust-version`) and any `[patch.crates-io]` override live once in the root `Cargo.toml`. Each crate's own manifest names its dependencies with `workspace = true`. The zjhints version is the one in `plugins/zjhints/Cargo.toml`, and it is what a release is tagged with.
 
 ## The loop
@@ -67,7 +102,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-They run in CI, and again in `builds.yml` before it publishes anything. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `plugins/zjhints/src/main.rs` for the pattern.
+They run in CI, and again in `builds.yml` before it publishes anything. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, lay it out with `lay_out_hints_for_mode`, and assert on the visible text. The `rendered` helper in `plugins/zjhints/src/tests.rs` does this, and the tests there show the pattern. Code in zjkit gets its tests in zjkit, against a small test plugin of its own rather than zjhints.
 
 ### Comments that explain why
 

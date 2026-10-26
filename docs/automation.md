@@ -277,13 +277,13 @@ To hand a branch with a patch to testers before the fix ships, stack it in an [E
 
 #### What a patch does not disturb
 
-The Zellij line `builds.yml` puts in a release's `zellij-<line>` tag and `check_deps.py` both read the version requirement string in `[dependencies]`, never the patch, so tags, releases, and versioning all keep working unmodified while a patch is active.
+The Zellij line `builds.yml` puts in a release's `zellij-<line>` tag and `check_deps.py` both read the version requirement string in `[workspace.dependencies]`, never the patch, so tags, releases, and versioning all keep working unmodified while a patch is active.
 
 `check_deps.py` and the `zellij-upgrade` job go quiet for the patched crate specifically: the locked version already looks at or ahead of whatever crates.io has, so there is nothing for it to propose. That is expected, not a sign the check is broken.
 
 #### Removing a patch once the fix ships
 
-Delete the `[patch.crates-io]` block, confirm the `[dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you push a tag. See [Versioning](#versioning).
+Delete the `[patch.crates-io]` block, confirm the `[workspace.dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you push a tag. See [Versioning](#versioning).
 
 ## First-time setup
 
