@@ -1132,7 +1132,8 @@ fn settings_screen(
             configuration: configuration_of(options).into_iter().collect(),
         },
     }];
-    let mut editor = Editor::new(alias.clone(), alias, None).expect("an alias loading zjhints");
+    let mut editor = Editor::new(&crate::settings::SCHEMA, alias.clone(), alias, None)
+        .expect("an alias loading zjhints");
     for (key, value) in edits {
         editor.submit(
             &Field::Value {
@@ -1151,7 +1152,8 @@ fn settings_screen(
     editor.select(row);
 
     let items = view::menu_items(&editor);
-    let preview_rows = view::is_previewed(editor.section()).then_some(editor.rows().len());
+    let preview_rows =
+        view::is_previewed(editor.schema(), editor.section()).then_some(editor.rows().len());
     let layout = Layout::new(rows, columns, &items, preview_rows).expect("room for the screen");
     let mut screen = Screen::new(rows, columns);
 
@@ -1225,7 +1227,11 @@ fn settings_screen(
     // The preview, under a Theme list: a dim caption, then the bar.
     if let Some(y) = layout.preview_y {
         let mode_info = mode_info(InputMode::Normal);
-        let overrides = view::theme_overrides(editor.working(), Some(&mode_info.style.colors));
+        let overrides = view::theme_overrides(
+            editor.schema(),
+            editor.working(),
+            Some(&mode_info.style.colors),
+        );
         let caption = view::truncate(&view::preview_caption(overrides.len(), true), width);
         let dim = Pen {
             dim: true,
@@ -1244,7 +1250,7 @@ fn settings_screen(
                 &pens,
             );
         }
-        let bar = view::theme_preview(editor.working(), &mode_info, true, width);
+        let bar = view::theme_preview(editor.schema(), editor.working(), &mode_info, true, width);
         screen.print(y + 1, layout.content_x, &bar);
     }
 

@@ -2103,7 +2103,7 @@ impl ZellijPlugin for State {
             return;
         }
         if configuration.get("settings").map(String::as_str) == Some("true") {
-            let mut screen = SettingsScreen::default();
+            let mut screen = SettingsScreen::new(&settings::SCHEMA);
             screen.load(&configuration);
             self.settings = Some(screen);
             return;
@@ -2326,7 +2326,7 @@ impl ZellijPlugin for State {
             }
             return self.change_visibility(visibility, payload);
         }
-        message.name == live::MESSAGE_NAME && self.take_preview(&message.args)
+        message.name == settings::SCHEMA.live_message && self.take_preview(&message.args)
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
@@ -6713,7 +6713,7 @@ mod tests {
         let preview = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
         let message = PipeMessage::new(
             PipeSource::Plugin(5),
-            live::MESSAGE_NAME,
+            settings::SCHEMA.live_message,
             &None,
             &Some(preview),
             false,

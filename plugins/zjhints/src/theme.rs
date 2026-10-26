@@ -23,7 +23,7 @@ use crate::{
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, Styling};
 use zjkit::theme::{color_entries, Shape, ARROW, MODES, PILL_LEFT, PILL_RIGHT};
-pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES, OPTIONS};
+pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 
 /// `configuration` with the selected themes' options laid under it. A key the
 /// user set, even to an empty string, is never replaced.
@@ -172,8 +172,9 @@ fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::options::{find, Kind};
+    use crate::settings::SCHEMA;
     use zellij_tile::prelude::PaletteColor;
+    use zjkit::settings::schema::Kind;
     use zjkit::theme::*;
 
     fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -220,7 +221,7 @@ mod tests {
             (CONFIG_FORMAT_THEME, &FORMAT_CHOICES[..]),
             (CONFIG_ALIAS_THEME, &ALIAS_CHOICES[..]),
         ] {
-            let spec = find(option).unwrap();
+            let spec = SCHEMA.find(option).unwrap();
             let Kind::Choice(offered) = spec.kind else {
                 panic!("{option} should be a choice");
             };

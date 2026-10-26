@@ -4,6 +4,7 @@
 
 use super::editor::{Editor, Field, Focus, Outcome, Row, Section};
 use super::live;
+use super::schema::Schema;
 use super::view::{self, Command, Control, FormatView, HelpState, Layout, Marker, RowView};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
@@ -38,6 +39,8 @@ struct RowArea {
 
 #[derive(Default)]
 pub struct SettingsScreen {
+    /// The plugin the screen edits the aliases of. Always set by `new`.
+    schema: Option<&'static Schema>,
     /// The alias the `alias` option pins, if any.
     pinned_alias: Option<String>,
     /// What is being edited, or why nothing can be.
@@ -93,6 +96,14 @@ pub struct SettingsScreen {
 }
 
 impl SettingsScreen {
+    /// A screen editing the aliases of the plugin `schema` describes.
+    pub fn new(schema: &'static Schema) -> Self {
+        SettingsScreen {
+            schema: Some(schema),
+            ..Default::default()
+        }
+    }
+
     pub fn load(&mut self, configuration: &BTreeMap<String, String>) {
         self.pinned_alias = configuration.get("alias").cloned();
         // The screen runs from the same location as the bars, so Zellij
@@ -102,7 +113,11 @@ impl SettingsScreen {
         // away. `ReadApplicationState` is also what the failed-write event
         // needs.
         let mut permissions = vec![PermissionType::Reconfigure];
-        permissions.extend(crate::bar_permissions(true));
+        permissions.extend(
+            self.schema
+                .map(|schema| (schema.permissions)())
+                .unwrap_or_default(),
+        );
         request_permission(&permissions);
         subscribe(&[
             EventType::Key,
@@ -207,14 +222,22 @@ impl SettingsScreen {
 
     /// Whether the list on screen has the preview under it.
     fn shows_preview(&self) -> bool {
-        matches!(&self.editor, Some(Ok(editor)) if view::is_previewed(editor.section()) && editor.search().is_none())
+        matches!(
+            &self.editor,
+            Some(Ok(editor))
+                if view::is_previewed(editor.schema(), editor.section()) && editor.search().is_none()
+        )
     }
 
     /// Read the aliases fresh and start editing.
     fn read(&mut self) {
+        let Some(schema) = self.schema else {
+            return;
+        };
         let snapshot = read_config();
         self.config_file = snapshot.config_file_path.clone();
         let editor = Editor::new(
+            schema,
             snapshot.blocks.plugin_aliases,
             snapshot.saved_blocks.plugin_aliases,
             self.pinned_alias.as_deref(),
@@ -398,7 +421,7 @@ impl SettingsScreen {
             BareKey::Backspace | BareKey::Delete => editor.reset_selected(),
             BareKey::Char('r') => match editor.revert_selected() {
                 Some(key) => {
-                    self.notice = Some(format!("Reverted {}", zjkit::ansi::show_controls(&key)));
+                    self.notice = Some(format!("Reverted {}", crate::ansi::show_controls(&key)));
                     self.preview();
                     return true;
                 }
@@ -633,7 +656,7 @@ impl SettingsScreen {
             Outcome::Redraw => true,
             Outcome::StartField { field, text } => {
                 let label = match &field {
-                    Field::Value { key } => zjkit::ansi::show_controls(key).into_owned(),
+                    Field::Value { key } => crate::ansi::show_controls(key).into_owned(),
                     Field::NewKey => "new key".to_string(),
                 };
                 let mut input = TextInput::new(text)
@@ -811,7 +834,7 @@ impl SettingsScreen {
         // No URL and no destination: every plugin in the session gets it,
         // and nothing new is launched.
         pipe_message_to_plugin(
-            MessageToPlugin::new(live::MESSAGE_NAME)
+            MessageToPlugin::new(editor.schema().live_message)
                 .with_args(live::encode(editor.alias_name(), &changes)),
         );
         self.previewed = editor.working().clone();
@@ -901,8 +924,8 @@ impl SettingsScreen {
         let items = view::menu_items(editor);
         let list = editor.rows();
         let searching = editor.search().is_some();
-        let preview_rows =
-            (view::is_previewed(editor.section()) && !searching).then_some(list.len());
+        let preview_rows = (view::is_previewed(editor.schema(), editor.section()) && !searching)
+            .then_some(list.len());
         let Some(layout) = Layout::new(rows, cols, &items, preview_rows) else {
             self.layout = None;
             self.rows.clear();
@@ -1085,8 +1108,11 @@ impl SettingsScreen {
                         }
                     }
                 }
-                let overrides =
-                    view::theme_overrides(&configuration, Some(&mode_info.style.colors));
+                let overrides = view::theme_overrides(
+                    editor.schema(),
+                    &configuration,
+                    Some(&mode_info.style.colors),
+                );
                 let caption = view::preview_caption(overrides.len(), shown);
                 let caption = view::truncate(&caption, width);
                 print_text_with_coordinates(Text::from(&caption).dim_all(), x, y, None, None);
@@ -1104,7 +1130,8 @@ impl SettingsScreen {
                         button.clear_area();
                     }
                 }
-                let bar = view::theme_preview(&configuration, mode_info, shown, width);
+                let bar =
+                    view::theme_preview(editor.schema(), &configuration, mode_info, shown, width);
                 print_ansi(x, y + 1, &bar);
             }
             _ => {
@@ -1352,19 +1379,20 @@ fn is_shift_tab(key: &KeyWithModifier) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::TEST_SCHEMA;
     use zellij_tile::prelude::{PluginAliasEntry, PluginEntry};
 
     /// A screen searching the options of an alias with no configuration.
     fn searching() -> SettingsScreen {
         let alias = vec![PluginAliasEntry {
-            name: "zjhints".to_string(),
+            name: "zjtest".to_string(),
             plugin: PluginEntry {
-                location: "file:~/zjhints.wasm".to_string(),
+                location: "file:~/zjtest.wasm".to_string(),
                 cwd: None,
                 configuration: Default::default(),
             },
         }];
-        let mut editor = Editor::new(alias.clone(), alias, None).unwrap();
+        let mut editor = Editor::new(&TEST_SCHEMA, alias.clone(), alias, None).unwrap();
         editor.start_search("");
         SettingsScreen {
             editor: Some(Ok(editor)),

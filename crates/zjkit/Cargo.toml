@@ -10,3 +10,4 @@ rust-version.workspace = true
 ansi_term.workspace = true
 unicode-width.workspace = true
 zellij-tile.workspace = true
+zellij-utils.workspace = true
