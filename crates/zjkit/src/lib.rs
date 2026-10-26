@@ -6,4 +6,6 @@
 pub mod ansi;
 pub mod fit;
 pub mod format;
+pub mod mouse;
+pub mod popup;
 pub mod theme;

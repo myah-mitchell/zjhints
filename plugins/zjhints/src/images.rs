@@ -1304,7 +1304,7 @@ fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
 /// popup draws, and inside it the rows of Zellij's list widget, each a
 /// space, the empty mark column and a space before its label.
 fn menu_lines(labels: &[String], rows: usize, cols: usize) -> Vec<String> {
-    let mut lines = popup::frame_lines(rows, cols);
+    let mut lines = zjkit::popup::frame_lines(rows, cols);
     for (row, label) in labels.iter().take(rows.saturating_sub(2)).enumerate() {
         lines[row + 1] = format!("│ {} │", menu_row(label, cols));
     }

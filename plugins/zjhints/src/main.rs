@@ -13,11 +13,11 @@ use zellij_tile_utils::palette_match;
 use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, visible_width, ANSI_RESET};
 use zjkit::fit::{drop_to_fit, Fittable, Group, Precedence};
 use zjkit::format;
+use zjkit::mouse;
 
 #[cfg(test)]
 mod images;
 mod keypress;
-mod mouse;
 mod popup;
 mod settings;
 mod theme;
@@ -26,8 +26,8 @@ use settings::live;
 use settings::screen::SettingsScreen;
 
 use mouse::{
-    ActionQueue, ClickMap, Cut, HintChoice, HintTarget, LineSegment, MenuEntry, MouseOutcome,
-    Preview, PreviewMemory, PreviewStep, SegmentContent,
+    ActionQueue, Choice, ClickMap, Cut, Item, LineSegment, MenuEntry, MouseOutcome, Preview,
+    PreviewMemory, PreviewStep, SegmentContent,
 };
 use popup::PreviewPopup;
 
@@ -192,17 +192,14 @@ struct ActiveTab {
 
 /// What clicking the descended-into indicator does: press the nested
 /// session's ascend keys, in order, in the pane it runs in.
-fn descended_indicator_target(
-    mode_info: &ModeInfo,
-    config: &BTreeMap<String, String>,
-) -> HintTarget {
+fn descended_indicator_target(mode_info: &ModeInfo, config: &BTreeMap<String, String>) -> Item {
     let label = menu_label(
         &compose_key_text(&mode_info.nested_ascend_keys, config),
         DESCENDED_HINT_LABEL,
     );
-    HintTarget {
+    Item {
         label: label.clone(),
-        choices: vec![HintChoice {
+        choices: vec![Choice {
             label,
             actions: keypress::press_keys(&mode_info.nested_ascend_keys),
         }],
@@ -1204,7 +1201,7 @@ impl State {
                 let segments = if self.mouse_nested && !styled_indicator.is_empty() {
                     vec![LineSegment {
                         width: calculate_visible_length(&styled_indicator, self.wide_ambiguous),
-                        content: SegmentContent::Hint(descended_indicator_target(
+                        content: SegmentContent::Item(descended_indicator_target(
                             mode_info,
                             &self.config,
                         )),
@@ -1313,7 +1310,7 @@ impl State {
         let (width, height) = popup::size(&labels);
         open_preview_popup(
             url,
-            popup::configuration(&tag, &labels),
+            popup::configuration(&popup::NAMES, &tag, &labels),
             self.pane_rows.max(1),
             preview.columns.start,
             width,
@@ -1324,9 +1321,9 @@ impl State {
     /// A popup of this bar saying it opened, closed or had an entry clicked.
     /// Returns whether the message was one.
     fn take_popup_message(&mut self, message: &PipeMessage) -> bool {
-        let opened = message.name == mouse::HOVER_OPENED_MESSAGE;
-        let picked = message.name == mouse::HOVER_PICKED_MESSAGE;
-        if !opened && !picked && message.name != mouse::HOVER_CLOSED_MESSAGE {
+        let opened = message.name == popup::NAMES.opened;
+        let picked = message.name == popup::NAMES.picked;
+        if !opened && !picked && message.name != popup::NAMES.closed {
             return false;
         }
         let PipeSource::Plugin(popup) = message.source else {
@@ -1906,7 +1903,7 @@ fn open_preview_popup(
 #[cfg(not(test))]
 fn close_preview_popup(popup: u32) {
     pipe_message_to_plugin(
-        MessageToPlugin::new(mouse::HOVER_CLOSE_MESSAGE).with_destination_plugin_id(popup),
+        MessageToPlugin::new(popup::NAMES.close).with_destination_plugin_id(popup),
     );
 }
 
@@ -2100,8 +2097,8 @@ impl State {
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
-        if let Some(popup) = PreviewPopup::from_configuration(&configuration) {
-            popup.load();
+        if let Some(popup) = PreviewPopup::from_configuration(&popup::NAMES, &configuration) {
+            popup.load(&bar_permissions(true));
             self.preview_popup = Some(popup);
             return;
         }
@@ -3507,12 +3504,12 @@ fn lay_out_hints_for_mode(
         )
     });
 
-    let targets: Vec<HintTarget> = hints
+    let targets: Vec<Item> = hints
         .iter()
         .map(|hint| hint_target(hint, keymap, style))
         .collect();
     let kept: BTreeSet<usize> = pieces.iter().map(|piece| piece.index).collect();
-    let dropped: Vec<HintTarget> = targets
+    let dropped: Vec<Item> = targets
         .iter()
         .enumerate()
         .filter(|(index, _)| !kept.contains(index))
@@ -3523,7 +3520,7 @@ fn lay_out_hints_for_mode(
         .into_iter()
         .map(|piece| {
             let target = targets[piece.index].clone();
-            (piece.parts, SegmentContent::Hint(target))
+            (piece.parts, SegmentContent::Item(target))
         })
         .collect();
     // The indicator stands in for the dropped run, spaced like a hint so it
@@ -3559,11 +3556,7 @@ fn lay_out_hints_for_mode(
 ///
 /// The keys are the ones the bar shows for it, after `direction_keys`, so a
 /// click never runs a binding the hint was not showing.
-fn hint_target(
-    hint: &Hint,
-    keymap: &[(KeyWithModifier, Vec<Action>)],
-    style: &HintStyle,
-) -> HintTarget {
+fn hint_target(hint: &Hint, keymap: &[(KeyWithModifier, Vec<Action>)], style: &HintStyle) -> Item {
     let mut keys = filter_direction_keys(&hint.keys, style.direction_keys);
     sort_keys(&mut keys, style.key_order);
 
@@ -3612,14 +3605,14 @@ fn hint_target(
                 // shown first.
                 ClickBehavior::PressKeys => keypress::press_keys(&group_keys[..1]),
             };
-            HintChoice {
+            Choice {
                 label: menu_label(&compose_key_text(group_keys, style.config), &description),
                 actions,
             }
         })
         .collect();
 
-    HintTarget {
+    Item {
         label: menu_label(&shown_keys, &hint.label),
         choices,
     }
@@ -6595,7 +6588,7 @@ mod tests {
         assert!(!state.preview_memory.is_idle());
         state.update(Event::Timer(mouse::HOVER_DELAY_SECONDS));
         // Preview 1 of bar 7 says where it is, and is the one closed.
-        let opened = message_from(PipeSource::Plugin(30), mouse::HOVER_OPENED_MESSAGE, "7-1");
+        let opened = message_from(PipeSource::Plugin(30), popup::NAMES.opened, "7-1");
         assert!(!state.pipe(opened));
         assert_eq!(state.preview_memory.dismiss().close, Some(30));
     }
@@ -6612,7 +6605,7 @@ mod tests {
     fn turning_mouse_hover_off_closes_a_preview_on_the_next_hover() {
         let (mut state, marker) = previewing_bar();
         rest_on(&mut state, marker);
-        let opened = message_from(PipeSource::Plugin(30), mouse::HOVER_OPENED_MESSAGE, "7-1");
+        let opened = message_from(PipeSource::Plugin(30), popup::NAMES.opened, "7-1");
         state.pipe(opened);
         state.mouse_hover = false;
         state.update(Event::Mouse(Mouse::Hover(0, marker)));
@@ -6691,7 +6684,7 @@ mod tests {
     fn only_the_bar_s_own_popups_are_heard() {
         let (mut state, marker) = previewing_bar();
         rest_on(&mut state, marker);
-        let closed = mouse::HOVER_CLOSED_MESSAGE;
+        let closed = popup::NAMES.closed;
         for message in [
             message_from(PipeSource::Plugin(30), closed, "8-1"),
             message_from(PipeSource::Plugin(30), closed, "stray"),
@@ -6706,9 +6699,9 @@ mod tests {
 
     #[test]
     fn a_popup_instance_ignores_what_the_bar_handles() {
-        let configuration = popup::configuration("7-1", &["a".to_string()]);
+        let configuration = popup::configuration(&popup::NAMES, "7-1", &["a".to_string()]);
         let mut state = State {
-            preview_popup: PreviewPopup::from_configuration(&configuration),
+            preview_popup: PreviewPopup::from_configuration(&popup::NAMES, &configuration),
             ..Default::default()
         };
         let pane_mode = ModeInfo {

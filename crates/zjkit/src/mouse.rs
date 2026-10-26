@@ -1,13 +1,13 @@
-//! Mouse support: which columns of the bar stand for what, and what a click on
+//! Mouse support: which columns of a bar stand for what, and what a click on
 //! them should do.
 //!
 //! Everything here is plain data and pure functions, so the whole path from a
 //! click to its outcome can be tested without a running Zellij. Carrying an
 //! outcome out (opening the context menu, running actions, showing a menu) is
-//! left to `State::perform_mouse_outcome` and `State::run_mouse_action`, the
-//! only parts that talk to the host. The hover preview, which lists what a
-//! menu would offer before it is clicked, is split the same way: what to show
-//! and when is decided here, and the popup itself is `crate::popup`.
+//! left to the plugin, the only part that talks to the host. The hover
+//! preview, which lists what a menu would offer before it is clicked, is
+//! split the same way: what to show and when is decided here, and the popup
+//! itself is `crate::popup`.
 
 use std::collections::VecDeque;
 use std::ops::Range;
@@ -16,30 +16,30 @@ use zellij_tile::prelude::{
     ChoiceItem, Mouse, OutsideClick, PromptPlacement, PromptRequest, PromptResult, PromptValue,
 };
 
-/// One hint, as something that can be clicked.
+/// One item on a bar (a hint, a tab, a task), as something that can be
+/// clicked.
 #[derive(Clone, Debug, PartialEq)]
-pub struct HintTarget {
-    /// How the hint is named in a menu of hints that did not fit: its keys,
-    /// then its label, as the bar would have shown them.
+pub struct Item {
+    /// How the item is named in a menu of items that did not fit, as the bar
+    /// would have shown it.
     pub label: String,
-    /// What the hint's keys do, one entry per distinct list of actions, in the
-    /// order the keys are shown. A hint whose keys all do the same thing has
-    /// exactly one.
-    pub choices: Vec<HintChoice>,
+    /// What clicking the item can do, one entry per distinct list of
+    /// actions. An item with a single thing to do has exactly one.
+    pub choices: Vec<Choice>,
 }
 
-/// The keys of a hint that share one list of actions.
+/// One thing clicking an item can do.
 #[derive(Clone, Debug, PartialEq)]
-pub struct HintChoice {
-    /// The keys, then a description of what they do, for the hint's picker.
+pub struct Choice {
+    /// How the choice is named in the item's picker.
     pub label: String,
-    /// What pressing one of the keys runs, in order.
+    /// What choosing it runs, in order.
     pub actions: Vec<Action>,
 }
 
-impl HintTarget {
-    /// What clicking the hint does: run its actions when every key does the
-    /// same thing, otherwise ask which of them to run.
+impl Item {
+    /// What clicking the item does: run its actions when it has a single
+    /// choice, otherwise ask which of them to run.
     pub fn activate(&self) -> MouseOutcome {
         match self.choices.as_slice() {
             [] => MouseOutcome::Nothing,
@@ -57,7 +57,7 @@ impl HintTarget {
     }
 }
 
-/// One piece of a laid out hint line, in drawing order, with how many columns
+/// One piece of a laid out bar line, in drawing order, with how many columns
 /// it takes up.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineSegment {
@@ -67,11 +67,11 @@ pub struct LineSegment {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SegmentContent {
-    Hint(HintTarget),
-    /// `hint_spacer`, which does nothing when clicked.
+    Item(Item),
+    /// The spacer between items, which does nothing when clicked.
     Spacer,
-    /// The `drop_indicator`, standing in for the hints dropped to fit.
-    Dropped(Vec<HintTarget>),
+    /// The drop indicator, standing in for the items dropped to fit.
+    Dropped(Vec<Item>),
 }
 
 /// Where a line too long for its limit was cut, in columns from the start of
@@ -79,19 +79,19 @@ pub enum SegmentContent {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cut {
     /// The first column lost to the cut. Everything from here on is gone,
-    /// replaced by `overflow_str`.
+    /// replaced by the overflow marker.
     pub at: usize,
-    /// The columns `overflow_str` occupies.
+    /// The columns the overflow marker occupies.
     pub overflow: Range<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClickTarget {
-    Hint(HintTarget),
-    /// A marker standing in for hints that are not on the bar: the
-    /// `drop_indicator`, or `overflow_str`.
-    HiddenHints(Vec<HintTarget>),
-    /// The mode prefix, which opens the settings screen.
+    Item(Item),
+    /// A marker standing in for items that are not on the bar: the drop
+    /// indicator, or the overflow marker.
+    Hidden(Vec<Item>),
+    /// The part of the bar that opens the settings screen.
     Settings,
 }
 
@@ -111,30 +111,30 @@ impl ClickMap {
     /// Place `segments` on the line starting at column `start`, then account
     /// for `cut`, if the line was cut short.
     ///
-    /// A hint the cut runs through stays clickable on the columns still
-    /// showing. It also joins the hints wholly past the cut, and any dropped
-    /// ones the cut took, in the menu `overflow_str` opens, since it can no
-    /// longer be read in full.
+    /// An item the cut runs through stays clickable on the columns still
+    /// showing. It also joins the items wholly past the cut, and any dropped
+    /// ones the cut took, in the menu the overflow marker opens, since it can
+    /// no longer be read in full.
     pub fn lay_out(segments: Vec<LineSegment>, start: usize, cut: Option<Cut>) -> Self {
         let mut map = ClickMap::default();
-        let mut hidden: Vec<HintTarget> = vec![];
+        let mut hidden: Vec<Item> = vec![];
         let mut column = start;
         for segment in segments {
             let columns = column..column + segment.width;
             column = columns.end;
             let target = match segment.content {
                 SegmentContent::Spacer => continue,
-                SegmentContent::Hint(hint) => {
+                SegmentContent::Item(item) => {
                     if cut.as_ref().is_some_and(|cut| columns.end > cut.at) {
-                        hidden.push(hint.clone());
+                        hidden.push(item.clone());
                     }
-                    ClickTarget::Hint(hint)
+                    ClickTarget::Item(item)
                 }
-                SegmentContent::Dropped(hints) => {
+                SegmentContent::Dropped(items) => {
                     if cut.as_ref().is_some_and(|cut| columns.end > cut.at) {
-                        hidden.extend(hints.iter().cloned());
+                        hidden.extend(items.iter().cloned());
                     }
-                    ClickTarget::HiddenHints(hints)
+                    ClickTarget::Hidden(items)
                 }
             };
             let end = cut
@@ -144,13 +144,13 @@ impl ClickMap {
         }
         if let Some(cut) = cut {
             if !hidden.is_empty() {
-                map.push(cut.overflow, ClickTarget::HiddenHints(hidden));
+                map.push(cut.overflow, ClickTarget::Hidden(hidden));
             }
         }
         map
     }
 
-    /// Make `columns`, the mode prefix, open the settings screen.
+    /// Make `columns` open the settings screen.
     pub fn with_settings(mut self, columns: Range<usize>) -> Self {
         self.push(columns, ClickTarget::Settings);
         self
@@ -200,16 +200,16 @@ pub struct MenuEntry {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuPick {
     Run(Vec<Action>),
-    /// The same as clicking this hint, had it been on the bar.
-    Hint(HintTarget),
+    /// The same as clicking this item, had it been on the bar.
+    Item(Item),
 }
 
 /// What a click on the bar should do, given what the bar last drew.
 ///
 /// Right-click opens Zellij's context menu anywhere on the bar, the way it
 /// does on the built-in status bar. Left-click acts on whatever is under it on
-/// the hint line, which is the pane's first line; anything else on the pane is
-/// empty space.
+/// the bar's line, which is the pane's first line; anything else on the pane
+/// is empty space.
 pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
     match mouse {
         Mouse::RightClick(line, column) => MouseOutcome::ContextMenu {
@@ -226,20 +226,20 @@ pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
 /// What a left-click on `target` does.
 fn click_target_outcome(target: &ClickTarget) -> MouseOutcome {
     match target {
-        ClickTarget::Hint(hint) => hint.activate(),
-        ClickTarget::HiddenHints(hints) => hidden_hints_menu(hints),
+        ClickTarget::Item(item) => item.activate(),
+        ClickTarget::Hidden(items) => hidden_items_menu(items),
         ClickTarget::Settings => MouseOutcome::OpenSettings,
     }
 }
 
-/// A menu of hints that are not on the bar, one entry per hint.
-fn hidden_hints_menu(hints: &[HintTarget]) -> MouseOutcome {
+/// A menu of items that are not on the bar, one entry per item.
+fn hidden_items_menu(items: &[Item]) -> MouseOutcome {
     MouseOutcome::Menu(
-        hints
+        items
             .iter()
-            .map(|hint| MenuEntry {
-                label: hint.label.clone(),
-                pick: MenuPick::Hint(hint.clone()),
+            .map(|item| MenuEntry {
+                label: item.label.clone(),
+                pick: MenuPick::Item(item.clone()),
             })
             .collect(),
     )
@@ -263,7 +263,7 @@ impl MenuEntry {
     pub fn chosen(self) -> MouseOutcome {
         match self.pick {
             MenuPick::Run(actions) => MouseOutcome::Run(actions),
-            MenuPick::Hint(hint) => hint.activate(),
+            MenuPick::Item(item) => item.activate(),
         }
     }
 }
@@ -323,7 +323,7 @@ pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
 /// there would open.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Preview {
-    /// The columns of the hint or marker under the pointer. The popup hangs
+    /// The columns of the item or marker under the pointer. The popup hangs
     /// from the first. Hovering the same columns while they show the same
     /// entries is hovering the same thing.
     pub columns: Range<usize>,
@@ -341,7 +341,7 @@ impl Preview {
     }
 }
 
-/// The preview a hover over the bar calls for, if any. Only a hint or marker
+/// The preview a hover over the bar calls for, if any. Only an item or marker
 /// whose click opens a menu has one, and it lists exactly what that menu
 /// would.
 pub fn hover_preview(map: &ClickMap, mouse: &Mouse) -> Option<Preview> {
@@ -358,20 +358,12 @@ pub fn hover_preview(map: &ClickMap, mouse: &Mouse) -> Option<Preview> {
     }
 }
 
-/// How long the pointer rests on a hint before its preview opens, so that
+/// How long the pointer rests on an item before its preview opens, so that
 /// sweeping across the bar opens none.
 pub const HOVER_DELAY_SECONDS: f64 = 0.3;
 
-/// Sent by a preview popup to the bar that opened it, with the popup's tag:
-/// `HOVER_OPENED_MESSAGE` once it can take messages, so the bar learns its
-/// plugin id, and `HOVER_CLOSED_MESSAGE` as it closes.
-pub const HOVER_OPENED_MESSAGE: &str = "zjhints::hover_opened";
-pub const HOVER_CLOSED_MESSAGE: &str = "zjhints::hover_closed";
-/// Sent by the bar to one of its popups to close it.
-pub const HOVER_CLOSE_MESSAGE: &str = "zjhints::hover_close";
-/// Sent by a preview popup to its bar, with the popup's tag, when one of its
-/// entries is clicked. `HOVER_PICKED_ENTRY_ARG` holds the entry's index.
-pub const HOVER_PICKED_MESSAGE: &str = "zjhints::hover_picked";
+/// The argument of a plugin's `picked` message (see `crate::popup::Names`)
+/// that holds the index of the entry clicked.
 pub const HOVER_PICKED_ENTRY_ARG: &str = "entry";
 
 /// The column of the hover Zellij sends a plugin pane the pointer has left,
@@ -379,7 +371,7 @@ pub const HOVER_PICKED_ENTRY_ARG: &str = "entry";
 const LEFT_PANE_COLUMN: usize = u16::MAX as usize;
 
 /// Which preview the bar is waiting to open or has open, so that hovering the
-/// same hint again leaves it be and hovering something else replaces it.
+/// same item again leaves it be and hovering something else replaces it.
 #[derive(Debug, Default)]
 pub struct PreviewMemory {
     /// The preview waiting out `HOVER_DELAY_SECONDS`, and its timer's number.
@@ -487,7 +479,7 @@ impl PreviewMemory {
         }
     }
 
-    /// Preview number `generation` closed, so its hint can open it again.
+    /// Preview number `generation` closed, so its item can open it again.
     pub fn popup_closed(&mut self, generation: u64) {
         if self
             .shown
@@ -509,7 +501,7 @@ impl PreviewMemory {
             .map_or(MouseOutcome::Nothing, MenuEntry::chosen)
     }
 
-    #[cfg(test)]
+    /// Whether no preview is waiting or shown.
     pub fn is_idle(&self) -> bool {
         self.waiting.is_none() && self.shown.is_none()
     }
@@ -530,10 +522,10 @@ pub fn parse_preview_tag(tag: &str) -> Option<(u32, u64)> {
 mod tests {
     use super::*;
 
-    fn hint(name: &str, actions: Vec<Action>) -> HintTarget {
-        HintTarget {
+    fn hint(name: &str, actions: Vec<Action>) -> Item {
+        Item {
             label: name.to_string(),
-            choices: vec![HintChoice {
+            choices: vec![Choice {
                 label: name.to_string(),
                 actions,
             }],
@@ -551,9 +543,9 @@ mod tests {
     /// `a` (3 columns), a spacer, `b` (4 columns), starting at column 1.
     fn two_hints() -> Vec<LineSegment> {
         vec![
-            segment(3, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+            segment(3, SegmentContent::Item(hint("a", vec![Action::CloseFocus]))),
             segment(1, SegmentContent::Spacer),
-            segment(4, SegmentContent::Hint(hint("b", vec![Action::Detach]))),
+            segment(4, SegmentContent::Item(hint("b", vec![Action::Detach]))),
         ]
     }
 
@@ -622,14 +614,14 @@ mod tests {
 
     #[test]
     fn a_hint_with_several_actions_asks_which_to_run() {
-        let focus = HintTarget {
+        let focus = Item {
             label: "hl  focus".to_string(),
             choices: vec![
-                HintChoice {
+                Choice {
                     label: "h  left".to_string(),
                     actions: vec![Action::FocusPreviousPane],
                 },
-                HintChoice {
+                Choice {
                     label: "l  right".to_string(),
                     actions: vec![Action::FocusNextPane],
                 },
@@ -651,7 +643,7 @@ mod tests {
 
     #[test]
     fn a_hint_with_no_bound_keys_does_nothing() {
-        let unbound = HintTarget {
+        let unbound = Item {
             label: "x".to_string(),
             choices: vec![],
         };
@@ -665,7 +657,7 @@ mod tests {
             hint("d", vec![Action::TogglePanePinned]),
         ];
         let segments = vec![
-            segment(3, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+            segment(3, SegmentContent::Item(hint("a", vec![Action::CloseFocus]))),
             segment(1, SegmentContent::Spacer),
             segment(1, SegmentContent::Dropped(dropped.clone())),
         ];
@@ -708,7 +700,7 @@ mod tests {
     #[test]
     fn a_cut_that_takes_the_drop_marker_lists_its_hints_too() {
         let segments = vec![
-            segment(3, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+            segment(3, SegmentContent::Item(hint("a", vec![Action::CloseFocus]))),
             segment(1, SegmentContent::Spacer),
             segment(
                 1,
@@ -732,7 +724,7 @@ mod tests {
         // The cut falls in the spacer: `a` is whole and nothing follows it.
         let segments = vec![segment(
             3,
-            SegmentContent::Hint(hint("a", vec![Action::CloseFocus])),
+            SegmentContent::Item(hint("a", vec![Action::CloseFocus])),
         )];
         let cut = Cut {
             at: 3,
@@ -833,15 +825,15 @@ mod tests {
     }
 
     /// A hint whose keys do different things, so clicking it opens a menu.
-    fn choosy(name: &str) -> HintTarget {
-        HintTarget {
+    fn choosy(name: &str) -> Item {
+        Item {
             label: name.to_string(),
             choices: vec![
-                HintChoice {
+                Choice {
                     label: format!("{name}1  first"),
                     actions: vec![Action::FocusPreviousPane],
                 },
-                HintChoice {
+                Choice {
                     label: format!("{name}2  second"),
                     actions: vec![Action::FocusNextPane],
                 },
@@ -863,9 +855,9 @@ mod tests {
     fn preview_bar() -> ClickMap {
         ClickMap::lay_out(
             vec![
-                segment(3, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
+                segment(3, SegmentContent::Item(hint("a", vec![Action::CloseFocus]))),
                 segment(1, SegmentContent::Spacer),
-                segment(4, SegmentContent::Hint(choosy("f"))),
+                segment(4, SegmentContent::Item(choosy("f"))),
                 segment(1, SegmentContent::Spacer),
                 segment(
                     1,
@@ -912,12 +904,12 @@ mod tests {
 
     #[test]
     fn a_hint_with_no_bound_keys_or_a_marker_with_no_hints_has_no_preview() {
-        let unbound = HintTarget {
+        let unbound = Item {
             label: "x".to_string(),
             choices: vec![],
         };
         let segments = vec![
-            segment(2, SegmentContent::Hint(unbound)),
+            segment(2, SegmentContent::Item(unbound)),
             segment(2, SegmentContent::Dropped(vec![])),
         ];
         let map = ClickMap::lay_out(segments, 0, None);
@@ -939,7 +931,7 @@ mod tests {
 
     #[test]
     fn a_cut_hint_with_several_choices_previews_them_on_the_columns_still_showing() {
-        let segments = vec![segment(6, SegmentContent::Hint(choosy("f")))];
+        let segments = vec![segment(6, SegmentContent::Item(choosy("f")))];
         let cut = Cut {
             at: 3,
             overflow: 3..6,
@@ -1114,8 +1106,8 @@ mod tests {
         rest_on(&mut memory, &preview_bar(), 5);
         let changed = ClickMap::lay_out(
             vec![
-                segment(4, SegmentContent::Hint(hint("a", vec![Action::CloseFocus]))),
-                segment(4, SegmentContent::Hint(choosy("g"))),
+                segment(4, SegmentContent::Item(hint("a", vec![Action::CloseFocus]))),
+                segment(4, SegmentContent::Item(choosy("g"))),
             ],
             1,
             None,
@@ -1147,7 +1139,7 @@ mod tests {
         let (generation, preview) = rest_on(&mut memory, &preview_bar(), 10);
         memory.popup_opened(40, generation);
         for (index, entry) in preview.entries.iter().enumerate() {
-            let MenuPick::Hint(hint) = &entry.pick else {
+            let MenuPick::Item(hint) = &entry.pick else {
                 panic!("a dropped hint");
             };
             assert_eq!(memory.picked(40, generation, index), hint.activate());
