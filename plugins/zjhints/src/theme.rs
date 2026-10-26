@@ -272,7 +272,7 @@ mod tests {
         }
         // An index resolves the way a format string reads it.
         let layered = layer(&cfg(&[]), Some(&palette));
-        let parts = crate::format::render_template("#[fg=$red]x", &[], &layered, 0.0);
+        let parts = zjkit::format::render_template("#[fg=$red]x", &[], &layered, 0.0);
         assert!(ansi_term::ANSIStrings(&parts)
             .to_string()
             .contains("38;5;196"));
@@ -317,7 +317,7 @@ mod tests {
                         | "overflow_str"
                 ) || key.starts_with("mode_format")
             }) {
-                let parts = crate::format::render_template(
+                let parts = zjkit::format::render_template(
                     format,
                     &[("key", "Ctrl p"), ("desc", "pane"), ("mode", "NORMAL")],
                     &layered,

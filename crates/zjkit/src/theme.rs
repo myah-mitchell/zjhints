@@ -126,7 +126,7 @@ pub enum Shape {
     Plain,
     /// Blocks joined by Powerline arrows.
     Powerline,
-    /// Rounded pills, one per hint.
+    /// Rounded pills, one per item.
     Pills,
 }
 

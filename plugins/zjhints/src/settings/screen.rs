@@ -398,7 +398,7 @@ impl SettingsScreen {
             BareKey::Backspace | BareKey::Delete => editor.reset_selected(),
             BareKey::Char('r') => match editor.revert_selected() {
                 Some(key) => {
-                    self.notice = Some(format!("Reverted {}", crate::show_controls(&key)));
+                    self.notice = Some(format!("Reverted {}", zjkit::ansi::show_controls(&key)));
                     self.preview();
                     return true;
                 }
@@ -633,7 +633,7 @@ impl SettingsScreen {
             Outcome::Redraw => true,
             Outcome::StartField { field, text } => {
                 let label = match &field {
-                    Field::Value { key } => crate::show_controls(key).into_owned(),
+                    Field::Value { key } => zjkit::ansi::show_controls(key).into_owned(),
                     Field::NewKey => "new key".to_string(),
                 };
                 let mut input = TextInput::new(text)

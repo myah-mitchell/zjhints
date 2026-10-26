@@ -21,7 +21,7 @@ use crate::mouse;
 use crate::popup;
 use crate::settings::editor::{Editor, Field, Focus};
 use crate::settings::view::{self, Control, FormatView, HelpState, Layout, Marker, Rgb, RowView};
-use crate::{char_width, AnsiParser, AnsiSegment, ClickMap, State};
+use crate::{ClickMap, State};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::fs;
@@ -32,6 +32,7 @@ use zellij_tile::prelude::{
 };
 use zellij_utils::input::config::Config;
 use zellij_utils::setup::get_default_themes;
+use zjkit::ansi::{char_width, AnsiParser, AnsiSegment};
 
 /// The comment every SVG drawn here carries, which is how `make images` tells
 /// its own files from ones made by hand.

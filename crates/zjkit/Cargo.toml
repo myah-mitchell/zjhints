@@ -7,4 +7,6 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+ansi_term.workspace = true
+unicode-width.workspace = true
 zellij-tile.workspace = true

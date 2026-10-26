@@ -5,9 +5,9 @@
 
 use super::editor::{Editor, Focus, Row, Section, OTHER_HEADING};
 use super::options::{self, Kind, FAMILIES};
-use crate::format;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo, Styling};
+use zjkit::format;
 
 /// Rows above the body: the config file, a blank row, the unsaved count with
 /// the buttons, and a blank row.
@@ -244,7 +244,7 @@ impl<'a> Rows<'a> {
                 let (names, chosen) = editor.choices_of(row).unwrap_or_default();
                 let names = names
                     .iter()
-                    .map(|name| crate::show_controls(name).into_owned())
+                    .map(|name| zjkit::ansi::show_controls(name).into_owned())
                     .collect();
                 return RowView::plain("alias", Control::Dropdown(names, chosen));
             }
@@ -272,7 +272,7 @@ impl<'a> Rows<'a> {
             Marker::Default
         };
         let mut view = RowView {
-            label: crate::show_controls(key).into_owned(),
+            label: zjkit::ansi::show_controls(key).into_owned(),
             control: Control::Text {
                 text: String::new(),
                 placeholder: false,
@@ -384,7 +384,7 @@ fn add_what(prefix: &str) -> String {
 pub fn show_value(value: &str, kind: Kind) -> String {
     // Escaped, so an ESC in a value draws as text instead of moving the
     // cursor or rewriting other rows.
-    let shown = crate::show_controls(value);
+    let shown = zjkit::ansi::show_controls(value);
     if kind.is_text() || value.is_empty() || value.trim() != value {
         format!("\"{shown}\"")
     } else {
@@ -473,7 +473,7 @@ pub fn swatch_ansi((red, green, blue): Rgb) -> String {
 
 /// The first `count` visible characters of an ANSI string, styles kept.
 pub fn take_visible(ansi: &str, count: usize) -> String {
-    crate::truncate_ansi_string(ansi, "", count, false)
+    zjkit::ansi::truncate_ansi_string(ansi, "", count, false)
 }
 
 /// The menu's items: each section's title, with ` ●` after one holding
@@ -546,13 +546,13 @@ pub fn describe(editor: &Editor) -> Option<String> {
         Row::Key(key) => match options::family_of(&key) {
             Some(family) => format!(
                 "{}: {} ({}). Del removes it.",
-                crate::show_controls(&key),
+                zjkit::ansi::show_controls(&key),
                 family.description,
                 family.pattern
             ),
             None => format!(
                 "{}: not an option zjhints reads. Del removes it.",
-                crate::show_controls(&key)
+                zjkit::ansi::show_controls(&key)
             ),
         },
         Row::Add("") => format!(
@@ -735,7 +735,9 @@ pub fn is_previewed(section: Section) -> bool {
 /// pane with East Asian Ambiguous characters one column wide, so they are
 /// counted as one here, whatever `ambiguous_width` says for the bar.
 pub fn columns(text: &str) -> usize {
-    text.chars().map(|ch| crate::char_width(ch, false)).sum()
+    text.chars()
+        .map(|ch| zjkit::ansi::char_width(ch, false))
+        .sum()
 }
 
 /// `text` cut to `width` columns, ending in `…` when it was cut. A wide
@@ -748,7 +750,7 @@ pub fn truncate(text: &str, width: usize) -> String {
     let mut cut = String::new();
     let mut used = 0;
     for ch in text.chars() {
-        let width = crate::char_width(ch, false);
+        let width = zjkit::ansi::char_width(ch, false);
         if used + width > room {
             break;
         }

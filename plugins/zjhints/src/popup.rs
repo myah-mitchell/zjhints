@@ -84,7 +84,7 @@ fn menu_list(entries: &[String]) -> MenuList {
     MenuList::new(
         entries
             .iter()
-            .map(|entry| MenuItem::new(crate::show_controls(entry)))
+            .map(|entry| MenuItem::new(zjkit::ansi::show_controls(entry)))
             .collect(),
     )
     .focused()
