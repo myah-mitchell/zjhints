@@ -4,5 +4,6 @@
 //! common lives here, so that one `color_theme` setting gives every bar the
 //! same look and the screen that edits their options is written once.
 pub mod ansi;
+pub mod fit;
 pub mod format;
 pub mod theme;

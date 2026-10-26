@@ -11,6 +11,7 @@ use zellij_tile::prelude::actions::SearchDirection;
 use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, visible_width, ANSI_RESET};
+use zjkit::fit::{drop_to_fit, Fittable, Group, Precedence};
 use zjkit::format;
 
 #[cfg(test)]
@@ -93,7 +94,7 @@ struct State {
     direction_keys: DirectionKeys,
     key_order: KeyOrder,
     hint_order: HintOrder,
-    hint_precedence: HintPrecedence,
+    hint_precedence: Precedence,
     hide_shared_hints: bool,
     /// Render nothing when this session is nested (see `is_nested`), so a
     /// shared layout gives nested sessions no bottom bar without a second
@@ -527,13 +528,13 @@ impl HintOrder {
 
     /// Which group a hint belongs to: `Leading`, `Middle`, or `Trailing`. This
     /// is what decides the order hints are given up in when space runs short.
-    fn group(&self, hint: &Hint) -> HintGroup {
+    fn group(&self, hint: &Hint) -> Group {
         if Self::position(&self.first, hint).is_some() {
-            HintGroup::Leading
+            Group::Leading
         } else if Self::position(&self.last, hint).is_some() {
-            HintGroup::Trailing
+            Group::Trailing
         } else {
-            HintGroup::Middle
+            Group::Middle
         }
     }
 
@@ -559,27 +560,6 @@ impl HintOrder {
         entries
             .iter()
             .position(|entry| *entry == id || *entry == label)
-    }
-}
-
-/// Which pinned group has precedence — is kept longest — when hints must be
-/// given up. Named for zjstatus's `format_precedence`, and read the same way:
-/// the groups in the order they are held onto.
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
-enum HintPrecedence {
-    /// `"tl"` — the trailing group outlives the leading one.
-    #[default]
-    Trailing,
-    /// `"lt"` — the leading group outlives the trailing one.
-    Leading,
-}
-
-impl HintPrecedence {
-    fn from_config(value: &str) -> Self {
-        match value.to_lowercase().trim() {
-            "lt" => Self::Leading,
-            _ => Self::Trailing,
-        }
     }
 }
 
@@ -620,7 +600,7 @@ struct HintStyle<'a> {
     /// gap unmarked.
     drop_indicator: Option<&'a str>,
     /// Which pinned group outlives the other when space runs short.
-    precedence: HintPrecedence,
+    precedence: Precedence,
     /// Base-mode keybindings, used to suppress globals that every mode inherits.
     /// Empty when `hide_shared_hints` is off or when rendering the base mode.
     shared: &'a [(KeyWithModifier, Vec<Action>)],
@@ -1188,7 +1168,7 @@ impl State {
                     limit: None,
                     wide_ambiguous: self.wide_ambiguous,
                     drop_indicator: None,
-                    precedence: HintPrecedence::default(),
+                    precedence: Precedence::default(),
                     shared: &[],
                     config: &self.config,
                     click: ClickBehavior::RunActions,
@@ -1742,7 +1722,7 @@ impl State {
         // Which pinned group is held onto longest once the `*` is exhausted.
         self.hint_precedence = configuration
             .get(CONFIG_HINT_PRECEDENCE)
-            .map(|s| HintPrecedence::from_config(s))
+            .map(|s| Precedence::from_config(s))
             .unwrap_or_default();
         // Suppress bindings every mode inherits from the base mode, so each mode
         // only advertises what is actually new in it.
@@ -3654,103 +3634,24 @@ fn menu_label(keys: &str, description: &str) -> String {
     }
 }
 
-/// Where a hint sits relative to the `*` in `hint_order`.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum HintGroup {
-    /// Pinned ahead of the `*`.
-    Leading,
-    /// Unpinned — the `*` itself.
-    Middle,
-    /// Pinned after the `*`.
-    Trailing,
-}
-
 /// One rendered hint, kept separate so it can be dropped whole.
 struct HintPiece {
     parts: Vec<ANSIString<'static>>,
     width: usize,
-    group: HintGroup,
+    group: Group,
     /// Position of the hint this was rendered from, so the hints dropped to
     /// fit can be told apart from the ones kept.
     index: usize,
 }
 
-/// Drop hints until the line fits, and report where the gap opened.
-///
-/// Hints go in a single contiguous run so one indicator can stand for all of
-/// them. Unpinned hints — the `*` in `hint_order`, the ones the user never spoke
-/// for — are given up first, from the right. When those run out the run keeps
-/// growing *outward from that gap*: first the leading group from its inner edge,
-/// then the trailing group from its inner edge. Dropping from the far ends
-/// instead would open a second gap and need a second indicator.
-///
-/// Returns the index the indicator belongs at, or `None` if nothing was
-/// dropped. A single hint wider than the whole limit survives and is cut by
-/// `truncate_ansi_string` instead.
-fn drop_to_fit(
-    pieces: &mut Vec<HintPiece>,
-    spacer_width: usize,
-    limit: usize,
-    indicator_width: usize,
-    precedence: HintPrecedence,
-) -> Option<usize> {
-    let width = |pieces: &Vec<HintPiece>, extra: usize| {
-        let hints: usize = pieces.iter().map(|piece| piece.width).sum();
-        let count = pieces.len() + usize::from(extra > 0);
-        hints + extra + spacer_width * count.saturating_sub(1)
-    };
-
-    let mut gap = None;
-    while pieces.len() > 1 {
-        // Once a hint has been dropped the indicator is part of the line, so it
-        // has to be paid for out of the same budget.
-        let extra = gap.map_or(0, |_| indicator_width);
-        if width(pieces, extra) <= limit {
-            break;
-        }
-        let Some(index) = next_to_drop(pieces, gap, precedence) else {
-            break;
-        };
-        pieces.remove(index);
-        gap = Some(index);
+impl Fittable for HintPiece {
+    fn width(&self) -> usize {
+        self.width
     }
-    gap
-}
 
-/// The hint to give up next, as an index into `pieces`.
-///
-/// Always the one adjacent to the gap, so what is dropped stays a single run.
-/// Unpinned hints go first; between the two pinned groups, `precedence` says
-/// which is held onto longer.
-fn next_to_drop(
-    pieces: &[HintPiece],
-    gap: Option<usize>,
-    precedence: HintPrecedence,
-) -> Option<usize> {
-    // Only ever take from the inner edge of a group, the side facing the gap.
-    let inner_left = |group: HintGroup| {
-        pieces
-            .iter()
-            .rposition(|piece| piece.group == group)
-            .filter(|index| gap.is_none_or(|gap| *index < gap))
-    };
-    let inner_right = |group: HintGroup| {
-        pieces
-            .iter()
-            .position(|piece| piece.group == group)
-            .filter(|index| gap.is_none_or(|gap| *index >= gap))
-    };
-
-    let leading = || inner_left(HintGroup::Leading);
-    let trailing = || inner_right(HintGroup::Trailing);
-
-    inner_left(HintGroup::Middle)
-        .or_else(|| inner_right(HintGroup::Middle))
-        .or_else(|| match precedence {
-            // Keep the trailing group: spend the leading one first.
-            HintPrecedence::Trailing => leading().or_else(trailing),
-            HintPrecedence::Leading => trailing().or_else(leading),
-        })
+    fn group(&self) -> Group {
+        self.group
+    }
 }
 
 /// Discover every enabled keybinding the curated hints didn't already show, and
@@ -4520,9 +4421,7 @@ mod tests {
             hint_order: &hint_order,
             limit: config.get("limit").and_then(|v| v.parse::<usize>().ok()),
             drop_indicator: config.get("drop_indicator").map(|v| v.as_str()),
-            precedence: HintPrecedence::from_config(
-                config.get("hint_precedence").map_or("", |v| v),
-            ),
+            precedence: Precedence::from_config(config.get("hint_precedence").map_or("", |v| v)),
             wide_ambiguous: config
                 .get("ambiguous_width")
                 .map(|v| v == "2")
@@ -5621,7 +5520,7 @@ mod tests {
             limit: None,
             wide_ambiguous: false,
             drop_indicator: None,
-            precedence: HintPrecedence::default(),
+            precedence: Precedence::default(),
             shared: &[],
             config,
             click: ClickBehavior::RunActions,
