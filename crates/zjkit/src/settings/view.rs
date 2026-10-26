@@ -543,8 +543,7 @@ pub fn describe(editor: &Editor) -> Option<String> {
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
         Row::Add(prefix) => {
-            let families = editor.schema().families.iter();
-            let family = families.clone().find(|family| family.prefix() == prefix);
+            let family = editor.schema().families.iter().find(|family| family.prefix() == prefix);
             let what = family.map_or("", |family| family.description);
             format!("Add a key starting {prefix}. {what}.")
         }

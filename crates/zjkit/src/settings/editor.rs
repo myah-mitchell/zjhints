@@ -712,8 +712,12 @@ impl Editor {
                         "A key is letters, digits and underscores".to_string(),
                     );
                 }
-                let families = self.schema.families.iter();
-                if let Some(family) = families.clone().find(|family| family.prefix() == key) {
+                if let Some(family) = self
+                    .schema
+                    .families
+                    .iter()
+                    .find(|family| family.prefix() == key)
+                {
                     return Outcome::Refused(format!("Finish the key, as in {}", family.pattern));
                 }
                 if let Some((section, row)) = self.locate(key) {

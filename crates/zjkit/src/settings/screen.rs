@@ -37,10 +37,9 @@ struct RowArea {
     area: Rect,
 }
 
-#[derive(Default)]
 pub struct SettingsScreen {
-    /// The plugin the screen edits the aliases of. Always set by `new`.
-    schema: Option<&'static Schema>,
+    /// The plugin the screen edits the aliases of.
+    schema: &'static Schema,
     /// The alias the `alias` option pins, if any.
     pinned_alias: Option<String>,
     /// What is being edited, or why nothing can be.
@@ -99,8 +98,32 @@ impl SettingsScreen {
     /// A screen editing the aliases of the plugin `schema` describes.
     pub fn new(schema: &'static Schema) -> Self {
         SettingsScreen {
-            schema: Some(schema),
-            ..Default::default()
+            schema,
+            pinned_alias: Default::default(),
+            editor: Default::default(),
+            config_file: Default::default(),
+            input: Default::default(),
+            search: Default::default(),
+            menu: Default::default(),
+            dropdown: Default::default(),
+            buttons: Default::default(),
+            overrides_button: Default::default(),
+            help_buttons: Default::default(),
+            button_timers: Default::default(),
+            notice: Default::default(),
+            question: Default::default(),
+            closing: Default::default(),
+            previewed: Default::default(),
+            waiting: Default::default(),
+            view: Default::default(),
+            layout: Default::default(),
+            scroll: Default::default(),
+            rows: Default::default(),
+            hovered_row: Default::default(),
+            label_width: Default::default(),
+            shown_selected: Default::default(),
+            mode_info: Default::default(),
+            overrides_hidden: Default::default(),
         }
     }
 
@@ -113,11 +136,7 @@ impl SettingsScreen {
         // away. `ReadApplicationState` is also what the failed-write event
         // needs.
         let mut permissions = vec![PermissionType::Reconfigure];
-        permissions.extend(
-            self.schema
-                .map(|schema| (schema.permissions)())
-                .unwrap_or_default(),
-        );
+        permissions.extend((self.schema.permissions)());
         request_permission(&permissions);
         subscribe(&[
             EventType::Key,
@@ -231,9 +250,7 @@ impl SettingsScreen {
 
     /// Read the aliases fresh and start editing.
     fn read(&mut self) {
-        let Some(schema) = self.schema else {
-            return;
-        };
+        let schema = self.schema;
         let snapshot = read_config();
         self.config_file = snapshot.config_file_path.clone();
         let editor = Editor::new(
@@ -1397,7 +1414,7 @@ mod tests {
         SettingsScreen {
             editor: Some(Ok(editor)),
             search: Some(TextInput::new(String::new()).search_mode().focused()),
-            ..Default::default()
+            ..SettingsScreen::new(&TEST_SCHEMA)
         }
     }
 
