@@ -14,6 +14,12 @@ use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, visible_width,
 use zjkit::fit::{drop_to_fit, Fittable, Group, Precedence};
 use zjkit::format;
 use zjkit::mouse;
+use zjkit::nesting;
+use zjkit::panes::{
+    focus_by_tab, own_pane_url, own_visible_pane_width, pane_id_of, terminal_width, ActiveTab,
+    TabFocus,
+};
+use zjkit::visibility::{self, Request, Visibility};
 
 #[cfg(test)]
 mod images;
@@ -48,14 +54,9 @@ struct State {
     /// was started from an alias. A bar loaded to feed zjstatus has a hidden
     /// pane that reports it too. `None` until the first `PaneUpdate`.
     own_url: Option<String>,
-    /// The last `zellij pipe` command a hide or show message came from. See
-    /// `ends_a_cli_stream`.
-    last_cli_pipe: Option<String>,
-    /// Whether this bar has asked the running bars if they are hidden, and
-    /// whether it has its answer, or no longer needs one. See
-    /// `ask_visibility`.
-    asked_visibility: bool,
-    visibility_settled: bool,
+    /// Hidden by a `zjhints::hide` or `zjhints::toggle` message, or by the
+    /// `hidden` option, and what Zellij was last told about the pane's row.
+    visibility: Visibility,
     /// Keys whose previews this bar ignores, because its value for them came
     /// from somewhere other than the alias. See `live::apply`.
     preview_ignored: BTreeSet<String>,
@@ -105,15 +106,8 @@ struct State {
     /// not leave a blank one behind when they are hidden. Turn it off to keep
     /// the row reserved no matter what.
     collapse_when_empty: bool,
-    /// What Zellij was last told about this pane, so the collapse is only sent
-    /// when it changes rather than on every render. Starts out matching how
-    /// Zellij places the pane, which is expanded.
-    collapsed: bool,
-    /// Hidden by a `zjhints::hide` or `zjhints::toggle` message, or by the
-    /// `hidden` option: the bar draws nothing and gives its row back.
-    hidden: bool,
     dim_when_unfocused: bool,
-    /// How strongly to dim, in `dim_color`'s `0.0..=1.0` scale.
+    /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
     dim_strength: f32,
     /// Prefix the hints line with the current mode, so this plugin can stand
     /// on its own in a pane without needing zjstatus's own `{mode}` widget
@@ -169,25 +163,6 @@ struct State {
     /// The Zellij theme from the last mode update, which `color_theme zellij`
     /// takes its aliases from. `None` until the first one arrives.
     zellij_palette: Option<Styling>,
-}
-
-/// Where the focus sits in one tab.
-///
-/// Zellij tracks focus per layer, so a tab can have a focused tiled pane and a
-/// focused floating pane at once. Which of the two actually has the keyboard
-/// depends on whether the floating layer is up, and only `TabUpdate` reports
-/// that, so both are kept here and `focused_pane_id` picks between them.
-#[derive(Default, Clone, PartialEq)]
-struct TabFocus {
-    tiled: Option<PaneId>,
-    floating: Option<PaneId>,
-}
-
-/// The focused tab, and whether its floating layer is up.
-#[derive(Default, Clone, Copy, PartialEq)]
-struct ActiveTab {
-    position: usize,
-    floating_panes_visible: bool,
 }
 
 /// What clicking the descended-into indicator does: press the nested
@@ -261,63 +236,6 @@ const SESSION_PLUGINS: &[(&str, &str, &str)] = &[
     ("zellij:share", "share", "share"),
     ("zellij:layout-manager", "layout_manager", "layouts"),
 ];
-
-/// The pane id Zellij events use to refer to a pane, which `PaneInfo` carries
-/// split across two fields.
-fn pane_id_of(pane: &PaneInfo) -> PaneId {
-    if pane.is_plugin {
-        PaneId::Plugin(pane.id)
-    } else {
-        PaneId::Terminal(pane.id)
-    }
-}
-
-/// Which pane holds the focus in each tab of a pane manifest.
-///
-/// Suppressed panes are skipped: they keep whatever focus flag they had when
-/// they were hidden, and a hidden pane is not where the keyboard goes.
-fn focus_by_tab(manifest: &PaneManifest) -> BTreeMap<usize, TabFocus> {
-    let mut focus_by_tab = BTreeMap::new();
-    for (tab_position, panes) in &manifest.panes {
-        let mut focus = TabFocus::default();
-        for pane in panes
-            .iter()
-            .filter(|pane| pane.is_focused && !pane.is_suppressed)
-        {
-            if pane.is_floating {
-                focus.floating = Some(pane_id_of(pane));
-            } else {
-                focus.tiled = Some(pane_id_of(pane));
-            }
-        }
-        if focus != TabFocus::default() {
-            focus_by_tab.insert(*tab_position, focus);
-        }
-    }
-    focus_by_tab
-}
-
-/// The terminal's width, taken as the right edge of the widest visible pane.
-///
-/// Tiled panes tile the whole terminal, so the largest `pane_x + pane_columns`
-/// among them is its width. Two kinds are skipped:
-///
-/// - **Floating** panes sit within the terminal but outside the tiling, so
-///   their edge says nothing about its width.
-/// - **Suppressed** panes are not on screen and stop tracking resizes. Their
-///   geometry is whatever it was when they were hidden, and being stale it is
-///   often the largest — which would pin the measurement to an old width and
-///   silently stop the hints from ever being refitted.
-fn terminal_width(manifest: &PaneManifest) -> Option<usize> {
-    manifest
-        .panes
-        .values()
-        .flatten()
-        .filter(|pane| !pane.is_floating && !pane.is_suppressed)
-        .map(|pane| pane.pane_x + pane.pane_columns)
-        .max()
-        .filter(|width| *width > 0)
-}
 
 const DEFAULT_MAX_LENGTH: usize = 0;
 const DEFAULT_OVERFLOW_STR: &str = "...";
@@ -754,21 +672,14 @@ impl State {
 
     /// Whether this session is nested inside another Zellij session.
     fn is_nested(&self) -> bool {
-        !self.mode_info.session_ancestry.is_empty()
+        nesting::is_nested(&self.mode_info)
     }
 
     /// Whether the host has expanded this session's pane over its whole
-    /// display, taking its own status bar off the screen with it.
-    ///
-    /// Zellij has two fullscreens. The ordinary one (`ToggleFocusFullscreen`)
-    /// expands a pane over the viewport only, so the host's tab bar and status
-    /// bar stay where they are; Zellij does not report that one here at all.
-    /// The other (`ToggleFocusNoUiFullscreen`) expands over the whole display
-    /// and hides every other pane, the host's bars included, and that is the
-    /// one this reports. It is set only for a nested session, since it arrives
-    /// from a host.
+    /// display, taking its own status bar off the screen with it. See
+    /// `nesting::host_ui_is_covered`.
     fn host_ui_is_covered(&self) -> bool {
-        self.mode_info.host_fullscreen == Some(true)
+        nesting::host_ui_is_covered(&self.mode_info)
     }
 
     /// Whether this session currently has its own focus deferred to a
@@ -778,19 +689,13 @@ impl State {
     /// fact the descended-into indicator (`render_descended_indicator`) acts
     /// on, not a rendering preference.
     fn is_host_descended(&self) -> bool {
-        self.mode_info.session_dimmed == Some(true)
+        nesting::is_host_descended(&self.mode_info)
     }
 
     /// The pane the keyboard currently goes to, or `None` while either half of
     /// the picture (`PaneUpdate`, `TabUpdate`) is still missing.
     fn focused_pane_id(&self) -> Option<PaneId> {
-        let active_tab = self.active_tab?;
-        let focus = self.focus_by_tab.get(&active_tab.position)?;
-        if active_tab.floating_panes_visible {
-            focus.floating.or(focus.tiled)
-        } else {
-            focus.tiled
-        }
+        zjkit::panes::focused_pane_id(self.active_tab, &self.focus_by_tab)
     }
 
     /// The nested session this one has descended into, when it has descended
@@ -878,24 +783,10 @@ impl State {
             .retain(|pane_id, _| live_pane_ids.contains(pane_id));
     }
 
-    /// The dim strength to render with right now, in `dim_color`'s
-    /// `0.0..=1.0` scale: `0.0` (no change) unless `dim_when_unfocused` is
-    /// enabled and this session is currently the dimmed side of a
-    /// nested-session pair, a host that has descended into a child, or a
-    /// nested session not currently ascended into.
-    /// `session_ascended`/`session_dimmed` are the same fields Zellij's own
-    /// bundled tab-bar/compact-bar plugins use for this exact purpose, and
-    /// the zjstatus fork's `ZellijState::dim_amount` mirrors this exactly
-    /// so a shared layout's two bars dim in step.
+    /// The dim strength to render with right now, in `zjkit::dim::color`'s
+    /// `0.0..=1.0` scale. See `nesting::dim_amount`.
     fn dim_amount(&self) -> f32 {
-        let is_dimmed = self.mode_info.session_ascended == Some(true)
-            || self.mode_info.session_dimmed == Some(true);
-
-        if self.dim_when_unfocused && is_dimmed {
-            self.dim_strength
-        } else {
-            0.0
-        }
+        nesting::dim_amount(&self.mode_info, self.dim_when_unfocused, self.dim_strength)
     }
 
     /// The dim strength for the hints of the nested session this one has
@@ -908,40 +799,11 @@ impl State {
     /// session is itself nested and its host has ascended out of it, since
     /// then nothing below this session is receiving input either.
     fn descended_guest_dim_amount(&self) -> f32 {
-        if self.dim_when_unfocused && self.mode_info.session_ascended == Some(true) {
+        if self.dim_when_unfocused && nesting::is_ascended_out_of(&self.mode_info) {
             self.dim_strength
         } else {
             0.0
         }
-    }
-}
-
-/// Fades a `PaletteColor` toward a dark, desaturated gray by `strength`
-/// (`0.0` = unchanged, `1.0` = fully dimmed), mirroring the zjstatus fork's
-/// `dim_color`. The actual blend (`format::dim_rgb`) also backs custom
-/// `key_format`/`desc_format`/`mode_format` colors, so a hand-styled bar
-/// dims the same amount as the theme-palette default. `EightBit` entries
-/// pass through unchanged: they're indices into a terminal-defined palette,
-/// not RGB triples, so there's no well-defined "dimmed version" of one to
-/// compute without also assuming a specific palette.
-fn dim_color(color: PaletteColor, strength: f32) -> PaletteColor {
-    match color {
-        PaletteColor::Rgb((r, g, b)) => {
-            let (r, g, b) = format::dim_rgb(r, g, b, strength);
-            PaletteColor::Rgb((r, g, b))
-        }
-        other => other,
-    }
-}
-
-fn dim_style_declaration(decl: &StyleDeclaration, strength: f32) -> StyleDeclaration {
-    StyleDeclaration {
-        base: dim_color(decl.base, strength),
-        background: dim_color(decl.background, strength),
-        emphasis_0: dim_color(decl.emphasis_0, strength),
-        emphasis_1: dim_color(decl.emphasis_1, strength),
-        emphasis_2: dim_color(decl.emphasis_2, strength),
-        emphasis_3: dim_color(decl.emphasis_3, strength),
     }
 }
 
@@ -952,9 +814,9 @@ fn dim_style_declaration(decl: &StyleDeclaration, strength: f32) -> StyleDeclara
 /// `ribbon_selected` for the optional mode prefix (`style_mode`).
 fn dim_styling(colors: &Styling, strength: f32) -> Styling {
     Styling {
-        ribbon_unselected: dim_style_declaration(&colors.ribbon_unselected, strength),
-        ribbon_selected: dim_style_declaration(&colors.ribbon_selected, strength),
-        text_unselected: dim_style_declaration(&colors.text_unselected, strength),
+        ribbon_unselected: zjkit::dim::style_declaration(&colors.ribbon_unselected, strength),
+        ribbon_selected: zjkit::dim::style_declaration(&colors.ribbon_selected, strength),
+        text_unselected: zjkit::dim::style_declaration(&colors.text_unselected, strength),
         ..*colors
     }
 }
@@ -1065,14 +927,8 @@ impl State {
     /// says the same thing the last one did and there is no point repeating
     /// it. Records the answer as the new last word.
     fn next_collapsed(&mut self, output_is_empty: bool) -> Option<bool> {
-        // Hiding the bar always frees its row; `collapse_when_empty` is about
-        // a bar left with nothing to draw by itself.
-        let should_collapse = (self.collapse_when_empty || self.hidden) && output_is_empty;
-        if self.collapsed == should_collapse {
-            return None;
-        }
-        self.collapsed = should_collapse;
-        Some(should_collapse)
+        self.visibility
+            .next_collapsed(self.collapse_when_empty, output_is_empty)
     }
 
     /// This session's descended-into nested session, described as a `ModeInfo`
@@ -1110,7 +966,7 @@ impl State {
     /// `mouse_nested`, which types their keys into the focused pane, the one
     /// the descended-into session runs in.
     fn draw_bar(&self) -> (String, ClickMap) {
-        if self.hidden {
+        if self.visibility.is_hidden() {
             return (String::new(), ClickMap::default());
         }
         let mode_info = &self.mode_info;
@@ -1539,12 +1395,7 @@ impl State {
     /// whichever way it arrived.
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
         let configuration = theme::layer(&user_configuration, self.zellij_palette.as_ref());
-        // The option sets the state when it changes, on load or in a
-        // preview, and leaves a state a message set alone otherwise.
-        let hidden = parse_hidden(&configuration);
-        if hidden != parse_hidden(&self.config) {
-            self.hidden = hidden;
-        }
+        self.visibility.configure(&configuration, &self.config);
         self.max_length = configuration
             .get("max_length")
             .and_then(|s| s.parse().ok())
@@ -1590,7 +1441,7 @@ impl State {
                     .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED)
             })
             .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED);
-        // Clamped: dim_color's blend overshoots past neutral gray above
+        // Clamped: the dim blend overshoots past neutral gray above
         // 1.0, and inverts the blend direction below 0.0.
         self.dim_strength = configuration
             .get(CONFIG_DIM_STRENGTH)
@@ -1785,41 +1636,14 @@ const MOUSE_EVENTS: [EventType; 4] = [
 /// The pipe message that opens the settings screen, or brings it up.
 const OPEN_SETTINGS_MESSAGE: &str = "zjhints::open_settings";
 
-/// What a hide, show or toggle message asks of the bar.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Visibility {
-    Hide,
-    Show,
-    Toggle,
-}
+/// The hide, show and toggle messages, and the question a new bar asks the
+/// running ones.
+static VISIBILITY: visibility::Names = zjkit::visibility_names!("zjhints");
 
-impl Visibility {
-    /// The request a pipe message named `name` makes, if it is one of these.
-    fn from_message(name: &str) -> Option<Self> {
-        match name {
-            "zjhints::hide" => Some(Self::Hide),
-            "zjhints::show" => Some(Self::Show),
-            "zjhints::toggle" => Some(Self::Toggle),
-            _ => None,
-        }
-    }
-}
-
-const CONFIG_HIDDEN: &str = "hidden";
-
-/// Asked by a bar when it starts, so a bar in a new tab joins the others in
-/// being hidden or shown; the payload is its alias, if it knows it.
-const ASK_VISIBILITY_MESSAGE: &str = "zjhints::ask_visibility";
-/// The answer, sent to the asking bar alone, with a payload of
-/// `VISIBILITY_HIDDEN` or `VISIBILITY_SHOWN`.
-const VISIBILITY_MESSAGE: &str = "zjhints::visibility";
-const VISIBILITY_HIDDEN: &str = "hidden";
-const VISIBILITY_SHOWN: &str = "shown";
-
-/// Ask every running bar whether it is hidden. See `ASK_VISIBILITY_MESSAGE`.
+/// Ask every running bar whether it is hidden. See `visibility::Names::ask`.
 #[cfg(not(test))]
 fn ask_visibility(alias: Option<&str>) {
-    let mut message = MessageToPlugin::new(ASK_VISIBILITY_MESSAGE);
+    let mut message = MessageToPlugin::new(VISIBILITY.ask);
     if let Some(alias) = alias {
         message = message.with_payload(alias);
     }
@@ -1829,29 +1653,18 @@ fn ask_visibility(alias: Option<&str>) {
 #[cfg(test)]
 fn ask_visibility(_alias: Option<&str>) {}
 
-/// Tell bar `plugin_id` whether this one is hidden.
+/// Tell bar `plugin_id` whether this one is hidden, as `answer` says.
 #[cfg(not(test))]
-fn answer_visibility(plugin_id: u32, hidden: bool) {
-    let state = if hidden {
-        VISIBILITY_HIDDEN
-    } else {
-        VISIBILITY_SHOWN
-    };
+fn answer_visibility(plugin_id: u32, answer: &str) {
     pipe_message_to_plugin(
-        MessageToPlugin::new(VISIBILITY_MESSAGE)
+        MessageToPlugin::new(VISIBILITY.answer)
             .with_destination_plugin_id(plugin_id)
-            .with_payload(state),
+            .with_payload(answer),
     );
 }
 
 #[cfg(test)]
-fn answer_visibility(_plugin_id: u32, _hidden: bool) {}
-
-fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
-    configuration
-        .get(CONFIG_HIDDEN)
-        .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
-}
+fn answer_visibility(_plugin_id: u32, _answer: &str) {}
 
 /// Log each theme option naming no theme. Called where a configuration
 /// arrives, not each time the palette changes and it is applied again.
@@ -1967,96 +1780,30 @@ fn settings_configuration(own_url: Option<&str>) -> BTreeMap<String, String> {
     configuration
 }
 
-/// The URL the pane of plugin `plugin_id` reports, if it has a pane.
-fn own_pane_url(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<String> {
-    let plugin_id = plugin_id?;
-    manifest
-        .panes
-        .values()
-        .flatten()
-        .find(|pane| pane.is_plugin && pane.id == plugin_id)
-        .and_then(|pane| pane.plugin_url.clone())
-}
-
-/// The content width of plugin `plugin_id`'s own pane, when it has one the
-/// user can see. A collapsed pane, with no width, counts as having none.
-fn own_visible_pane_width(manifest: &PaneManifest, plugin_id: Option<u32>) -> Option<usize> {
-    let plugin_id = plugin_id?;
-    manifest
-        .panes
-        .values()
-        .flatten()
-        .find(|pane| pane.is_plugin && pane.id == plugin_id)
-        .filter(|pane| !pane.is_suppressed)
-        .map(|pane| pane.pane_content_columns)
-        .filter(|&columns| columns > 0)
-}
-
 impl State {
-    /// Hide or show the bar, when `alias` (a message's payload) is empty or
-    /// names the alias this bar was started from. A bar that does not know its
-    /// alias yet takes every message, as it does previews. Returns whether anything changed.
-    fn change_visibility(&mut self, visibility: Visibility, alias: Option<&str>) -> bool {
-        let alias = alias.map(str::trim).filter(|alias| !alias.is_empty());
-        if alias.is_some_and(|alias| !live::is_for(alias, self.own_url.as_deref())) {
-            return false;
-        }
-        // What the user asks for outranks what another bar said.
-        self.visibility_settled = true;
-        let hidden = match visibility {
-            Visibility::Hide => true,
-            Visibility::Show => false,
-            Visibility::Toggle => !self.hidden,
-        };
-        let changed = hidden != self.hidden;
-        self.hidden = hidden;
-        changed
+    /// Hide or show the bar. See `Visibility::change`. Returns whether
+    /// anything changed.
+    fn change_visibility(&mut self, request: Request, alias: Option<&str>) -> bool {
+        self.visibility
+            .change(request, alias, self.own_url.as_deref())
     }
 
     /// The bar to answer, when `source` is another bar asking with `payload`
-    /// whether this one is hidden. Bars of other aliases stay out of it, by
-    /// the same rule as previews.
+    /// whether this one is hidden. See `visibility::asker`.
     fn visibility_asker(&self, source: &PipeSource, payload: Option<&str>) -> Option<u32> {
-        let PipeSource::Plugin(asker) = *source else {
-            return None;
-        };
-        if Some(asker) == self.plugin_id {
-            return None;
-        }
-        payload
-            .is_none_or(|alias| live::is_for(alias, self.own_url.as_deref()))
-            .then_some(asker)
+        visibility::asker(source, payload, self.plugin_id, self.own_url.as_deref())
     }
 
     /// Take the first answer to `ask_visibility`. Returns whether anything
     /// changed.
     fn take_visibility_answer(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
-        if !matches!(source, PipeSource::Plugin(_)) || self.visibility_settled {
-            return false;
-        }
-        let hidden = match payload {
-            Some(VISIBILITY_HIDDEN) => true,
-            Some(VISIBILITY_SHOWN) => false,
-            _ => return false,
-        };
-        self.visibility_settled = true;
-        let changed = hidden != self.hidden;
-        self.hidden = hidden;
-        changed
+        self.visibility.take_answer(source, payload)
     }
 
     /// Whether `source` and `payload` are the end of a `zellij pipe` stream
-    /// already seen. With stdin not a terminal, as in a script, the command
-    /// sends its payload, then a message per line of stdin, then one with no
-    /// payload when stdin ends. Taken on its own, that last one would reach
-    /// every bar rather than the alias the payload named.
+    /// already seen. See `Visibility::ends_a_cli_stream`.
     fn ends_a_cli_stream(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
-        let PipeSource::Cli(pipe_id) = source else {
-            return false;
-        };
-        let seen = self.last_cli_pipe.as_deref() == Some(pipe_id.as_str());
-        self.last_cli_pipe = Some(pipe_id.clone());
-        seen && payload.is_none()
+        self.visibility.ends_a_cli_stream(source, payload)
     }
 
     /// Take a preview from the settings screen, if it is for this bar.
@@ -2213,7 +1960,7 @@ impl ZellijPlugin for State {
                 }
                 // The first pane update is the earliest this bar knows which
                 // alias it runs as, and that it may message other plugins.
-                if !std::mem::replace(&mut self.asked_visibility, true) {
+                if self.visibility.should_ask() {
                     ask_visibility(self.own_url.as_deref());
                 }
             }
@@ -2221,10 +1968,7 @@ impl ZellijPlugin for State {
             // `PaneUpdate` reports focus per tab and per layer, so neither
             // event on its own says where the keyboard actually goes.
             Event::TabUpdate(tabs) => {
-                let active_tab = tabs.iter().find(|tab| tab.active).map(|tab| ActiveTab {
-                    position: tab.position,
-                    floating_panes_visible: tab.are_floating_panes_visible,
-                });
+                let active_tab = ActiveTab::of(&tabs);
                 if active_tab != self.active_tab {
                     self.active_tab = active_tab;
                     should_render = true;
@@ -2307,24 +2051,24 @@ impl ZellijPlugin for State {
             return false;
         }
         let payload = message.payload.as_deref();
-        if message.name == ASK_VISIBILITY_MESSAGE {
+        if message.name == VISIBILITY.ask {
             if let Some(asker) = self.visibility_asker(&message.source, payload) {
-                answer_visibility(asker, self.hidden);
+                answer_visibility(asker, self.visibility.answer());
             }
             return false;
         }
-        if message.name == VISIBILITY_MESSAGE {
+        if message.name == VISIBILITY.answer {
             return self.take_visibility_answer(&message.source, payload);
         }
         if self.take_popup_message(&message) {
             return false;
         }
-        if let Some(visibility) = Visibility::from_message(&message.name) {
+        if let Some(request) = Request::from_message(&VISIBILITY, &message.name) {
             let payload = message.payload.as_deref();
             if self.ends_a_cli_stream(&message.source, payload) {
                 return false;
             }
-            return self.change_visibility(visibility, payload);
+            return self.change_visibility(request, payload);
         }
         message.name == settings::SCHEMA.live_message && self.take_preview(&message.args)
     }
@@ -5073,60 +4817,10 @@ mod tests {
         assert_eq!(rendered(InputMode::Pane, &keymap, &fitted), "a 字左");
     }
 
-    fn pane(x: usize, columns: usize, floating: bool) -> PaneInfo {
-        PaneInfo {
-            pane_x: x,
-            pane_columns: columns,
-            is_floating: floating,
-            ..Default::default()
-        }
-    }
-
-    fn suppressed_pane(x: usize, columns: usize) -> PaneInfo {
-        PaneInfo {
-            pane_x: x,
-            pane_columns: columns,
-            is_suppressed: true,
-            ..Default::default()
-        }
-    }
-
     fn manifest(panes: Vec<PaneInfo>) -> PaneManifest {
         let mut map = HashMap::new();
         map.insert(0, panes);
         PaneManifest { panes: map }
-    }
-
-    #[test]
-    fn terminal_width_is_the_right_edge_of_the_widest_pane() {
-        // Two panes side by side across an 80-column terminal.
-        let panes = vec![pane(0, 40, false), pane(40, 40, false)];
-        assert_eq!(terminal_width(&manifest(panes)), Some(80));
-    }
-
-    #[test]
-    fn floating_panes_do_not_define_the_terminal_width() {
-        let panes = vec![pane(0, 80, false), pane(10, 30, true)];
-        assert_eq!(terminal_width(&manifest(panes)), Some(80));
-    }
-
-    #[test]
-    fn suppressed_panes_do_not_define_the_terminal_width() {
-        // Suppressed panes stop tracking resizes, so their stale geometry is
-        // often the widest. Trusting it pins the width to an old value and the
-        // hints are never refitted.
-        let panes = vec![
-            pane(0, 103, false),
-            suppressed_pane(53, 106),
-            suppressed_pane(53, 106),
-        ];
-        assert_eq!(terminal_width(&manifest(panes)), Some(103));
-    }
-
-    #[test]
-    fn width_is_unknown_when_there_is_nothing_to_measure() {
-        assert_eq!(terminal_width(&manifest(vec![])), None);
-        assert_eq!(terminal_width(&manifest(vec![pane(0, 0, false)])), None);
     }
 
     fn limits(
@@ -5199,29 +4893,6 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(state.length_limit(), None);
-    }
-
-    fn own_pane(id: u32, columns: usize, suppressed: bool) -> PaneInfo {
-        PaneInfo {
-            id,
-            is_plugin: true,
-            pane_content_columns: columns,
-            is_suppressed: suppressed,
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn only_a_visible_pane_of_its_own_sizes_the_bar() {
-        let visible = manifest(vec![pane(0, 200, false), own_pane(7, 70, false)]);
-        assert_eq!(own_visible_pane_width(&visible, Some(7)), Some(70));
-        // A load_plugins bar runs in a suppressed pane, half the screen wide.
-        let headless = manifest(vec![pane(0, 200, false), own_pane(7, 98, true)]);
-        assert_eq!(own_visible_pane_width(&headless, Some(7)), None);
-        let collapsed = manifest(vec![own_pane(7, 0, false)]);
-        assert_eq!(own_visible_pane_width(&collapsed, Some(7)), None);
-        assert_eq!(own_visible_pane_width(&visible, Some(8)), None);
-        assert_eq!(own_visible_pane_width(&visible, None), None);
     }
 
     #[test]
@@ -5459,30 +5130,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn dim_color_blends_rgb_toward_gray() {
-        // Pure red's BT.601 luminance is 0.299*255 = 76.245; the dim target
-        // is 30% of that (~22.9), so full strength converges there on all
-        // three channels: darker than the color's own brightness, not just
-        // desaturated to it.
-        let red = PaletteColor::Rgb((255, 0, 0));
-        assert_eq!(dim_color(red, 0.0), red);
-        assert_eq!(dim_color(red, 1.0), PaletteColor::Rgb((23, 23, 23)));
-        assert_eq!(dim_color(red, 0.5), PaletteColor::Rgb((139, 11, 11)));
-
-        // A color that's already gray has nothing to desaturate, but still
-        // darkens: its luminance equals every channel already, but the dim
-        // target is a fraction of that.
-        let white = PaletteColor::Rgb((255, 255, 255));
-        assert_eq!(dim_color(white, 1.0), PaletteColor::Rgb((77, 77, 77)));
-    }
-
-    #[test]
-    fn dim_color_passes_through_indexed_colors() {
-        let indexed = PaletteColor::EightBit(200);
-        assert_eq!(dim_color(indexed, 0.8), indexed);
-    }
-
     /// Test helper: build the `HintStyle` `render_descended_indicator`
     /// expects and render it, so individual tests only vary the ascend
     /// keys and the format overrides they're checking.
@@ -5646,7 +5293,7 @@ mod tests {
         let rendered = ANSIStrings(&parts).to_string();
 
         // Full dim strength on pure red lands on the same dark gray
-        // dim_color/dim_rgb produce elsewhere (see dim_color_blends_rgb_toward_gray).
+        // zjkit::dim::color and dim_rgb produce elsewhere (see zjkit's dim tests).
         assert!(rendered.contains("\u{1b}[38;2;23;23;23m"));
     }
 
@@ -7133,43 +6780,40 @@ mod tests {
     }
 
     #[test]
-    fn hide_show_and_toggle_messages_are_recognized() {
+    fn visibility_messages_keep_their_names() {
         assert_eq!(
-            Visibility::from_message("zjhints::hide"),
-            Some(Visibility::Hide)
+            VISIBILITY,
+            visibility::Names {
+                hide: "zjhints::hide",
+                show: "zjhints::show",
+                toggle: "zjhints::toggle",
+                ask: "zjhints::ask_visibility",
+                answer: "zjhints::visibility",
+            }
         );
-        assert_eq!(
-            Visibility::from_message("zjhints::show"),
-            Some(Visibility::Show)
-        );
-        assert_eq!(
-            Visibility::from_message("zjhints::toggle"),
-            Some(Visibility::Toggle)
-        );
-        assert_eq!(Visibility::from_message("zjhints"), None);
     }
 
     #[test]
     fn toggling_hides_then_shows_and_repeats_change_nothing() {
         let mut state = drawing_bar();
-        assert!(state.change_visibility(Visibility::Toggle, None));
-        assert!(state.hidden);
-        assert!(!state.change_visibility(Visibility::Hide, None));
-        assert!(state.change_visibility(Visibility::Toggle, Some("")));
-        assert!(!state.hidden);
-        assert!(!state.change_visibility(Visibility::Show, None));
+        assert!(state.change_visibility(Request::Toggle, None));
+        assert!(state.visibility.is_hidden());
+        assert!(!state.change_visibility(Request::Hide, None));
+        assert!(state.change_visibility(Request::Toggle, Some("")));
+        assert!(!state.visibility.is_hidden());
+        assert!(!state.change_visibility(Request::Show, None));
     }
 
     #[test]
     fn a_message_naming_an_alias_reaches_only_that_alias_s_bars() {
         let mut state = drawing_bar();
         state.own_url = Some("zjhints".to_string());
-        assert!(!state.change_visibility(Visibility::Hide, Some("zjhints-nested")));
-        assert!(!state.hidden);
-        assert!(state.change_visibility(Visibility::Hide, Some("zjhints")));
+        assert!(!state.change_visibility(Request::Hide, Some("zjhints-nested")));
+        assert!(!state.visibility.is_hidden());
+        assert!(state.change_visibility(Request::Hide, Some("zjhints")));
         // A bar that does not know its alias yet takes them all.
         let mut headless = drawing_bar();
-        assert!(headless.change_visibility(Visibility::Hide, Some("zjhints-nested")));
+        assert!(headless.change_visibility(Request::Hide, Some("zjhints-nested")));
     }
 
     #[test]
@@ -7208,24 +6852,24 @@ mod tests {
         let from = PipeSource::Plugin(5);
         assert!(!state.take_visibility_answer(&PipeSource::Keybind, Some("hidden")));
         assert!(state.take_visibility_answer(&from, Some("hidden")));
-        assert!(state.hidden);
+        assert!(state.visibility.is_hidden());
         assert!(!state.take_visibility_answer(&from, Some("shown")));
-        assert!(state.hidden);
+        assert!(state.visibility.is_hidden());
     }
 
     #[test]
     fn a_hide_or_show_before_the_answer_wins_over_it() {
         let mut state = drawing_bar();
-        state.change_visibility(Visibility::Show, None);
+        state.change_visibility(Request::Show, None);
         assert!(!state.take_visibility_answer(&PipeSource::Plugin(5), Some("hidden")));
-        assert!(!state.hidden);
+        assert!(!state.visibility.is_hidden());
     }
 
     #[test]
     fn a_hidden_bar_draws_nothing_and_has_nothing_to_click() {
         let mut state = drawing_bar();
         state.mouse = true;
-        state.change_visibility(Visibility::Hide, None);
+        state.change_visibility(Request::Hide, None);
         assert_eq!(state.draw_bar(), (String::new(), ClickMap::default()));
     }
 
@@ -7233,9 +6877,9 @@ mod tests {
     fn a_hidden_bar_gives_its_row_back_even_when_keeping_it_reserved() {
         let mut state = drawing_bar();
         state.collapse_when_empty = false;
-        state.change_visibility(Visibility::Hide, None);
+        state.change_visibility(Request::Hide, None);
         assert_eq!(state.next_collapsed(true), Some(true));
-        state.change_visibility(Visibility::Show, None);
+        state.change_visibility(Request::Show, None);
         assert_eq!(state.next_collapsed(false), Some(false));
         // Shown again, an empty bar keeps its row as the option says.
         assert_eq!(state.next_collapsed(true), None);
@@ -7244,26 +6888,26 @@ mod tests {
     #[test]
     fn the_hidden_option_sets_the_state_on_load_and_when_it_changes() {
         let mut state = bar_with(&[("hidden", "true")]);
-        assert!(state.hidden);
+        assert!(state.visibility.is_hidden());
         // A message overrides it, and an unrelated preview keeps that.
-        state.change_visibility(Visibility::Show, None);
+        state.change_visibility(Request::Show, None);
         state.take_preview(&preview_args(
             "zjhints",
             &[("max_length", None, Some("40"))],
         ));
-        assert!(!state.hidden);
+        assert!(!state.visibility.is_hidden());
         // Changing the option itself sets the state again.
         state.take_preview(&preview_args(
             "zjhints",
             &[("hidden", Some("true"), Some("false"))],
         ));
-        assert!(!state.hidden);
+        assert!(!state.visibility.is_hidden());
         state.take_preview(&preview_args(
             "zjhints",
             &[("hidden", Some("false"), Some("true"))],
         ));
-        assert!(state.hidden);
-        assert!(!bar_with(&[]).hidden);
+        assert!(state.visibility.is_hidden());
+        assert!(!bar_with(&[]).visibility.is_hidden());
     }
 
     #[test]
@@ -7271,34 +6915,6 @@ mod tests {
         let mut state = bar_with(&[("mouse", "true")]);
         assert!(state.take_preview(&preview_args("zjhints", &[("mouse", Some("true"), None)])));
         assert!(!state.mouse);
-    }
-
-    #[test]
-    fn the_bar_learns_its_alias_from_its_own_pane() {
-        let own = PaneInfo {
-            id: 7,
-            is_plugin: true,
-            plugin_url: Some("zjhints".to_string()),
-            ..Default::default()
-        };
-        let other = PaneInfo {
-            id: 8,
-            is_plugin: true,
-            plugin_url: Some("zellij:tab-bar".to_string()),
-            ..Default::default()
-        };
-        let terminal = PaneInfo {
-            id: 7,
-            is_plugin: false,
-            ..Default::default()
-        };
-        let manifest = manifest(vec![terminal, other, own]);
-        assert_eq!(
-            own_pane_url(&manifest, Some(7)),
-            Some("zjhints".to_string())
-        );
-        assert_eq!(own_pane_url(&manifest, Some(9)), None);
-        assert_eq!(own_pane_url(&manifest, None), None);
     }
 
     #[test]
