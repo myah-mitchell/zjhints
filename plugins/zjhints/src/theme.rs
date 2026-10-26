@@ -1,19 +1,19 @@
-//! Built-in themes.
+//! The hint options each theme sets.
 //!
-//! A theme is a set of default option values, laid under the user's own
-//! configuration by `layer`, so the rest of the plugin reads one map and never
-//! needs to know a theme was involved. Three options each pick one kind:
+//! The themes themselves, and the three options that pick them, are
+//! `zjkit::theme`, shared with the other bars. This module turns a selection
+//! into zjhints' own options: `layer` lays them under the user's
+//! configuration, so the rest of the plugin reads one map and never needs to
+//! know a theme was involved.
 //!
-//! - `color_theme` supplies the `color_<name>` aliases. `zellij` (the default)
-//!   derives them from the running Zellij theme, `custom` adds none, and a
-//!   built-in name adds its palette.
-//! - `format_theme` supplies the format strings, which draw with those
-//!   aliases. `zellij` (the default) adds none, leaving Zellij's ribbons.
+//! - `color_theme` supplies the `color_<name>` aliases.
+//! - `format_theme` supplies the hint and mode format strings, which draw with
+//!   those aliases. `zellij` (the default) adds none, leaving Zellij's ribbons.
 //! - `alias_theme` supplies the key and modifier aliases and each mode's
 //!   `{key}` symbol. `zellij` (the default) adds none, leaving Zellij's names.
 //!
-//! An unknown value is logged and treated as `zellij`. The three touch
-//! separate options, so the order they are laid in does not matter.
+//! The three touch separate options, so the order they are laid in does not
+//! matter.
 
 use crate::{
     CONFIG_DESC_FORMAT, CONFIG_DROP_INDICATOR, CONFIG_HINT_SPACER, CONFIG_KEY_ALIAS_PREFIX,
@@ -21,310 +21,9 @@ use crate::{
     CONFIG_MOD_ALIAS_PREFIX, CONFIG_OVERFLOW_STR,
 };
 use std::collections::BTreeMap;
-use zellij_tile::prelude::{BareKey, PaletteColor, Styling};
-
-const CONFIG_COLOR_THEME: &str = "color_theme";
-const CONFIG_FORMAT_THEME: &str = "format_theme";
-const CONFIG_ALIAS_THEME: &str = "alias_theme";
-/// The options that choose a theme.
-pub const OPTIONS: [&str; 3] = [CONFIG_COLOR_THEME, CONFIG_FORMAT_THEME, CONFIG_ALIAS_THEME];
-
-/// The value every theme option starts at: follow Zellij.
-const THEME_ZELLIJ: &str = "zellij";
-/// The `color_theme` value that adds no aliases at all.
-const THEME_CUSTOM: &str = "custom";
-
-/// The `color_<name>` aliases every color theme defines, in the order of
-/// `ColorTheme::palette`.
-const ALIASES: [&str; 11] = [
-    "bg", "fg", "surface", "muted", "accent", "red", "green", "yellow", "blue", "magenta", "cyan",
-];
-
-/// Every mode, by the suffix of its `mode_<option>_<mode>` options (see
-/// `mode_config_suffix` in `main.rs`), with the alias its prefix is colored
-/// with.
-const MODES: [(&str, &str); 15] = [
-    ("normal", "green"),
-    ("locked", "red"),
-    ("resize", "yellow"),
-    ("pane", "blue"),
-    ("move", "yellow"),
-    ("tab", "magenta"),
-    ("scroll", "cyan"),
-    ("enter_search", "cyan"),
-    ("search", "cyan"),
-    ("rename_tab", "magenta"),
-    ("rename_pane", "blue"),
-    ("rename_session", "magenta"),
-    ("session", "magenta"),
-    ("tmux", "green"),
-    ("prompt", "accent"),
-];
-
-struct ColorTheme {
-    name: &'static str,
-    /// One hex color per entry of `ALIASES`.
-    palette: [&'static str; 11],
-}
-
-const COLOR_THEMES: [ColorTheme; 6] = [
-    ColorTheme {
-        name: "catppuccin-mocha",
-        palette: [
-            "#1e1e2e", "#cdd6f4", "#313244", "#6c7086", "#cba6f7", "#f38ba8", "#a6e3a1", "#f9e2af",
-            "#89b4fa", "#f5c2e7", "#94e2d5",
-        ],
-    },
-    ColorTheme {
-        name: "catppuccin-latte",
-        palette: [
-            "#eff1f5", "#4c4f69", "#ccd0da", "#8c8fa1", "#8839ef", "#d20f39", "#40a02b", "#df8e1d",
-            "#1e66f5", "#ea76cb", "#179299",
-        ],
-    },
-    ColorTheme {
-        name: "dracula",
-        // Dracula has no blue, so purple stands in for it.
-        palette: [
-            "#282a36", "#f8f8f2", "#44475a", "#6272a4", "#bd93f9", "#ff5555", "#50fa7b", "#f1fa8c",
-            "#bd93f9", "#ff79c6", "#8be9fd",
-        ],
-    },
-    ColorTheme {
-        name: "nord",
-        palette: [
-            "#2e3440", "#d8dee9", "#3b4252", "#4c566a", "#88c0d0", "#bf616a", "#a3be8c", "#ebcb8b",
-            "#81a1c1", "#b48ead", "#8fbcbb",
-        ],
-    },
-    ColorTheme {
-        name: "gruvbox-dark",
-        palette: [
-            "#282828", "#ebdbb2", "#3c3836", "#928374", "#fe8019", "#fb4934", "#b8bb26", "#fabd2f",
-            "#83a598", "#d3869b", "#8ec07c",
-        ],
-    },
-    ColorTheme {
-        name: "tokyo-night",
-        palette: [
-            "#1a1b26", "#c0caf5", "#292e42", "#565f89", "#7aa2f7", "#f7768e", "#9ece6a", "#e0af68",
-            "#7aa2f7", "#bb9af7", "#7dcfff",
-        ],
-    },
-];
-
-/// The Powerline right-pointing arrow, a Nerd Font glyph.
-const ARROW: &str = "\u{e0b0}";
-/// The left and right halves of a rounded pill, Nerd Font glyphs.
-const PILL_LEFT: &str = "\u{e0b6}";
-const PILL_RIGHT: &str = "\u{e0b4}";
-
-/// The shapes a format theme draws.
-#[derive(Clone, Copy, PartialEq)]
-enum Shape {
-    /// Blocks of color side by side.
-    Flat,
-    /// Colored text with no backgrounds.
-    Plain,
-    /// Blocks joined by Powerline arrows.
-    Powerline,
-    /// Rounded pills, one per hint.
-    Pills,
-}
-
-const FORMAT_THEMES: [(&str, Shape); 4] = [
-    ("flat", Shape::Flat),
-    ("plain", Shape::Plain),
-    ("powerline", Shape::Powerline),
-    ("pills", Shape::Pills),
-];
-
-struct AliasTheme {
-    name: &'static str,
-    /// `(modifier, alias)` for `mod_alias_<modifier>`.
-    modifiers: &'static [(&'static str, &'static str)],
-    /// `(key, alias)` for `key_alias_<key>`.
-    keys: &'static [(&'static str, &'static str)],
-    /// `(mode, symbol)` for `mode_key_<mode>`, the mode prefix's `{key}`.
-    modes: &'static [(&'static str, &'static str)],
-}
-
-const ALIAS_THEMES: [AliasTheme; 3] = [
-    AliasTheme {
-        name: "ascii",
-        // Emacs notation: a symbol alias hugs the key, giving `C-p`.
-        modifiers: &[
-            ("ctrl", "C-"),
-            ("alt", "M-"),
-            ("shift", "S-"),
-            ("super", "s-"),
-        ],
-        keys: &[
-            ("enter", "RET"),
-            ("esc", "ESC"),
-            ("tab", "TAB"),
-            ("space", "SPC"),
-            ("backspace", "BS"),
-            ("delete", "DEL"),
-            ("insert", "INS"),
-            ("left", "<"),
-            ("down", "v"),
-            ("up", "^"),
-            ("right", ">"),
-            ("home", "Home"),
-            ("end", "End"),
-            ("pageup", "PgUp"),
-            ("pagedown", "PgDn"),
-        ],
-        // The mode's name says it already; there is no ASCII picture to add.
-        modes: &[],
-    },
-    AliasTheme {
-        name: "unicode",
-        modifiers: &[
-            ("ctrl", "^"),
-            ("alt", "\u{2325}"),
-            ("shift", "\u{21e7}"),
-            ("super", "\u{2318}"),
-        ],
-        keys: &[
-            ("enter", "\u{23ce}"),
-            ("esc", "\u{238b}"),
-            ("tab", "\u{21e5}"),
-            ("space", "\u{2423}"),
-            ("backspace", "\u{232b}"),
-            ("delete", "\u{2326}"),
-            ("insert", "\u{2380}"),
-            ("left", "\u{2190}"),
-            ("down", "\u{2193}"),
-            ("up", "\u{2191}"),
-            ("right", "\u{2192}"),
-            ("home", "\u{21f1}"),
-            ("end", "\u{21f2}"),
-            ("pageup", "\u{21de}"),
-            ("pagedown", "\u{21df}"),
-        ],
-        modes: &[
-            ("normal", "\u{2328}"),
-            ("locked", "\u{2298}"),
-            ("resize", "\u{2921}"),
-            ("pane", "\u{25a3}"),
-            ("move", "\u{2725}"),
-            ("tab", "\u{29c9}"),
-            ("scroll", "\u{21d5}"),
-            ("enter_search", "\u{2315}"),
-            ("search", "\u{2315}"),
-            ("rename_tab", "\u{270e}"),
-            ("rename_pane", "\u{270e}"),
-            ("rename_session", "\u{270e}"),
-            ("session", "\u{25c9}"),
-            ("tmux", "\u{2318}"),
-            ("prompt", "\u{276f}"),
-        ],
-    },
-    AliasTheme {
-        name: "nerd-font",
-        // Material Design glyphs from the Nerd Font set.
-        modifiers: &[
-            ("ctrl", "\u{f0634}"),
-            ("alt", "\u{f0635}"),
-            ("shift", "\u{f0636}"),
-            ("super", "\u{f0633}"),
-        ],
-        keys: &[
-            ("enter", "\u{f0311}"),
-            ("esc", "\u{f12b7}"),
-            ("tab", "\u{f0312}"),
-            ("space", "\u{f1050}"),
-            ("backspace", "\u{f006e}"),
-            ("delete", "\u{f0e7e}"),
-            ("left", "\u{f004d}"),
-            ("down", "\u{f0045}"),
-            ("up", "\u{f005d}"),
-            ("right", "\u{f0054}"),
-            ("home", "\u{f0600}"),
-            ("end", "\u{f0601}"),
-        ],
-        modes: &[
-            ("normal", "\u{f030c}"),
-            ("locked", "\u{f033e}"),
-            ("resize", "\u{f0a68}"),
-            ("pane", "\u{f0bcc}"),
-            ("move", "\u{f01be}"),
-            ("tab", "\u{f04e9}"),
-            ("scroll", "\u{f037d}"),
-            ("enter_search", "\u{f06ed}"),
-            ("search", "\u{f0349}"),
-            ("rename_tab", "\u{f0455}"),
-            ("rename_pane", "\u{f03eb}"),
-            ("rename_session", "\u{f0455}"),
-            ("session", "\u{f037a}"),
-            ("tmux", "\u{f0633}"),
-            ("prompt", "\u{f07b7}"),
-        ],
-    },
-];
-
-/// Every value `color_theme` takes, in the order the settings screen cycles
-/// through them.
-pub const COLOR_CHOICES: [&str; COLOR_THEMES.len() + 2] = {
-    let mut names = [THEME_ZELLIJ; COLOR_THEMES.len() + 2];
-    names[1] = THEME_CUSTOM;
-    let mut index = 0;
-    while index < COLOR_THEMES.len() {
-        names[index + 2] = COLOR_THEMES[index].name;
-        index += 1;
-    }
-    names
-};
-
-/// Every value `format_theme` takes.
-pub const FORMAT_CHOICES: [&str; FORMAT_THEMES.len() + 1] = {
-    let mut names = [THEME_ZELLIJ; FORMAT_THEMES.len() + 1];
-    let mut index = 0;
-    while index < FORMAT_THEMES.len() {
-        names[index + 1] = FORMAT_THEMES[index].0;
-        index += 1;
-    }
-    names
-};
-
-/// Every value `alias_theme` takes.
-pub const ALIAS_CHOICES: [&str; ALIAS_THEMES.len() + 1] = {
-    let mut names = [THEME_ZELLIJ; ALIAS_THEMES.len() + 1];
-    let mut index = 0;
-    while index < ALIAS_THEMES.len() {
-        names[index + 1] = ALIAS_THEMES[index].name;
-        index += 1;
-    }
-    names
-};
-
-/// The normalized value of the theme option `key`, or `None` when it is unset
-/// or empty.
-fn requested(configuration: &BTreeMap<String, String>, key: &str) -> Option<String> {
-    configuration
-        .get(key)
-        .map(|name| name.trim().to_lowercase())
-        .filter(|name| !name.is_empty())
-}
-
-/// Each theme option whose value names nothing this plugin knows, as
-/// `(option, value)`, so the caller can log them.
-pub fn unknown_names(configuration: &BTreeMap<String, String>) -> Vec<(&'static str, String)> {
-    let options: [(&str, &[&str]); 3] = [
-        (CONFIG_COLOR_THEME, &COLOR_CHOICES),
-        (CONFIG_FORMAT_THEME, &FORMAT_CHOICES),
-        (CONFIG_ALIAS_THEME, &ALIAS_CHOICES),
-    ];
-    options
-        .into_iter()
-        .filter_map(|(option, known)| {
-            let name = requested(configuration, option)?;
-            (!known.contains(&name.as_str())).then_some((option, name))
-        })
-        .collect()
-}
+use zellij_tile::prelude::{BareKey, Styling};
+use zjkit::theme::{color_entries, Shape, ARROW, MODES, PILL_LEFT, PILL_RIGHT};
+pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES, OPTIONS};
 
 /// `configuration` with the selected themes' options laid under it. A key the
 /// user set, even to an empty string, is never replaced.
@@ -349,9 +48,7 @@ pub fn layer(
         add(format!("color_{alias}"), color);
     }
 
-    let alias_theme = requested(configuration, CONFIG_ALIAS_THEME)
-        .and_then(|name| ALIAS_THEMES.iter().find(|theme| theme.name == name));
-    if let Some(theme) = alias_theme {
+    if let Some(theme) = zjkit::theme::alias_theme(configuration) {
         for (modifier, alias) in theme.modifiers {
             add(
                 format!("{CONFIG_MOD_ALIAS_PREFIX}{modifier}"),
@@ -376,13 +73,7 @@ pub fn layer(
         }
     }
 
-    let shape = requested(configuration, CONFIG_FORMAT_THEME).and_then(|name| {
-        FORMAT_THEMES
-            .iter()
-            .find(|(known, _)| *known == name)
-            .map(|(_, shape)| *shape)
-    });
-    if let Some(shape) = shape {
+    if let Some(shape) = zjkit::theme::shape(configuration) {
         // Read after the alias theme went in, so a mode whose symbol came
         // from either one gets a block for it.
         let has_key = |mode: &str| {
@@ -404,53 +95,6 @@ pub fn layer(
         }
     }
     layered
-}
-
-/// The `(alias, color)` pairs `color_theme` selects.
-fn color_entries(
-    configuration: &BTreeMap<String, String>,
-    zellij_palette: Option<&Styling>,
-) -> Vec<(&'static str, String)> {
-    let name = requested(configuration, CONFIG_COLOR_THEME);
-    if name.as_deref() == Some(THEME_CUSTOM) {
-        return Vec::new();
-    }
-    let built_in = name.and_then(|name| COLOR_THEMES.iter().find(|theme| theme.name == name));
-    let colors: Vec<String> = match (built_in, zellij_palette) {
-        (Some(theme), _) => theme.palette.iter().map(|hex| hex.to_string()).collect(),
-        // `zellij`, unset, or unknown.
-        (None, Some(styling)) => zellij_colors(styling).to_vec(),
-        (None, None) => return Vec::new(),
-    };
-    ALIASES.into_iter().zip(colors).collect()
-}
-
-/// The running Zellij theme's colors, one per entry of `ALIASES`, picked from
-/// the declarations Zellij fills from each palette slot.
-fn zellij_colors(styling: &Styling) -> [String; 11] {
-    [
-        styling.text_unselected.background,
-        styling.text_unselected.base,
-        styling.text_selected.background,
-        styling.table_title.background,
-        styling.ribbon_selected.background,
-        styling.exit_code_error.base,
-        styling.exit_code_success.base,
-        styling.exit_code_error.emphasis_0,
-        styling.ribbon_unselected.emphasis_2,
-        styling.text_unselected.emphasis_3,
-        styling.text_unselected.emphasis_1,
-    ]
-    .map(color_value)
-}
-
-/// A palette color as a `color_<name>` value: `#rrggbb`, or the index of a
-/// 256-color one.
-fn color_value(color: PaletteColor) -> String {
-    match color {
-        PaletteColor::Rgb((r, g, b)) => format!("#{r:02x}{g:02x}{b:02x}"),
-        PaletteColor::EightBit(index) => index.to_string(),
-    }
 }
 
 /// The hint formats a format theme sets, and its `mode_format` for display
@@ -529,6 +173,8 @@ fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
 mod tests {
     use super::*;
     use crate::settings::options::{find, Kind};
+    use zellij_tile::prelude::PaletteColor;
+    use zjkit::theme::*;
 
     fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
@@ -587,16 +233,6 @@ mod tests {
                     "{option} {name}"
                 );
             }
-        }
-    }
-
-    #[test]
-    fn the_built_in_names_of_each_kind_are_unique() {
-        for choices in [&COLOR_CHOICES[..], &FORMAT_CHOICES[..], &ALIAS_CHOICES[..]] {
-            let mut names = choices.to_vec();
-            names.sort_unstable();
-            names.dedup();
-            assert_eq!(names.len(), choices.len(), "{choices:?}");
         }
     }
 
@@ -896,24 +532,6 @@ mod tests {
             "#2e3440"
         );
         assert!(themed(&[(CONFIG_ALIAS_THEME, "ASCII")]).contains_key("mod_alias_ctrl"));
-    }
-
-    #[test]
-    fn only_unrecognized_names_are_reported_with_their_option() {
-        let unknown = unknown_names(&cfg(&[
-            (CONFIG_COLOR_THEME, "Solarized "),
-            (CONFIG_FORMAT_THEME, "pills"),
-            (CONFIG_ALIAS_THEME, "emoji"),
-        ]));
-        assert_eq!(
-            unknown,
-            vec![
-                (CONFIG_COLOR_THEME, "solarized".to_string()),
-                (CONFIG_ALIAS_THEME, "emoji".to_string()),
-            ]
-        );
-        assert!(unknown_names(&cfg(&[])).is_empty());
-        assert!(unknown_names(&cfg(&[(CONFIG_FORMAT_THEME, "custom")])).len() == 1);
     }
 
     #[test]

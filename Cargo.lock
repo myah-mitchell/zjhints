@@ -2767,11 +2767,15 @@ dependencies = [
  "zellij-tile",
  "zellij-tile-utils",
  "zellij-utils",
+ "zjkit",
 ]
 
 [[package]]
 name = "zjkit"
 version = "0.1.0"
+dependencies = [
+ "zellij-tile",
+]
 
 [[package]]
 name = "zmij"
