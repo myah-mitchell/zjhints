@@ -97,7 +97,10 @@ pub struct Editor {
     aliases: Vec<PluginAliasEntry>,
     /// Every alias in the config file, as last read.
     saved_aliases: Vec<PluginAliasEntry>,
-    /// Indexes into `aliases` of the ones that load the plugin.
+    /// The plugin location the screen runs from. The aliases loading it are
+    /// the ones edited.
+    location: String,
+    /// Indexes into `aliases` of the ones that load `location`.
     candidates: Vec<usize>,
     /// Index into `candidates` of the alias being edited.
     chosen: usize,
@@ -120,14 +123,33 @@ pub struct Editor {
     pub focus: Focus,
 }
 
+/// The plugin location of a screen whose own pane was started as `own_url`:
+/// the URL itself when it is a location, which always has a scheme, as in
+/// `file:`, or the location of the alias it names otherwise. `None` for an
+/// alias that is not among `aliases`.
+pub fn own_location<'a>(aliases: &'a [PluginAliasEntry], own_url: &'a str) -> Option<&'a str> {
+    if own_url.contains(':') {
+        return Some(own_url);
+    }
+    aliases
+        .iter()
+        .find(|alias| alias.name == own_url)
+        .map(|alias| alias.plugin.location.as_str())
+}
+
 impl Editor {
-    /// Edit the alias of the plugin `schema` describes named `pinned`, or
-    /// the first one when nothing is pinned, from the session's `aliases`
-    /// and the config file's `saved_aliases`. An error, worded for the
-    /// screen, when there is no alias of the plugin to edit or the pinned one
-    /// is not among them.
+    /// Edit the alias loading `location` named `pinned`, or the first one
+    /// when nothing is pinned, from the session's `aliases` and the config
+    /// file's `saved_aliases`. `schema` describes the plugin at `location`.
+    /// An error, worded for the screen, when no alias loads `location` or
+    /// the pinned one is not among them.
+    ///
+    /// An alias loads `location` when its own location is the same string.
+    /// Zellij expands and spells both the same way, so a file name or a
+    /// directory named after a plugin plays no part.
     pub fn new(
         schema: &'static Schema,
+        location: &str,
         aliases: Vec<PluginAliasEntry>,
         saved_aliases: Vec<PluginAliasEntry>,
         pinned: Option<&str>,
@@ -135,13 +157,12 @@ impl Editor {
         let candidates: Vec<usize> = aliases
             .iter()
             .enumerate()
-            .filter(|(_, alias)| alias.plugin.location.contains(schema.plugin))
+            .filter(|(_, alias)| alias.plugin.location == location)
             .map(|(index, _)| index)
             .collect();
         if candidates.is_empty() {
             return Err(format!(
-                "No alias in the plugins {{}} block loads {}, so there is nothing to edit.",
-                schema.plugin
+                "No alias in the plugins {{}} block loads {location}, so there is nothing to edit."
             ));
         }
         let chosen = match pinned {
@@ -155,6 +176,7 @@ impl Editor {
             schema,
             aliases,
             saved_aliases,
+            location: location.to_string(),
             candidates,
             chosen,
             saved: BTreeMap::new(),
@@ -180,9 +202,15 @@ impl Editor {
         let name = self.alias_name().to_string();
         let (section, search, selected, focus) =
             (self.section, self.search.take(), self.selected, self.focus);
-        let schema = self.schema;
-        *self = Editor::new(schema, aliases.clone(), saved_aliases.clone(), Some(&name))
-            .or_else(|_| Editor::new(schema, aliases, saved_aliases, None))?;
+        let (schema, location) = (self.schema, std::mem::take(&mut self.location));
+        *self = Editor::new(
+            schema,
+            &location,
+            aliases.clone(),
+            saved_aliases.clone(),
+            Some(&name),
+        )
+        .or_else(|_| Editor::new(schema, &location, aliases, saved_aliases, None))?;
         if self.sections().contains(&section) {
             self.section = section;
             self.search = search;

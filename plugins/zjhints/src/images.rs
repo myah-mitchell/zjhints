@@ -43,6 +43,9 @@ const GENERATED_MARK: &str =
 const WRITE_ENV: &str = "ZJHINTS_WRITE_IMAGES";
 
 /// The size of one terminal cell in pixels, and of the margin around the grid.
+/// Where the settings screen in the images runs from, and its alias loads.
+const LOCATION: &str = "file:~/.local/share/zellij/plugins/zjhints.wasm";
+
 const CELL_WIDTH: usize = 9;
 const CELL_HEIGHT: usize = 18;
 const MARGIN_X: usize = 14;
@@ -1127,13 +1130,19 @@ fn settings_screen(
     let alias = vec![PluginAliasEntry {
         name: "zjhints".to_string(),
         plugin: PluginEntry {
-            location: "file:~/.local/share/zellij/plugins/zjhints.wasm".to_string(),
+            location: LOCATION.to_string(),
             cwd: None,
             configuration: configuration_of(options).into_iter().collect(),
         },
     }];
-    let mut editor = Editor::new(&crate::settings::SCHEMA, alias.clone(), alias, None)
-        .expect("an alias loading zjhints");
+    let mut editor = Editor::new(
+        &crate::settings::SCHEMA,
+        LOCATION,
+        alias.clone(),
+        alias,
+        None,
+    )
+    .expect("an alias loading zjhints");
     for (key, value) in edits {
         editor.submit(
             &Field::Value {

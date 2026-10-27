@@ -16,10 +16,13 @@ fn alias(name: &str, location: &str, configuration: &[(&str, &str)]) -> PluginAl
     }
 }
 
+/// Where the screen in these tests runs from.
+const LOCATION: &str = "file:~/zjhints.wasm";
+
 fn aliases(configuration: &[(&str, &str)]) -> Vec<PluginAliasEntry> {
     vec![
         alias("tab-bar", "zellij:tab-bar", &[]),
-        alias("zjhints", "file:~/zjhints.wasm", configuration),
+        alias("zjhints", LOCATION, configuration),
     ]
 }
 
@@ -27,6 +30,7 @@ fn aliases(configuration: &[(&str, &str)]) -> Vec<PluginAliasEntry> {
 fn editor(configuration: &[(&str, &str)]) -> Editor {
     Editor::new(
         &SCHEMA,
+        LOCATION,
         aliases(configuration),
         aliases(configuration),
         None,
@@ -52,9 +56,41 @@ fn only_aliases_loading_zjhints_are_edited() {
 }
 
 #[test]
+fn only_aliases_loading_the_screens_location_are_edited() {
+    let release = "file:/opt/zjhints/target/wasm32-wasip1/release";
+    let own = format!("{release}/zjhints.wasm");
+    let aliases = vec![
+        // Named after this plugin by its directory alone.
+        alias("zjtabs", &format!("{release}/zjtabs.wasm"), &[]),
+        // Named nothing like it, but loaded from the same file.
+        alias("hints", &own, &[]),
+        // Named like it, but a different file.
+        alias("zjhints", "file:/elsewhere/zjhints.wasm", &[]),
+    ];
+    let editor = Editor::new(&SCHEMA, &own, aliases, vec![], None).unwrap();
+    assert_eq!(editor.alias_name(), "hints");
+    assert!(!editor.sections().contains(&Section::Alias));
+}
+
+#[test]
+fn a_screen_started_by_alias_name_edits_that_aliases_location() {
+    let aliases = vec![
+        alias("tab-bar", "zellij:tab-bar", &[]),
+        alias("hints", "file:/opt/bin/bar.wasm", &[]),
+    ];
+    assert_eq!(
+        own_location(&aliases, "hints"),
+        Some("file:/opt/bin/bar.wasm")
+    );
+    assert_eq!(own_location(&aliases, "file:/x.wasm"), Some("file:/x.wasm"));
+    assert_eq!(own_location(&aliases, "nope"), None);
+}
+
+#[test]
 fn without_a_zjhints_alias_there_is_nothing_to_edit() {
     let result = Editor::new(
         &SCHEMA,
+        LOCATION,
         vec![alias("tab-bar", "zellij:tab-bar", &[])],
         vec![],
         None,
@@ -65,11 +101,12 @@ fn without_a_zjhints_alias_there_is_nothing_to_edit() {
 #[test]
 fn a_pinned_alias_is_edited_and_an_unknown_one_refused() {
     let aliases = vec![
-        alias("zjhints", "file:a/zjhints.wasm", &[]),
-        alias("zjhints-alt", "file:b/zjhints.wasm", &[]),
+        alias("zjhints", "file:~/zjhints.wasm", &[]),
+        alias("zjhints-alt", "file:~/zjhints.wasm", &[]),
     ];
     let editor = Editor::new(
         &SCHEMA,
+        LOCATION,
         aliases.clone(),
         aliases.clone(),
         Some("zjhints-alt"),
@@ -78,7 +115,7 @@ fn a_pinned_alias_is_edited_and_an_unknown_one_refused() {
     assert_eq!(editor.alias_name(), "zjhints-alt");
     assert_eq!(editor.sections()[0], Section::Alias);
     assert_eq!(editor.rows_of(Section::Alias), [Row::Alias]);
-    assert!(Editor::new(&SCHEMA, aliases.clone(), aliases, Some("nope")).is_err());
+    assert!(Editor::new(&SCHEMA, LOCATION, aliases.clone(), aliases, Some("nope")).is_err());
 }
 
 #[test]
@@ -400,7 +437,7 @@ fn saving_writes_every_alias_with_only_the_edited_one_changed() {
 /// An editor whose session holds `session` while the file holds
 /// `saved`.
 fn unsaved_editor(saved: &[(&str, &str)], session: &[(&str, &str)]) -> Editor {
-    Editor::new(&SCHEMA, aliases(session), aliases(saved), None).unwrap()
+    Editor::new(&SCHEMA, LOCATION, aliases(session), aliases(saved), None).unwrap()
 }
 
 #[test]
@@ -414,7 +451,14 @@ fn edits_left_in_the_session_show_as_unsaved() {
     assert!(editor.section_is_edited(Section::Group("Mouse")));
 
     // An alias the file lacks counts every key as unsaved.
-    let editor = Editor::new(&SCHEMA, aliases(&[("mouse", "true")]), vec![], None).unwrap();
+    let editor = Editor::new(
+        &SCHEMA,
+        LOCATION,
+        aliases(&[("mouse", "true")]),
+        vec![],
+        None,
+    )
+    .unwrap();
     assert_eq!(editor.unsaved_count(), 1);
 }
 
@@ -547,10 +591,10 @@ fn an_edit_from_the_search_results_keeps_them_shown() {
 #[test]
 fn the_alias_is_chosen_from_a_list_once_the_edits_are_saved_or_reverted() {
     let both = vec![
-        alias("zjhints", "file:a/zjhints.wasm", &[]),
-        alias("zjhints-alt", "file:b/zjhints.wasm", &[("mouse", "true")]),
+        alias("zjhints", "file:~/zjhints.wasm", &[]),
+        alias("zjhints-alt", "file:~/zjhints.wasm", &[("mouse", "true")]),
     ];
-    let mut editor = Editor::new(&SCHEMA, both.clone(), both, None).unwrap();
+    let mut editor = Editor::new(&SCHEMA, LOCATION, both.clone(), both, None).unwrap();
     select_key(&mut editor, "auto_width");
     editor.activate();
     editor.select_section(0);

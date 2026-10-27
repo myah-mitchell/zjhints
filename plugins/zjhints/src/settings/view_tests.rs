@@ -21,7 +21,14 @@ fn alias(configuration: &[(&str, &str)]) -> Vec<PluginAliasEntry> {
 }
 
 fn editor(configuration: &[(&str, &str)]) -> Editor {
-    Editor::new(&SCHEMA, alias(configuration), alias(configuration), None).unwrap()
+    Editor::new(
+        &SCHEMA,
+        "file:~/zjhints.wasm",
+        alias(configuration),
+        alias(configuration),
+        None,
+    )
+    .unwrap()
 }
 
 /// `row` as drawn on its own, laying the theme for it alone.

@@ -2,7 +2,7 @@
 //! and clicks into edits, previewing them on the bars, saving, and drawing.
 //! It looks and answers keys like Zellij's own settings screen.
 
-use super::editor::{Editor, Field, Focus, Outcome, Row, Section};
+use super::editor::{own_location, Editor, Field, Focus, Outcome, Row, Section};
 use super::live;
 use super::schema::Schema;
 use super::view::{self, Command, Control, FormatView, HelpState, Layout, Marker, RowView};
@@ -248,17 +248,37 @@ impl SettingsScreen {
         )
     }
 
-    /// Read the aliases fresh and start editing.
+    /// Read the aliases fresh and start editing the ones loading the
+    /// location the screen itself runs from, which is the bar's: the bar
+    /// opens it at its own location.
     fn read(&mut self) {
         let schema = self.schema;
         let snapshot = read_config();
         self.config_file = snapshot.config_file_path.clone();
-        let editor = Editor::new(
-            schema,
-            snapshot.blocks.plugin_aliases,
-            snapshot.saved_blocks.plugin_aliases,
-            self.pinned_alias.as_deref(),
-        );
+        let aliases = snapshot.blocks.plugin_aliases;
+        let own_url = get_pane_info(PaneId::Plugin(get_plugin_ids().plugin_id))
+            .and_then(|pane| pane.plugin_url);
+        let editor = match own_url.as_deref() {
+            None => Err(
+                "The settings screen cannot find its own pane, so it cannot tell which aliases \
+                 are its own."
+                    .to_string(),
+            ),
+            Some(own_url) => match own_location(&aliases, own_url) {
+                None => Err(format!("No alias is named \"{own_url}\".")),
+                // Started by alias name, the screen edits that alias unless
+                // another is pinned.
+                Some(location) => Editor::new(
+                    schema,
+                    location,
+                    aliases.clone(),
+                    snapshot.saved_blocks.plugin_aliases,
+                    self.pinned_alias
+                        .as_deref()
+                        .or(Some(own_url).filter(|url| !url.contains(':'))),
+                ),
+            },
+        };
         if let Ok(editor) = &editor {
             self.previewed = editor.working().clone();
         }
@@ -1409,7 +1429,14 @@ mod tests {
                 configuration: Default::default(),
             },
         }];
-        let mut editor = Editor::new(&TEST_SCHEMA, alias.clone(), alias, None).unwrap();
+        let mut editor = Editor::new(
+            &TEST_SCHEMA,
+            "file:~/zjtest.wasm",
+            alias.clone(),
+            alias,
+            None,
+        )
+        .unwrap();
         editor.start_search("");
         SettingsScreen {
             editor: Some(Ok(editor)),

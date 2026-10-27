@@ -65,7 +65,7 @@ With `mouse` and [`show_mode`](nested-sessions.md#standing-alone) on, left-click
 
 ## Choosing the alias
 
-The screen edits an alias whose plugin location contains `zjhints`. With one such alias it edits that one. With several, the menu starts with *Alias*, whose one row is a dropdown of them; pick another there once the edits to the current one are saved or reverted.
+The screen edits the aliases that load the same plugin file it runs from, which is the file of the bar that opened it. The alias names and file name don't matter. With one such alias it edits that one. With several, the menu starts with *Alias*, whose one row is a dropdown of them; pick another there once the edits to the current one are saved or reverted.
 
 To open the screen on a particular alias, add `alias` to the launch:
 
