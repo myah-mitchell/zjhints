@@ -219,18 +219,20 @@ def parse_ref(ref: str, where: str = "") -> str:
     """Turns a config ref into the refspec source to fetch from origin.
 
     feat/x, origin:feat/x  the branch feat/x
-    pull/123               pull request 123, as its author last pushed it
+
+    Only branches of this repository, which only people with push access can
+    write. A build runs its code's tests in the context of main, where it
+    could reach main's Actions cache, so code from a fork's pull request has
+    no place in one.
     """
     remote, sep, rest = ref.partition(":")
     if not sep:
         remote, rest = "origin", ref
     if remote != "origin" or not rest:
-        raise Fail(f"{where}: `{ref}` is not `branch`, `origin:branch` or `pull/N`")
-    m = re.fullmatch(r"pull/(\d+)", rest)
-    if m:
-        return f"refs/pull/{m.group(1)}/head"
+        raise Fail(f"{where}: `{ref}` is not `branch` or `origin:branch`")
     if rest.startswith("pull/"):
-        raise Fail(f"{where}: `{ref}`: a pull request is `pull/<number>`")
+        raise Fail(f"{where}: `{ref}`: pull requests cannot be stacked. List a pull "
+                   f"request from this repository by its branch name")
     return f"refs/heads/{rest}"
 
 

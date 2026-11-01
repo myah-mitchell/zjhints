@@ -100,8 +100,8 @@ jobs:
     runs-on: ubuntu-latest
     # build/<name> is pushed with the built-in token on purpose. A push made
     # with it starts no workflows, and that matters: GitHub reads a push's
-    # workflows from the pushed commit, so a stacked pull request that adds
-    # an `on: push` workflow would otherwise run it with this repository's
+    # workflows from the pushed commit, so a stacked branch that adds an
+    # `on: push` workflow would otherwise run it with this repository's
     # secrets. The same token cannot push changes to .github/workflows/, so a
     # stack that makes any is refused below rather than half-pushed.
     permissions:

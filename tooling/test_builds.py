@@ -64,12 +64,11 @@ class ValidateTest(unittest.TestCase):
         self.assertRejects('[build.a]\ntag = "a-{upstream}"\nbase = "main"\n', "unknown placeholder(s) in tag: upstream")
         self.assertRejects('[build.a]\ntag = "a-{date}"\nbase = "upstream:main"\n', "is not `branch`")
 
-    def test_accepts_branch_and_pull_refs(self):
+    def test_accepts_branches_only(self):
         self.assertEqual(builds.parse_ref("feat/x"), "refs/heads/feat/x")
         self.assertEqual(builds.parse_ref("origin:feat/x"), "refs/heads/feat/x")
-        self.assertEqual(builds.parse_ref("pull/12"), "refs/pull/12/head")
-        with self.assertRaises(Fail):
-            builds.parse_ref("pull/abc")
+        self.assertRejects('[build.a]\ntag = "a-{date}"\nbase = "main"\nstack = ["pull/12"]\n',
+                           "pull requests cannot be stacked")
 
     def test_tag_needs_a_fixed_prefix(self):
         self.assertRejects('[build.a]\ntag = "{date}"\nbase = "main"\n', "fixed prefix")

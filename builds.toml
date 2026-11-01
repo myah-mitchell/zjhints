@@ -38,7 +38,8 @@
 #
 # A ref in base or stack is one of:
 #   main, feat/x, origin:feat/x   a branch of this repository
-#   pull/123                      a pull request, as its author last pushed it
+# Pull requests are listed by their branch; one from a fork cannot be stacked,
+# since a build runs its code with access to main's Actions cache.
 #
 # Each table's tag pattern names one series, and release notes cover what
 # changed since the previous release in that series.

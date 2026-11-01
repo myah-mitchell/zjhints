@@ -119,7 +119,7 @@ python3 -m unittest discover -s tooling
 | --- | --- |
 | `tag` | The release's tag: a fixed prefix, then any of `{version}`, `{date}` and `{zellij}` |
 | `base` | What the build starts from, usually `main` |
-| `stack` | Branches and pull requests merged onto the base in order; empty builds the base as it is |
+| `stack` | Branches merged onto the base in order; empty builds the base as it is |
 | `on` | `"change"` (default) builds when the table changes; `"nightly"` also builds each night that its inputs moved |
 | `version` | A version like `"1.2.3"`, or `"tags"` to take the version from a pushed tag |
 | `prerelease` | Marks the release as a prerelease; the default is false for a table with a `version` and true for one without |
@@ -130,7 +130,7 @@ python3 -m unittest discover -s tooling
 
 In `tag`, `{date}` is `<date>` and `{zellij}` is the major and minor of the `zellij-tile` requirement in the build's `Cargo.toml`, such as `0.46`. A tag that already exists is skipped, except that a `{date}` tag gets a `.2`, `.3` and so on for a second build the same day.
 
-A ref in `base` or `stack` is a branch of this repository (`main`, `feat/x` or `origin:feat/x`) or a pull request (`pull/123`), taken as its author last pushed it.
+A ref in `base` or `stack` is a branch of this repository: `main`, `feat/x` or `origin:feat/x`. A pull request is listed by its branch name. One from a fork cannot be stacked, because a build runs the code it builds, tests included, in the context of `main`, where it could write to the Actions cache that `ci.yml` restores on `main`. To build a fork's change, push its branch to this repository after reviewing it.
 
 The file ships with a `release` table and a `nightly` table, and a commented-out EA example.
 
@@ -206,7 +206,7 @@ keep = 3
 
 Merging that change to `main` builds and publishes it. The branches in `stack` are merged onto `main` in order, so list them in the order they should apply. A build that merges anything is also pushed to a branch named `build/<name>`, which is rewritten on every build. Check it out to see exactly what was built, but never commit to it.
 
-A stack may not change anything under `.github/workflows/`; such a build is refused. `build/<name>` is pushed with the built-in token, which starts no workflows, so a pull request in a stack cannot run a workflow of its own with this repository's secrets. Land workflow changes on `main` first.
+A stack may not change anything under `.github/workflows/`; such a build is refused. `build/<name>` is pushed with the built-in token, which starts no workflows, so a branch in a stack cannot run a workflow of its own with this repository's secrets. Land workflow changes on `main` first.
 
 To rebuild with whatever the branches have gained since, run the workflow by hand naming the table with publish ticked, or set `on = "nightly"` so it rebuilds each night that its inputs moved. Pick a new label to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
 
