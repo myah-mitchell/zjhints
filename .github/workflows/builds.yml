@@ -1,0 +1,491 @@
+---
+# Builds and releases what builds.toml describes. See docs/automation.md.
+#
+#   push to main changing builds.toml   builds every table that changed, and
+#                                       publishes it
+#   push of a tag                       builds the version = "tags" tables the
+#                                       tag matches, and publishes them
+#   05:00 UTC daily                     builds the on = "nightly" tables whose
+#                                       inputs moved since their last release
+#   Run workflow                        builds the named tables (or all), and
+#                                       publishes only when asked to, so a
+#                                       stack can be tried without spending a
+#                                       release on it
+#
+# The jobs, in order:
+#
+#   plan      works out which builds this run makes
+#   assemble  merges each build's stack onto its base with tooling/builds.py,
+#             pushes the result to build/<name>, and picks its tag
+#   build     for each build: tests, compiles, keeps the plugin
+#   publish   for each build whose plugin exists: tags and releases it, moves
+#             its alias, and prunes old releases past its `keep`
+#
+# Builds are independent of each other from assemble on. One that fails to
+# merge, test or compile is reported and left out, and the rest still publish.
+name: Builds
+on:
+  push:
+    branches: [main]
+    paths: [builds.toml]
+    # Every tag, so builds.toml alone decides which tags release what. Path
+    # filters do not apply to tag pushes. Tags this workflow pushes itself use
+    # GITHUB_TOKEN, which never starts another run.
+    tags: ["*"]
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      builds:
+        description: "Builds to make: names from builds.toml, comma-separated, or all"
+        type: string
+        default: all
+      publish:
+        description: "Publish releases. Off, the run tests and compiles and keeps the plugin on the run page."
+        type: boolean
+        default: false
+
+# One run per ref at a time, never canceled mid-run: two runs racing would
+# both try to take the same date tag, and a canceled run can leave a build
+# branch pointing at something nothing was released from. GitHub keeps only
+# the newest pending run of a group, so each pushed tag gets a group of its
+# own and a release is never dropped for a later run.
+concurrency:
+  group: builds-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      names: ${{ steps.plan.outputs.names }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # builds.toml and the tooling always come from main, even on a tag
+          # push, whose own commit may predate them.
+          ref: ${{ github.ref_type == 'tag' && github.event.repository.default_branch || '' }}
+
+      - name: Work out which builds to make
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          ONLY: ${{ inputs.builds }}
+        run: |
+          set -euo pipefail
+          # The config as it was before this push, to compare against. Absent
+          # when the push created the branch, which then counts every build as
+          # changed.
+          if [[ "${EVENT}" == "push" && "${REF}" == refs/heads/* && -n "${BEFORE//0/}" ]]; then
+            git fetch --quiet --depth=1 origin "${BEFORE}" || true
+          fi
+          names="$(python3 -I tooling/builds.py plan --event "${EVENT}" --ref "${REF}" \
+            --before "${BEFORE}" --only "${ONLY:-all}")"
+          echo "names=${names}" >> "$GITHUB_OUTPUT"
+
+  assemble:
+    name: assemble
+    needs: plan
+    if: ${{ needs.plan.outputs.names != '[]' }}
+    runs-on: ubuntu-latest
+    # build/<name> is pushed with the built-in token on purpose. A push made
+    # with it starts no workflows, and that matters: GitHub reads a push's
+    # workflows from the pushed commit, so a stacked branch that adds an
+    # `on: push` workflow would otherwise run it with this repository's
+    # secrets. The same token cannot push changes to .github/workflows/, so a
+    # stack that makes any is refused below rather than half-pushed.
+    permissions:
+      contents: write
+    outputs:
+      builds: ${{ steps.assemble.outputs.builds }}
+      publish: ${{ steps.assemble.outputs.publish }}
+    steps:
+      # Full history, so every base and stack ref merges with its real history
+      # rather than at a shallow boundary.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # builds.toml and the tooling always come from main, even on a tag
+          # push, whose own commit may predate them.
+          ref: ${{ github.ref_type == 'tag' && github.event.repository.default_branch || '' }}
+          fetch-depth: 0
+
+      # What has been released already: builds.py reads it to skip a tag that
+      # is out, to find the previous release for the notes, and to tell
+      # whether a nightly's inputs moved.
+      - name: List releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${REPO}/releases?per_page=100" \
+            --jq '.[] | {tag_name, body, created_at}' > "${RUNNER_TEMP}/releases.jsonl"
+          echo "$(wc -l < "${RUNNER_TEMP}/releases.jsonl") releases"
+
+      - name: Assemble the stacks
+        id: assemble
+        env:
+          NAMES: ${{ needs.plan.outputs.names }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+          GIT_AUTHOR_NAME: zjhints builds
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: zjhints builds
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/builds"
+          failed=()
+          summary="${GITHUB_STEP_SUMMARY}"
+          { echo "## Builds"; echo; } >> "${summary}"
+
+          extra=(--releases "${RUNNER_TEMP}/releases.jsonl")
+          # A run that publishes nothing is a trial, and builds a table even
+          # when its tag is already released.
+          [[ "${PUBLISH}" == "true" ]] || extra+=(--trial)
+          [[ "${REF}" == refs/tags/* ]] && extra+=(--tag-ref "${REF}")
+          [[ "${EVENT}" == "schedule" ]] && extra+=(--only-if-moved)
+
+          for name in $(jq -r '.[]' <<<"${NAMES}"); do
+            echo "::group::${name}"
+            out="${RUNNER_TEMP}/builds/${name}.json"
+            if ! python3 -I tooling/builds.py assemble "${name}" --repo . "${extra[@]}" \
+                --worktree "${RUNNER_TEMP}/wt-${name}" > "${out}"; then
+              echo "::endgroup::"
+              echo "::error::${name} could not be assembled; see the log above."
+              echo "- **${name}**: did not assemble; the log of this step says why" >> "${summary}"
+              failed+=("${name}")
+              rm -f "${out}"
+              continue
+            fi
+            skip="$(jq -r '.skip // ""' "${out}")"
+            if [[ -n "${skip}" ]]; then
+              echo "::endgroup::"
+              echo "::notice::${name}: ${skip}"
+              echo "- **${name}**: skipped, ${skip}" >> "${summary}"
+              rm -f "${out}"
+              continue
+            fi
+            sha="$(jq -r .sha "${out}")"
+            # A stack makes a commit that exists nowhere else, so it is kept as
+            # a branch: the build job fetches it from there, and what was built
+            # can be checked out and run. Rewritten on every build. A build
+            # with nothing merged is a commit origin already has.
+            if [[ "$(jq '[.stack[] | select(.merged)] | length' "${out}")" != "0" ]]; then
+              base_sha="$(jq -r .base.sha "${out}")"
+              if [[ -n "$(git diff --name-only "${base_sha}" "${sha}" -- .github/workflows)" ]]; then
+                echo "::endgroup::"
+                echo "::error::${name}: the stack changes .github/workflows/, which builds do not take. Land those changes on main first."
+                echo "- **${name}**: refused, the stack changes \`.github/workflows/\`" >> "${summary}"
+                failed+=("${name}")
+                rm -f "${out}"
+                continue
+              fi
+              git push --quiet --force origin "${sha}:refs/heads/build/${name}"
+              where=" on \`build/${name}\`"
+            else
+              where=""
+            fi
+            echo "::endgroup::"
+            echo "::notice::${name}: $(jq -r .tag "${out}") from ${sha:0:9}"
+            {
+              echo "- **${name}**: \`$(jq -r .tag "${out}")\` from \`${sha:0:9}\`${where}"
+              jq -r '.stack[] | select(.merged | not) | "  - `\(.ref)` is already in the base and can be dropped from the stack"' "${out}"
+            } >> "${summary}"
+          done
+
+          shopt -s nullglob
+          results=("${RUNNER_TEMP}"/builds/*.json)
+          builds='[]'
+          if (( ${#results[@]} )); then
+            builds="$(jq -cs '[.[] | del(.worktree)]' "${results[@]}")"
+          fi
+          if [[ "${PUBLISH}" == "true" ]]; then
+            publish="$(jq -c '[.[] | select(.publish)]' <<<"${builds}")"
+          else
+            publish='[]'
+          fi
+          {
+            echo "builds=${builds}"
+            echo "publish=${publish}"
+          } >> "$GITHUB_OUTPUT"
+
+          if (( ${#failed[@]} )); then
+            echo "::error::Not assembled: ${failed[*]}. The other builds carry on."
+            exit 1
+          fi
+
+  # Each job tests the build, then compiles it, then keeps the plugin. The
+  # plugin therefore exists only if the tests and build passed, and that is
+  # what publish checks: one build failing never holds back another, which a
+  # separate test job could not promise, since a job that needs a matrix waits
+  # on all of it.
+  #
+  # Built from scratch rather than from a cache: releases are handed to users,
+  # so they must not depend on whatever a cache held.
+  build:
+    name: ${{ matrix.build.name }}
+    needs: assemble
+    if: ${{ !cancelled() && needs.assemble.outputs.builds != '' && needs.assemble.outputs.builds != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ${{ fromJSON(needs.assemble.outputs.builds) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: ${{ matrix.build.sha }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@4f647fc679bcd3b11499ccb42104547c83dabe96 # stable
+        with:
+          toolchain: "1.96.0"
+          target: wasm32-wasip1
+
+      # The version the release is published as, so the package says the same
+      # as its tag. Only in this build: main's Cargo.toml is never changed.
+      - name: Write the version into Cargo.toml
+        if: ${{ matrix.build.version != '' }}
+        env:
+          VERSION: ${{ matrix.build.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'${VERSION}' is not a version" >&2
+            exit 1
+          fi
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" Cargo.toml
+          grep -m1 '^version = ' Cargo.toml
+
+      # Tests build for the host, not wasm, which pulls in OpenSSL through
+      # zellij-utils. See ci.yml.
+      - name: Ensure OpenSSL headers
+        run: |
+          if ! pkg-config --exists openssl; then
+            sudo apt-get update && sudo apt-get install -y libssl-dev
+          fi
+
+      # A build that fails its tests is worse than none, since nightlies and
+      # releases are installed unattended.
+      - name: Test
+        run: cargo test --all-features
+
+      - name: Build
+        run: cargo build --release --target=wasm32-wasip1
+
+      - name: Keep the plugin
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.build.name }}--zjhints
+          path: target/wasm32-wasip1/release/zjhints.wasm
+          if-no-files-found: error
+
+  publish:
+    name: publish ${{ matrix.build.name }}
+    needs: [assemble, build]
+    if: ${{ !cancelled() && needs.assemble.outputs.publish != '' && needs.assemble.outputs.publish != '[]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags and releases, move aliases, prune
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ${{ fromJSON(needs.assemble.outputs.publish) }}
+    steps:
+      # Fails when the artifact is missing, which is what happens when this
+      # build's tests or compile failed: a release never ships without its
+      # plugin.
+      - name: Collect the plugin
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.build.name }}--zjhints
+          path: dist
+
+      - name: Check the plugin built
+        run: test -s dist/zjhints.wasm
+
+      # main, for tooling/builds.py and cliff.toml, and
+      # the build itself with its full history and tags, for the changelog.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # builds.toml and the tooling always come from main, even on a tag
+          # push, whose own commit may predate them.
+          ref: ${{ github.ref_type == 'tag' && github.event.repository.default_branch || '' }}
+          path: tooling
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: ${{ matrix.build.sha }}
+          path: src
+          fetch-depth: 0
+
+      # The notes cover what changed since the previous release in the same
+      # series. A series' first release has none, and falls back to the
+      # nearest vX.Y.Z tag the build descends from.
+      - name: Work out which commits are new
+        id: range
+        working-directory: src
+        env:
+          PREVIOUS: ${{ matrix.build.previous }}
+          TAG: ${{ matrix.build.tag }}
+          SHA: ${{ matrix.build.sha }}
+        run: |
+          set -euo pipefail
+          previous=""
+          if [[ -n "${PREVIOUS}" ]] && git rev-parse -q --verify "refs/tags/${PREVIOUS}" >/dev/null; then
+            previous="${PREVIOUS}"
+          else
+            previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "${TAG}" "${SHA}" 2>/dev/null || true)"
+          fi
+          if [[ -n "${previous}" ]]; then
+            echo "::notice::Release notes cover ${previous}..${SHA:0:9}."
+            echo "range=${previous}..${SHA}" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=${SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v3
+        id: git-cliff
+        with:
+          config: tooling/cliff.toml
+          # The action defaults to git-cliff 2.10.1, which walks only the
+          # first-parent chain. Merge-commit merges (which this repo uses, to
+          # keep stacked PRs intact) put each PR's real feat/fix commits on a
+          # second parent, so 2.10.1 left them out. Pin a version that reads
+          # the full history.
+          version: "v2.13.1"
+          args: -vv --strip header --repository src --tag ${{ matrix.build.tag }} ${{ steps.range.outputs.range }}
+        env:
+          OUTPUT: CHANGES.md
+
+      # The release page is all a reader sees, so it says plainly what kind of
+      # build this is and exactly what went into it. The comment at the end
+      # records the inputs, so a later scheduled run can tell whether anything
+      # has moved since.
+      - name: Compose release notes
+        env:
+          BUILD: ${{ toJSON(matrix.build) }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="$(jq -r .tag <<<"${BUILD}")"
+          name="$(jq -r .name <<<"${BUILD}")"
+          {
+            if [[ "$(jq -r .prerelease <<<"${BUILD}")" == "true" ]]; then
+              echo "Prerelease build \`${name}\`. Not a stable release; for that, see the [latest release](https://github.com/${REPO}/releases/latest)."
+              echo
+            fi
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Base | \`$(jq -r .base.ref <<<"${BUILD}")\` at \`$(jq -r '.base.sha[:9]' <<<"${BUILD}")\` |"
+            jq -r '.stack[] | "| Stacked | `\(.ref)` at `\(.sha[:9])`\(if .merged then "" else " (already in the base)" end) |"' <<<"${BUILD}"
+            echo "| Commit | \`$(jq -r '.sha[:9]' <<<"${BUILD}")\` |"
+            echo "| Zellij | $(jq -r .zellij <<<"${BUILD}").x |"
+            echo "| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |"
+            echo
+            echo "Load it with:"
+            echo
+            echo '```kdl'
+            echo "plugin location=\"https://github.com/${REPO}/releases/download/${tag}/zjhints.wasm\""
+            echo '```'
+            echo
+            cat CHANGES.md
+            echo
+            jq -r .inputs <<<"${BUILD}"
+          } > RELEASE_NOTES.md
+
+      # A rolling tag names whatever was built last, so its old release and
+      # tag go before the new ones are made.
+      - name: Remove the release this one replaces
+        if: ${{ matrix.build.rolling }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ matrix.build.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" --repo "${REPO}" >/dev/null 2>&1; then
+            gh release delete "${TAG}" --repo "${REPO}" --cleanup-tag --yes
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          token: ${{ github.token }}
+          tag_name: ${{ matrix.build.tag }}
+          target_commitish: ${{ matrix.build.sha }}
+          name: ${{ matrix.build.tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ matrix.build.prerelease }}
+          # A prerelease never displaces the stable release as the one
+          # /releases/latest/ resolves to.
+          make_latest: ${{ !matrix.build.prerelease }}
+          fail_on_unmatched_files: true
+          files: dist/zjhints.wasm
+
+      # A stable pointer at this build, like zellij-<line>: always the newest
+      # build of this table for that value, however many have shipped since.
+      # A release rather than a bare tag, because releases/download/<tag>/...
+      # needs an uploaded asset to serve.
+      - name: Move the alias tag
+        if: ${{ matrix.build.alias != '' }}
+        working-directory: src
+        env:
+          ALIAS: ${{ matrix.build.alias }}
+          SHA: ${{ matrix.build.sha }}
+        run: |
+          set -euo pipefail
+          git tag -f "${ALIAS}" "${SHA}"
+          git push -f origin "refs/tags/${ALIAS}"
+
+      - name: Publish the alias release
+        if: ${{ matrix.build.alias != '' }}
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          token: ${{ github.token }}
+          tag_name: ${{ matrix.build.alias }}
+          name: ${{ matrix.build.alias }}
+          body: |
+            Always the newest `${{ matrix.build.name }}` build for this
+            pointer. Currently **${{ matrix.build.tag }}**.
+
+            Not a distinct release: an alias, moved here each time a new
+            build ships. See
+            [docs/automation.md](https://github.com/${{ github.repository }}/blob/main/docs/automation.md#tags-and-releases).
+          draft: false
+          prerelease: ${{ matrix.build.prerelease }}
+          # Never latest: that is the release this one points at.
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: dist/zjhints.wasm
+
+      - name: Prune old releases
+        if: ${{ matrix.build.keep > 0 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NAME: ${{ matrix.build.name }}
+          TAG: ${{ matrix.build.tag }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${REPO}/releases?per_page=100" \
+            --jq '.[] | {tag_name, created_at}' > "${RUNNER_TEMP}/releases.jsonl"
+          python3 -I tooling/tooling/builds.py --config tooling/builds.toml \
+              prune "${NAME}" --releases "${RUNNER_TEMP}/releases.jsonl" --published "${TAG}" \
+            | while read -r old; do
+                echo "Deleting ${old}"
+                gh release delete "${old}" --repo "${REPO}" --cleanup-tag --yes
+              done

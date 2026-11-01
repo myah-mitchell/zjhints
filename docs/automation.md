@@ -9,6 +9,8 @@ If you are reading this to get things running, start at [First-time setup](#firs
 - [The shape of it](#the-shape-of-it)
 - [Placeholders](#placeholders)
 - [Workflows](#workflows)
+- [Builds](#builds)
+- [Dependencies](#dependencies)
 - [First-time setup](#first-time-setup)
 - [Merging](#merging)
 - [Installing what is published](#installing-what-is-published)
@@ -29,20 +31,24 @@ If you are reading this to get things running, start at [First-time setup](#firs
                                                                 no release yet
 
                                    ...whenever you decide to release...
-                                   bump `version` in Cargo.toml
-                                   push to main (or push a v*.*.* tag)
+                                   git tag v0.6.0
+                                   git push origin v0.6.0
                                                         |
- release.yml <------------------------------------------+
-   sees a new version in Cargo.toml (or the pushed tag)
-   test + build
-   tag v0.5.0
-   publish release, becomes `latest`
+ builds.yml <-------------------------------------------+
+   sees a tag that builds.toml's `release` table matches
+   test + build, with 0.6.0 written into Cargo.toml for the build only
+   publish v0.6.0, becomes `latest`
    move the `zellij-<line>` tag to it too
 
- nightly.yml (05:00 UTC, or run by hand)
+ builds.yml (05:00 UTC, or run by hand)
+   if main has moved since the last nightly:
    build main
-   move the `nightly` tag
-   replace the nightly prerelease
+   publish nightly-<date> as a prerelease
+   delete nightly releases beyond the newest seven
+
+ builds.yml (a push to main that changes builds.toml)
+   build the tables that changed, such as an EA stack
+   publish each one
 
  update-deps.yml's second job, only when a Zellij minor is out
  -----------------------------------------------------------
@@ -54,7 +60,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
                                    click Merge        ------>  merged,
                                                                 same path as above:
                                                                 no release until
-                                                                you bump the version
+                                                                you push a tag
 ```
 
 Merging an automated pull request only ever lands the update on `main`. Releasing is a separate, deliberate step you take on your own schedule; see [Versioning](#versioning).
@@ -70,8 +76,10 @@ Several commands and tag names below take a value you supply, written in angle b
 | Placeholder | Where its value comes from |
 | --- | --- |
 | `<line>` | A Zellij minor this project has targeted, such as `0.44` |
-| `<label>` | An EA channel name you choose when you run `beta.yml` |
-| `<branch>` | The branch, tag, or commit you want `beta.yml` to build |
+| `<label>` | The name of an EA build, such as `nested-sessions` for the table `ea-nested-sessions` |
+| `<name>` | The name of a `[build.<name>]` table in `builds.toml`, such as `release` or `ea-nested-sessions` |
+| `<date>` | The build date as `yymmdd` in UTC, such as `261101`, with `.2`, `.3` added for a second build the same day |
+| `<worktree>` | The directory `tooling/builds.py assemble` prints when a stack does not merge |
 | `<asset>` | A file published on a release, currently only `zjhints.wasm` |
 | `<you>` | The GitHub account owning the fork you are patching against |
 | `<tag-or-branch>` | The ref in that fork to build from |
@@ -84,33 +92,143 @@ Several commands and tag names below take a value you supply, written in angle b
 
 | File | Runs on | Does |
 | --- | --- | --- |
-| `ci.yml` | pull requests and pushes to `main` | rustfmt, clippy, tests, wasm build, flake MSRV check, `cargo audit` |
+| `ci.yml` | pull requests and pushes to `main` | rustfmt, clippy, tests, wasm build, flake MSRV check, tests of the build tooling, `cargo audit` |
 | `update-deps.yml` | 04:00 UTC Mondays, or manually | updates Cargo and flake.lock dependencies, opens/updates a pull request; a second job opens a separate one when a Zellij minor is out |
-| `nightly.yml` | 05:00 UTC daily, or manually | rebuilds `main`, moves the `nightly` release |
-| `release.yml` | pushes to `main`, `v*.*.*` tags, or manually | publishes a release when `Cargo.toml` names an untagged version |
-| `beta.yml` | manually only | builds any ref you name and publishes/replaces an `ea-<label>` prerelease (see [EA/beta releases](#eabeta-releases)) |
+| `builds.yml` | a push to `main` that changes `builds.toml`, a pushed tag, 05:00 UTC daily, or manually | builds and publishes what `builds.toml` describes (see [Builds](#builds)) |
 | `cleanup-caches.yml` | a pull request closes | deletes that PR's Actions caches |
 
 The `cargo test` step of `ci.yml` also checks the images in `docs/img`. It draws each one again from the bar and settings screen code and fails when a file differs, so a change that alters how they look has to commit the regenerated images with it. Run `make images` to write them. See [Images](../CONTRIBUTING.md#images).
 
-`nightly.yml`, `release.yml`, `beta.yml` and `update-deps.yml` run the same `cargo test`, so a stale image also stops a nightly build, a release or an EA build. When one of those fails on `the_images_in_the_docs_are_up_to_date`, run `make images` on the branch it built and merge the result.
+`builds.yml` and `update-deps.yml` run the same `cargo test`, so a stale image also stops a nightly build, a release or an EA build. When one of those fails on `the_images_in_the_docs_are_up_to_date`, run `make images` on the branch it built and merge the result.
+
+The `builds tooling` job of `ci.yml` runs the unit tests of `tooling/builds.py`, the script that plans and assembles builds. Run the same tests locally with Python 3.11 or newer, which is all the script needs:
+
+```bash
+python3 -m unittest discover -s tooling
+```
+
+## Builds
+
+`builds.yml` builds and publishes whatever `builds.toml` describes. Releases, nightlies and EA builds are all tables in that one file, and one workflow handles every kind.
+
+### builds.toml
+
+`builds.toml` sits at the repository root and is read from `main`. Each `[build.<name>]` table is one series of releases. The header comment of the file documents every key; this is the short version.
+
+| Key | What it sets |
+| --- | --- |
+| `tag` | The release's tag: a fixed prefix, then any of `{version}`, `{date}` and `{zellij}` |
+| `base` | What the build starts from, usually `main` |
+| `stack` | Branches merged onto the base in order; empty builds the base as it is |
+| `on` | `"change"` (default) builds when the table changes; `"nightly"` also builds each night that its inputs moved |
+| `version` | A version like `"1.2.3"`, or `"tags"` to take the version from a pushed tag |
+| `prerelease` | Marks the release as a prerelease; the default is false for a table with a `version` and true for one without |
+| `publish` | `false` tests and compiles but never releases |
+| `rolling` | `true` moves the same tag to each new build and replaces its release |
+| `alias` | A second tag moved to each new build, with a release of its own that is never the latest |
+| `keep` | For a `{date}` tag, how many releases of the series to keep |
+
+In `tag`, `{date}` is `<date>` and `{zellij}` is the major and minor of the `zellij-tile` requirement in the build's `Cargo.toml`, such as `0.46`. A tag that already exists is skipped, except that a `{date}` tag gets a `.2`, `.3` and so on for a second build the same day.
+
+A ref in `base` or `stack` is a branch of this repository: `main`, `feat/x` or `origin:feat/x`. A pull request is listed by its branch name. One from a fork cannot be stacked, because a build runs the code it builds, tests included, in the context of `main`, where it could write to the Actions cache that `ci.yml` restores on `main`. To build a fork's change, push its branch to this repository after reviewing it.
+
+The file ships with a `release` table and a `nightly` table, and a commented-out EA example.
+
+### What starts a build
+
+| Event | Builds |
+| --- | --- |
+| A push to `main` that changes `builds.toml` | Each table that changed |
+| A pushed tag | Each `version = "tags"` table whose `tag` pattern the tag matches |
+| 05:00 UTC daily | Each `on = "nightly"` table whose inputs have moved since its newest release; those inputs are the commits of its base and stack |
+| *Actions > Builds > Run workflow* | The tables you name, or all of them |
+
+A run publishes a build only after its tests pass and the plugin compiles. Builds are independent: one that fails to merge, test or compile is reported and left out, and the rest still publish.
+
+Each release's notes list the base, the stack and the commit built, the Zellij line, a KDL `plugin location=` snippet for loading it, and the changelog since the previous release in the same series. A hidden comment at the end records the build's inputs, which is how the nightly schedule tells whether anything moved.
 
 ### Tags and releases
 
 - `vX.Y.Z`: one per release, permanent. `/releases/latest/download/<asset>` resolves to the newest of these.
-- `nightly`: a single moving tag, force-updated each night. Published as a prerelease so it never becomes `latest`.
-- `zellij-<line>`: one per Zellij minor this project has ever targeted, such as `zellij-0.44`, force-updated by `release.yml` every time a release ships for that line. It is a real release rather than a prerelease, just aliased, but `make_latest: false` keeps it from contending with `latest`. See [Versioning](installation.md#versioning) for why this exists.
-- `ea-<label>`: one per EA/beta channel you have ever named, force-updated by `beta.yml` each time you run it with that label. Always a prerelease. See [EA/beta releases](#eabeta-releases).
+- `nightly-<date>`: one per night that `main` moved, such as `nightly-261101`, and `nightly-261101.2` for a second build the same day. A prerelease, so it never becomes `latest`. The newest seven are kept; older releases and their tags are deleted after each publish.
+- `ea-<label>-<date>`: the same scheme for an EA build, with `keep` set by its table. A prerelease unless its table gives a `version`. See [EA builds](#ea-builds).
+- `zellij-<line>`: one per Zellij minor this project has ever targeted, such as `zellij-0.44`, moved by `builds.yml` every time a release ships for that line. It is a real release rather than a prerelease, just aliased, but it is never the latest, so it does not contend with `latest`. See [Versioning](installation.md#versioning) for why this exists.
+
+A tag named `nightly`, or `ea-<label>` without a date, is not updated by any build. One that still exists on GitHub is a leftover.
 
 There is deliberately no tag named `latest`. GitHub already tracks the newest release, and a real tag by that name would have to be force-pushed on every release for no gain.
 
 ### Versioning
 
-Every version bump is yours to make, deliberately. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
+The version of a release is the tag you push. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`, and neither releases anything. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
 
-To release, edit `version` in `Cargo.toml` and push that to `main`. You can do this on the update branch before merging it, on a follow-up commit, or directly on `main` if your ruleset allows it. `release.yml` picks it up from there, and only checks whether the version in `Cargo.toml` has been tagged yet, not how it got there. Pushing a `v*.*.*` tag yourself works too, and does not require touching `Cargo.toml` or waiting on a push to `main` at all.
+The `release` table writes the version from the tag into `Cargo.toml` for that build only. The `Cargo.toml` on `main` is never changed by a release, and editing its `version` cuts nothing.
 
-Patch, minor, or major is your call each time. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; make it while merging, once you have confirmed hints render right. See [Versioning](installation.md#versioning) for the convention this project uses.
+Patch, minor, or major is your call each time, as the name of the tag. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; tag it once you have confirmed hints render right. See [Versioning](installation.md#versioning) for the convention this project uses.
+
+### Cutting a release
+
+Releasing is pushing a `vX.Y.Z` tag on a commit that is on `main`. Merge what you want to ship, let CI go green, then:
+
+```bash
+git tag v0.6.0
+git push origin v0.6.0
+```
+
+`builds.yml` builds the tagged commit, runs the tests and compiles the plugin. It then publishes `v0.6.0` as the latest release with notes from `git-cliff` covering the commits since the previous `v` tag, and moves the `zellij-<line>` alias tag and its release to it. A tag on a commit that is not on `main` is rejected.
+
+Running the `release` table by hand with the publish box ticked, or changing it in `builds.toml`, builds the newest `v` tag on `main` instead. It skips that tag if it already has a release, so this is how you retry a release whose run failed after the tag was pushed.
+
+### Trying a build without releasing
+
+A trial tests and compiles a build and publishes nothing, so a stack can be checked before it costs a release.
+
+1. Open *Actions > Builds* and click **Run workflow**, or run `gh workflow run builds.yml -f builds=<name> -f publish=false`.
+2. Enter the table names in the builds field, comma-separated, or leave `all`.
+3. Leave the publish box unticked and start the run.
+
+The plugin is attached to the run page as the artifact `<name>--zjhints`. A trial builds a table even when its tag has already been released. Tick the publish box to release for real.
+
+### EA builds
+
+An EA build hands work in progress to testers: one or more branches stacked onto `main`. Use it for a branch that still needs a `[patch.crates-io]` override like the one under [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix), or any other work not ready for a real release.
+
+Add a table named `ea-<label>` to `builds.toml`:
+
+```toml
+[build.ea-nested-sessions]
+tag = "ea-nested-sessions-{date}"
+base = "main"
+stack = ["feat/nested-sessions"]
+prerelease = true
+keep = 3
+```
+
+Merging that change to `main` builds and publishes it. The branches in `stack` are merged onto `main` in order, so list them in the order they should apply. A build that merges anything is also pushed to a branch named `build/<name>`, which is rewritten on every build. Check it out to see exactly what was built, but never commit to it.
+
+A stack may not change anything under `.github/workflows/`; such a build is refused. `build/<name>` is pushed with the built-in token, which starts no workflows, so a branch in a stack cannot run a workflow of its own with this repository's secrets. Land workflow changes on `main` first.
+
+To rebuild with whatever the branches have gained since, run the workflow by hand naming the table with publish ticked, or set `on = "nightly"` so it rebuilds each night that its inputs moved. Pick a new label to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
+
+Install one with `make ea LABEL=<label>`. See [Installing what is published](#installing-what-is-published).
+
+Remove the table once the work is merged. That stops new builds, and releases already published stay until you delete them.
+
+### When a stack does not merge
+
+When a ref in a stack conflicts with the base or with an earlier ref, that build's `assemble` step fails and says which ref and files conflict. The other builds in the run carry on. The conflict has to be resolved once, by hand, and recorded so that every later build replays the resolution.
+
+1. In a clone of zjhints with an `origin` remote, run `python3 tooling/builds.py assemble <name>`. It leaves the merge in progress in a worktree and prints the path as `<worktree>`.
+2. Resolve the conflicting files in `<worktree>`, and remove every conflict marker.
+3. Run `python3 tooling/builds.py record --worktree <worktree>`. It saves each resolution under `tooling/rerere/`.
+4. Commit the new files under `tooling/rerere/` and push them to `main`.
+5. Run `git worktree remove --force <worktree>` to clean up.
+
+Later builds copy those files into the repository they merge in, and git replays any that match. A resolution stops matching when either side of the conflict changes, so a stale one is harmless, and you delete it whenever convenient.
+
+## Dependencies
+
+How dependencies are updated and held back, and how to build against an upstream fix that has not shipped.
 
 ### How dependencies are chosen
 
@@ -123,7 +241,7 @@ That is the policy on purpose.
 
 `.github/scripts/check_deps.py` asks crates.io what exists and reports anything held back. When a Zellij crate has a new minor, the second job in `update-deps.yml`, named zellij-upgrade, proposes taking it. It opens its own pull request on its own branch, `deps/zellij-upgrade`, widening the zellij-tile, zellij-tile-utils and zellij-utils requirements to the new version and re-resolving just those crates. It is labeled `needs-zellij-upgrade` and its title says so too.
 
-That pull request is never safe to merge on a green build alone. CI passing only means the plugin still compiles and its own tests pass; it says nothing about whether the Zellij you run matches. Upgrade Zellij first, confirm hints still render right, then merge. Merging alone does not publish anything (see [Versioning](#versioning)). Bump `version` in `Cargo.toml` when you do. `release.yml` then publishes it as a normal release and moves the matching [`zellij-<line>` tag](#tags-and-releases) to it.
+That pull request is never safe to merge on a green build alone. CI passing only means the plugin still compiles and its own tests pass; it says nothing about whether the Zellij you run matches. Upgrade Zellij first, confirm hints still render right, then merge. Merging alone does not publish anything (see [Versioning](#versioning)). When you are ready to release, push a `vX.Y.Z` tag on `main`. `builds.yml` then publishes it as a normal release and moves the matching [`zellij-<line>` tag](#tags-and-releases) to it.
 
 #### flake.lock moves alongside it
 
@@ -155,32 +273,17 @@ make check && cargo test --all-features
 
 `zellij-utils` needs a patch entry of its own, pointing at the same tag, because zjhints depends on it directly for the settings screen's config-file builders. The workflow that widens `zellij-tile` past a Zellij minor moves `zellij-utils` to the same version.
 
+To hand a branch with a patch to testers before the fix ships, stack it in an [EA build](#ea-builds).
+
 #### What a patch does not disturb
 
-`release.yml`'s Zellij-compatibility-line logic and `check_deps.py` both read the version requirement string in `[dependencies]`, never the patch, so tags, the release job, and versioning all keep working unmodified while a patch is active.
+The Zellij line `builds.yml` puts in a release's `zellij-<line>` tag and `check_deps.py` both read the version requirement string in `[dependencies]`, never the patch, so tags, releases, and versioning all keep working unmodified while a patch is active.
 
 `check_deps.py` and the `zellij-upgrade` job go quiet for the patched crate specifically: the locked version already looks at or ahead of whatever crates.io has, so there is nothing for it to propose. That is expected, not a sign the check is broken.
 
 #### Removing a patch once the fix ships
 
-Delete the `[patch.crates-io]` block, confirm the `[dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you bump `version`. See [Versioning](#versioning).
-
-### EA/beta releases
-
-`beta.yml` builds and tests whatever ref you give it and publishes it as a prerelease. It never touches `Cargo.toml`'s `version`, and never goes near `release.yml`. Use it to hand an early build to testers: a branch that still needs a `[patch.crates-io]` override like the one above, or any other work in progress not ready for a real release.
-
-Open *Actions > Beta* and click **Run workflow**, or run `gh workflow run beta.yml -f ref=<branch> -f label=<label>`. Two inputs:
-
-| Input | What it does |
-| --- | --- |
-| `ref` | The branch, tag, or commit to build |
-| `label` | Names the channel. The tag becomes `ea-<label>` |
-
-The `ea-<label>` tag is force-moved each time you run it with that label, the same way `nightly` is moved each night. Reuse a label to replace that channel's release, after pushing a fix for instance; pick a new one to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
-
-Install one with `make ea LABEL=<label>`. See [Installing what is published](#installing-what-is-published).
-
-Because it only runs on `workflow_dispatch`, nothing about this competes with `nightly.yml` or `release.yml`. It is a side channel you reach for on demand, and the same recipe works for the next unreleased-dependency situation, not just this one.
+Delete the `[patch.crates-io]` block, confirm the `[dependencies]` requirement still matches, widening it to the real published version if the fork was ahead, then run `cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils` to move the lock back onto crates.io. From there it is a normal dependency again, and a normal release once you push a tag. See [Versioning](#versioning).
 
 ## First-time setup
 
@@ -219,7 +322,7 @@ An App is registered once on your account and can be installed on every repo you
 6. Tick **Require status checks to pass**, then add each of these checks:
 
    ```text
-   rustfmt   clippy   test   build (wasm)   flake (msrv)
+   rustfmt   clippy   test   build (wasm)   flake (msrv)   builds tooling
    ```
 
 7. Leave **Require branches to be up to date** unticked, or a busy day means rebasing before every merge.
@@ -247,7 +350,7 @@ The email arrives when the weekly run finds updates. What to look at:
 - A pull request titled "Zellij … is out" is the `zellij-upgrade` one, not the routine one. Do not merge it until the Zellij you run matches and you have confirmed hints still render right. Its body says the same. A red Checks tab on this one specifically can mean the plugin needs real source changes for the new zellij-tile, not just a version bump.
 - Otherwise, CI runs on the pull request. Tests and a release build also passed before it was opened, so a red pull request means CI found something the update job did not.
 
-Click **Merge**. That lands the update on `main`, and the next nightly build picks it up. It does not publish a release on its own; see [Versioning](#versioning) for that step, which is separate and entirely up to you.
+Click **Merge**. That lands the update on `main`, and the next nightly build picks it up. It does not publish a release on its own; see [Cutting a release](#cutting-a-release) for that step, which is separate and entirely up to you.
 
 Nothing merges on its own, so leaving one open for a few days costs nothing.
 
@@ -257,14 +360,16 @@ To stop one, click **Close**. The branch is reused, so the next run reopens with
 
 ```bash
 make latest              # newest tagged release
-make nightly             # tonight's build of main
+make nightly             # newest dated nightly build of main
 make zellij VERSION=0.44 # newest release built for that Zellij line
-make ea LABEL=<label>    # a specific EA/beta channel someone published
+make ea LABEL=<label>    # newest build of an EA table in builds.toml
 ```
 
 All of these fetch straight into the Zellij plugin path. Start a new session to load it: Zellij caches plugins per session, and detaching does not reload.
 
-Pointing your Zellij config at a nightly URL does not work well. Zellij caches remote plugins by URL, so it keeps serving whatever it downloaded first. Fetch locally instead.
+`make nightly` and `make ea` look up the newest dated release through the GitHub API, so they need network access to `api.github.com` as well as to the download.
+
+Pointing your Zellij config at a nightly or EA URL does not work well. Every build has a URL of its own, and Zellij caches remote plugins by URL, so it keeps serving whatever it downloaded first. Fetch locally instead.
 
 ## Maintenance
 
@@ -293,13 +398,15 @@ Pull requests labeled `needs-zellij-upgrade` accumulate rather than merge, and t
 | Update workflow fails immediately | `AUTOMATION_APP_ID`/`AUTOMATION_APP_PRIVATE_KEY` missing, or the app is not installed on this repo |
 | Pull request opens but no checks run | Opened with `GITHUB_TOKEN`; the app token is not being picked up |
 | Merge button is blocked | A required status check has not passed; check the PR's Checks tab |
-| Release does not publish after merging an update PR | Expected: merging never bumps `version`; see [Versioning](#versioning) |
-| Release does not publish after a version bump | Version in `Cargo.toml` already tagged; check the run's `Resolve version` step |
+| Release does not publish after merging an update PR | Expected: merging never releases; push a tag, see [Cutting a release](#cutting-a-release) |
+| Release does not publish after pushing a tag | The tag must be `vX.Y.Z` on a commit that is on `main`, and the tag's release must not exist yet; the *Builds* summary of the run says which build was skipped or failed to assemble |
+| Editing `version` in `Cargo.toml` released nothing | Expected: the tag decides the version; see [Versioning](#versioning) |
+| Build fails at `assemble` with a conflict | A ref in the stack does not merge; see [When a stack does not merge](#when-a-stack-does-not-merge) |
 | `cargo test` fails to link | OpenSSL headers missing; the workflows install `libssl-dev`, locally use your package manager |
-| Nightly is stale | Check the `nightly.yml` schedule ran; scheduled workflows are paused after 60 days of repository inactivity |
+| Nightly is stale | Either `main` has not moved since the last nightly, or the scheduled run did not happen; scheduled workflows are paused after 60 days of repository inactivity |
 | `zellij-upgrade` pull request never appears | `zellij_minor_available` only goes true once crates.io has the new `zellij-tile`/`zellij-tile-utils`, which can lag a Zellij release by a day or so |
-| `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement at that commit; the tag follows whatever line was pinned at release time, not the newest one available |
-| `beta.yml` fails at "Sanitize the label" | The `label` input had no `[a-z0-9-]` characters left after sanitizing; pick a label with at least one letter or digit |
-| `beta.yml`'s build fails to resolve a Zellij crate | The ref you built does not have a `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet (see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix)) |
+| `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement in the tagged commit; the alias follows whatever line was pinned there, not the newest one available |
+| An EA build fails to resolve a Zellij crate | The stack has no `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet; see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix) |
+| `make ea` finds no build | The table's `tag` is not of the form `ea-<label>-{date}`, or the table has not been built yet |
 
 The stale-nightly row above is worth knowing in full: GitHub disables scheduled workflows in repositories with no activity for 60 days, and emails you when it does. Any push re-enables them.

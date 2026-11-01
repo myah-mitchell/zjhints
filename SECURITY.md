@@ -10,7 +10,7 @@ zjhints is maintained on a rolling basis. Fixes go to the latest release; there 
 | --- | --- |
 | 0.5.x | Yes |
 | 0.4.x and older | No, upgrade to 0.5 |
-| `nightly` | Built from `main`, unreleased. Fixes land here first. |
+| `nightly-<date>` | Built from `main` each night it moves, unreleased. Fixes land here first. |
 
 ## Reporting a vulnerability
 

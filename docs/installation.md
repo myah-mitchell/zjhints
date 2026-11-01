@@ -6,12 +6,13 @@ This page covers adding zjhints to Zellij: a configuration with the common optio
 
 Some option names and tag names on this page are families rather than fixed strings. Each family's variable part is written in angle brackets.
 
-| Placeholder | You replace it with                                        |
-| ----------- | ---------------------------------------------------------- |
-| `<mode>`    | A lowercased Zellij mode name, giving `mode_format_locked` |
-| `<name>`    | An alias name you choose, giving `color_blue`              |
-| `<line>`    | A Zellij minor, giving the tag `zellij-0.46`               |
-| `<label>`   | An EA channel name, giving the tag `ea-nested-sessions`    |
+| Placeholder | You replace it with                                                |
+| ----------- | ------------------------------------------------------------------ |
+| `<mode>`    | A lowercased Zellij mode name, giving `mode_format_locked`         |
+| `<name>`    | An alias name you choose, giving `color_blue`                      |
+| `<line>`    | A Zellij minor, giving the tag `zellij-0.46`                       |
+| `<label>`   | An EA build name, giving the table `ea-nested-sessions`            |
+| `<date>`    | The build date as `yymmdd` in UTC, giving the tag `nightly-261101` |
 
 ## Example configuration
 
@@ -191,17 +192,18 @@ layout {
 
 Four channels are published:
 
-| Channel         | Contents                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `latest`        | Tagged releases. What the URL above resolves to.                                                                          |
-| `nightly`       | Rebuilt from `main` every night, tests green. Prerelease.                                                                 |
-| `zellij-<line>` | The newest release built for a given Zellij minor, e.g. `zellij-0.44`.                                                    |
-| `ea-<label>`    | An on-demand build of any ref, published on request. Prerelease; see [docs/automation.md](automation.md#eabeta-releases). |
+| Channel             | Contents                                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `latest`            | Tagged releases. What the URL above resolves to.                                                                                               |
+| `nightly-<date>`    | Built from `main` each night it has moved, tests green. Prerelease; the newest seven are kept.                                                 |
+| `zellij-<line>`     | The newest release built for a given Zellij minor, e.g. `zellij-0.44`.                                                                         |
+| `ea-<label>-<date>` | A build of branches stacked onto `main`, described by a table in `builds.toml`. Prerelease; see [docs/automation.md](automation.md#ea-builds). |
 
-Zellij caches remote plugins by URL, so pointing the config at the nightly URL will keep serving whatever it downloaded first. To track nightlies, fetch into the plugin path instead and start a new session:
+Zellij caches remote plugins by URL, and every nightly has a URL of its own, so pointing the config at one will keep serving whatever it downloaded first. To track nightlies, fetch the newest into the plugin path instead and start a new session:
 
 ```bash
 make nightly   # or: make latest
+make ea LABEL=<label>   # the newest build of an EA table
 ```
 
 ### Matching your Zellij version
@@ -215,7 +217,7 @@ zellij --version                 # e.g. 0.44.3
 make zellij VERSION=0.44         # newest release built for that line
 ```
 
-`zellij-<line>` always resolves to the newest zjhints release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest` and `nightly`, just scoped to one Zellij line instead of to everything).
+`zellij-<line>` always resolves to the newest zjhints release built for that Zellij minor, however many versions have shipped since (the same moving-pointer pattern as `latest`, just scoped to one Zellij line instead of to everything).
 
 ## Versioning
 
@@ -229,7 +231,7 @@ Most releases are patch bumps on their own schedule, unrelated to when Zellij re
 
 A new row means the Zellij line moved. The reverse does not hold: a minor bump for a breaking change or a major feature keeps the same target, so it extends the row it is on rather than starting a new one. Work that needs a newer Zellij never lands on the line below it, which is why 0.46 support is 0.5.x rather than a later 0.4.x.
 
-Bumping past a Zellij minor is deliberately not automatic, and the previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag. See [docs/automation.md](automation.md) for why and how that update is proposed instead of applied.
+Bumping past a Zellij minor is deliberately not automatic, and the previous line's last compatible release stays reachable forever at its own `zellij-<line>` tag. See [docs/automation.md](automation.md) for why and how that update is proposed instead of applied. A release's version is the `vX.Y.Z` tag the maintainer pushes; see [Versioning](automation.md#versioning).
 
 ## Displaying the hints
 

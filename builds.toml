@@ -1,0 +1,75 @@
+# What zjhints builds and releases. Each [build.<name>] table is one series of
+# releases, built and published by .github/workflows/builds.yml with
+# tooling/builds.py. See docs/automation.md.
+#
+# A table builds when:
+#   - a push to main changes it
+#   - a tag matching its `tag` is pushed, for version = "tags"
+#   - the nightly schedule runs, for on = "nightly", if its inputs moved
+#   - someone runs the workflow by hand and names it (or `all`)
+#
+#   tag         The release's tag. A fixed prefix, then any of:
+#                 {version}   this table's `version`
+#                 {date}      the build date as yymmdd, UTC
+#                 {zellij}    major.minor of the zellij-tile requirement in
+#                             the build's Cargo.toml, e.g. 0.46
+#               A tag that already exists is skipped, except that a {date}
+#               tag gets a .2, .3 and so on for a second build the same day.
+#   base        What the build starts from.
+#   stack       Merged onto the base in order. Empty means the base as it is.
+#   on          "change" (default) builds when this table changes.
+#               "nightly" also builds every night that its inputs moved.
+#   version     Filled into {version}, and written into Cargo.toml for the
+#               build. Either a version like "1.2.3", bumped to cut the next
+#               release, or "tags": the version comes from a pushed tag that
+#               matches `tag`, and that tag's commit (which must be on `base`)
+#               is what gets built. Pushing the tag is the release.
+#   prerelease  Marks the release as a prerelease. Defaults to false for a
+#               build with a `version` and true for one without. A release that is not a
+#               prerelease becomes the repository's latest.
+#   publish     false makes the build test and compile but never release.
+#   rolling     true moves the same tag to each new build and replaces its
+#               release, instead of skipping a tag that exists.
+#   alias       A second tag, moved to each new build of this table, with a
+#               release of its own that is never the latest. May use
+#               {version} and {zellij}.
+#   keep        For a {date} tag, how many releases of the series to keep.
+#               Older ones are deleted, tag and all, after each publish.
+#
+# A ref in base or stack is one of:
+#   main, feat/x, origin:feat/x   a branch of this repository
+# Pull requests are listed by their branch; one from a fork cannot be stacked,
+# since a build runs its code with access to main's Actions cache.
+#
+# Each table's tag pattern names one series, and release notes cover what
+# changed since the previous release in that series.
+
+# The stable release. Push a vX.Y.Z tag on main to publish it. The alias keeps
+# zellij-<line> pointing at the newest release built for each Zellij minor,
+# which is what `make zellij VERSION=<line>` installs.
+[build.release]
+tag = "v{version}"
+version = "tags"
+base = "main"
+alias = "zellij-{zellij}"
+
+# main as it stands, rebuilt each night that it has moved.
+[build.nightly]
+tag = "nightly-{date}"
+base = "main"
+on = "nightly"
+keep = 7
+
+# An EA build hands work in progress to testers: one or more branches stacked
+# onto main. Add a table like this one, named ea-<label>, and push it; `make ea
+# LABEL=<label>` installs the newest build. To rebuild with whatever the
+# branches have gained since, run the workflow by hand naming the table, or set
+# on = "nightly" to rebuild each night they moved. Remove the table once the
+# work is merged.
+#
+# [build.ea-nested-sessions]
+# tag = "ea-nested-sessions-{date}"
+# base = "main"
+# stack = ["feat/nested-sessions"]
+# prerelease = true
+# keep = 3
