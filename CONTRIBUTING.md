@@ -37,6 +37,12 @@ Before pushing:
 make check     # fmt, clippy, tests, release build (what CI runs)
 ```
 
+A change to `tooling/` or `builds.toml` also needs the tests of the build tooling, which `make check` does not run. They need Python 3.11 or newer and nothing else:
+
+```bash
+python3 -m unittest discover -s tooling
+```
+
 ## Keeping zellij-tile in step with Zellij
 
 `zellij-tile`, `zellij-tile-utils` and `zellij-utils` must match the Zellij you are running. This is not a nicety, and getting it wrong does not fail the build.
@@ -49,7 +55,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-They run in CI, and in every workflow that builds a release. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+They run in CI, and again in `builds.yml` before it publishes anything. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
 
 ### Comments that explain why
 
@@ -82,7 +88,7 @@ make images    # rewrites the generated SVGs in docs/img
 
 `make images` knows the SVGs it draws by a comment on their second line. It rewrites those, removes the ones it no longer draws, and leaves every other file in `docs/img` alone, so an image made by hand can live there too.
 
-The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. The nightly, release and EA workflows run the same tests, so a stale image blocks those builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
+The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 #### Animated images
 
@@ -103,7 +109,9 @@ The session demo draws Zellij's tab bar, pane frames and pane contents by hand. 
 3. Run `make check`.
 4. Open the pull request. Fill in the template: the "why" matters more than the "what", which the diff already shows.
 
-CI runs formatting, clippy, tests, a wasm build, a flake MSRV check, and `cargo audit`. All must pass.
+CI runs formatting, clippy, tests, a wasm build, a flake MSRV check, the tests of the build tooling, and `cargo audit`. All must pass.
+
+You do not need to bump `version` in `Cargo.toml`. A release is made by the maintainer pushing a `vX.Y.Z` tag, which sets the version for that build. See [docs/automation.md](docs/automation.md#cutting-a-release).
 
 Small, focused pull requests are easier to take than large ones. If a change grew while you were making it, splitting it is usually worth the effort.
 
