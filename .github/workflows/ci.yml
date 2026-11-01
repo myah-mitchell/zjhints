@@ -107,6 +107,15 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
       - run: nix eval .#packages.x86_64-linux.default.drvPath
 
+  # The tooling that plans and assembles builds.toml's builds. It decides what
+  # gets released, so it is tested like the plugin is.
+  builds-tooling:
+    name: builds tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - run: python3 -m unittest discover -s tooling -v
+
   # Known vulnerabilities in the dependency tree. Advisories appear without any
   # code changing, so this runs with every CI run rather than only on updates.
   audit:

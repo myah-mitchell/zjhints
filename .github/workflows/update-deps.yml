@@ -161,10 +161,10 @@ jobs:
             dependencies
             ${{ steps.deps.outputs.zellij_minor_available == 'true' && 'needs-zellij-upgrade' || '' }}
           body: |
-            Automated dependency update. This does not touch `Cargo.toml`'s
-            `version`, so merging it does not publish anything: bump the
-            version yourself (see [docs/automation.md](docs/automation.md#versioning))
-            whenever you're ready to cut a release that includes it.
+            Automated dependency update. Merging it does not publish
+            anything: push a new `vX.Y.Z` tag on `main` yourself (see
+            [docs/automation.md](docs/automation.md#versioning)) whenever
+            you're ready to cut a release that includes it.
 
             ${{ steps.deps.outputs.summary }}
             ${{ steps.flake.outputs.changed == 'true' && '`flake.lock` was refreshed (`nix flake update`) and confirmed to still build.' || '' }}
@@ -265,7 +265,7 @@ jobs:
           EOF
           cargo update -p zellij-tile -p zellij-tile-utils -p zellij-utils
           # major.minor of the target version, for the PR body and the
-          # compatibility tag release.yml will move once this is merged.
+          # zellij-<line> alias builds.yml will move once this is released.
           # Prefer zellij-tile's own version; the two are released in lockstep
           # by the Zellij project, but fall back to zellij-tile-utils in case
           # only one reported a new version this run.
@@ -324,12 +324,11 @@ jobs:
             with the wrong label, not an error. See
             [CONTRIBUTING.md](CONTRIBUTING.md#keeping-zellij-tile-in-step-with-zellij).
 
-            This does not touch `Cargo.toml`'s `version`. Once merged, bump
-            it yourself when you're ready to release (a minor bump is the
-            convention for a Zellij line move), and pushing that bump to
-            `main` (or tagging it) is what makes `release.yml` publish and
-            moves the `zellij-${{ steps.zellij.outputs.line }}` compatibility
-            tag. See
+            Merging it does not publish anything. Once merged, push a new
+            `vX.Y.Z` tag on `main` when you're ready to release (a minor bump
+            is the convention for a Zellij line move). That tag is what makes
+            `builds.yml` publish and move the
+            `zellij-${{ steps.zellij.outputs.line }}` alias. See
             [docs/automation.md](docs/automation.md#versioning).
 
             <details>
