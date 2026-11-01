@@ -1911,11 +1911,7 @@ fn open_preview_popup(
         column,
         width,
         height,
-        PopupOptions {
-            focused: false,
-            corner: None,
-            ..PopupOptions::default()
-        },
+        PopupOptions::default().focused(false),
     );
 }
 
