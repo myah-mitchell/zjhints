@@ -57,7 +57,7 @@ alias = "zellij-{zellij}"
 [build.nightly]
 tag = "nightly-{date}"
 base = "main"
-on = "nightly"
+on = "change"
 keep = 7
 
 # An EA build hands work in progress to testers: one or more branches stacked
