@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="114" viewBox="0 0 928 114" role="img">
+<!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
+<title>One active tab named for everything it is used for, in a bar of 36 columns. The tab is cut to fit and ends in three dots, then in an ellipsis with overflow_str set to one</title>
+<rect width="928" height="114" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="324" height="18" fill="#a6e3a1"/>
+<rect x="0" y="72" width="324" height="18" fill="#a6e3a1"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 18 27 36 45 63 72 81 99 108 117 126 135 153 162 171 180 198 207 216 234 243 252 261 279 288 306 315 324 333 342 351 360" fill="#878ca4">alonetabwiderthanthebar,36columns</tspan></text>
+<text y="31"><tspan x="9 27 45 54 63 81 90 99 108 117 135 144 153 171 180 189 198 207 216 225 234 243 252 270 279 297 306 315" fill="#181825" font-weight="bold">1atabnamedforeverythingit...</tspan></text>
+<text y="67"><tspan x="0 9 18 36 45 54 63 81 90 99 108 126 135 144 153 162 171 180 189 198 207 216 225 243 252 261" fill="#878ca4">thesamewithoverflow_str"…"</tspan></text>
+<text y="85"><tspan x="9 27 45 54 63 81 90 99 108 117 135 144 153 171 180 189 198 207 216 225 234 243 252 270 279 297 306 315" fill="#181825" font-weight="bold">1atabnamedforeverythingitis…</tspan></text>
+</g>
+</g>
+</svg>

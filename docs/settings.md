@@ -4,6 +4,9 @@ The settings screen is a floating pane for changing zjhints options without edit
 
 It needs the Zellij build zjhints is compiled against, [fork-v0.46.6](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.6), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
 
+> [!NOTE]
+> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use `zjtabs` in the launch examples and look for the *zjtabs* entry on Zellij's settings screen. It has no mode prefix to click, and its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
+
 ## Prerequisites
 
 - zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](installation.md#example-configuration). The screen edits that alias, so options set only in a layout are not shown and not changed.

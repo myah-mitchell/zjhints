@@ -10,6 +10,8 @@ use zjkit::mouse::ColumnSpans;
 
 mod flags;
 mod host;
+#[cfg(test)]
+mod images;
 mod mouse;
 mod settings;
 mod tabs;

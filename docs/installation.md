@@ -2,6 +2,8 @@
 
 This page covers adding zjhints to Zellij: a configuration with the common options annotated, the release channels and which build matches your Zellij, and the two ways to display the hints. For every option and its default, see the [configuration reference](configuration.md).
 
+To install zjtabs, the tab bar from the same repository, see the [zjtabs overview](zjtabs/overview.md).
+
 ## Placeholders
 
 Some option names and tag names on this page are families rather than fixed strings. Each family's variable part is written in angle brackets.

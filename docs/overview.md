@@ -16,6 +16,7 @@ The pages in this directory, and what each one is for. Start with the [configura
 | [Settings screen](settings.md) | Editing the options in a floating pane, with live preview on the bars |
 | [Hiding the bar](hiding.md) | Hiding and showing the bar from a keybinding, the right-click menu or a shell |
 | [Nested sessions](nested-sessions.md) | Running one Zellij session inside another, and running this plugin in its own pane |
+| [zjtabs](zjtabs/overview.md) | The tab bar from the same repository: loading it, its [configuration](zjtabs/configuration.md), [tab formats and flags](zjtabs/formats.md), [overflow](zjtabs/overflow.md) and [mouse](zjtabs/mouse.md) |
 | [Automation](automation.md) | How the repository builds, tests, updates itself and publishes, and the setup GitHub needs |
 
-Automation is for anyone maintaining a copy of the repository. The rest are for anyone configuring the plugin.
+Automation is for anyone maintaining a copy of the repository. The rest are for anyone configuring a plugin. The pages on themes, the settings screen, hiding and nested sessions apply to zjtabs too, and the zjtabs pages say where it differs.
