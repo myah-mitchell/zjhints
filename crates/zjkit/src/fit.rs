@@ -77,7 +77,7 @@ pub trait Fittable {
 ///
 /// Returns the index in `pieces` the indicator belongs at, or `None` if
 /// nothing was dropped. A single item wider than the whole limit survives; the
-/// caller cuts it instead, as `crate::ansi::truncate_ansi_string` does.
+/// caller cuts it instead, with `crate::ansi::cut_line`.
 pub fn drop_to_fit<T: Fittable>(
     pieces: &mut Vec<T>,
     spacer_width: usize,
@@ -185,8 +185,8 @@ pub struct Window {
 /// side's count as it will be in the result, never for an earlier step.
 ///
 /// The pinned item is always included, even if it alone, with its markers, is
-/// wider than `limit`. The caller cuts it, as `crate::ansi::truncate_ansi_string`
-/// does for `drop_to_fit`.
+/// wider than `limit`. The caller cuts it, with `crate::ansi::cut_line`, as
+/// for `drop_to_fit`.
 ///
 /// An empty `item_widths` gives an empty range and zero hidden counts. A
 /// `pinned` index past the end is clamped to the last item.

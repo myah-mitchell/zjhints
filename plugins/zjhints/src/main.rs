@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
-use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, ANSI_RESET};
+use zjkit::ansi::{calculate_visible_length, cut_line};
 use zjkit::bar::{BarCore, Handled, Role};
 use zjkit::config;
 use zjkit::fit::{Group, Precedence};
@@ -1286,42 +1286,31 @@ impl State {
         prefix: Range<usize>,
         dim: f32,
     ) -> (String, ClickMap) {
-        let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
-        match self.length_limit() {
-            Some(limit) if visible_len > limit => {
-                let overflow = render_overflow(&self.overflow_str, &self.bar.configuration, dim);
-                let truncated = truncate_ansi_string(&line, &overflow, limit, self.wide_ambiguous);
-                // Measured from what was drawn rather than worked out from
-                // `limit`, since the cut keeps whole characters and a wide one
-                // can leave it short of the limit.
-                let shown = calculate_visible_length(&truncated, self.wide_ambiguous);
-                let marker = calculate_visible_length(&overflow, self.wide_ambiguous).min(shown);
+        let shortened = self.length_limit().and_then(|limit| {
+            cut_line(
+                &line,
+                &self.overflow_str,
+                limit,
+                self.wide_ambiguous,
+                &self.bar.configuration,
+                dim,
+            )
+        });
+        match shortened {
+            Some(shortened) => {
                 let cut = Cut {
-                    at: shown - marker,
-                    overflow: shown - marker..shown,
+                    at: shortened.kept,
+                    overflow: shortened.kept..shortened.width,
                 };
                 let prefix = prefix.start..prefix.end.min(cut.at);
                 let map = ClickMap::lay_out(segments, start, Some(cut));
-                (truncated, map.with_settings(prefix))
+                (shortened.line, map.with_settings(prefix))
             }
-            _ => (
+            None => (
                 line,
                 ClickMap::lay_out(segments, start, None).with_settings(prefix),
             ),
         }
-    }
-}
-
-/// `overflow_str` as drawn: a format string like `drop_indicator`, so a theme
-/// can shape it. A styled one opens with a reset, so nothing of the hint the
-/// cut went through, such as its bold, carries into it.
-fn render_overflow(overflow_str: &str, config: &BTreeMap<String, String>, dim: f32) -> String {
-    let rendered =
-        ANSIStrings(&format::render_template(overflow_str, &[], config, dim)).to_string();
-    if rendered.contains('\u{1b}') {
-        format!("{ANSI_RESET}{rendered}")
-    } else {
-        rendered
     }
 }
 
