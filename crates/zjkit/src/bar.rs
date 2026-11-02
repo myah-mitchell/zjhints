@@ -15,7 +15,10 @@
 //!   plugin looks at it. The core answers with a `Handled`, which says whether
 //!   to redraw and, when the options changed, hands back the configuration to
 //!   read again: the core knows the options every bar shares, but reading the
-//!   plugin's own is the plugin's business.
+//!   plugin's own is the plugin's business. `BarCore::follow` acts on the
+//!   answer, through the plugin's `BarPlugin` implementation.
+//! - `render` tells Zellij whether the row is worth keeping with
+//!   `BarCore::sync_collapsed`.
 
 use crate::host::{settings_requested_by, Host, SETTINGS_KEY};
 use crate::panes::{own_pane_url, own_visible_pane_width};
@@ -156,6 +159,32 @@ impl Handled {
     }
 }
 
+/// What `BarCore::follow` needs of a bar plugin's state beyond the
+/// `BarCore` it keeps: the host it calls Zellij through, its `mouse`
+/// option, and its reader of options.
+///
+/// Reading the options takes the whole state mutably, so a callback could
+/// not do it while the core or the host were borrowed from the same state;
+/// the helper reaches each part through this instead, one at a time.
+pub trait BarPlugin {
+    /// What the plugin makes its calls into Zellij through. See
+    /// `crate::host`.
+    type Host: Host;
+
+    /// The host the plugin keeps, which the core's calls go through too.
+    fn host(&self) -> &Self::Host;
+
+    /// The core the plugin keeps.
+    fn bar(&self) -> &BarCore;
+
+    /// Whether the plugin's `mouse` option is on, as last read.
+    fn mouse(&self) -> bool;
+
+    /// Read every option from `user_configuration`, as on load. The plugin's
+    /// reader calls `BarCore::configure` first.
+    fn apply_configuration(&mut self, user_configuration: Configuration);
+}
+
 /// The state every bar keeps, and its handling of what means the same to
 /// every bar. See the module documentation for how a plugin uses it.
 #[derive(Debug, Default)]
@@ -248,6 +277,52 @@ impl BarCore {
         host.set_selectable(true);
         host.request_permission(&(spec.permissions)(true));
         host.subscribe(spec.mouse_events);
+    }
+
+    /// Act on what `update` or `pipe` left `plugin` to do with an event or a
+    /// message. Returns whether the bar should redraw.
+    ///
+    /// A `Reconfigure` is read with the plugin's `apply_configuration`. When
+    /// that turns `mouse` on, the bar asks for what the mouse needs with
+    /// `enable_mouse`, since it did not when it loaded.
+    pub fn follow<P: BarPlugin>(plugin: &mut P, spec: &BarSpec, handled: Handled) -> bool {
+        match handled {
+            Handled::Nothing => false,
+            Handled::Redraw => true,
+            Handled::Reconfigure(configuration) => {
+                let had_mouse = plugin.mouse();
+                plugin.apply_configuration(configuration);
+                if plugin.mouse() && !had_mouse {
+                    plugin.bar().enable_mouse(plugin.host(), spec);
+                }
+                true
+            }
+        }
+    }
+
+    /// Tell Zellij whether this pane's row is worth keeping, when the answer
+    /// has changed since the last time it was told. See
+    /// `Visibility::next_collapsed`.
+    ///
+    /// A collapsed pane hands its row to the panes around it but keeps its
+    /// place in the layout, so expanding gives back the exact row the layout
+    /// asked for. Zellij ignores this for a plugin that has no tiled pane, so
+    /// a bar running only as a pipe source for another plugin loses nothing.
+    ///
+    /// Turning `collapse_when_empty` off expands again on the next render
+    /// rather than waiting for the bar to fill up on its own.
+    pub fn sync_collapsed(
+        &mut self,
+        host: &impl Host,
+        collapse_when_empty: bool,
+        output_is_empty: bool,
+    ) {
+        let collapsed = self
+            .visibility
+            .next_collapsed(collapse_when_empty, output_is_empty);
+        if let Some(collapsed) = collapsed {
+            host.set_collapsed(collapsed);
+        }
     }
 
     /// Open the settings screen, or reach the one already open, editing the
@@ -546,6 +621,89 @@ mod tests {
                 Call::Subscribe(SPEC.mouse_events.to_vec()),
             ]
         );
+    }
+
+    /// A plugin with one option of its own, `mouse`.
+    #[derive(Default)]
+    struct Plugin {
+        host: Recorder,
+        bar: BarCore,
+        mouse: bool,
+        /// Every configuration read, in order.
+        read: Vec<Configuration>,
+    }
+
+    impl BarPlugin for Plugin {
+        type Host = Recorder;
+
+        fn host(&self) -> &Recorder {
+            &self.host
+        }
+
+        fn bar(&self) -> &BarCore {
+            &self.bar
+        }
+
+        fn mouse(&self) -> bool {
+            self.mouse
+        }
+
+        fn apply_configuration(&mut self, user_configuration: Configuration) {
+            let configuration = self.bar.configure(&SPEC, user_configuration);
+            self.mouse = configuration.get("mouse").map(String::as_str) == Some("true");
+            self.read.push(self.bar.user_configuration.clone());
+        }
+    }
+
+    #[test]
+    fn following_says_whether_to_redraw_and_reads_a_new_configuration() {
+        let mut plugin = Plugin::default();
+        assert!(!BarCore::follow(&mut plugin, &SPEC, Handled::Nothing));
+        assert!(BarCore::follow(&mut plugin, &SPEC, Handled::Redraw));
+        assert_eq!(plugin.read, Vec::<Configuration>::new());
+        let new = configuration(&[("max_length", "9")]);
+        assert!(BarCore::follow(
+            &mut plugin,
+            &SPEC,
+            Handled::Reconfigure(new.clone())
+        ));
+        assert_eq!(plugin.read, vec![new]);
+        assert_eq!(plugin.host.calls(), Vec::new());
+    }
+
+    #[test]
+    fn following_a_configuration_that_turns_mouse_on_asks_for_it() {
+        let mut plugin = Plugin::default();
+        let mouse = |value| Handled::Reconfigure(configuration(&[("mouse", value)]));
+        assert!(BarCore::follow(&mut plugin, &SPEC, mouse("true")));
+        assert_eq!(
+            plugin.host.calls(),
+            vec![
+                Call::SetSelectable(true),
+                Call::RequestPermission(permissions(true)),
+                Call::Subscribe(SPEC.mouse_events.to_vec()),
+            ]
+        );
+        // Already on, or turned off, it asks nothing.
+        for value in ["true", "false"] {
+            plugin.host.clear();
+            assert!(BarCore::follow(&mut plugin, &SPEC, mouse(value)));
+            assert_eq!(plugin.host.calls(), Vec::new(), "{value}");
+        }
+    }
+
+    #[test]
+    fn the_row_is_collapsed_or_expanded_only_when_that_changes() {
+        let host = Recorder::default();
+        let mut bar = BarCore::default();
+        bar.sync_collapsed(&host, true, false);
+        assert_eq!(host.calls(), Vec::new());
+        bar.sync_collapsed(&host, true, true);
+        bar.sync_collapsed(&host, true, true);
+        assert_eq!(host.calls(), vec![Call::SetCollapsed(true)]);
+        host.clear();
+        bar.sync_collapsed(&host, false, true);
+        assert_eq!(host.calls(), vec![Call::SetCollapsed(false)]);
     }
 
     #[test]

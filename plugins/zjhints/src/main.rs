@@ -5,7 +5,7 @@ use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
 use zjkit::ansi::{calculate_visible_length, cut_line};
-use zjkit::bar::{BarCore, Handled, Role};
+use zjkit::bar::{BarCore, BarPlugin, Role};
 use zjkit::config;
 use zjkit::fit::{Group, Precedence};
 use zjkit::format;
@@ -864,25 +864,11 @@ impl State {
         }
     }
 
-    /// Tell Zellij whether this pane's row is worth keeping, when the answer
-    /// has changed since the last time it was told.
-    ///
-    /// A collapsed pane hands its row to the panes around it but keeps its
-    /// place in the layout, so expanding gives back the exact row the layout
-    /// asked for. Zellij ignores this for a plugin that has no tiled pane, so
-    /// running as a zjstatus pipe source alone costs nothing.
-    ///
-    /// Turning `collapse_when_empty` off expands again on the next render
-    /// rather than waiting for the bar to fill up on its own.
-    fn sync_collapsed(&mut self, output_is_empty: bool) {
-        if let Some(collapsed) = self.next_collapsed(output_is_empty) {
-            self.host.set_collapsed(collapsed);
-        }
-    }
-
     /// What this render has to say about the pane's row, or `None` when it
     /// says the same thing the last one did and there is no point repeating
-    /// it. Records the answer as the new last word.
+    /// it. Records the answer as the new last word. `BarCore::sync_collapsed`
+    /// asks the same question when the bar renders.
+    #[cfg(test)]
     fn next_collapsed(&mut self, output_is_empty: bool) -> Option<bool> {
         self.bar
             .visibility
@@ -1356,7 +1342,7 @@ impl State {
             DEFAULT_HIDE_WHEN_NESTED,
         );
         // Give the row back to the panes around it while there is nothing on
-        // it, rather than drawing a blank one. See `sync_collapsed`.
+        // it, rather than drawing a blank one. See `BarCore::sync_collapsed`.
         self.collapse_when_empty = config::bool_option(
             configuration,
             CONFIG_COLLAPSE_WHEN_EMPTY,
@@ -1453,22 +1439,23 @@ impl State {
     }
 }
 
-impl State {
-    /// Act on what `BarCore` left to do with an event or a message. Returns
-    /// whether the bar should redraw.
-    fn follow(&mut self, handled: Handled) -> bool {
-        match handled {
-            Handled::Nothing => false,
-            Handled::Redraw => true,
-            Handled::Reconfigure(configuration) => {
-                let had_mouse = self.mouse;
-                self.apply_configuration(configuration);
-                if self.mouse && !had_mouse {
-                    self.bar.enable_mouse(&self.host, &BAR);
-                }
-                true
-            }
-        }
+impl BarPlugin for State {
+    type Host = BarHost;
+
+    fn host(&self) -> &BarHost {
+        &self.host
+    }
+
+    fn bar(&self) -> &BarCore {
+        &self.bar
+    }
+
+    fn mouse(&self) -> bool {
+        self.mouse
+    }
+
+    fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
+        State::apply_configuration(self, user_configuration);
     }
 }
 
@@ -1489,7 +1476,7 @@ impl ZellijPlugin for State {
         }
         let mut should_render = !self.initialized;
         let handled = self.bar.update(&self.host, &BAR, &event);
-        should_render |= self.follow(handled);
+        should_render |= BarCore::follow(self, &BAR, handled);
         match event {
             Event::ModeUpdate(mut mode_info) => {
                 // Taken out before comparing, so the comparison is between two
@@ -1597,7 +1584,7 @@ impl ZellijPlugin for State {
             return false;
         }
         if let Some(handled) = self.bar.pipe(&self.host, &BAR, &message) {
-            return self.follow(handled);
+            return BarCore::follow(self, &BAR, handled);
         }
         self.take_popup_message(&message);
         false
@@ -1619,7 +1606,8 @@ impl ZellijPlugin for State {
             self.initialized = true;
         }
 
-        self.sync_collapsed(output.is_empty());
+        self.bar
+            .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
 
         for pipe_name in &self.pipe_names {
             self.host.broadcast(
