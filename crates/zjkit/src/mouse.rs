@@ -95,16 +95,87 @@ pub enum ClickTarget {
     Settings,
 }
 
+/// A stretch of columns on a bar's line and what stands there, such as the
+/// index of the tab drawn on those columns.
 #[derive(Clone, Debug, PartialEq)]
-struct ClickRegion {
-    columns: Range<usize>,
-    target: ClickTarget,
+pub struct ColumnSpan<T> {
+    pub columns: Range<usize>,
+    pub value: T,
+}
+
+/// Which `value` stands under each column of a bar's one line.
+///
+/// This is the lookup a bar of items needs to turn a mouse column into an
+/// item: lay the items out once when drawing, then ask about the column of
+/// each mouse event. `ClickMap` is built on it, so every bar shares the same
+/// column math.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColumnSpans<T> {
+    spans: Vec<ColumnSpan<T>>,
+}
+
+// Written out because deriving `Default` would require `T: Default`.
+impl<T> Default for ColumnSpans<T> {
+    fn default() -> Self {
+        ColumnSpans { spans: vec![] }
+    }
+}
+
+impl<T> ColumnSpans<T> {
+    /// Place `segments` one after the other on the line starting at column
+    /// `start`. Each segment is its width in columns and what it stands for,
+    /// or `None` for a gap that stands for nothing, such as the spacer between
+    /// items. Widths are in terminal columns, so a wide character counts for
+    /// the two columns it takes up.
+    pub fn lay_out(start: usize, segments: impl IntoIterator<Item = (usize, Option<T>)>) -> Self {
+        let (widths, values): (Vec<usize>, Vec<Option<T>>) = segments.into_iter().unzip();
+        let mut spans = ColumnSpans::default();
+        for (columns, value) in place(start, widths).zip(values) {
+            if let Some(value) = value {
+                spans.push(columns, value);
+            }
+        }
+        spans
+    }
+
+    /// Make `columns` stand for `value`. Empty `columns` stand for nothing and
+    /// are not kept.
+    pub fn push(&mut self, columns: Range<usize>, value: T) {
+        if !columns.is_empty() {
+            self.spans.push(ColumnSpan { columns, value });
+        }
+    }
+
+    /// The span covering `column`, if any.
+    pub fn span_at(&self, column: usize) -> Option<&ColumnSpan<T>> {
+        self.spans
+            .iter()
+            .find(|span| span.columns.contains(&column))
+    }
+
+    /// What stands under `column`, if anything.
+    pub fn value_at(&self, column: usize) -> Option<&T> {
+        self.span_at(column).map(|span| &span.value)
+    }
+}
+
+/// The columns taken by consecutive stretches of the given `widths`, the first
+/// starting at column `start`.
+fn place(
+    start: usize,
+    widths: impl IntoIterator<Item = usize>,
+) -> impl Iterator<Item = Range<usize>> {
+    widths.into_iter().scan(start, |column, width| {
+        let columns = *column..*column + width;
+        *column = columns.end;
+        Some(columns)
+    })
 }
 
 /// What each clickable stretch of the bar's one line stands for.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ClickMap {
-    regions: Vec<ClickRegion>,
+    regions: ColumnSpans<ClickTarget>,
 }
 
 impl ClickMap {
@@ -118,10 +189,8 @@ impl ClickMap {
     pub fn lay_out(segments: Vec<LineSegment>, start: usize, cut: Option<Cut>) -> Self {
         let mut map = ClickMap::default();
         let mut hidden: Vec<Item> = vec![];
-        let mut column = start;
-        for segment in segments {
-            let columns = column..column + segment.width;
-            column = columns.end;
+        let placed: Vec<Range<usize>> = place(start, segments.iter().map(|s| s.width)).collect();
+        for (segment, columns) in segments.into_iter().zip(placed) {
             let target = match segment.content {
                 SegmentContent::Spacer => continue,
                 SegmentContent::Item(item) => {
@@ -157,19 +226,15 @@ impl ClickMap {
     }
 
     fn push(&mut self, columns: Range<usize>, target: ClickTarget) {
-        if !columns.is_empty() {
-            self.regions.push(ClickRegion { columns, target });
-        }
+        self.regions.push(columns, target);
     }
 
-    fn region_at(&self, column: usize) -> Option<&ClickRegion> {
-        self.regions
-            .iter()
-            .find(|region| region.columns.contains(&column))
+    fn region_at(&self, column: usize) -> Option<&ColumnSpan<ClickTarget>> {
+        self.regions.span_at(column)
     }
 
     fn target_at(&self, column: usize) -> Option<&ClickTarget> {
-        self.region_at(column).map(|region| &region.target)
+        self.regions.value_at(column)
     }
 }
 
@@ -220,6 +285,65 @@ pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
             .target_at(*column)
             .map_or(MouseOutcome::Nothing, click_target_outcome),
         _ => MouseOutcome::Nothing,
+    }
+}
+
+/// Which button, or click count, a press on a bar came from. Zellij sends no
+/// middle click to plugins, so there is none here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PressKind {
+    Left,
+    Right,
+    Double,
+}
+
+/// Which way the scroll wheel turned. Up and down are only the wheel's own
+/// direction; what each one does to a bar's items is for the bar to decide.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WheelDirection {
+    Up,
+    Down,
+}
+
+/// A mouse event as a bar of items cares about it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BarMouseEvent {
+    /// A button pressed on the bar's line at `column`.
+    Press { kind: PressKind, column: usize },
+    /// The wheel turned while the pointer was over the bar.
+    Wheel(WheelDirection),
+    /// Anything else: hover, drag, release, horizontal scrolling, or a press
+    /// that is not on the bar's line.
+    Other,
+}
+
+/// What a mouse event means to a bar of items.
+///
+/// A bar is the pane's first line (line 0), and anything else on the pane is
+/// empty space, so a press on any other line is `Other`. Zellij sends the
+/// wheel without a position, so it is reported wherever the pointer is over
+/// the pane. Horizontal scrolling is `Other`: a bar's items have no use for
+/// it that the vertical wheel does not already cover, and a trackpad swipe
+/// would otherwise jump items by accident. To find the item under a press,
+/// look its `column` up in the bar's `ColumnSpans`.
+pub fn classify_bar_mouse(mouse: &Mouse) -> BarMouseEvent {
+    let press = |kind, line: &isize, column: &usize| {
+        if *line == 0 {
+            BarMouseEvent::Press {
+                kind,
+                column: *column,
+            }
+        } else {
+            BarMouseEvent::Other
+        }
+    };
+    match mouse {
+        Mouse::LeftClick(line, column) => press(PressKind::Left, line, column),
+        Mouse::RightClick(line, column) => press(PressKind::Right, line, column),
+        Mouse::DoubleClick(line, column) => press(PressKind::Double, line, column),
+        Mouse::ScrollUp(_) => BarMouseEvent::Wheel(WheelDirection::Up),
+        Mouse::ScrollDown(_) => BarMouseEvent::Wheel(WheelDirection::Down),
+        _ => BarMouseEvent::Other,
     }
 }
 
@@ -349,7 +473,7 @@ pub fn hover_preview(map: &ClickMap, mouse: &Mouse) -> Option<Preview> {
         return None;
     };
     let region = map.region_at(*column)?;
-    match click_target_outcome(&region.target) {
+    match click_target_outcome(&region.value) {
         MouseOutcome::Menu(entries) if !entries.is_empty() => Some(Preview {
             columns: region.columns.clone(),
             entries,
@@ -547,6 +671,143 @@ mod tests {
             segment(1, SegmentContent::Spacer),
             segment(4, SegmentContent::Item(hint("b", vec![Action::Detach]))),
         ]
+    }
+
+    /// Three items on a line starting at column 2, in columns: `0` takes 3,
+    /// a one-column gap, `1` takes 4 (two wide characters), a gap, `2` takes 1.
+    fn tab_spans() -> ColumnSpans<usize> {
+        ColumnSpans::lay_out(
+            2,
+            [
+                (3, Some(0)),
+                (1, None),
+                (4, Some(1)),
+                (1, None),
+                (1, Some(2)),
+            ],
+        )
+    }
+
+    #[test]
+    fn each_item_answers_on_exactly_its_own_columns() {
+        let spans = tab_spans();
+        let found: Vec<Option<usize>> = (0..12).map(|c| spans.value_at(c).copied()).collect();
+        assert_eq!(
+            found,
+            vec![
+                None,
+                None,
+                Some(0),
+                Some(0),
+                Some(0),
+                None,
+                Some(1),
+                Some(1),
+                Some(1),
+                Some(1),
+                None,
+                Some(2),
+            ]
+        );
+        // Past the end, including the largest column there is.
+        assert_eq!(spans.value_at(12), None);
+        assert_eq!(spans.value_at(usize::MAX), None);
+    }
+
+    #[test]
+    fn the_span_found_says_which_columns_it_covers() {
+        let span = tab_spans().span_at(7).cloned().expect("a span");
+        assert_eq!(span.columns, 6..10);
+        assert_eq!(span.value, 1);
+    }
+
+    #[test]
+    fn items_with_no_width_take_no_columns() {
+        let spans = ColumnSpans::lay_out(0, [(0, Some('a')), (2, Some('b'))]);
+        assert_eq!(spans.value_at(0), Some(&'b'));
+        assert_eq!(spans.value_at(1), Some(&'b'));
+        assert_eq!(spans.value_at(2), None);
+        assert_eq!(ColumnSpans::<char>::default().value_at(0), None);
+    }
+
+    fn press(kind: PressKind, column: usize) -> BarMouseEvent {
+        BarMouseEvent::Press { kind, column }
+    }
+
+    #[test]
+    fn presses_on_the_bar_line_say_which_kind_and_where() {
+        assert_eq!(
+            classify_bar_mouse(&Mouse::LeftClick(0, 7)),
+            press(PressKind::Left, 7)
+        );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::RightClick(0, 0)),
+            press(PressKind::Right, 0)
+        );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::DoubleClick(0, 11)),
+            press(PressKind::Double, 11)
+        );
+    }
+
+    #[test]
+    fn presses_off_the_bar_line_are_other() {
+        for line in [1, 5, -1] {
+            for mouse in [
+                Mouse::LeftClick(line, 3),
+                Mouse::RightClick(line, 3),
+                Mouse::DoubleClick(line, 3),
+            ] {
+                assert_eq!(
+                    classify_bar_mouse(&mouse),
+                    BarMouseEvent::Other,
+                    "{mouse:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_wheel_gives_its_direction_and_horizontal_scrolling_is_other() {
+        assert_eq!(
+            classify_bar_mouse(&Mouse::ScrollUp(3)),
+            BarMouseEvent::Wheel(WheelDirection::Up)
+        );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::ScrollDown(1)),
+            BarMouseEvent::Wheel(WheelDirection::Down)
+        );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::ScrollLeft(1)),
+            BarMouseEvent::Other
+        );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::ScrollRight(1)),
+            BarMouseEvent::Other
+        );
+    }
+
+    #[test]
+    fn pointer_movement_and_releases_are_other() {
+        for mouse in [Mouse::Hover(0, 3), Mouse::Hold(0, 3), Mouse::Release(0, 3)] {
+            assert_eq!(
+                classify_bar_mouse(&mouse),
+                BarMouseEvent::Other,
+                "{mouse:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_classified_press_finds_the_item_under_it() {
+        let spans = tab_spans();
+        let item_under = |mouse: &Mouse| match classify_bar_mouse(mouse) {
+            BarMouseEvent::Press { column, .. } => spans.value_at(column).copied(),
+            _ => None,
+        };
+        assert_eq!(item_under(&Mouse::DoubleClick(0, 8)), Some(1));
+        assert_eq!(item_under(&Mouse::RightClick(0, 5)), None);
+        assert_eq!(item_under(&Mouse::LeftClick(1, 8)), None);
     }
 
     #[test]
