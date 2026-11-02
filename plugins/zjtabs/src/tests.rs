@@ -1006,3 +1006,112 @@ fn hover_and_horizontal_scrolling_do_nothing() {
         assert_eq!(after_mouse(&mut state, mouse), vec![]);
     }
 }
+
+// The settings screen.
+
+use zjkit::settings::live;
+
+#[test]
+fn a_grant_adds_the_bar_s_entry_to_zellij_s_settings_screen() {
+    let mut granted = State::default();
+    assert!(granted.update(Event::PermissionRequestResult(PermissionStatus::Granted)));
+    assert_eq!(
+        granted.host.calls(),
+        vec![
+            Call::SetSelectable(false),
+            Call::AddSettingsEntry("zjtabs".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_that_chose_it() {
+    let request = |client: &str| {
+        let args = BTreeMap::from([(
+            OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG.to_string(),
+            client.to_string(),
+        )]);
+        PipeMessage::new(
+            PipeSource::Plugin(1),
+            OPEN_PLUGIN_SETTINGS_MESSAGE,
+            &None,
+            &Some(args),
+            false,
+        )
+    };
+    let mut state = State {
+        bar: zjkit::bar::BarCore {
+            client_id: Some(2),
+            own_url: Some("zjtabs".to_string()),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(!state.pipe(request("3")));
+    assert_eq!(state.host.calls(), Vec::new());
+    assert!(!state.pipe(request("2")));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::OpenSettings {
+            message: OPEN_SETTINGS_MESSAGE.to_string(),
+            pane_title: SETTINGS_PANE_TITLE.to_string(),
+            own_url: Some("zjtabs".to_string()),
+        }]
+    );
+    assert_eq!(SETTINGS_PANE_TITLE, "zjtabs settings");
+    assert_eq!(OPEN_SETTINGS_MESSAGE, "zjtabs::open_settings");
+}
+
+/// A preview from the settings screen of `alias`, as `pipe` gets it, with
+/// each change as `(key, value before, value now)`.
+fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
+    let changes: Vec<live::Change> = changes
+        .iter()
+        .map(|(key, was, now)| live::Change {
+            key: key.to_string(),
+            was: was.map(str::to_string),
+            now: now.map(str::to_string),
+        })
+        .collect();
+    state.pipe(PipeMessage::new(
+        PipeSource::Plugin(5),
+        settings::SCHEMA.live_message,
+        &None,
+        &Some(live::encode(alias, &changes)),
+        false,
+    ))
+}
+
+#[test]
+fn a_preview_through_the_bar_s_pipe_changes_what_it_draws() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    state.bar.own_url = Some("zjtabs".to_string());
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c");
+
+    let changes = [
+        ("tab_spacer", Some("|"), Some("/")),
+        ("index_from_zero", None, Some("true")),
+        ("active_tab_format", Some("[{index}:{name}{flags}]"), None),
+    ];
+    assert!(preview(&mut state, "zjtabs", &changes));
+    // The active tab is back in Zellij's look, which draws no brackets.
+    assert_eq!(shown(&state), "0:a/ 1 b /2:c");
+
+    // Back again, as the screen sends it when an edit is undone.
+    let undo = [
+        ("tab_spacer", Some("/"), Some("|")),
+        ("index_from_zero", Some("true"), None),
+        ("active_tab_format", None, Some("[{index}:{name}{flags}]")),
+    ];
+    assert!(preview(&mut state, "zjtabs", &undo));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c");
+}
+
+#[test]
+fn a_preview_of_another_alias_changes_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    state.bar.own_url = Some("zjtabs".to_string());
+    let changes = [("tab_spacer", Some("|"), Some("/"))];
+    assert!(!preview(&mut state, "another", &changes));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c");
+}
