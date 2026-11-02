@@ -9,6 +9,10 @@
 //! leading group (pinned ahead of the unpinned ones), the middle group (not
 //! pinned) or the trailing group (pinned after them). Unpinned items go first,
 //! and `Precedence` says which pinned group is held onto longest.
+//!
+//! `window` is a separate, simpler policy for bars of ordered items such as
+//! tabs. Nothing is pinned by group there; one item (the active tab) must stay
+//! on screen, and the rest are shown as far outward from it as they fit.
 
 /// Where an item sits relative to the unpinned ones in a pinned order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,6 +144,141 @@ fn next_to_drop<T: Fittable>(
         })
 }
 
+/// The slice of an ordered bar of items that is drawn, and how much was left
+/// out on each side. Returned by `window`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Window {
+    /// Indices of the items to draw, always contiguous. Empty only when there
+    /// were no items.
+    pub range: std::ops::Range<usize>,
+    /// How many items before `range` are hidden. A marker (such as `← +3`)
+    /// belongs ahead of the items when this is not zero.
+    pub hidden_before: usize,
+    /// How many items after `range` are hidden. A marker (such as `+3 →`)
+    /// belongs behind the items when this is not zero.
+    pub hidden_after: usize,
+}
+
+/// Pick the run of items to draw when a bar of ordered items (tabs, say) is
+/// too wide, keeping one item, the `pinned` one, on screen.
+///
+/// If everything fits in `limit` columns, every item is shown and no marker is
+/// needed. Otherwise the window starts as just the pinned item and grows one
+/// item at a time, alternating between the two sides, so the pinned item stays
+/// roughly in the middle. When a side has nothing left, or cannot take its next
+/// item, the other side keeps growing until neither can. The window stays
+/// contiguous, so one marker per side can stand for everything hidden there.
+///
+/// Showing the last hidden item on a side removes that side's marker, which
+/// can make the line narrower. So when a side's next item does not fit, the
+/// whole rest of that side is tried at once, and taken if that fits.
+///
+/// `item_widths` are the columns each item takes, in display order, not
+/// counting the spacer between neighbors. `spacer_width` is that gap. Every
+/// marker is drawn with one spacer between it and the items next to it.
+///
+/// `before_marker_width` and `after_marker_width` give the columns the marker
+/// on that side takes for a given hidden count. They are functions rather than
+/// numbers because a marker usually prints the count ("+3"), so hiding one more
+/// item can make it wider, for example when the count goes from 9 to 10. A
+/// marker is charged only on a side that hides something, and always for that
+/// side's count as it will be in the result, never for an earlier step.
+///
+/// The pinned item is always included, even if it alone, with its markers, is
+/// wider than `limit`. The caller cuts it, as `crate::ansi::truncate_ansi_string`
+/// does for `drop_to_fit`.
+///
+/// An empty `item_widths` gives an empty range and zero hidden counts. A
+/// `pinned` index past the end is clamped to the last item.
+pub fn window(
+    item_widths: &[usize],
+    pinned: usize,
+    spacer_width: usize,
+    limit: usize,
+    before_marker_width: impl Fn(usize) -> usize,
+    after_marker_width: impl Fn(usize) -> usize,
+) -> Window {
+    let count = item_widths.len();
+    if count == 0 {
+        return Window {
+            range: 0..0,
+            hidden_before: 0,
+            hidden_after: 0,
+        };
+    }
+    let pinned = pinned.min(count - 1);
+
+    // Columns drawn for the items start..end plus the marker on each side that
+    // hides something, with a spacer between every pair of neighbors.
+    let drawn_width = |start: usize, end: usize| {
+        let items: usize = item_widths[start..end].iter().sum();
+        let mut pieces = end - start;
+        let mut width = items;
+        if start > 0 {
+            width += before_marker_width(start);
+            pieces += 1;
+        }
+        if end < count {
+            width += after_marker_width(count - end);
+            pieces += 1;
+        }
+        width + spacer_width * (pieces - 1)
+    };
+
+    let mut start = pinned;
+    let mut end = pinned + 1;
+    let mut grow_before_next = false;
+
+    if drawn_width(0, count) <= limit {
+        start = 0;
+        end = count;
+    } else {
+        loop {
+            // Where each side's edge would move to: one item further out, or
+            // all the way to the end of the bar if only that fits (the marker
+            // on that side is then gone).
+            let next_start = if start == 0 {
+                None
+            } else if drawn_width(start - 1, end) <= limit {
+                Some(start - 1)
+            } else if drawn_width(0, end) <= limit {
+                Some(0)
+            } else {
+                None
+            };
+            let next_end = if end == count {
+                None
+            } else if drawn_width(start, end + 1) <= limit {
+                Some(end + 1)
+            } else if drawn_width(start, count) <= limit {
+                Some(count)
+            } else {
+                None
+            };
+            let grow_before = match (next_start, next_end) {
+                (None, None) => break,
+                (Some(_), None) => true,
+                (None, Some(_)) => false,
+                (Some(_), Some(_)) => grow_before_next,
+            };
+            if let (true, Some(next)) = (grow_before, next_start) {
+                start = next;
+            } else if let Some(next) = next_end {
+                end = next;
+            }
+            // Give the other side the next turn, even after a side was
+            // skipped, so a stuck side does not hog the turns.
+            grow_before_next = !grow_before;
+        }
+    }
+
+    Window {
+        range: start..end,
+        hidden_before: start,
+        hidden_after: count - end,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,5 +389,223 @@ mod tests {
         assert_eq!(Precedence::from_config(" LT "), Precedence::Leading);
         assert_eq!(Precedence::from_config("tl"), Precedence::Trailing);
         assert_eq!(Precedence::from_config("anything"), Precedence::Trailing);
+    }
+
+    /// Columns a marker takes when it prints its count, such as `← +3`:
+    /// an arrow, a space, a plus sign and the digits.
+    fn marker_width(hidden: usize) -> usize {
+        3 + hidden.to_string().len()
+    }
+
+    /// Columns drawn for a window, summed independently of `window`: items,
+    /// the marker on each side that hides something, and a spacer between
+    /// every pair of neighbors.
+    fn drawn_width(
+        item_widths: &[usize],
+        spacer_width: usize,
+        result: &Window,
+        marker: impl Fn(usize) -> usize,
+    ) -> usize {
+        let mut widths: Vec<usize> = item_widths[result.range.clone()].to_vec();
+        if result.hidden_before > 0 {
+            widths.insert(0, marker(result.hidden_before));
+        }
+        if result.hidden_after > 0 {
+            widths.push(marker(result.hidden_after));
+        }
+        widths.iter().sum::<usize>() + spacer_width * widths.len().saturating_sub(1)
+    }
+
+    /// Check the bookkeeping every result must satisfy.
+    fn assert_consistent(item_widths: &[usize], result: &Window) {
+        assert_eq!(result.hidden_before, result.range.start);
+        assert_eq!(result.hidden_after, item_widths.len() - result.range.end);
+    }
+
+    #[test]
+    fn a_window_that_fits_shows_everything() {
+        // Three items of 4 and two spacers of 1.
+        let widths = [4, 4, 4];
+        let result = window(&widths, 1, 1, 14, marker_width, marker_width);
+        assert_eq!(
+            result,
+            Window {
+                range: 0..3,
+                hidden_before: 0,
+                hidden_after: 0
+            }
+        );
+    }
+
+    #[test]
+    fn a_window_pinned_at_the_first_item_hides_only_the_end() {
+        let widths = [3; 10];
+        let limit = 20;
+        let result = window(&widths, 0, 1, limit, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.range.start, 0);
+        assert_eq!(result.hidden_before, 0);
+        assert!(result.hidden_after > 0);
+        // Four items of 3, three spacers, then a spacer and a 4 column marker
+        // make 20. A fifth item would make 24.
+        assert_eq!(result.range, 0..4);
+        assert!(drawn_width(&widths, 1, &result, marker_width) <= limit);
+    }
+
+    #[test]
+    fn a_window_pinned_at_the_last_item_hides_only_the_start() {
+        let widths = [3; 10];
+        let limit = 20;
+        let result = window(&widths, 9, 1, limit, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.range, 6..10);
+        assert_eq!(result.hidden_before, 6);
+        assert_eq!(result.hidden_after, 0);
+        assert!(drawn_width(&widths, 1, &result, marker_width) <= limit);
+    }
+
+    #[test]
+    fn a_window_pinned_in_the_middle_stays_roughly_centered() {
+        let widths = [3; 21];
+        let limit = 40;
+        let pinned = 10;
+        let result = window(&widths, pinned, 1, limit, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert!(result.range.contains(&pinned));
+        let before = pinned - result.range.start;
+        let after = result.range.end - 1 - pinned;
+        assert!(
+            before.abs_diff(after) <= 1,
+            "{before} before, {after} after"
+        );
+        assert!(result.hidden_before > 0 && result.hidden_after > 0);
+        assert!(drawn_width(&widths, 1, &result, marker_width) <= limit);
+    }
+
+    #[test]
+    fn a_single_item_is_always_shown() {
+        let widths = [5];
+        let result = window(&widths, 0, 1, 10, marker_width, marker_width);
+        assert_eq!(
+            result,
+            Window {
+                range: 0..1,
+                hidden_before: 0,
+                hidden_after: 0
+            }
+        );
+        // Wider than the limit, the single item is still kept for the caller to cut.
+        let result = window(&widths, 0, 1, 2, marker_width, marker_width);
+        assert_eq!(result.range, 0..1);
+    }
+
+    #[test]
+    fn a_pinned_item_too_wide_alone_is_kept_with_everything_else_hidden() {
+        let widths = [3, 3, 30, 3, 3];
+        let result = window(&widths, 2, 1, 10, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.range, 2..3);
+        assert_eq!(result.hidden_before, 2);
+        assert_eq!(result.hidden_after, 2);
+    }
+
+    #[test]
+    fn marker_widths_that_grow_with_the_count_are_charged_for_the_final_count() {
+        // Fourteen items of 1 with spacers of 1, and a marker that is 4
+        // columns for a single digit count and 5 for two digits. Showing 5
+        // items hides 9 and takes 9 + 1 + 4 = 14. Showing 4 hides 10, so the
+        // marker is a column wider: 7 + 1 + 5 = 13.
+        let widths = [1; 14];
+        let result = window(&widths, 0, 1, 14, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.range, 0..5);
+        assert_eq!(result.hidden_after, 9);
+        assert_eq!(drawn_width(&widths, 1, &result, marker_width), 14);
+
+        let result = window(&widths, 0, 1, 13, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.range, 0..4);
+        assert_eq!(result.hidden_after, 10);
+        assert_eq!(drawn_width(&widths, 1, &result, marker_width), 13);
+
+        // Three items hide 11 and take 5 + 1 + 5 = 11, so a limit of 12 still
+        // cannot hold four.
+        let result = window(&widths, 0, 1, 12, marker_width, marker_width);
+        assert_eq!(result.range, 0..3);
+        assert_eq!(result.hidden_after, 11);
+        assert!(drawn_width(&widths, 1, &result, marker_width) <= 12);
+    }
+
+    #[test]
+    fn each_side_uses_its_own_marker_width() {
+        let widths = [2; 9];
+        let before = |hidden: usize| 10 + hidden;
+        let after = |hidden: usize| 1 + hidden;
+        let limit = 25;
+        let result = window(&widths, 4, 1, limit, before, after);
+        assert_consistent(&widths, &result);
+        let mut total = 0;
+        total += result.range.len() * 2 + (result.range.len() - 1);
+        if result.hidden_before > 0 {
+            total += before(result.hidden_before) + 1;
+        }
+        if result.hidden_after > 0 {
+            total += after(result.hidden_after) + 1;
+        }
+        assert!(total <= limit, "drawn {total}");
+        assert!(result.range.contains(&4));
+    }
+
+    #[test]
+    fn a_zero_spacer_adds_no_gaps() {
+        let widths = [2; 10];
+        let limit = 13;
+        let result = window(&widths, 5, 0, limit, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert!(result.range.contains(&5));
+        assert!(drawn_width(&widths, 0, &result, marker_width) <= limit);
+        // Two 4 column markers leave room for two items of 2: 4 + 4 + 4 = 12,
+        // and a third item would make 14.
+        assert_eq!(result.range.len(), 2);
+    }
+
+    #[test]
+    fn an_empty_bar_has_an_empty_window() {
+        let result = window(&[], 0, 1, 10, marker_width, marker_width);
+        assert_eq!(
+            result,
+            Window {
+                range: 0..0,
+                hidden_before: 0,
+                hidden_after: 0
+            }
+        );
+    }
+
+    #[test]
+    fn a_pinned_index_past_the_end_is_clamped_to_the_last_item() {
+        let widths = [3; 10];
+        let clamped = window(&widths, 99, 1, 20, marker_width, marker_width);
+        assert_eq!(
+            clamped,
+            window(&widths, 9, 1, 20, marker_width, marker_width)
+        );
+        assert!(clamped.range.contains(&9));
+    }
+
+    #[test]
+    fn a_side_that_cannot_take_its_next_item_leaves_the_turn_to_the_other() {
+        // A wide neighbor before the pinned item never fits, so the narrow
+        // items after it keep being added. With the first four, the marker
+        // for the last one hidden would push the line to 21, but showing all
+        // five drops that marker and fits in 19.
+        let widths = [30, 2, 2, 2, 2, 2];
+        let limit = 20;
+        let result = window(&widths, 1, 1, limit, marker_width, marker_width);
+        assert_consistent(&widths, &result);
+        assert_eq!(result.hidden_before, 1);
+        assert_eq!(result.hidden_after, 0);
+        assert_eq!(result.range, 1..6);
+        assert!(drawn_width(&widths, 1, &result, marker_width) <= limit);
     }
 }
