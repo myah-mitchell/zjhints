@@ -16,7 +16,7 @@ pub static SCHEMA: Schema = Schema {
     live_message: "zjtabs::configure",
     preview_group: None,
     permissions: || crate::host::bar_permissions(true),
-    layer: |configuration, _| configuration.clone(),
+    layer: crate::theme::layer,
     sample_values,
     draw_bar,
 };

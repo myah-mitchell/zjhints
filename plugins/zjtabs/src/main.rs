@@ -5,13 +5,78 @@
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, Role};
+use zjkit::config;
 
+mod flags;
 mod host;
 mod settings;
+mod theme;
 
+use flags::FLAGS;
 use host::*;
 
+const CONFIG_TAB_FORMAT: &str = "tab_format";
+const CONFIG_ACTIVE_TAB_FORMAT: &str = "active_tab_format";
+const CONFIG_TAB_SPACER: &str = "tab_spacer";
+const CONFIG_FULLSCREEN_FORMAT: &str = "fullscreen_format";
+const CONFIG_SYNC_FORMAT: &str = "sync_format";
+const CONFIG_FLOATING_FORMAT: &str = "floating_format";
+const CONFIG_BELL_FORMAT: &str = "bell_format";
+const CONFIG_OVERFLOW_LEFT_FORMAT: &str = "overflow_left_format";
+const CONFIG_OVERFLOW_RIGHT_FORMAT: &str = "overflow_right_format";
+const CONFIG_INDEX_FROM_ZERO: &str = "index_from_zero";
+const CONFIG_RENAME_PLACEHOLDER: &str = "rename_placeholder";
+const CONFIG_OVERFLOW_STR: &str = "overflow_str";
+const CONFIG_AUTO_WIDTH: &str = "auto_width";
+const CONFIG_MAX_LENGTH: &str = "max_length";
+const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
+const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
+const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
+const CONFIG_DIM_STRENGTH: &str = "dim_strength";
+const CONFIG_MOUSE: &str = "mouse";
+
+// One space, so neighboring tabs drawn in Zellij's ribbon colors read as
+// separate blocks rather than one long ribbon.
+const DEFAULT_TAB_SPACER: &str = " ";
+// Zellij's own wording for the two states its built-in tab bar shows after a
+// tab's name, and the same form for floating panes, which it does not show.
+// Words rather than symbols, so the default needs no particular font; an
+// `alias_theme` swaps them for symbols.
+const DEFAULT_FULLSCREEN_FORMAT: &str = " (FULLSCREEN)";
+const DEFAULT_SYNC_FORMAT: &str = " (SYNC)";
+const DEFAULT_FLOATING_FORMAT: &str = " (FLOATING)";
+// The dot Zellij's own tab bar marks a tab that needs the user with.
+const DEFAULT_BELL_FORMAT: &str = " \u{25cf}";
+// Off by default: Zellij numbers tabs from 1 everywhere else, from the
+// `GoToTab` keybindings to the names it gives new tabs.
+const DEFAULT_INDEX_FROM_ZERO: bool = false;
+// What Zellij's own tab bar shows while a tab's new name is still empty, so
+// the tab being renamed does not shrink to nothing.
+const DEFAULT_RENAME_PLACEHOLDER: &str = "Enter name...";
+// The same as zjhints, so the two bars cut the same way.
+const DEFAULT_OVERFLOW_STR: &str = "...";
+// On by default: the bar has a pane of its own, and fitting it is what keeps
+// the active tab on screen as the window narrows.
+const DEFAULT_AUTO_WIDTH: bool = true;
+// No cap of its own; `auto_width` already fits the pane.
+const DEFAULT_MAX_LENGTH: usize = 0;
+// A nested session gets no tab bar by default, since the host's is drawn just
+// beside it (see `zjkit::nesting::is_nested`). The same as zjhints.
+const DEFAULT_HIDE_WHEN_NESTED: bool = true;
+// Hand the row back to the panes around it while there is nothing on it,
+// rather than leaving a blank one. The same as zjhints.
+const DEFAULT_COLLAPSE_WHEN_EMPTY: bool = true;
+// Fade the bar while this session is not the one receiving input. The same
+// as zjhints, so a shared layout's bars dim in step.
+const DEFAULT_DIM_WHEN_UNFOCUSED: bool = true;
+const DEFAULT_DIM_STRENGTH: f32 = 0.5;
+// On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
+// is expected to do, and Zellij's own tab bar does it.
+const DEFAULT_MOUSE: bool = true;
+
 #[derive(Default)]
+// The options are read here and drawn by the renderer.
+#[allow(dead_code)]
 struct State {
     /// What every call into Zellij goes through, so tests can see them. See
     /// `BarHost`.
@@ -22,6 +87,47 @@ struct State {
     /// What every bar keeps: its ids, its own URL and pane width, whether it
     /// is hidden, and its configuration.
     bar: BarCore,
+    /// The format of every tab but the active one, or `None` for Zellij's own
+    /// ribbon colors.
+    tab_format: Option<String>,
+    /// The format of the active tab, or `None` for Zellij's own ribbon
+    /// colors.
+    active_tab_format: Option<String>,
+    /// Drawn between neighboring tabs, and between a tab and a marker.
+    tab_spacer: String,
+    /// What each indicator of `{flags}` draws as, in the order of
+    /// `flags::FLAGS`. An empty one hides that indicator.
+    flag_formats: [String; FLAGS.len()],
+    /// The marker for the tabs hidden before the ones shown, or `None` for
+    /// one in Zellij's own ribbon colors.
+    overflow_left_format: Option<String>,
+    /// The marker for the tabs hidden after the ones shown, or `None` for one
+    /// in Zellij's own ribbon colors.
+    overflow_right_format: Option<String>,
+    /// Number tabs from 0 in `{index}`, rather than from 1.
+    index_from_zero: bool,
+    /// The name drawn for the tab being renamed while its new name is empty.
+    rename_placeholder: String,
+    /// The end of a lone tab too wide for the bar, which is cut to fit.
+    overflow_str: String,
+    /// Fit the tabs to the bar's own pane.
+    auto_width: bool,
+    /// A hard cap on the line's width in columns, `0` for none.
+    max_length: usize,
+    /// Whether East Asian Ambiguous characters occupy two columns. Nerd Font
+    /// glyphs are Ambiguous, and most terminals showing them render two.
+    wide_ambiguous: bool,
+    /// Draw nothing while this session is nested in another, whose own tab
+    /// bar is on screen.
+    hide_when_nested: bool,
+    /// Hand this plugin's row back to the panes around it whenever there is
+    /// nothing to draw on it.
+    collapse_when_empty: bool,
+    dim_when_unfocused: bool,
+    /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
+    dim_strength: f32,
+    /// Switch, rename and open the menu of tabs with the mouse.
+    mouse: bool,
 }
 
 register_plugin!(State);
@@ -31,8 +137,58 @@ impl State {
     /// under it, as `load` does and as a live update from the settings screen
     /// does, so a value behaves the same whichever way it arrived. See
     /// `BarCore::configure`.
+    ///
+    /// A format that is empty counts as unset, and so as Zellij's own look,
+    /// except for `tab_spacer` and the flags: there, empty is a value of its
+    /// own, no gap between tabs or no indicator.
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
-        self.bar.configure(&BAR, user_configuration);
+        let configuration = self.bar.configure(&BAR, user_configuration);
+        let text = |key: &str, default: &str| {
+            configuration
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| default.to_string())
+        };
+        self.tab_format = config::non_empty_string_option(configuration, CONFIG_TAB_FORMAT);
+        self.active_tab_format =
+            config::non_empty_string_option(configuration, CONFIG_ACTIVE_TAB_FORMAT);
+        self.tab_spacer = text(CONFIG_TAB_SPACER, DEFAULT_TAB_SPACER);
+        self.flag_formats = FLAGS.map(|flag| text(flag.option, flag.default));
+        self.overflow_left_format =
+            config::non_empty_string_option(configuration, CONFIG_OVERFLOW_LEFT_FORMAT);
+        self.overflow_right_format =
+            config::non_empty_string_option(configuration, CONFIG_OVERFLOW_RIGHT_FORMAT);
+        self.index_from_zero = config::bool_option(
+            configuration,
+            CONFIG_INDEX_FROM_ZERO,
+            DEFAULT_INDEX_FROM_ZERO,
+        );
+        self.rename_placeholder = text(CONFIG_RENAME_PLACEHOLDER, DEFAULT_RENAME_PLACEHOLDER);
+        self.overflow_str = text(CONFIG_OVERFLOW_STR, DEFAULT_OVERFLOW_STR);
+        self.auto_width = config::bool_option(configuration, CONFIG_AUTO_WIDTH, DEFAULT_AUTO_WIDTH);
+        self.max_length =
+            config::usize_option(configuration, CONFIG_MAX_LENGTH, DEFAULT_MAX_LENGTH);
+        self.wide_ambiguous = config::wide_ambiguous(configuration);
+        self.hide_when_nested = config::bool_option(
+            configuration,
+            CONFIG_HIDE_WHEN_NESTED,
+            DEFAULT_HIDE_WHEN_NESTED,
+        );
+        self.collapse_when_empty = config::bool_option(
+            configuration,
+            CONFIG_COLLAPSE_WHEN_EMPTY,
+            DEFAULT_COLLAPSE_WHEN_EMPTY,
+        );
+        self.dim_when_unfocused = config::bool_option(
+            configuration,
+            CONFIG_DIM_WHEN_UNFOCUSED,
+            DEFAULT_DIM_WHEN_UNFOCUSED,
+        );
+        // Clamped: the dim blend overshoots past neutral gray above 1.0, and
+        // inverts the blend direction below 0.0.
+        self.dim_strength =
+            config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
+        self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
     }
 }
 
@@ -48,8 +204,7 @@ impl BarPlugin for State {
     }
 
     fn mouse(&self) -> bool {
-        // No `mouse` option yet: the bar always loads with the mouse on.
-        true
+        self.mouse
     }
 
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
@@ -64,7 +219,7 @@ impl ZellijPlugin for State {
             return;
         }
         self.apply_configuration(configuration);
-        self.bar.load(&self.host, &BAR, true);
+        self.bar.load(&self.host, &BAR, self.mouse);
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -94,31 +249,4 @@ impl ZellijPlugin for State {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use zjkit::host::Call;
-
-    #[test]
-    fn loading_the_bar_asks_for_its_permissions_and_events() {
-        let mut state = State::default();
-        state.load(BTreeMap::new());
-        let calls = state.host.calls();
-        assert!(calls.contains(&Call::RequestPermission(bar_permissions(true))));
-        assert!(calls.contains(&Call::Subscribe(BAR_EVENTS.to_vec())));
-    }
-
-    #[test]
-    fn asking_for_mouse_keeps_the_permissions_the_bar_always_needs() {
-        assert_eq!(bar_permissions(false), BAR_PERMISSIONS.to_vec());
-        let permissions = bar_permissions(true);
-        for permission in BAR_PERMISSIONS.iter().chain(MOUSE_PERMISSIONS.iter()) {
-            assert!(permissions.contains(permission), "{permission:?}");
-        }
-        assert!(!bar_permissions(false).contains(&PermissionType::RunActionsAsUser));
-    }
-
-    #[test]
-    fn the_settings_screen_asks_for_the_permissions_of_a_bar_with_mouse() {
-        assert_eq!((settings::SCHEMA.permissions)(), bar_permissions(true));
-    }
-}
+mod tests;
