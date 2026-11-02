@@ -255,8 +255,8 @@ jobs:
           target: wasm32-wasip1
 
       # The version the release is published as, so the package says the same
-      # as its tag. Only in this build: main's Cargo.toml is never changed.
-      - name: Write the version into Cargo.toml
+      # as its tag. Only in this build: main's manifest is never changed.
+      - name: Write the version into plugins/zjhints/Cargo.toml
         if: ${{ matrix.build.version != '' }}
         env:
           VERSION: ${{ matrix.build.version }}
@@ -266,8 +266,8 @@ jobs:
             echo "::error::'${VERSION}' is not a version" >&2
             exit 1
           fi
-          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" Cargo.toml
-          grep -m1 '^version = ' Cargo.toml
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" plugins/zjhints/Cargo.toml
+          grep -m1 '^version = ' plugins/zjhints/Cargo.toml
 
       # Tests build for the host, not wasm, which pulls in OpenSSL through
       # zellij-utils. See ci.yml.

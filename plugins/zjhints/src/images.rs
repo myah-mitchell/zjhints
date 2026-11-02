@@ -21,7 +21,7 @@ use crate::mouse;
 use crate::popup;
 use crate::settings::editor::{Editor, Field, Focus};
 use crate::settings::view::{self, Control, FormatView, HelpState, Layout, Marker, Rgb, RowView};
-use crate::{char_width, AnsiParser, AnsiSegment, ClickMap, State};
+use crate::{ClickMap, State};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::fs;
@@ -32,6 +32,7 @@ use zellij_tile::prelude::{
 };
 use zellij_utils::input::config::Config;
 use zellij_utils::setup::get_default_themes;
+use zjkit::ansi::{char_width, AnsiParser, AnsiSegment};
 
 /// The comment every SVG drawn here carries, which is how `make images` tells
 /// its own files from ones made by hand.
@@ -42,6 +43,9 @@ const GENERATED_MARK: &str =
 const WRITE_ENV: &str = "ZJHINTS_WRITE_IMAGES";
 
 /// The size of one terminal cell in pixels, and of the margin around the grid.
+/// Where the settings screen in the images runs from, and its alias loads.
+const LOCATION: &str = "file:~/.local/share/zellij/plugins/zjhints.wasm";
+
 const CELL_WIDTH: usize = 9;
 const CELL_HEIGHT: usize = 18;
 const MARGIN_X: usize = 14;
@@ -1126,12 +1130,19 @@ fn settings_screen(
     let alias = vec![PluginAliasEntry {
         name: "zjhints".to_string(),
         plugin: PluginEntry {
-            location: "file:~/.local/share/zellij/plugins/zjhints.wasm".to_string(),
+            location: LOCATION.to_string(),
             cwd: None,
             configuration: configuration_of(options).into_iter().collect(),
         },
     }];
-    let mut editor = Editor::new(alias.clone(), alias, None).expect("an alias loading zjhints");
+    let mut editor = Editor::new(
+        &crate::settings::SCHEMA,
+        LOCATION,
+        alias.clone(),
+        alias,
+        None,
+    )
+    .expect("an alias loading zjhints");
     for (key, value) in edits {
         editor.submit(
             &Field::Value {
@@ -1150,7 +1161,8 @@ fn settings_screen(
     editor.select(row);
 
     let items = view::menu_items(&editor);
-    let preview_rows = view::is_previewed(editor.section()).then_some(editor.rows().len());
+    let preview_rows =
+        view::is_previewed(editor.schema(), editor.section()).then_some(editor.rows().len());
     let layout = Layout::new(rows, columns, &items, preview_rows).expect("room for the screen");
     let mut screen = Screen::new(rows, columns);
 
@@ -1224,7 +1236,11 @@ fn settings_screen(
     // The preview, under a Theme list: a dim caption, then the bar.
     if let Some(y) = layout.preview_y {
         let mode_info = mode_info(InputMode::Normal);
-        let overrides = view::theme_overrides(editor.working(), Some(&mode_info.style.colors));
+        let overrides = view::theme_overrides(
+            editor.schema(),
+            editor.working(),
+            Some(&mode_info.style.colors),
+        );
         let caption = view::truncate(&view::preview_caption(overrides.len(), true), width);
         let dim = Pen {
             dim: true,
@@ -1243,7 +1259,7 @@ fn settings_screen(
                 &pens,
             );
         }
-        let bar = view::theme_preview(editor.working(), &mode_info, true, width);
+        let bar = view::theme_preview(editor.schema(), editor.working(), &mode_info, true, width);
         screen.print(y + 1, layout.content_x, &bar);
     }
 
@@ -1303,7 +1319,7 @@ fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
 /// popup draws, and inside it the rows of Zellij's list widget, each a
 /// space, the empty mark column and a space before its label.
 fn menu_lines(labels: &[String], rows: usize, cols: usize) -> Vec<String> {
-    let mut lines = popup::frame_lines(rows, cols);
+    let mut lines = zjkit::popup::frame_lines(rows, cols);
     for (row, label) in labels.iter().take(rows.saturating_sub(2)).enumerate() {
         lines[row + 1] = format!("│ {} │", menu_row(label, cols));
     }
@@ -1782,9 +1798,10 @@ fn documentation_images() -> Vec<(&'static str, String)> {
     ]
 }
 
-/// Where the images live.
+/// Where the images live: `docs/img` at the workspace root, two levels above
+/// this crate.
 fn image_directory() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/img")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/img")
 }
 
 /// The SVGs in `directory` that this module drew, by file name.

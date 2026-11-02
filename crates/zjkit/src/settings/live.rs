@@ -1,7 +1,8 @@
 //! Previewing edits on the running bars.
 //!
-//! The settings screen broadcasts every change as a pipe message to all
-//! plugins in the session; each bar keeps the ones meant for it. A broadcast
+//! The settings screen broadcasts every change as a pipe message, named by
+//! the plugin's `Schema::live_message`, to all plugins in the session; each
+//! bar keeps the ones meant for it. A broadcast
 //! launches nothing, unlike a message addressed by plugin URL, which starts a
 //! new instance when no running one matches its configuration exactly.
 //!
@@ -13,9 +14,6 @@
 //! afterwards.
 
 use std::collections::{BTreeMap, BTreeSet};
-
-/// The name of the pipe message a preview is sent as.
-pub const MESSAGE_NAME: &str = "zjhints::configure";
 
 const ALIAS_ARG: &str = "alias";
 const WAS_PREFIX: &str = "was:";

@@ -1,14 +1,15 @@
-[package]
-name = "zjhints"
-# Not what a release is published as: builds.yml writes the version of the
-# vX.Y.Z tag it builds into its own copy (see builds.toml). Bumping this cuts
-# nothing.
-version = "0.5.1"
+[workspace]
+members = ["crates/zjkit", "plugins/zjhints"]
+resolver = "2"
+
+[workspace.package]
 edition = "2021"
 license = "MIT"
 rust-version = "1.96"
 
-[dependencies]
+# Every dependency's version lives here, so a bump is one edit and the
+# workflows that read or rewrite these requirements only look at this file.
+[workspace.dependencies]
 ansi_term = "0.12"
 unicode-width = "0.2"
 zellij-tile = "0.46.0"
@@ -16,6 +17,7 @@ zellij-tile-utils = "0.46.0"
 # For the config-file block builders (plugin_aliases_kdl) the settings screen
 # saves through; zellij-tile already builds it, so it adds nothing to compile.
 zellij-utils = "0.46.0"
+zjkit = { path = "crates/zjkit" }
 
 # Override: myah-mitchell/zellij's fork-v0.46.6 is upstream main with the
 # nested-session, plugin-collapse, context menu/prompt, config-save, popup

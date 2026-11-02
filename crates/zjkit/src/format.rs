@@ -1,8 +1,8 @@
 //! Parsing of zjstatus-style format strings.
 //!
 //! This mirrors the styling syntax used by [zjstatus](https://github.com/dj95/zjstatus)
-//! so that hint styles can be configured in exactly the same way as any other
-//! zjstatus widget. A format string is a sequence of literal text and `#[...]`
+//! so that a plugin's styles can be configured in exactly the same way as any
+//! other zjstatus widget. A format string is a sequence of literal text and `#[...]`
 //! styling directives, e.g.:
 //!
 //! ```text
@@ -182,8 +182,8 @@ fn hex_to_rgb(hex: &str, dim: f32) -> Option<Colour> {
 
 /// A fully dimmed color sits at this fraction of its own brightness: dimmed
 /// output should read as visibly darker, not just the same brightness with
-/// the hue washed out. Mirrors the constant of the same name in `main.rs`
-/// and the matching one in the zjstatus fork, so a custom format string
+/// the hue washed out. Matches the one in the zjstatus fork, and the plugins
+/// dim their theme palette through `dim_rgb` too, so a custom format string
 /// dims by the same amount as the theme-palette styling next to it.
 const DIM_BRIGHTNESS: f32 = 0.3;
 
@@ -192,9 +192,9 @@ const DIM_BRIGHTNESS: f32 = 0.3;
 /// `DIM_BRIGHTNESS` of the color's own perceived luminance (ITU-R BT.601 luma
 /// weights) rather than toward a fixed midpoint or toward the color's own
 /// unchanged brightness, so the color fades out its hue while also
-/// darkening, ending at a dim neutral gray. See `main.rs`'s `dim_color` for
-/// the same blend applied to the theme palette.
-pub(crate) fn dim_rgb(r: u8, g: u8, b: u8, strength: f32) -> (u8, u8, u8) {
+/// darkening, ending at a dim neutral gray. The plugins apply the same blend
+/// to the theme palette through this function.
+pub fn dim_rgb(r: u8, g: u8, b: u8, strength: f32) -> (u8, u8, u8) {
     if strength <= 0.0 {
         return (r, g, b);
     }
@@ -296,8 +296,8 @@ mod tests {
     #[test]
     fn dim_fades_an_rgb_color_toward_gray_but_leaves_indexed_colors_alone() {
         let config = cfg(&[]);
-        // Pure red at full dim strength: mirrors main.rs's
-        // dim_color_blends_rgb_toward_gray, same DIM_BRIGHTNESS.
+        // Pure red at full dim strength: the same blend zjhints'
+        // dim_color_blends_rgb_toward_gray checks for the theme palette.
         assert_eq!(parse_color("#ff0000", &config, 1.0), Some(RGB(23, 23, 23)));
         assert_eq!(parse_color("#ff0000", &config, 0.0), Some(RGB(255, 0, 0)));
         // Named and indexed colors have no RGB triple to fade, so they pass

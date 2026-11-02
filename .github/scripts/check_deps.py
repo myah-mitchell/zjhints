@@ -36,13 +36,15 @@ USER_AGENT = "zjhints-ci (github actions dependency check)"
 
 
 def direct_dependencies(cargo_toml: str) -> dict[str, str]:
-    """Crate name -> version requirement, from the [dependencies] table."""
+    """Crate name -> version requirement, from the [workspace.dependencies]
+    table, or a crate's own [dependencies] for a manifest that is not a
+    workspace root. Path dependencies carry no version and are skipped."""
     deps: dict[str, str] = {}
     in_table = False
     for line in cargo_toml.splitlines():
         stripped = line.strip()
         if stripped.startswith("["):
-            in_table = stripped == "[dependencies]"
+            in_table = stripped in ("[workspace.dependencies]", "[dependencies]")
             continue
         if not in_table or not stripped or stripped.startswith("#"):
             continue

@@ -1,45 +1,73 @@
-//! The popup of a hover preview: this plugin running as a list of the entries
-//! a hint's menu would offer, opened by the bar below the hint and drawn like
-//! that menu. Clicking an entry has the bar choose it, as it would in the menu. The popup tells the
-//! bar when it opens and closes, and closes itself when the pointer leaves
-//! it, a click lands on it, or it is never hovered.
+//! The popup of a hover preview: the plugin running as a list of the entries
+//! an item's menu would offer, opened by the bar below the item and drawn
+//! like that menu. Clicking an entry has the bar choose it, as it would in
+//! the menu. The popup tells the bar when it opens and closes, and closes
+//! itself when the pointer leaves it, a click lands on it, or it is never
+//! hovered.
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 
-use crate::mouse::{
-    HOVER_CLOSED_MESSAGE, HOVER_CLOSE_MESSAGE, HOVER_OPENED_MESSAGE, HOVER_PICKED_ENTRY_ARG,
-    HOVER_PICKED_MESSAGE,
-};
+use crate::mouse::HOVER_PICKED_ENTRY_ARG;
 
 /// How long a popup waits to be hovered before it closes itself, which is
 /// what keeps one from outliving a pointer that left the bar elsewhere.
 const HOVER_IDLE_SECONDS: f64 = 3.0;
 
-// What marks an instance as a preview popup rather than the bar, and what it
-// shows. Named apart from the options, so a user option that reads like a
-// switch for the feature cannot turn a bar into a popup.
-const CONFIG_HOVER_PREVIEW: &str = "zjhints_internal_preview";
-const CONFIG_HOVER_PREVIEW_TAG: &str = "zjhints_internal_preview_tag";
-const CONFIG_HOVER_PREVIEW_ENTRIES: &str = "zjhints_internal_preview_entries";
+/// The messages a bar and its popups exchange, and the configuration keys a
+/// popup is opened with, all named after the plugin so that two plugins'
+/// bars and popups never answer each other. Build it with `popup_names!`.
+#[derive(Debug)]
+pub struct Names {
+    /// Sent by a popup to the bar that opened it, with the popup's tag, once
+    /// it can take messages, so the bar learns its plugin id.
+    pub opened: &'static str,
+    /// Sent by a popup to its bar, with its tag, as it closes.
+    pub closed: &'static str,
+    /// Sent by the bar to one of its popups to close it.
+    pub close: &'static str,
+    /// Sent by a popup to its bar, with its tag, when one of its entries is
+    /// clicked. `HOVER_PICKED_ENTRY_ARG` holds the entry's index.
+    pub picked: &'static str,
+    /// What marks an instance as a popup rather than the bar, and what it
+    /// shows. Named apart from the options, so a user option that reads like
+    /// a switch for the feature cannot turn a bar into a popup.
+    pub preview_key: &'static str,
+    pub tag_key: &'static str,
+    pub entries_key: &'static str,
+}
 
-/// The configuration keys only a popup is opened with, which the settings
-/// screen refuses to add.
-pub const INTERNAL_OPTIONS: &[&str] = &[
-    CONFIG_HOVER_PREVIEW,
-    CONFIG_HOVER_PREVIEW_TAG,
-    CONFIG_HOVER_PREVIEW_ENTRIES,
-];
+impl Names {
+    /// The configuration keys only a popup is opened with, which a settings
+    /// screen refuses to add.
+    pub const fn internal_options(&self) -> [&'static str; 3] {
+        [self.preview_key, self.tag_key, self.entries_key]
+    }
+}
+
+/// The `Names` of the plugin called `$plugin`: messages `<plugin>::hover_*`
+/// and configuration keys `<plugin>_internal_preview*`.
+#[macro_export]
+macro_rules! popup_names {
+    ($plugin:literal) => {
+        $crate::popup::Names {
+            opened: concat!($plugin, "::hover_opened"),
+            closed: concat!($plugin, "::hover_closed"),
+            close: concat!($plugin, "::hover_close"),
+            picked: concat!($plugin, "::hover_picked"),
+            preview_key: concat!($plugin, "_internal_preview"),
+            tag_key: concat!($plugin, "_internal_preview_tag"),
+            entries_key: concat!($plugin, "_internal_preview_entries"),
+        }
+    };
+}
 
 /// The configuration a popup named `tag` is opened with.
-pub fn configuration(tag: &str, entries: &[String]) -> BTreeMap<String, String> {
+pub fn configuration(names: &Names, tag: &str, entries: &[String]) -> BTreeMap<String, String> {
     BTreeMap::from([
-        (CONFIG_HOVER_PREVIEW.to_string(), "true".to_string()),
-        (CONFIG_HOVER_PREVIEW_TAG.to_string(), tag.to_string()),
-        (
-            CONFIG_HOVER_PREVIEW_ENTRIES.to_string(),
-            encode_entries(entries),
-        ),
+        (names.preview_key.to_string(), "true".to_string()),
+        (names.tag_key.to_string(), tag.to_string()),
+        (names.entries_key.to_string(), encode_entries(entries)),
     ])
 }
 
@@ -84,7 +112,7 @@ fn menu_list(entries: &[String]) -> MenuList {
     MenuList::new(
         entries
             .iter()
-            .map(|entry| MenuItem::new(crate::show_controls(entry)))
+            .map(|entry| MenuItem::new(crate::ansi::show_controls(entry)))
             .collect(),
     )
     .focused()
@@ -137,6 +165,7 @@ enum PopupAction {
 
 #[derive(Debug)]
 pub struct PreviewPopup {
+    names: &'static Names,
     tag: String,
     /// The plugin id of the bar that opened it.
     owner: Option<u32>,
@@ -147,19 +176,23 @@ pub struct PreviewPopup {
 
 impl PreviewPopup {
     /// The popup `configuration` asks for, if it is a popup's.
-    pub fn from_configuration(configuration: &BTreeMap<String, String>) -> Option<Self> {
-        if configuration.get(CONFIG_HOVER_PREVIEW).map(String::as_str) != Some("true") {
+    pub fn from_configuration(
+        names: &'static Names,
+        configuration: &BTreeMap<String, String>,
+    ) -> Option<Self> {
+        if configuration.get(names.preview_key).map(String::as_str) != Some("true") {
             return None;
         }
         let tag = configuration
-            .get(CONFIG_HOVER_PREVIEW_TAG)
+            .get(names.tag_key)
             .cloned()
             .unwrap_or_default();
         let entries = configuration
-            .get(CONFIG_HOVER_PREVIEW_ENTRIES)
+            .get(names.entries_key)
             .map(|encoded| decode_entries(encoded))
             .unwrap_or_default();
         Some(Self {
+            names,
             owner: crate::mouse::parse_preview_tag(&tag).map(|(owner, _)| owner),
             tag,
             list: menu_list(&entries),
@@ -167,7 +200,9 @@ impl PreviewPopup {
         })
     }
 
-    pub fn load(&self) {
+    /// Subscribes to what the popup needs and asks for `permissions`, which
+    /// must be the bar's whole set (see below).
+    pub fn load(&self, permissions: &[PermissionType]) {
         subscribe(&[
             EventType::Mouse,
             EventType::Timer,
@@ -177,19 +212,19 @@ impl PreviewPopup {
         // Messaging the bar needs a permission. The popup shares the bar's
         // location, and so its cached grants, which a request replaces: the
         // bar's whole set is granted from the cache, without a prompt.
-        request_permission(&crate::bar_permissions(true));
+        request_permission(permissions);
         set_timeout(HOVER_IDLE_SECONDS);
     }
 
     pub fn update(&mut self, event: Event) -> bool {
         let action = match event {
             Event::PermissionRequestResult(PermissionStatus::Granted) => {
-                self.tell_owner(HOVER_OPENED_MESSAGE, BTreeMap::new());
+                self.tell_owner(self.names.opened, BTreeMap::new());
                 PopupAction::Stay
             }
             // However the popup closes, so the bar can show it again.
             Event::BeforeClose => {
-                self.tell_owner(HOVER_CLOSED_MESSAGE, BTreeMap::new());
+                self.tell_owner(self.names.closed, BTreeMap::new());
                 PopupAction::Stay
             }
             Event::Mouse(mouse) => self.on_mouse(mouse),
@@ -203,7 +238,7 @@ impl PreviewPopup {
             PopupAction::Pick(index) => {
                 let args =
                     BTreeMap::from([(HOVER_PICKED_ENTRY_ARG.to_string(), index.to_string())]);
-                self.tell_owner(HOVER_PICKED_MESSAGE, args);
+                self.tell_owner(self.names.picked, args);
                 close_self();
             }
         }
@@ -211,7 +246,7 @@ impl PreviewPopup {
     }
 
     pub fn pipe(&self, message: &PipeMessage) {
-        if message.name == HOVER_CLOSE_MESSAGE && self.is_from_owner(&message.source) {
+        if message.name == self.names.close && self.is_from_owner(&message.source) {
             close_self();
         }
     }
@@ -298,12 +333,15 @@ impl PreviewPopup {
 mod tests {
     use super::*;
 
+    static NAMES: Names = crate::popup_names!("zjtest");
+
     fn entries(labels: &[&str]) -> Vec<String> {
         labels.iter().map(|label| label.to_string()).collect()
     }
 
     fn popup(labels: &[&str]) -> PreviewPopup {
-        PreviewPopup::from_configuration(&configuration("7-2", &entries(labels))).expect("a popup")
+        PreviewPopup::from_configuration(&NAMES, &configuration(&NAMES, "7-2", &entries(labels)))
+            .expect("a popup")
     }
 
     /// `popup`, laid out at the size its entries ask for.
@@ -335,7 +373,8 @@ mod tests {
             entries(&[""])
         );
         let popup =
-            PreviewPopup::from_configuration(&configuration("7-2", &original)).expect("a popup");
+            PreviewPopup::from_configuration(&NAMES, &configuration(&NAMES, "7-2", &original))
+                .expect("a popup");
         // The newline arrives, and the popup shows it escaped.
         let mut shown = original.clone();
         shown[3] = "two\\nlines".to_string();
@@ -345,15 +384,35 @@ mod tests {
     }
 
     #[test]
+    fn names_are_the_plugins_own() {
+        assert_eq!(NAMES.opened, "zjtest::hover_opened");
+        assert_eq!(NAMES.closed, "zjtest::hover_closed");
+        assert_eq!(NAMES.close, "zjtest::hover_close");
+        assert_eq!(NAMES.picked, "zjtest::hover_picked");
+        assert_eq!(
+            NAMES.internal_options(),
+            [
+                "zjtest_internal_preview",
+                "zjtest_internal_preview_tag",
+                "zjtest_internal_preview_entries",
+            ]
+        );
+        // Another plugin's popup configuration makes no popup here.
+        static OTHER: Names = crate::popup_names!("zjother");
+        let theirs = configuration(&OTHER, "7-2", &entries(&["a"]));
+        assert!(PreviewPopup::from_configuration(&NAMES, &theirs).is_none());
+    }
+
+    #[test]
     fn only_a_popup_configuration_makes_a_popup() {
-        assert!(PreviewPopup::from_configuration(&BTreeMap::new()).is_none());
+        assert!(PreviewPopup::from_configuration(&NAMES, &BTreeMap::new()).is_none());
         let bar = BTreeMap::from([("mouse".to_string(), "true".to_string())]);
-        assert!(PreviewPopup::from_configuration(&bar).is_none());
-        let off = BTreeMap::from([(CONFIG_HOVER_PREVIEW.to_string(), "false".to_string())]);
-        assert!(PreviewPopup::from_configuration(&off).is_none());
+        assert!(PreviewPopup::from_configuration(&NAMES, &bar).is_none());
+        let off = BTreeMap::from([(NAMES.preview_key.to_string(), "false".to_string())]);
+        assert!(PreviewPopup::from_configuration(&NAMES, &off).is_none());
         // An option a user might set to turn the feature on leaves a bar.
         let user = BTreeMap::from([("hover_preview".to_string(), "true".to_string())]);
-        assert!(PreviewPopup::from_configuration(&user).is_none());
+        assert!(PreviewPopup::from_configuration(&NAMES, &user).is_none());
     }
 
     #[test]
@@ -434,8 +493,11 @@ mod tests {
             assert!(!popup.is_from_owner(&source), "{source:?}");
         }
         // A tag that names no bar is closed by no message.
-        let stray = PreviewPopup::from_configuration(&configuration("stray", &entries(&["a"])))
-            .expect("a popup");
+        let stray = PreviewPopup::from_configuration(
+            &NAMES,
+            &configuration(&NAMES, "stray", &entries(&["a"])),
+        )
+        .expect("a popup");
         assert!(!stray.is_from_owner(&PipeSource::Plugin(7)));
     }
 

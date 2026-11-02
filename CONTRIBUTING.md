@@ -23,6 +23,53 @@ sudo dnf install openssl-devel # Fedora
 
 The first host build compiles all of `zellij-utils` and takes a while. After that it is fast.
 
+## Repository layout
+
+The repository is a Cargo workspace. Run every command from its root: `make`, `cargo test` and `cargo build` cover every crate in it, and the built plugin lands at `target/wasm32-wasip1/release/zjhints.wasm`.
+
+| Path | What it holds |
+| --- | --- |
+| `crates/zjkit` | The library the plugins share, for code any bar needs rather than code about hints |
+| `plugins/zjhints` | The zjhints plugin itself |
+| `docs/` | The zjhints documentation and the images its tests draw |
+
+### The shared crate
+
+zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls the plugin's tests need to stub out stay in the plugin, because `cfg(test)` is per crate and a stub in the plugin does not reach zjkit. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
+
+| Module | What it does |
+| --- | --- |
+| `ansi` | Measures and cuts ANSI-styled text by visible width |
+| `dim` | Fades palette colors while a session is not where the keyboard goes |
+| `fit` | Drops whole items until a line fits, leaving one gap for the indicator |
+| `format` | Renders zjstatus-style format strings |
+| `mouse` | Click maps, menus and the hover-preview state machine |
+| `nesting` | Reads nested-session state from `ModeInfo` |
+| `panes` | Focus and widths from a pane manifest |
+| `popup` | The floating pane a hover preview opens in |
+| `settings` | The settings screen, driven by the plugin's `Schema` |
+| `theme` | Color themes, format themes and symbol sets |
+| `visibility` | Hide, show and toggle messages, and collapsing an empty row |
+
+### The zjhints plugin
+
+| File | What it holds |
+| --- | --- |
+| `main.rs` | The plugin state, its options, and the Zellij event loop |
+| `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
+| `keys.rs` | Key grouping, key and modifier aliases, and key order |
+| `mode_prefix.rs` | The mode drawn ahead of the hints |
+| `host.rs` | Permissions, pipe names, and the host calls tests stub out |
+| `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
+| `popup.rs` | zjhints' names for the hover-preview popup |
+| `theme.rs` | The hint options each shared theme sets |
+| `settings/` | zjhints' option tables and `Schema` |
+| `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
+
+### Dependencies
+
+Dependency versions, the toolchain floor (`rust-version`) and any `[patch.crates-io]` override live once in the root `Cargo.toml`. Each crate's own manifest names its dependencies with `workspace = true`. The zjhints version is the one in `plugins/zjhints/Cargo.toml`, and it is what a release is tagged with.
+
 ## The loop
 
 ```bash
@@ -55,7 +102,7 @@ So if you upgrade Zellij, bump the crates to match. `update-deps.yml` proposes t
 
 ### Tests
 
-They run in CI, and again in `builds.yml` before it publishes anything. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, call `render_hints_for_mode`, and assert on the visible text. Look at the existing tests in `src/main.rs` for the pattern.
+They run in CI, and again in `builds.yml` before it publishes anything. Anything with logic worth reasoning about, such as ordering, fitting, or label resolution, should come with coverage. The render path is testable end to end: build a synthetic keymap, lay it out with `lay_out_hints_for_mode`, and assert on the visible text. The `rendered` helper in `plugins/zjhints/src/tests.rs` does this, and the tests there show the pattern. Code in zjkit gets its tests in zjkit, against a small test plugin of its own rather than zjhints.
 
 ### Comments that explain why
 
@@ -80,7 +127,7 @@ New config options need a row in the [configuration reference](docs/configuratio
 
 ### Images
 
-The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `src/images.rs` from the code that draws the bar and the settings screen, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
+The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `plugins/zjhints/src/images.rs` from the code that draws the bar and the settings screen, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
 
 ```bash
 make images    # rewrites the generated SVGs in docs/img
@@ -88,7 +135,7 @@ make images    # rewrites the generated SVGs in docs/img
 
 `make images` knows the SVGs it draws by a comment on their second line. It rewrites those, removes the ones it no longer draws, and leaves every other file in `docs/img` alone, so an image made by hand can live there too.
 
-The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
+The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `plugins/zjhints/src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 #### Animated images
 
@@ -98,7 +145,7 @@ An animation is a list of frames, each a `Screen` and how long it shows, written
 2. Add `animation.to_svg(title)` to `images()` as with a still image, and run `make images`.
 3. In the page, give it alt text that tells the whole sequence, since a reader with motion turned off sees only the still frame.
 
-Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demos in the README, drawn by `src/images/session.rs`, run 16 to 26 seconds each and take 30 to 110 KB, the fitting demo the most for its resize. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does a viewer that applies CSS but does not animate it. A viewer that ignores the `<style>` block altogether draws every frame on top of the others, so check a new image in a browser.
+Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demos in the README, drawn by `plugins/zjhints/src/images/session.rs`, run 16 to 26 seconds each and take 30 to 110 KB, the fitting demo the most for its resize. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does a viewer that applies CSS but does not animate it. A viewer that ignores the `<style>` block altogether draws every frame on top of the others, so check a new image in a browser.
 
 The session demo draws Zellij's tab bar, pane frames and pane contents by hand. Only the bar, its hover preview and the settings screen come from the plugin, so change the hand-drawn parts there when Zellij's look changes.
 

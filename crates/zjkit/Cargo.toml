@@ -1,0 +1,13 @@
+[package]
+name = "zjkit"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ansi_term.workspace = true
+unicode-width.workspace = true
+zellij-tile.workspace = true
+zellij-utils.workspace = true

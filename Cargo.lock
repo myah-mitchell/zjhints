@@ -2767,6 +2767,17 @@ dependencies = [
  "zellij-tile",
  "zellij-tile-utils",
  "zellij-utils",
+ "zjkit",
+]
+
+[[package]]
+name = "zjkit"
+version = "0.1.0"
+dependencies = [
+ "ansi_term",
+ "unicode-width 0.2.2",
+ "zellij-tile",
+ "zellij-utils",
 ]
 
 [[package]]

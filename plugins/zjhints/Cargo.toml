@@ -1,0 +1,17 @@
+[package]
+name = "zjhints"
+# Not what a release is published as: builds.yml writes the version of the
+# vX.Y.Z tag it builds into its own copy (see builds.toml). Bumping this cuts
+# nothing.
+version = "0.5.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+zjkit.workspace = true
+ansi_term.workspace = true
+unicode-width.workspace = true
+zellij-tile.workspace = true
+zellij-tile-utils.workspace = true
+zellij-utils.workspace = true
