@@ -18,7 +18,6 @@
 mod session;
 
 use crate::mouse;
-use crate::popup;
 use crate::settings::editor::{Editor, Field, Focus};
 use crate::settings::view::{self, Control, FormatView, HelpState, Layout, Marker, Rgb, RowView};
 use crate::{ClickMap, State};
@@ -1306,7 +1305,7 @@ struct Hover {
 fn hover_at(map: &ClickMap, column: usize, columns: usize) -> Option<Hover> {
     let preview = mouse::hover_preview(map, &Mouse::Hover(0, column))?;
     let labels = preview.labels();
-    let (width, height) = popup::size(&labels);
+    let (width, height) = zjkit::popup::size(&labels);
     Some(Hover {
         left: preview.columns.start.min(columns.saturating_sub(width)),
         hint: preview.columns,

@@ -2,6 +2,7 @@ use super::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use zjkit::ansi::{AnsiParser, AnsiSegment};
+use zjkit::host::{Call, Recorder};
 
 /// Sort a string of characters as if they were the keys of one hint, so an
 /// expected ordering can be written as a plain string literal.
@@ -2346,13 +2347,39 @@ fn message_from(source: PipeSource, name: &str, payload: &str) -> PipeMessage {
 #[test]
 fn resting_on_a_picker_opens_its_preview_after_the_delay() {
     let (mut state, marker) = previewing_bar();
+    state.host.clear();
     state.update(Event::Mouse(Mouse::Hover(0, marker)));
     assert!(!state.preview_memory.is_idle());
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::SetTimeout(mouse::HOVER_DELAY_SECONDS)]
+    );
+    state.host.clear();
     state.update(Event::Timer(mouse::HOVER_DELAY_SECONDS));
+    // The popup hangs from the marker, below the bar's one row, and lists
+    // the hints the marker stands for.
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::OpenPreviewPopup {
+            url: "zjhints".to_string(),
+            tag: "7-1".to_string(),
+            entries: vec!["c  frames".to_string(), "d  pin".to_string()],
+            line: 1,
+            column: marker,
+        }]
+    );
     // Preview 1 of bar 7 says where it is, and is the one closed.
     let opened = message_from(PipeSource::Plugin(30), popup::NAMES.opened, "7-1");
     assert!(!state.pipe(opened));
-    assert_eq!(state.preview_memory.dismiss().close, Some(30));
+    state.host.clear();
+    state.update(Event::Mouse(Mouse::LeftClick(0, 0)));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::ClosePreviewPopup {
+            message: popup::NAMES.close,
+            popup: 30,
+        }]
+    );
 }
 
 #[test]
@@ -2461,7 +2488,7 @@ fn only_the_bar_s_own_popups_are_heard() {
 
 #[test]
 fn a_popup_instance_ignores_what_the_bar_handles() {
-    let configuration = popup::configuration(&popup::NAMES, "7-1", &["a".to_string()]);
+    let configuration = zjkit::popup::configuration(&popup::NAMES, "7-1", &["a".to_string()]);
     let mut state = State {
         preview_popup: PreviewPopup::from_configuration(&popup::NAMES, &configuration),
         ..Default::default()
@@ -3043,38 +3070,19 @@ fn clicking_the_mode_prefix_opens_settings() {
         left_click(&state, column_of(&state, "a close")),
         MouseOutcome::Run(vec![Action::CloseFocus])
     );
-}
 
-#[test]
-fn settings_opened_from_an_alias_bar_edit_that_alias() {
-    let configuration = settings_configuration(Some("zjhints-alt"));
+    // The screen edits the alias the clicked bar was started from.
+    state.own_url = Some("zjhints-alt".to_string());
+    state.click_map = state.draw_bar().1;
+    state.update(Event::Mouse(Mouse::LeftClick(0, 0)));
     assert_eq!(
-        configuration.get("alias").map(String::as_str),
-        Some("zjhints-alt")
+        state.host.calls(),
+        vec![Call::OpenSettings {
+            message: OPEN_SETTINGS_MESSAGE.to_string(),
+            pane_title: "zjhints settings".to_string(),
+            own_url: Some("zjhints-alt".to_string()),
+        }]
     );
-    assert_eq!(
-        configuration.get("settings").map(String::as_str),
-        Some("true")
-    );
-    // A bar started from a location rather than an alias pins nothing.
-    let configuration = settings_configuration(Some("file:/x/zjhints.wasm"));
-    assert_eq!(configuration.get("alias"), None);
-    assert_eq!(settings_configuration(None).get("alias"), None);
-}
-
-#[test]
-fn only_the_client_that_chose_the_settings_entry_opens_settings() {
-    let from = |client: &str| {
-        BTreeMap::from([(
-            OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG.to_string(),
-            client.to_string(),
-        )])
-    };
-    assert!(settings_requested_by(&from("3"), Some(3)));
-    assert!(!settings_requested_by(&from("4"), Some(3)));
-    assert!(!settings_requested_by(&from("3"), None));
-    assert!(!settings_requested_by(&from("three"), Some(3)));
-    assert!(!settings_requested_by(&BTreeMap::new(), Some(3)));
 }
 
 #[test]
@@ -3089,4 +3097,256 @@ fn asking_for_mouse_keeps_the_permissions_the_bar_always_needs() {
         assert!(permissions.contains(permission), "{permission:?}");
     }
     assert_eq!(bar_permissions(false), BAR_PERMISSIONS.to_vec());
+}
+
+/// A clickable bar in Pane mode binding `keymap`, with its click map drawn
+/// as `render` would leave it.
+fn clicked_bar(keymap: Vec<(KeyWithModifier, Vec<Action>)>) -> State {
+    let mut state = clickable_state(InputMode::Pane, keymap);
+    state.click_map = state.draw_bar().1;
+    state
+}
+
+#[test]
+fn loading_a_bar_asks_for_its_permissions_and_events() {
+    let mut state = State::default();
+    state.load(BTreeMap::new());
+    assert_eq!(state.plugin_id, Some(Recorder::PLUGIN_ID));
+    assert_eq!(state.client_id, Some(Recorder::CLIENT_ID));
+    // The pane stays selectable until the answer, so the prompt in it can be
+    // answered.
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            Call::PluginIds,
+            Call::RequestPermission(bar_permissions(false)),
+            Call::Subscribe(BAR_EVENTS.to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn loading_a_bar_with_mouse_asks_for_what_mouse_needs_too() {
+    let mut state = State::default();
+    state.load(BTreeMap::from([("mouse".to_string(), "true".to_string())]));
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            Call::PluginIds,
+            Call::RequestPermission(bar_permissions(true)),
+            Call::Subscribe(BAR_EVENTS.to_vec()),
+            Call::Subscribe(MOUSE_EVENTS.to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn a_permission_answer_makes_the_bar_unselectable_and_a_grant_adds_its_settings_entry() {
+    let mut granted = State::default();
+    assert!(granted.update(Event::PermissionRequestResult(PermissionStatus::Granted)));
+    assert_eq!(
+        granted.host.calls(),
+        vec![
+            Call::SetSelectable(false),
+            Call::AddSettingsEntry("zjhints".to_string()),
+        ]
+    );
+    let mut denied = State::default();
+    assert!(denied.update(Event::PermissionRequestResult(PermissionStatus::Denied)));
+    assert_eq!(denied.host.calls(), vec![Call::SetSelectable(false)]);
+}
+
+#[test]
+fn a_preview_that_turns_mouse_on_asks_for_what_mouse_needs() {
+    let mut state = bar_with(&[]);
+    assert!(state.take_preview(&preview_args("zjhints", &[("mouse", None, Some("true"))])));
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            Call::SetSelectable(true),
+            Call::RequestPermission(bar_permissions(true)),
+            Call::Subscribe(MOUSE_EVENTS.to_vec()),
+        ]
+    );
+    // Already on, a preview of another option asks for nothing.
+    state.host.clear();
+    assert!(state.take_preview(&preview_args("zjhints", &[("max_length", None, Some("9"))])));
+    assert_eq!(state.host.calls(), Vec::new());
+}
+
+#[test]
+fn the_first_pane_update_asks_the_running_bars_whether_they_are_hidden() {
+    let mut state = State {
+        plugin_id: Some(7),
+        ..Default::default()
+    };
+    let own_pane = PaneInfo {
+        id: 7,
+        is_plugin: true,
+        plugin_url: Some("zjhints-alt".to_string()),
+        ..Default::default()
+    };
+    state.update(Event::PaneUpdate(manifest(vec![own_pane.clone()])));
+    state.update(Event::PaneUpdate(manifest(vec![own_pane])));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::AskVisibility {
+            message: VISIBILITY.ask,
+            alias: Some("zjhints-alt".to_string()),
+        }]
+    );
+}
+
+#[test]
+fn a_bar_asked_whether_it_is_hidden_answers_the_asker_alone() {
+    let mut state = drawing_bar();
+    state.plugin_id = Some(3);
+    state.change_visibility(Request::Hide, None);
+    let ask = message_from(PipeSource::Plugin(5), VISIBILITY.ask, "zjhints");
+    assert!(!state.pipe(ask));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::AnswerVisibility {
+            message: VISIBILITY.answer,
+            plugin_id: 5,
+            answer: visibility::HIDDEN.to_string(),
+        }]
+    );
+}
+
+#[test]
+fn zellij_s_settings_entry_opens_settings_from_the_bar_of_the_client_that_chose_it() {
+    let request = |client: &str| {
+        let args = BTreeMap::from([(
+            OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG.to_string(),
+            client.to_string(),
+        )]);
+        PipeMessage::new(
+            PipeSource::Plugin(1),
+            OPEN_PLUGIN_SETTINGS_MESSAGE,
+            &None,
+            &Some(args),
+            false,
+        )
+    };
+    let mut state = State {
+        client_id: Some(2),
+        own_url: Some("zjhints".to_string()),
+        ..Default::default()
+    };
+    assert!(!state.pipe(request("3")));
+    assert_eq!(state.host.calls(), Vec::new());
+    assert!(!state.pipe(request("2")));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::OpenSettings {
+            message: OPEN_SETTINGS_MESSAGE.to_string(),
+            pane_title: "zjhints settings".to_string(),
+            own_url: Some("zjhints".to_string()),
+        }]
+    );
+}
+
+#[test]
+fn the_settings_screen_comes_up_when_asked_to_open_again() {
+    let mut state = State {
+        settings: Some(SettingsScreen::new(&settings::SCHEMA)),
+        ..Default::default()
+    };
+    let message = PipeMessage::new(
+        PipeSource::Plugin(1),
+        OPEN_SETTINGS_MESSAGE,
+        &None,
+        &None,
+        false,
+    );
+    assert!(!state.pipe(message));
+    assert_eq!(state.host.calls(), vec![Call::ShowSelf]);
+}
+
+#[test]
+fn a_click_on_a_hint_runs_its_actions_one_at_a_time() {
+    let binding = vec![Action::CloseFocus, Action::TogglePaneFrames];
+    let mut state = clicked_bar(vec![(key(BareKey::Char('a')), binding)]);
+    let column = column_of(&state, "a");
+    state.update(Event::Mouse(Mouse::LeftClick(0, column)));
+    let context = BTreeMap::from([(MOUSE_ACTION_CONTEXT.to_string(), String::new())]);
+    let run = |action| Call::RunAction {
+        action,
+        context: context.clone(),
+    };
+    assert_eq!(state.host.calls(), vec![run(Action::CloseFocus)]);
+    state.host.clear();
+    state.update(Event::ActionComplete(
+        Action::CloseFocus,
+        None,
+        context.clone(),
+    ));
+    assert_eq!(state.host.calls(), vec![run(Action::TogglePaneFrames)]);
+}
+
+#[test]
+fn a_right_click_opens_zellij_s_context_menu_for_the_bar() {
+    let mut state = clicked_bar(four_hints());
+    state.update(Event::Mouse(Mouse::RightClick(0, 9)));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::OpenContextMenu {
+            target: ContextMenuTarget::Bar,
+            line: 0,
+            column: 9,
+        }]
+    );
+}
+
+#[test]
+fn a_menu_is_a_prompt_and_its_answer_runs_the_chosen_entry() {
+    let mut state = clicked_bar(focus_keymap());
+    state.update(Event::Mouse(Mouse::LeftClick(
+        0,
+        column_of(&state, "focus"),
+    )));
+    let calls = state.host.calls();
+    let [Call::Prompt { request_id, .. }] = calls.as_slice() else {
+        panic!("expected one prompt, got {calls:?}");
+    };
+    state.host.clear();
+    state.update(Event::PromptResult(
+        *request_id,
+        PromptResult::Answered(PromptValue::Choice("1".to_string())),
+    ));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::RunAction {
+            action: Action::MoveFocus {
+                direction: Direction::Right
+            },
+            context: BTreeMap::from([(MOUSE_ACTION_CONTEXT.to_string(), String::new())]),
+        }]
+    );
+}
+
+#[test]
+fn rendering_publishes_the_line_on_every_zjstatus_pipe() {
+    let mut state = drawing_bar();
+    state.pipe_names = pipe_names_from_config(&BTreeMap::new());
+    let line = state.draw_bar().0;
+    state.render(1, 40);
+    let published = |pipe: &str| Call::Broadcast {
+        name: "pipe".to_string(),
+        payload: format!("zjstatus::pipe::pipe_{pipe}::{line}"),
+    };
+    assert_eq!(
+        state.host.calls(),
+        vec![published("zjhints"), published("zjstatus_hints")]
+    );
+}
+
+#[test]
+fn rendering_a_hidden_bar_gives_its_row_back_once() {
+    let mut state = drawing_bar();
+    state.change_visibility(Request::Hide, None);
+    state.render(1, 40);
+    state.render(1, 40);
+    assert_eq!(state.host.calls(), vec![Call::SetCollapsed(true)]);
 }

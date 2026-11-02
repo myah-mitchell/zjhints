@@ -8,6 +8,7 @@ use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, ANSI_RESET};
 use zjkit::config;
 use zjkit::fit::{Group, Precedence};
 use zjkit::format;
+use zjkit::host::Host;
 use zjkit::mouse;
 use zjkit::nesting;
 use zjkit::panes::{
@@ -43,6 +44,9 @@ use mode_prefix::*;
 
 #[derive(Default)]
 struct State {
+    /// What every call into Zellij goes through, so tests can see them. See
+    /// `BarHost`.
+    host: BarHost,
     /// Set when this instance runs as the settings screen rather than the bar.
     /// It then handles every event itself and the bar's fields go unused.
     settings: Option<SettingsScreen>,
@@ -270,7 +274,6 @@ const CONFIG_OVERFLOW_STR: &str = "overflow_str";
 const CONFIG_HINT_PRECEDENCE: &str = "hint_precedence";
 const CONFIG_AUTO_WIDTH: &str = "auto_width";
 const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
-const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
 const CONFIG_HIDE_SHARED_HINTS: &str = "hide_shared_hints";
 const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
 const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
@@ -923,7 +926,7 @@ impl State {
     /// rather than waiting for the bar to fill up on its own.
     fn sync_collapsed(&mut self, output_is_empty: bool) {
         if let Some(collapsed) = self.next_collapsed(output_is_empty) {
-            set_self_collapsed(collapsed);
+            self.host.set_collapsed(collapsed);
         }
     }
 
@@ -1102,7 +1105,8 @@ impl State {
         match outcome {
             MouseOutcome::Nothing => {}
             MouseOutcome::ContextMenu { line, column } => {
-                open_context_menu(ContextMenuTarget::Bar, line, column);
+                self.host
+                    .open_context_menu(ContextMenuTarget::Bar, line, column);
             }
             MouseOutcome::Run(actions) => {
                 let first = self.action_queue.enqueue(actions);
@@ -1110,11 +1114,11 @@ impl State {
             }
             MouseOutcome::Menu(entries) => {
                 if !entries.is_empty() {
-                    let request_id = prompt(mouse::menu_request(&entries));
+                    let request_id = self.host.prompt(mouse::menu_request(&entries));
                     self.pending_menus.insert(request_id, entries);
                 }
             }
-            MouseOutcome::OpenSettings => open_settings(self.own_url.as_deref()),
+            MouseOutcome::OpenSettings => self.open_settings(),
         }
     }
 
@@ -1123,7 +1127,7 @@ impl State {
     fn run_mouse_action(&self, action: Option<Action>) {
         if let Some(action) = action {
             let context = BTreeMap::from([(MOUSE_ACTION_CONTEXT.to_string(), String::new())]);
-            run_action(action, context);
+            self.host.run_action(action, context);
         }
     }
 
@@ -1151,10 +1155,10 @@ impl State {
 
     fn take_preview_step(&self, step: PreviewStep) {
         if let Some(popup) = step.close {
-            close_preview_popup(popup);
+            self.host.close_preview_popup(&popup::NAMES, popup);
         }
         if step.wait {
-            start_hover_delay(mouse::HOVER_DELAY_SECONDS);
+            self.host.set_timeout(mouse::HOVER_DELAY_SECONDS);
         }
         if let Some((generation, preview)) = step.open {
             self.show_preview(generation, &preview);
@@ -1166,15 +1170,13 @@ impl State {
             return;
         };
         let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
-        let labels = preview.labels();
-        let (width, height) = popup::size(&labels);
-        open_preview_popup(
+        self.host.open_preview_popup(
+            &popup::NAMES,
             url,
-            popup::configuration(&popup::NAMES, &tag, &labels),
+            &tag,
+            &preview.labels(),
             self.pane_rows.max(1),
             preview.columns.start,
-            width,
-            height,
         );
     }
 
@@ -1448,7 +1450,7 @@ impl State {
         // Nerd Font glyphs are East Asian Ambiguous. A terminal set up to show
         // them draws two columns, so measuring them as one makes the plugin
         // think the line fits when it overflows.
-        self.wide_ambiguous = parse_wide_ambiguous(&configuration);
+        self.wide_ambiguous = config::wide_ambiguous(&configuration);
         // Optional zjstatus-style format strings for the key and description
         // parts of each hint. When unset, the theme palette is used (see
         // `style_key_with_modifier` / `style_description`). An empty string is
@@ -1557,7 +1559,7 @@ impl State {
             return false;
         }
         let had_mouse = self.mouse;
-        log_unknown_themes(&configuration);
+        zjkit::theme::log_unknown_themes(PLUGIN_NAME, &configuration);
         self.apply_configuration(configuration);
         if self.mouse && !had_mouse {
             self.enable_mouse();
@@ -1568,15 +1570,22 @@ impl State {
     /// Ask for what `mouse` needs after loading without it. The pane is made
     /// selectable while asking, so the permission prompt in it can be
     /// answered; the answer makes it unselectable again.
-    #[cfg(not(test))]
     fn enable_mouse(&self) {
-        set_selectable(true);
-        request_permission(&bar_permissions(true));
-        subscribe(&MOUSE_EVENTS);
+        self.host.set_selectable(true);
+        self.host.request_permission(&bar_permissions(true));
+        self.host.subscribe(&MOUSE_EVENTS);
     }
 
-    #[cfg(test)]
-    fn enable_mouse(&self) {}
+    /// Open the settings screen, or reach the one already open, editing the
+    /// alias this bar was started from if it was. See
+    /// `zjkit::host::Host::open_settings`.
+    fn open_settings(&self) {
+        self.host.open_settings(
+            OPEN_SETTINGS_MESSAGE,
+            SETTINGS_PANE_TITLE,
+            self.own_url.as_deref(),
+        );
+    }
 }
 
 impl ZellijPlugin for State {
@@ -1593,13 +1602,13 @@ impl ZellijPlugin for State {
             return;
         }
         self.initialized = false;
-        let ids = get_plugin_ids();
+        let ids = self.host.plugin_ids();
         self.plugin_id = Some(ids.plugin_id);
         self.client_id = Some(ids.client_id);
-        log_unknown_themes(&configuration);
+        zjkit::theme::log_unknown_themes(PLUGIN_NAME, &configuration);
         self.apply_configuration(configuration);
 
-        request_permission(&bar_permissions(self.mouse));
+        self.host.request_permission(&bar_permissions(self.mouse));
 
         // Deliberately still selectable at this point.
         //
@@ -1613,20 +1622,9 @@ impl ZellijPlugin for State {
         // is safe for an already-granted plugin too: `request_permission`
         // replies immediately from the permission cache rather than staying
         // silent, so the event always comes.
-        subscribe(&[
-            EventType::ModeUpdate,
-            // Has Zellij send the keybindings once, and again when they are
-            // reconfigured, rather than attached to every `ModeUpdate`.
-            EventType::InitialKeybinds,
-            EventType::SessionUpdate,
-            EventType::PaneUpdate,
-            EventType::PermissionRequestResult,
-            EventType::TabUpdate,
-            EventType::NestedSessionModeUpdate,
-            EventType::NestedSessionEnded,
-        ]);
+        self.host.subscribe(&BAR_EVENTS);
         if self.mouse {
-            subscribe(&MOUSE_EVENTS);
+            self.host.subscribe(&MOUSE_EVENTS);
         }
     }
 
@@ -1698,7 +1696,8 @@ impl ZellijPlugin for State {
                 // The first pane update is the earliest this bar knows which
                 // alias it runs as, and that it may message other plugins.
                 if self.visibility.should_ask() {
-                    ask_visibility(self.own_url.as_deref());
+                    self.host
+                        .ask_visibility(&VISIBILITY, self.own_url.as_deref());
                 }
             }
             // Which tab is focused, and whether its floating layer is up.
@@ -1739,9 +1738,9 @@ impl ZellijPlugin for State {
             // Answered, or granted from the cache. Either way the prompt is
             // gone and the pane has no further reason to take focus.
             Event::PermissionRequestResult(status) => {
-                set_selectable(false);
+                self.host.set_selectable(false);
                 if status == PermissionStatus::Granted {
-                    add_settings_entry();
+                    self.host.add_settings_entry(PLUGIN_NAME);
                 }
                 should_render = true;
             }
@@ -1777,20 +1776,21 @@ impl ZellijPlugin for State {
         if self.settings.is_some() {
             // Clicking the mode prefix again while the screen is hidden.
             if message.name == OPEN_SETTINGS_MESSAGE {
-                show_self(true);
+                self.host.show_self();
             }
             return false;
         }
         if message.name == OPEN_PLUGIN_SETTINGS_MESSAGE {
-            if settings_requested_by(&message.args, self.client_id) {
-                open_settings(self.own_url.as_deref());
+            if zjkit::host::settings_requested_by(&message.args, self.client_id) {
+                self.open_settings();
             }
             return false;
         }
         let payload = message.payload.as_deref();
         if message.name == VISIBILITY.ask {
             if let Some(asker) = self.visibility_asker(&message.source, payload) {
-                answer_visibility(asker, self.visibility.answer());
+                self.host
+                    .answer_visibility(&VISIBILITY, asker, self.visibility.answer());
             }
             return false;
         }
@@ -1833,9 +1833,9 @@ impl ZellijPlugin for State {
         self.sync_collapsed(output.is_empty());
 
         for pipe_name in &self.pipe_names {
-            pipe_message_to_plugin(
-                MessageToPlugin::new("pipe")
-                    .with_payload(format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output)),
+            self.host.broadcast(
+                ZJSTATUS_PIPE_MESSAGE,
+                format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output),
             );
         }
         print!("{}", output);

@@ -8,6 +8,7 @@ pub mod config;
 pub mod dim;
 pub mod fit;
 pub mod format;
+pub mod host;
 pub mod mouse;
 pub mod nesting;
 pub mod panes;

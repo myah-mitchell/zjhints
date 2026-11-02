@@ -8,7 +8,8 @@
 //!
 //! Values are not trimmed. The settings screen (`settings::schema::validate`)
 //! rejects a value with stray whitespace, so one that gets here through a hand
-//! edited config reads as unset, the same as on the screen.
+//! edited config reads as unset, the same as on the screen. `wide_ambiguous`
+//! is the one exception, as its own comment says.
 
 use std::collections::BTreeMap;
 
@@ -70,6 +71,23 @@ pub fn non_empty_string_option(
         .get(key)
         .filter(|value| !value.is_empty())
         .cloned()
+}
+
+/// The option that says how many columns an East Asian Ambiguous character
+/// takes, `1` or `2`. Nerd Font glyphs are Ambiguous, and a terminal set up
+/// to show them usually draws two, so a bar measuring them as one would think
+/// a line fits when it overflows.
+pub const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
+
+/// Whether `ambiguous_width` is `2`, which is what `ansi`'s `wide_ambiguous`
+/// arguments take. Anything else, unset included, means one column.
+///
+/// Unlike the getters above, this one trims the value first, so `" 2"` counts
+/// as `2`.
+pub fn wide_ambiguous(configuration: &BTreeMap<String, String>) -> bool {
+    configuration
+        .get(CONFIG_AMBIGUOUS_WIDTH)
+        .is_some_and(|value| value.trim() == "2")
 }
 
 #[cfg(test)]
@@ -190,5 +208,20 @@ mod tests {
     fn an_empty_string_is_unset() {
         let cleared = configuration("text", "");
         assert_eq!(non_empty_string_option(&cleared, "text"), None);
+    }
+
+    #[test]
+    fn only_an_ambiguous_width_of_two_is_wide() {
+        assert!(!wide_ambiguous(&BTreeMap::new()));
+        for (value, expected) in [
+            ("2", true),
+            (" 2 ", true),
+            ("1", false),
+            ("02", false),
+            ("", false),
+        ] {
+            let configuration = configuration(CONFIG_AMBIGUOUS_WIDTH, value);
+            assert_eq!(wide_ambiguous(&configuration), expected, "{value:?}");
+        }
     }
 }

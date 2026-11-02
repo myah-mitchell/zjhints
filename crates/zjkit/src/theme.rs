@@ -326,6 +326,17 @@ pub fn unknown_names(configuration: &BTreeMap<String, String>) -> Vec<(&'static 
         .collect()
 }
 
+/// Log each theme option in `configuration` that names no theme, prefixed
+/// with `plugin`. Zellij writes a plugin's standard error to its log, which
+/// is the one place a bad value gets reported; the bar itself draws with
+/// `zellij` instead. Called where a configuration arrives, not each time the
+/// palette changes and the themes are laid again.
+pub fn log_unknown_themes(plugin: &str, configuration: &BTreeMap<String, String>) {
+    for (option, name) in unknown_names(configuration) {
+        eprintln!("{plugin}: unknown {option} \"{name}\", using \"{THEME_ZELLIJ}\"");
+    }
+}
+
 /// The format theme `configuration` selects, or `None` for `zellij`, unset
 /// or unknown.
 pub fn shape(configuration: &BTreeMap<String, String>) -> Option<Shape> {
