@@ -73,3 +73,12 @@ keep = 7
 # stack = ["feat/nested-sessions"]
 # prerelease = true
 # keep = 3
+
+# main-dev, where the zjkit workspace work lands until it is proven and merged
+# into main. To rebuild after main-dev moves, run the workflow by hand naming
+# ea-main-dev with publish ticked. `make ea LABEL=main-dev` installs it.
+[build.ea-main-dev]
+tag = "ea-main-dev-{date}"
+base = "main-dev"
+prerelease = true
+keep = 3
