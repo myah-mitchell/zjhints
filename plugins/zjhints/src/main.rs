@@ -778,20 +778,6 @@ impl State {
     }
 }
 
-/// A dimmed copy of `colors`. Only the `Styling` groups this plugin's own
-/// rendering actually reads are touched, so dimming the rest would be dead
-/// work: `ribbon_unselected`/`text_unselected` for hints
-/// (`style_key_with_modifier`/`style_key_text`/`style_description`), and
-/// `ribbon_selected` for the optional mode prefix (`style_mode`).
-fn dim_styling(colors: &Styling, strength: f32) -> Styling {
-    Styling {
-        ribbon_unselected: zjkit::dim::style_declaration(&colors.ribbon_unselected, strength),
-        ribbon_selected: zjkit::dim::style_declaration(&colors.ribbon_selected, strength),
-        text_unselected: zjkit::dim::style_declaration(&colors.text_unselected, strength),
-        ..*colors
-    }
-}
-
 /// Renders the placeholder shown in the host's hint bar while descended
 /// into a nested session, naming the keys that ascend back out. Built
 /// entirely from this session's own `nested_ascend_keys`, not a mirror of
@@ -969,7 +955,7 @@ impl State {
             BarSubject::DescendedIndicator => {
                 let dimmed_colors;
                 let colors: &Styling = if dim > 0.0 {
-                    dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+                    dimmed_colors = zjkit::dim::styling(&mode_info.style.colors, dim);
                     &dimmed_colors
                 } else {
                     &mode_info.style.colors
@@ -1218,7 +1204,7 @@ impl State {
         let limit = self.length_limit();
         let dimmed_colors;
         let colors: &Styling = if dim > 0.0 {
-            dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+            dimmed_colors = zjkit::dim::styling(&mode_info.style.colors, dim);
             &dimmed_colors
         } else {
             &mode_info.style.colors
