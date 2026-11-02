@@ -35,19 +35,25 @@ The repository is a Cargo workspace. Run every command from its root: `make`, `c
 
 ### The shared crate
 
-zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls the plugin's tests need to stub out stay in the plugin, because `cfg(test)` is per crate and a stub in the plugin does not reach zjkit. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
+zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. The plugin describes itself to the shared bar code in a static `BarSpec` and keeps a `Role` and a `BarCore` in its state. See the docs of `zjkit::bar`.
+
+Every Zellij call a bar makes goes through the `Host` trait. In the plugin that is `Zellij`, and in tests it is `Recorder`, which makes no calls and keeps a `Call` for each one, so a test can assert what the bar asked Zellij to do. `cfg(test)` is set per crate, so zjkit cannot choose between them. Each plugin makes the choice once, as a `BarHost` alias in its `host.rs`. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
 
 | Module | What it does |
 | --- | --- |
 | `ansi` | Measures and cuts ANSI-styled text by visible width |
-| `dim` | Fades palette colors while a session is not where the keyboard goes |
-| `fit` | Drops whole items until a line fits, leaving one gap for the indicator |
+| `bar` | What every bar does the same way: its role, the permission flow, visibility and settings requests, and the live preview |
+| `config` | Typed reads of a plugin's options: bool, count, fraction, non-empty string and ambiguous width |
+| `dim` | Fades palette colors and Zellij `Styling` while a session is not where the keyboard goes |
+| `fit` | Drops whole items until a line fits, leaving one gap for the indicator, or shows a window of items around a pinned one |
 | `format` | Renders zjstatus-style format strings |
-| `mouse` | Click maps, menus and the hover-preview state machine |
+| `host` | The `Host` trait over every Zellij call a bar makes, with `Zellij` and the test `Recorder` |
+| `images` | The SVG engine behind the documentation images, built only for tests |
+| `mouse` | Click maps, column spans for bars of items, press classification, menus and the hover-preview state machine |
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
 | `popup` | The floating pane a hover preview opens in |
-| `settings` | The settings screen, driven by the plugin's `Schema` |
+| `settings` | The settings screen, driven by the plugin's `Schema`, and the check of a `Schema` against its reference page |
 | `theme` | Color themes, format themes and symbol sets |
 | `visibility` | Hide, show and toggle messages, and collapsing an empty row |
 
@@ -59,7 +65,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
 | `keys.rs` | Key grouping, key and modifier aliases, and key order |
 | `mode_prefix.rs` | The mode drawn ahead of the hints |
-| `host.rs` | Permissions, pipe names, and the host calls tests stub out |
+| `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
 | `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
 | `popup.rs` | zjhints' names for the hover-preview popup |
 | `theme.rs` | The hint options each shared theme sets |
@@ -123,7 +129,7 @@ chore(deps): bump unicode-width
 
 ### Documentation
 
-New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. The reference is checked against the options the code actually reads.
+New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. A test passes the reference and the plugin's `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
 
 ### Images
 
@@ -135,7 +141,11 @@ make images    # rewrites the generated SVGs in docs/img
 
 `make images` knows the SVGs a plugin draws by a comment on their second line that names the plugin. It rewrites those, removes the ones that plugin no longer draws, and leaves every other file in `docs/img` alone, including another plugin's images, so an image made by hand can live there too.
 
-The images are tested like everything else. Without `ZJKIT_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `plugins/zjhints/src/images.rs`, run `make images`, and reference it from the page it belongs on. A plugin's test passes its drawings, its name and its image directory to `zjkit::images::write_or_compare_images`, and the name goes into the mark of each SVG. The engine is behind zjkit's `images` feature, which only tests enable. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
+The images are tested like everything else. Without `ZJKIT_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well.
+
+To add an image, add it to `images()` in `plugins/zjhints/src/images.rs`, run `make images`, and reference it from the page it belongs on.
+
+The engine is behind zjkit's `images` feature, which only tests enable. A plugin keeps its own drawings, and its test passes them, its name and its image directory to `zjkit::images::write_or_compare_images`. The name goes into the mark of each SVG. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 #### Animated images
 
