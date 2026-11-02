@@ -91,6 +91,7 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.dim_when_unfocused, DEFAULT_DIM_WHEN_UNFOCUSED);
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
     assert_eq!(state.mouse, DEFAULT_MOUSE);
+    assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
 }
 
 #[test]
@@ -116,6 +117,7 @@ fn every_option_is_read_from_its_key() {
         ("dim_when_unfocused", "false"),
         ("dim_strength", "0.25"),
         ("mouse", "false"),
+        ("mouse_wheel_reversed", "true"),
     ]);
     assert_eq!(state.tab_format.as_deref(), Some("{name}"));
     assert_eq!(state.active_tab_format.as_deref(), Some("[{name}]"));
@@ -134,6 +136,7 @@ fn every_option_is_read_from_its_key() {
     assert!(!state.dim_when_unfocused);
     assert_eq!(state.dim_strength, 0.25);
     assert!(!state.mouse);
+    assert!(state.mouse_wheel_reversed);
 }
 
 #[test]
@@ -763,4 +766,243 @@ fn hiding_and_showing_redraw() {
     assert!(!state.pipe(message(VISIBILITY.hide)));
     assert!(state.pipe(message(VISIBILITY.toggle)));
     assert_eq!(shown(&state), "[1:a]");
+}
+
+// The mouse.
+
+/// What the bar asks of Zellij for `mouse`, once it has drawn itself.
+fn after_mouse(state: &mut State, mouse: Mouse) -> Vec<Call> {
+    state.render(1, 80);
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(mouse)));
+    state.host.calls()
+}
+
+#[test]
+fn a_click_on_a_tab_switches_to_it() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![Call::SwitchTabTo(3)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 4)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    // The spacer, past the end, and a line below the bar are not tabs.
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 3)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 40)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(1, 0)), vec![]);
+}
+
+#[test]
+fn a_click_on_a_tab_numbered_from_zero_still_switches_to_it() {
+    let mut state = bar(&plain_with(&[("index_from_zero", "true")]), 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(1)]
+    );
+}
+
+#[test]
+fn a_click_on_a_marker_switches_to_the_nearest_hidden_tab() {
+    // "<4|5:e|[6:f]|7:g|3>"
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(4)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 18)),
+        vec![Call::SwitchTabTo(8)]
+    );
+}
+
+#[test]
+fn a_click_on_what_the_cut_left_of_a_tab_switches_to_it_but_not_on_overflow_str() {
+    // "[2:a long nam~", the marker for the tab before it left out
+    let infos = vec![tab(0, "a"), active(tab(1, "a long name"))];
+    let mut state = bar(&plain_with(&[("overflow_str", "~")]), 14, infos);
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 13)), vec![]);
+}
+
+#[test]
+fn the_wheel_goes_to_the_next_tab_on_scroll_up_like_zellij_s_own_bar_without_wrapping() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(3)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+
+    state.update(Event::TabUpdate(tabs(3, 2)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollUp(1)), vec![]);
+    state.update(Event::TabUpdate(tabs(3, 0)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollDown(1)), vec![]);
+}
+
+#[test]
+fn with_the_wheel_reversed_scroll_up_goes_to_the_previous_tab_without_wrapping() {
+    let mut state = bar(
+        &plain_with(&[("mouse_wheel_reversed", "true")]),
+        80,
+        tabs(3, 1),
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![Call::SwitchTabTo(3)]
+    );
+
+    state.update(Event::TabUpdate(tabs(3, 0)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollUp(1)), vec![]);
+    state.update(Event::TabUpdate(tabs(3, 2)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollDown(1)), vec![]);
+}
+
+#[test]
+fn the_wheel_direction_can_be_reversed_by_a_live_update() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[("mouse_wheel_reversed", "true")]))
+    ));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+}
+
+#[test]
+fn the_wheel_also_steps_to_tabs_hidden_behind_a_marker() {
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    state.update(Event::TabUpdate(tabs(10, 6)));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(8)]
+    );
+}
+
+#[test]
+fn a_double_click_renames_the_tab_switching_to_it_first() {
+    let rename = |id: u64| Call::RunAction {
+        action: zellij_tile::prelude::actions::Action::StartRenameTabByTabId { id },
+        context: BTreeMap::new(),
+    };
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 5)),
+        vec![rename(101)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 12)),
+        vec![Call::SwitchTabTo(3), rename(102)]
+    );
+    // Not on a marker or a spacer.
+    assert_eq!(after_mouse(&mut state, Mouse::DoubleClick(0, 3)), vec![]);
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(after_mouse(&mut state, Mouse::DoubleClick(0, 0)), vec![]);
+}
+
+#[test]
+fn a_right_click_opens_the_tab_s_context_menu_or_else_the_bar_s() {
+    let menu = |target: ContextMenuTarget, column: usize| Call::OpenContextMenu {
+        target,
+        line: 0,
+        column,
+    };
+    // "<4|5:e|[6:f]|7:g|3>"
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::RightClick(0, 4)),
+        vec![menu(ContextMenuTarget::Tab(4), 4)]
+    );
+    for column in [0, 2, 30] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![menu(ContextMenuTarget::Bar, column)]
+        );
+    }
+}
+
+#[test]
+fn with_mouse_off_the_mouse_does_nothing() {
+    let mut state = bar(&plain_with(&[("mouse", "false")]), 80, tabs(3, 1));
+    for mouse in [
+        Mouse::LeftClick(0, 0),
+        Mouse::DoubleClick(0, 0),
+        Mouse::RightClick(0, 0),
+        Mouse::ScrollUp(1),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![]);
+    }
+}
+
+#[test]
+fn the_mouse_does_nothing_while_the_bar_draws_nothing() {
+    let every_mouse = [
+        Mouse::LeftClick(0, 0),
+        Mouse::DoubleClick(0, 0),
+        Mouse::RightClick(0, 0),
+        Mouse::ScrollUp(1),
+        Mouse::ScrollDown(1),
+    ];
+    // The row stays on screen, blank, rather than collapsing.
+    let kept_row = plain_with(&[("collapse_when_empty", "false")]);
+    let mut hidden_by_option = kept_row.clone();
+    hidden_by_option.push(("hidden", "true"));
+    let hidden_by_message = || {
+        let mut state = bar(&kept_row, 80, tabs(3, 1));
+        let hide = PipeMessage::new(PipeSource::Keybind, VISIBILITY.hide, &None, &None, false);
+        assert!(state.pipe(hide));
+        state
+    };
+    let hidden_by_nesting = || {
+        let mut state = bar(&kept_row, 80, tabs(3, 1));
+        let mut nested = mode(InputMode::Normal);
+        nested.session_ancestry = vec!["host".to_string()];
+        assert!(state.update(Event::ModeUpdate(nested)));
+        state
+    };
+    for mut state in [
+        bar(&hidden_by_option, 80, tabs(3, 1)),
+        hidden_by_message(),
+        hidden_by_nesting(),
+        bar(&kept_row, 80, vec![]),
+    ] {
+        assert_eq!(shown(&state), "");
+        for mouse in every_mouse {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+    }
+}
+
+#[test]
+fn hover_and_horizontal_scrolling_do_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    for mouse in [
+        Mouse::Hover(0, 0),
+        Mouse::Hold(0, 0),
+        Mouse::Release(0, 0),
+        Mouse::ScrollLeft(1),
+        Mouse::ScrollRight(1),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![]);
+    }
 }

@@ -10,6 +10,7 @@ use zjkit::mouse::ColumnSpans;
 
 mod flags;
 mod host;
+mod mouse;
 mod settings;
 mod tabs;
 mod theme;
@@ -37,6 +38,7 @@ const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_MOUSE: &str = "mouse";
+const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
 
 // One space, so neighboring tabs drawn in Zellij's ribbon colors read as
 // separate blocks rather than one long ribbon.
@@ -76,6 +78,11 @@ const DEFAULT_DIM_STRENGTH: f32 = 0.5;
 // On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
 // is expected to do, and Zellij's own tab bar does it.
 const DEFAULT_MOUSE: bool = true;
+// Off by default, so the wheel does what it does in Zellij's own tab bar,
+// which goes to the next tab on scroll up and the previous one on scroll
+// down. Turning it on swaps the two for anyone who expects the wheel to
+// follow the tabs' order left to right the other way around.
+const DEFAULT_MOUSE_WHEEL_REVERSED: bool = false;
 
 #[derive(Default)]
 struct State {
@@ -129,6 +136,9 @@ struct State {
     dim_strength: f32,
     /// Switch, rename and open the menu of tabs with the mouse.
     mouse: bool,
+    /// Swap the wheel's two directions: scroll up goes to the previous tab
+    /// and scroll down to the next, rather than the other way around.
+    mouse_wheel_reversed: bool,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
     /// The input mode and nested-session state from the last `ModeUpdate`.
@@ -196,6 +206,11 @@ impl State {
         self.dim_strength =
             config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
         self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
+        self.mouse_wheel_reversed = config::bool_option(
+            configuration,
+            CONFIG_MOUSE_WHEEL_REVERSED,
+            DEFAULT_MOUSE_WHEEL_REVERSED,
+        );
     }
 }
 
@@ -253,6 +268,9 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
             }
+            // Turning `mouse` off cannot take back the subscription, so the
+            // events keep coming and are left alone here.
+            Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse),
             _ => {}
         }
         should_render
