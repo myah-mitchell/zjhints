@@ -6,14 +6,17 @@ use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, Role};
 use zjkit::config;
+use zjkit::mouse::ColumnSpans;
 
 mod flags;
 mod host;
 mod settings;
+mod tabs;
 mod theme;
 
 use flags::FLAGS;
 use host::*;
+use tabs::{Clickable, ModeView, Tab};
 
 const CONFIG_TAB_FORMAT: &str = "tab_format";
 const CONFIG_ACTIVE_TAB_FORMAT: &str = "active_tab_format";
@@ -75,8 +78,6 @@ const DEFAULT_DIM_STRENGTH: f32 = 0.5;
 const DEFAULT_MOUSE: bool = true;
 
 #[derive(Default)]
-// The options are read here and drawn by the renderer.
-#[allow(dead_code)]
 struct State {
     /// What every call into Zellij goes through, so tests can see them. See
     /// `BarHost`.
@@ -128,6 +129,12 @@ struct State {
     dim_strength: f32,
     /// Switch, rename and open the menu of tabs with the mouse.
     mouse: bool,
+    /// The tabs from the last `TabUpdate`, in the order they stand.
+    tabs: Vec<Tab>,
+    /// The input mode and nested-session state from the last `ModeUpdate`.
+    mode_info: ModeInfo,
+    /// Which columns of the line last drawn stand for which tab or marker.
+    click_spans: ColumnSpans<Clickable>,
 }
 
 register_plugin!(State);
@@ -227,7 +234,28 @@ impl ZellijPlugin for State {
             return self.role.update(event);
         }
         let handled = self.bar.update(&self.host, &BAR, &event);
-        BarCore::follow(self, &BAR, handled)
+        let mut should_render = BarCore::follow(self, &BAR, handled);
+        match event {
+            Event::TabUpdate(infos) => {
+                let tabs = tabs::tabs_of(&infos);
+                if tabs != self.tabs {
+                    self.tabs = tabs;
+                    should_render = true;
+                }
+            }
+            // A mode update arrives on every mode change and more, but the
+            // bar shows only whether a tab is being renamed and how nesting
+            // hides or dims it. The Zellij theme it also carries is
+            // `BarCore`'s to follow.
+            Event::ModeUpdate(mode_info) => {
+                if ModeView::of(&mode_info) != ModeView::of(&self.mode_info) {
+                    should_render = true;
+                }
+                self.mode_info = mode_info;
+            }
+            _ => {}
+        }
+        should_render
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
@@ -244,7 +272,13 @@ impl ZellijPlugin for State {
     fn render(&mut self, rows: usize, cols: usize) {
         if !self.role.is_bar() {
             self.role.render(rows, cols);
+            return;
         }
+        let (output, click_spans) = self.draw_bar();
+        self.bar
+            .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
+        print!("{output}");
+        self.click_spans = click_spans;
     }
 }
 

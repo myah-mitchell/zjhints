@@ -148,7 +148,7 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 6] {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::flags::FLAGS;
     use zellij_tile::prelude::PaletteColor;
