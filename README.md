@@ -2,6 +2,8 @@
 
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
+This repository is a family of Zellij bars that share one library, `zjkit`: zjhints, described on this page, and [zjtabs](#zjtabs), a tab bar. They take the same themes, format strings and settings screen.
+
 > [!IMPORTANT]
 > Six of this release's features need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
 
@@ -95,6 +97,12 @@ Each part of it has its own page:
 | [Nested sessions](docs/nested-sessions.md)               | Showing the nested session's hints while you are in it, and hiding or dimming the host's own                       |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles. Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
+
+## zjtabs
+
+zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename and Zellij's right-click menus.
+
+[zjtabs overview](docs/zjtabs/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtabs configuration reference](docs/zjtabs/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to both plugins.
 
 ## Known issues
 
