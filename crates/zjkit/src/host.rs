@@ -27,7 +27,7 @@ use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
 
 /// The configuration key that marks an instance as the settings screen.
-const SETTINGS_KEY: &str = "settings";
+pub(crate) const SETTINGS_KEY: &str = "settings";
 /// The configuration key that pins the settings screen to one alias.
 const ALIAS_KEY: &str = "alias";
 

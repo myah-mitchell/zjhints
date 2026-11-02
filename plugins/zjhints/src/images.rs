@@ -733,9 +733,9 @@ fn bar_in_session(
 /// The plugin's state for `bar_in_session`, before it draws.
 fn bar_state(options: &[(&str, &str)], mode: InputMode, columns: usize, ascended: bool) -> State {
     let mut state = State::default();
-    state.zellij_palette = Some(palette());
+    state.bar.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
-    state.pane_width = Some(columns);
+    state.bar.pane_width = Some(columns);
     state.mode_info = ModeInfo {
         session_ascended: ascended.then_some(true),
         ..mode_info(mode)

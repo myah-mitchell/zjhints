@@ -1,8 +1,6 @@
 //! The names zjhints' bars and hover-preview popups know each other by. The
 //! popup itself is `zjkit::popup`.
 
-pub use zjkit::popup::PreviewPopup;
-
 /// Messages `zjhints::hover_*`, configuration keys `zjhints_internal_preview*`.
 pub static NAMES: zjkit::popup::Names = zjkit::popup_names!("zjhints");
 

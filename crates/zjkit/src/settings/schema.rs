@@ -139,7 +139,9 @@ pub type Configuration = BTreeMap<String, String>;
 
 /// Everything the settings screen knows about one plugin.
 pub struct Schema {
-    /// The plugin's name, which the screen's messages name it by.
+    /// The plugin's name, which the screen's messages name it by. A bar's
+    /// entry on Zellij's settings screen and its log lines use it too; see
+    /// `bar::BarSpec`.
     pub plugin: &'static str,
     /// The headings the options are grouped under, in the order they are
     /// shown. A group may hold fixed options, families, or both.

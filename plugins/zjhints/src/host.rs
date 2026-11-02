@@ -1,9 +1,11 @@
 //! What the bar asks of Zellij: the host it makes its calls through, and the
-//! permissions, events and pipe messages those calls use.
+//! permissions, events and pipe messages those calls use, gathered into the
+//! `BarSpec` zjkit runs the bar by.
 
 use crate::{DEFAULT_PIPE_NAME, LEGACY_PIPE_NAME};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
+use zjkit::bar::BarSpec;
 use zjkit::visibility;
 
 /// The host `State` makes its calls through: Zellij in the plugin, and a
@@ -13,10 +15,6 @@ use zjkit::visibility;
 pub(crate) type BarHost = zjkit::host::Zellij;
 #[cfg(test)]
 pub(crate) type BarHost = zjkit::host::Recorder;
-
-/// The plugin's name, as its entry on Zellij's settings screen and its log
-/// lines show it.
-pub(crate) const PLUGIN_NAME: &str = "zjhints";
 
 /// The title of the settings screen's floating pane.
 pub(crate) const SETTINGS_PANE_TITLE: &str = "zjhints settings";
@@ -89,3 +87,15 @@ pub(crate) const OPEN_SETTINGS_MESSAGE: &str = "zjhints::open_settings";
 /// The hide, show and toggle messages, and the question a new bar asks the
 /// running ones.
 pub(crate) static VISIBILITY: visibility::Names = zjkit::visibility_names!("zjhints");
+
+/// What zjkit needs to know to run the bar. See `zjkit::bar`.
+pub(crate) static BAR: BarSpec = BarSpec {
+    schema: &crate::settings::SCHEMA,
+    visibility: &VISIBILITY,
+    popup: Some(&crate::popup::NAMES),
+    open_settings_message: OPEN_SETTINGS_MESSAGE,
+    settings_pane_title: SETTINGS_PANE_TITLE,
+    permissions: bar_permissions,
+    events: &BAR_EVENTS,
+    mouse_events: &MOUSE_EVENTS,
+};
