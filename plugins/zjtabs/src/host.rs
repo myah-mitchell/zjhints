@@ -1,0 +1,85 @@
+//! What the bar asks of Zellij: the host it makes its calls through, and the
+//! permissions, events and pipe messages those calls use, gathered into the
+//! `BarSpec` zjkit runs the bar by.
+
+use zellij_tile::prelude::*;
+use zjkit::bar::BarSpec;
+use zjkit::visibility;
+
+/// The host `State` makes its calls through: Zellij in the plugin, and a
+/// recorder in tests, so they can assert what the bar asked for. This is the
+/// plugin's one `cfg(test)` switch; see `zjkit::host`.
+#[cfg(not(test))]
+pub(crate) type BarHost = zjkit::host::Zellij;
+#[cfg(test)]
+pub(crate) type BarHost = zjkit::host::Recorder;
+
+/// The title of the settings screen's floating pane.
+pub(crate) const SETTINGS_PANE_TITLE: &str = "zjtabs settings";
+
+/// What the bar always asks for.
+pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
+    // The tabs, the input mode and the bar's own pane, from `TabUpdate`,
+    // `ModeUpdate` and `PaneUpdate`.
+    PermissionType::ReadApplicationState,
+    // Adding the bar's entry to Zellij's settings screen, and with `mouse`,
+    // switching tabs on a click or the wheel and opening Zellij's context
+    // menu.
+    PermissionType::ChangeApplicationState,
+    // The hide, show and toggle messages between bars, and opening the
+    // settings screen, which is this plugin again in a floating pane.
+    PermissionType::MessageAndLaunchOtherPlugins,
+];
+
+/// What `mouse` needs beyond what the bar always asks for.
+pub(crate) const MOUSE_PERMISSIONS: [PermissionType; 1] = [
+    // Renaming a tab on a double-click, which runs Zellij's own rename action.
+    PermissionType::RunActionsAsUser,
+];
+
+/// Every permission the bar asks for. A grant replaces the plugin's
+/// permissions rather than adding to them, both for the running instance and
+/// in Zellij's cache, so every request has to carry the whole set. The
+/// settings screen asks for the set with `mouse` on, since it shares the
+/// bar's cached grant and is how `mouse` gets turned on.
+pub(crate) fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
+    let mut permissions = BAR_PERMISSIONS.to_vec();
+    if mouse {
+        permissions.extend(MOUSE_PERMISSIONS);
+    }
+    permissions
+}
+
+/// The events the bar always subscribes to.
+pub(crate) const BAR_EVENTS: [EventType; 4] = [
+    // The input mode, for rename-tab mode and the nested-session state, and
+    // the Zellij theme the default look is drawn in.
+    EventType::ModeUpdate,
+    // The bar's own pane, for its width and the alias it was started as.
+    EventType::PaneUpdate,
+    EventType::PermissionRequestResult,
+    EventType::TabUpdate,
+];
+
+/// The events `mouse` needs beyond what the bar always subscribes to.
+pub(crate) const MOUSE_EVENTS: [EventType; 1] = [EventType::Mouse];
+
+/// The pipe message that opens the settings screen, or brings it up.
+pub(crate) const OPEN_SETTINGS_MESSAGE: &str = "zjtabs::open_settings";
+
+/// The hide, show and toggle messages, and the question a new bar asks the
+/// running ones.
+pub(crate) static VISIBILITY: visibility::Names = zjkit::visibility_names!("zjtabs");
+
+/// What zjkit needs to know to run the bar. See `zjkit::bar`.
+pub(crate) static BAR: BarSpec = BarSpec {
+    schema: &crate::settings::SCHEMA,
+    visibility: &VISIBILITY,
+    // The bar opens no hover previews.
+    popup: None,
+    open_settings_message: OPEN_SETTINGS_MESSAGE,
+    settings_pane_title: SETTINGS_PANE_TITLE,
+    permissions: bar_permissions,
+    events: &BAR_EVENTS,
+    mouse_events: &MOUSE_EVENTS,
+};
