@@ -5,6 +5,7 @@ use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
 use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, ANSI_RESET};
+use zjkit::config;
 use zjkit::fit::{Group, Precedence};
 use zjkit::format;
 use zjkit::mouse;
@@ -1379,10 +1380,7 @@ fn drop_indicator_from_config(
     configuration: &BTreeMap<String, String>,
     mouse: bool,
 ) -> Option<String> {
-    configuration
-        .get(CONFIG_DROP_INDICATOR)
-        .filter(|s| !s.is_empty())
-        .cloned()
+    config::non_empty_string_option(configuration, CONFIG_DROP_INDICATOR)
         .or_else(|| mouse.then(|| DEFAULT_MOUSE_DROP_INDICATOR.to_string()))
 }
 
@@ -1399,88 +1397,54 @@ impl State {
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
         let configuration = theme::layer(&user_configuration, self.zellij_palette.as_ref());
         self.visibility.configure(&configuration, &self.config);
-        self.max_length = configuration
-            .get("max_length")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_MAX_LENGTH);
+        self.max_length = config::usize_option(&configuration, "max_length", DEFAULT_MAX_LENGTH);
         self.overflow_str = configuration
             .get(CONFIG_OVERFLOW_STR)
             .cloned()
             .unwrap_or_else(|| DEFAULT_OVERFLOW_STR.to_string());
         self.pipe_names = pipe_names_from_config(&configuration);
-        self.hide_in_base_mode = configuration
-            .get("hide_in_base_mode")
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(false))
-            .unwrap_or(false);
+        self.hide_in_base_mode = config::bool_option(&configuration, "hide_in_base_mode", false);
         // Render nothing at all when this session is nested (see
         // `is_nested`), so nested sessions get no bottom bar from the same
         // shared config a host session uses.
-        self.hide_when_nested = configuration
-            .get(CONFIG_HIDE_WHEN_NESTED)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_HIDE_WHEN_NESTED)
-            })
-            .unwrap_or(DEFAULT_HIDE_WHEN_NESTED);
+        self.hide_when_nested = config::bool_option(
+            &configuration,
+            CONFIG_HIDE_WHEN_NESTED,
+            DEFAULT_HIDE_WHEN_NESTED,
+        );
         // Give the row back to the panes around it while there is nothing on
         // it, rather than drawing a blank one. See `sync_collapsed`.
-        self.collapse_when_empty = configuration
-            .get(CONFIG_COLLAPSE_WHEN_EMPTY)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY)
-            })
-            .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY);
+        self.collapse_when_empty = config::bool_option(
+            &configuration,
+            CONFIG_COLLAPSE_WHEN_EMPTY,
+            DEFAULT_COLLAPSE_WHEN_EMPTY,
+        );
         // Dim hints when this session isn't the one currently receiving
         // input (host descended into a nested child, or a nested session
         // not yet ascended into). See `dim_amount`.
-        self.dim_when_unfocused = configuration
-            .get(CONFIG_DIM_WHEN_UNFOCUSED)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED)
-            })
-            .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED);
+        self.dim_when_unfocused = config::bool_option(
+            &configuration,
+            CONFIG_DIM_WHEN_UNFOCUSED,
+            DEFAULT_DIM_WHEN_UNFOCUSED,
+        );
         // Clamped: the dim blend overshoots past neutral gray above
         // 1.0, and inverts the blend direction below 0.0.
-        self.dim_strength = configuration
-            .get(CONFIG_DIM_STRENGTH)
-            .and_then(|s| s.parse::<f32>().ok())
-            .unwrap_or(DEFAULT_DIM_STRENGTH)
-            .clamp(0.0, 1.0);
+        self.dim_strength =
+            config::fraction_option(&configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
         // Prefix the hints line with the current mode. Off by default since
         // most setups already get a mode indicator from zjstatus's own
         // {mode} widget on the same line; this exists for standing alone.
-        self.show_mode = configuration
-            .get(CONFIG_SHOW_MODE)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_SHOW_MODE)
-            })
-            .unwrap_or(DEFAULT_SHOW_MODE);
+        self.show_mode = config::bool_option(&configuration, CONFIG_SHOW_MODE, DEFAULT_SHOW_MODE);
         // Optional zjstatus-style format string for the mode prefix, with a
         // `{mode}` placeholder. When unset, the theme's ribbon_selected pill
         // style is used (see `style_mode`).
-        self.mode_format = configuration
-            .get(CONFIG_MODE_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.mode_format = config::non_empty_string_option(&configuration, CONFIG_MODE_FORMAT);
         // Fit the hints to the terminal, dropping the trailing ones as it
         // narrows instead of overflowing off the edge.
-        self.auto_width = configuration
-            .get(CONFIG_AUTO_WIDTH)
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+        self.auto_width = config::bool_option(&configuration, CONFIG_AUTO_WIDTH, true);
         // Columns to leave free for whatever else shares the bar — zjstatus's
         // `format_right`, typically, which the plugin cannot see.
-        self.reserve_columns = configuration
-            .get(CONFIG_RESERVE_COLUMNS)
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(0);
+        self.reserve_columns = config::usize_option(&configuration, CONFIG_RESERVE_COLUMNS, 0);
         // Nerd Font glyphs are East Asian Ambiguous. A terminal set up to show
         // them draws two columns, so measuring them as one makes the plugin
         // think the line fits when it overflows.
@@ -1489,69 +1453,33 @@ impl State {
         // parts of each hint. When unset, the theme palette is used (see
         // `style_key_with_modifier` / `style_description`). An empty string is
         // treated as unset so the default styling still applies.
-        self.key_format = configuration
-            .get(CONFIG_KEY_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
-        self.desc_format = configuration
-            .get(CONFIG_DESC_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.key_format = config::non_empty_string_option(&configuration, CONFIG_KEY_FORMAT);
+        self.desc_format = config::non_empty_string_option(&configuration, CONFIG_DESC_FORMAT);
         // Separator drawn between hints. Also a format string, so it can be a
         // styled glyph (`#[fg=$grey] | `) and not just whitespace.
-        self.hint_spacer = configuration
-            .get(CONFIG_HINT_SPACER)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.hint_spacer = config::non_empty_string_option(&configuration, CONFIG_HINT_SPACER);
         // Clickable hints, a right-click context menu, and menus of the hints
         // that did not fit. Read before `drop_indicator`, whose default
         // depends on it.
-        self.mouse = configuration
-            .get(CONFIG_MOUSE)
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(DEFAULT_MOUSE))
-            .unwrap_or(DEFAULT_MOUSE);
+        self.mouse = config::bool_option(&configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
         // Marks where hints were dropped to fit the window. Also a format
         // string, so it can be a styled glyph rather than bare text.
         self.drop_indicator = drop_indicator_from_config(&configuration, self.mouse);
         // Clicks on a nested session's bar, which need `mouse` for the rest.
         self.mouse_nested = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_NESTED)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_NESTED)
-                })
-                .unwrap_or(DEFAULT_MOUSE_NESTED);
+            && config::bool_option(&configuration, CONFIG_MOUSE_NESTED, DEFAULT_MOUSE_NESTED);
         // The preview on hover and the menu on a click, which need `mouse`.
         self.mouse_hover = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_HOVER)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_HOVER)
-                })
-                .unwrap_or(DEFAULT_MOUSE_HOVER);
+            && config::bool_option(&configuration, CONFIG_MOUSE_HOVER, DEFAULT_MOUSE_HOVER);
         self.mouse_menus = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_MENUS)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_MENUS)
-                })
-                .unwrap_or(DEFAULT_MOUSE_MENUS);
+            && config::bool_option(&configuration, CONFIG_MOUSE_MENUS, DEFAULT_MOUSE_MENUS);
         // When enabled (the default), every enabled keybinding in a mode is
         // shown, not just the curated set. See `add_discovered_hints`.
-        self.discover_hints = configuration
-            .get(CONFIG_DISCOVER_HINTS)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_DISCOVER_HINTS)
-            })
-            .unwrap_or(DEFAULT_DISCOVER_HINTS);
+        self.discover_hints = config::bool_option(
+            &configuration,
+            CONFIG_DISCOVER_HINTS,
+            DEFAULT_DISCOVER_HINTS,
+        );
         // When a hint is bound to both hjkl and the arrow keys, optionally show
         // only one family (`arrows` / `letters`); defaults to showing both.
         self.direction_keys = configuration
@@ -1577,14 +1505,11 @@ impl State {
             .unwrap_or_default();
         // Suppress bindings every mode inherits from the base mode, so each mode
         // only advertises what is actually new in it.
-        self.hide_shared_hints = configuration
-            .get(CONFIG_HIDE_SHARED_HINTS)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_HIDE_SHARED_HINTS)
-            })
-            .unwrap_or(DEFAULT_HIDE_SHARED_HINTS);
+        self.hide_shared_hints = config::bool_option(
+            &configuration,
+            CONFIG_HIDE_SHARED_HINTS,
+            DEFAULT_HIDE_SHARED_HINTS,
+        );
         // Retained so `$alias` colors and `label_<action>` overrides can be
         // resolved from the configuration.
         self.user_config = user_configuration;
