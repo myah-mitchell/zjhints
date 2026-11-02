@@ -56,6 +56,108 @@ pub fn render_template(
     parse_format(&substituted, config, dim)
 }
 
+/// A value for a placeholder of `render_filled`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Fill<'a> {
+    /// Plain text, drawn in the style of the text around the placeholder.
+    Text(&'a str),
+    /// Text styled already: the segments of another format string, as
+    /// `render_template` returns them. Each segment is drawn over the style
+    /// around the placeholder, so what its own style sets, such as a color
+    /// or bold, takes the place of the surrounding one, and what it leaves
+    /// unset, such as the background, stays as it is around it. A styled
+    /// value so sits on the run it is placed in rather than cutting a hole
+    /// in it. See `drawn_over`.
+    Drawn(&'a [ANSIString<'a>]),
+}
+
+/// Render a format-string `template` into styled segments, like
+/// `render_template`, but fill each `{name}` placeholder in `values` only
+/// after the template is parsed, in one pass over it.
+///
+/// That makes a value safe to come from anywhere, such as a name the user
+/// typed into Zellij: a `#[` in it is never read as a styling block, and a
+/// `{name}` in it is never filled in turn. A placeholder takes each of its
+/// pieces in order, so one placeholder can mix plain and styled text.
+/// Placeholders not in `values` are left as they are written.
+pub fn render_filled(
+    template: &str,
+    values: &[(&str, &[Fill<'_>])],
+    config: &BTreeMap<String, String>,
+    dim: f32,
+) -> Vec<ANSIString<'static>> {
+    let mut parts = vec![];
+    for (style, text) in styled_runs(template, config, dim) {
+        fill_run(style, text, values, &mut parts);
+    }
+    parts
+}
+
+/// Paint one run of template text in `style`, filling the placeholders in
+/// it from `values`.
+fn fill_run(
+    style: Style,
+    text: &str,
+    values: &[(&str, &[Fill<'_>])],
+    parts: &mut Vec<ANSIString<'static>>,
+) {
+    let mut plain = String::new();
+    let mut rest = text;
+    while !rest.is_empty() {
+        let placeholder = values.iter().find_map(|(name, pieces)| {
+            let after = rest
+                .strip_prefix('{')?
+                .strip_prefix(name)?
+                .strip_prefix('}')?;
+            Some((after, pieces))
+        });
+        if let Some((after, pieces)) = placeholder {
+            for piece in pieces.iter() {
+                match piece {
+                    Fill::Text(piece) => plain.push_str(piece),
+                    Fill::Drawn(segments) => {
+                        if !plain.is_empty() {
+                            parts.push(style.paint(std::mem::take(&mut plain)));
+                        }
+                        for segment in segments.iter().filter(|segment| !segment.is_empty()) {
+                            let own_style = *segment.style_ref();
+                            let text = (**segment).to_string();
+                            parts.push(drawn_over(style, own_style).paint(text));
+                        }
+                    }
+                }
+            }
+            rest = after;
+        } else {
+            let mut characters = rest.chars();
+            plain.extend(characters.next());
+            rest = characters.as_str();
+        }
+    }
+    if !plain.is_empty() {
+        parts.push(style.paint(plain));
+    }
+}
+
+/// `own` drawn over `surrounding`: each color `own` sets takes the place of
+/// the surrounding one, and every effect either turns on, such as bold, is
+/// on. A format string has no way to turn an effect off, so this is all a
+/// segment can ask for.
+fn drawn_over(surrounding: Style, own: Style) -> Style {
+    Style {
+        foreground: own.foreground.or(surrounding.foreground),
+        background: own.background.or(surrounding.background),
+        is_bold: own.is_bold || surrounding.is_bold,
+        is_dimmed: own.is_dimmed || surrounding.is_dimmed,
+        is_italic: own.is_italic || surrounding.is_italic,
+        is_underline: own.is_underline || surrounding.is_underline,
+        is_blink: own.is_blink || surrounding.is_blink,
+        is_reverse: own.is_reverse || surrounding.is_reverse,
+        is_hidden: own.is_hidden || surrounding.is_hidden,
+        is_strikethrough: own.is_strikethrough || surrounding.is_strikethrough,
+    }
+}
+
 /// Parse a format string into styled segments. Text before the first `#[...]`
 /// block is emitted unstyled; each block sets the style for the text following
 /// it, up to the next block.
@@ -64,13 +166,27 @@ fn parse_format(
     config: &BTreeMap<String, String>,
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
-    let mut parts: Vec<ANSIString<'static>> = vec![];
+    styled_runs(template, config, dim)
+        .into_iter()
+        .map(|(style, text)| style.paint(text.to_string()))
+        .collect()
+}
+
+/// The non-empty runs of text in a format string, each with the style it is
+/// drawn in. Text before the first `#[...]` block has no style; each block
+/// sets the style for the text following it, up to the next block.
+fn styled_runs<'a>(
+    template: &'a str,
+    config: &BTreeMap<String, String>,
+    dim: f32,
+) -> Vec<(Style, &'a str)> {
+    let mut runs = vec![];
 
     for (idx, segment) in template.split("#[").enumerate() {
         if idx == 0 {
             // Text preceding the first styling block has no directives.
             if !segment.is_empty() {
-                parts.push(Style::default().paint(segment.to_string()));
+                runs.push((Style::default(), segment));
             }
             continue;
         }
@@ -80,12 +196,12 @@ fn parse_format(
         if let Some((directives, text)) = segment.split_once(']') {
             let style = parse_style(directives, config, dim);
             if !text.is_empty() {
-                parts.push(style.paint(text.to_string()));
+                runs.push((style, text));
             }
         }
     }
 
-    parts
+    runs
 }
 
 /// Parse the comma-separated directives inside a `#[...]` block into a style.
@@ -291,6 +407,108 @@ mod tests {
         let parts = render_template("x#[fg=red]y", &[], &config, 0.0);
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0].to_string(), "x");
+    }
+
+    fn rendered(parts: &[ANSIString<'static>]) -> String {
+        ansi_term::ANSIStrings(parts).to_string()
+    }
+
+    #[test]
+    fn filling_plain_values_draws_what_substituting_them_does() {
+        let config = cfg(&[("color_accent", "#89b4fa")]);
+        let template = "#[fg=$accent,bold] {index} #[fg=white]{name}{missing}";
+        assert_eq!(
+            rendered(&render_filled(
+                template,
+                &[
+                    ("index", &[Fill::Text("1")]),
+                    ("name", &[Fill::Text("editor")])
+                ],
+                &config,
+                0.5,
+            )),
+            rendered(&render_template(
+                template,
+                &[("index", "1"), ("name", "editor")],
+                &config,
+                0.5,
+            )),
+        );
+    }
+
+    #[test]
+    fn a_filled_value_is_never_read_as_styling_or_another_placeholder() {
+        let config = cfg(&[]);
+        let parts = render_filled(
+            "#[bold]{name} {index}",
+            &[
+                ("name", &[Fill::Text("#[fg=red]{index}$x")]),
+                ("index", &[Fill::Text("2")]),
+            ],
+            &config,
+            0.0,
+        );
+        assert_eq!(
+            rendered(&parts),
+            Style::new()
+                .bold()
+                .paint("#[fg=red]{index}$x 2")
+                .to_string()
+        );
+    }
+
+    #[test]
+    fn plain_text_takes_the_surrounding_style_and_drawn_text_is_drawn_over_it() {
+        let config = cfg(&[]);
+        let drawn = vec![
+            Style::new().fg(Colour::Red).paint("!"),
+            Style::default().paint("?"),
+        ];
+        let parts = render_filled(
+            "#[bg=blue,bold]<{flags}>",
+            &[(
+                "flags",
+                &[Fill::Text(" a"), Fill::Drawn(&drawn), Fill::Text("b")],
+            )],
+            &config,
+            0.0,
+        );
+        let surrounding = Style::new().on(Colour::Blue).bold();
+        let expected = vec![
+            surrounding.paint("< a"),
+            // The drawn color over the surrounding background and bold.
+            surrounding.fg(Colour::Red).paint("!"),
+            // An unstyled drawn segment is drawn as the text around it.
+            surrounding.paint("?"),
+            surrounding.paint("b>"),
+        ];
+        assert_eq!(rendered(&parts), rendered(&expected));
+    }
+
+    #[test]
+    fn a_drawn_color_takes_the_place_of_the_surrounding_one_and_effects_add_up() {
+        let config = cfg(&[]);
+        let drawn = render_template("#[fg=red,bg=green,italic]!", &[], &config, 0.0);
+        let parts = render_filled(
+            "#[fg=white,bg=blue,bold]{flags}",
+            &[("flags", &[Fill::Drawn(&drawn)])],
+            &config,
+            0.0,
+        );
+        let expected = Style::new()
+            .fg(Colour::Red)
+            .on(Colour::Green)
+            .bold()
+            .italic()
+            .paint("!");
+        assert_eq!(rendered(&parts), expected.to_string());
+    }
+
+    #[test]
+    fn a_placeholder_with_no_pieces_or_an_unknown_name_draws_as_written() {
+        let config = cfg(&[]);
+        let parts = render_filled("{flags}{other}", &[("flags", &[])], &config, 0.0);
+        assert_eq!(rendered(&parts), "{other}");
     }
 
     #[test]
