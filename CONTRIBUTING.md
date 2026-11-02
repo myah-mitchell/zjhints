@@ -127,15 +127,15 @@ New config options need a row in the [configuration reference](docs/configuratio
 
 ### Images
 
-The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `plugins/zjhints/src/images.rs` from the code that draws the bar and the settings screen, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
+The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `plugins/zjhints/src/images.rs` from the code that draws the bar and the settings screen, with the SVG engine in `crates/zjkit/src/images.rs`, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
 
 ```bash
 make images    # rewrites the generated SVGs in docs/img
 ```
 
-`make images` knows the SVGs it draws by a comment on their second line. It rewrites those, removes the ones it no longer draws, and leaves every other file in `docs/img` alone, so an image made by hand can live there too.
+`make images` knows the SVGs a plugin draws by a comment on their second line that names the plugin. It rewrites those, removes the ones that plugin no longer draws, and leaves every other file in `docs/img` alone, including another plugin's images, so an image made by hand can live there too.
 
-The images are tested like everything else. Without `ZJHINTS_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `plugins/zjhints/src/images.rs`, run `make images`, and reference it from the page it belongs on. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
+The images are tested like everything else. Without `ZJKIT_WRITE_IMAGES` set, `cargo test --all-features` draws them again and compares them with the files, so a stale image fails the test job in CI with a message to run `make images`. `builds.yml` runs the same tests, so a stale image blocks nightly, release and EA builds as well. To add an image, add it to `images()` in `plugins/zjhints/src/images.rs`, run `make images`, and reference it from the page it belongs on. A plugin's test passes its drawings, its name and its image directory to `zjkit::images::write_or_compare_images`, and the name goes into the mark of each SVG. The engine is behind zjkit's `images` feature, which only tests enable. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 #### Animated images
 
