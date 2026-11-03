@@ -19,7 +19,7 @@
 //!
 //! A bar that ends its line with the session's name, as zjtabs does, draws it
 //! as the prefix's mirror image. `session_format` is the look each format
-//! theme gives it.
+//! theme gives it, and `session_shown` decides whether it is drawn at all.
 
 use crate::format;
 use crate::theme::{self, Shape, ARROW, ARROW_LEFT, MODES, PILL_LEFT, PILL_RIGHT};
@@ -29,7 +29,7 @@ use ansi_term::{
     Style,
 };
 use std::collections::BTreeMap;
-use zellij_tile::prelude::{InputMode, PaletteColor, Styling};
+use zellij_tile::prelude::{InputMode, ModeInfo, PaletteColor, Styling};
 
 /// The option that is the mode prefix's format string for every mode.
 pub const CONFIG_MODE_FORMAT: &str = "mode_format";
@@ -267,6 +267,28 @@ pub fn session_format(shape: Shape) -> String {
     }
 }
 
+/// Whether a bar draws the session's name in `mode_info`, with its
+/// `show_session` option as the user set it, or `None` while it is unset,
+/// and `default` as what the bar does while it is unset and Zellij does not
+/// hide the name.
+///
+/// A `show_session` the user set decides alone, so `true` shows the name on
+/// the bar even when Zellij hides it from its own. Left unset, the name
+/// follows Zellij's `pane_frames { hide_session_name }`, as Zellij's own tab
+/// bar does, so turning that on hides the name from both: see
+/// `zellij_hides_session_name`.
+pub fn session_shown(show_session: Option<bool>, default: bool, mode_info: &ModeInfo) -> bool {
+    show_session.unwrap_or_else(|| default && !zellij_hides_session_name(mode_info))
+}
+
+/// Whether Zellij's own tab bar leaves the session's name off in
+/// `mode_info`: while its `hide_session_name` is on, except while the
+/// session is being renamed, when the bar shows the name as it is typed.
+/// The same test as `session_name_hidden` in Zellij's `bars` plugin.
+fn zellij_hides_session_name(mode_info: &ModeInfo) -> bool {
+    mode_info.style.hide_session_name && mode_info.mode != InputMode::RenameSession
+}
+
 /// The placeholders a bar fills in the mode prefix's format string under
 /// `key`, with the sample value each gets in the settings screen's list, or
 /// `None` when `key` is not one of the mode prefix's formats.
@@ -373,6 +395,52 @@ mod tests {
                 }
                 // The same look as the prefix, with the name for the mode's.
                 _ => assert_eq!(session.replace("{session}", "{desc}"), mode, "{name}"),
+            }
+        }
+    }
+
+    fn mode_info(hide_session_name: bool, mode: InputMode) -> ModeInfo {
+        let mut mode_info = ModeInfo {
+            mode,
+            ..Default::default()
+        };
+        mode_info.style.hide_session_name = hide_session_name;
+        mode_info
+    }
+
+    #[test]
+    fn an_unset_show_session_follows_zellij_s_hide_session_name() {
+        assert!(session_shown(
+            None,
+            true,
+            &mode_info(false, InputMode::Normal)
+        ));
+        assert!(!session_shown(
+            None,
+            true,
+            &mode_info(true, InputMode::Normal)
+        ));
+        // Zellij's own bar shows the name as it is typed.
+        assert!(session_shown(
+            None,
+            true,
+            &mode_info(true, InputMode::RenameSession)
+        ));
+        // A bar that hides the name by default hides it either way.
+        assert!(!session_shown(
+            None,
+            false,
+            &mode_info(false, InputMode::Normal)
+        ));
+    }
+
+    #[test]
+    fn a_show_session_the_user_set_decides_alone() {
+        for hide_session_name in [false, true] {
+            for default in [false, true] {
+                let mode_info = mode_info(hide_session_name, InputMode::Normal);
+                assert!(session_shown(Some(true), default, &mode_info));
+                assert!(!session_shown(Some(false), default, &mode_info));
             }
         }
     }

@@ -138,25 +138,11 @@ impl ModeView {
 }
 
 /// Whether the bar draws the session's name in `mode_info`, with
-/// `show_session` as the user set it, or `None` while it is unset.
-///
-/// A `show_session` the user set decides alone, so `true` shows the name on
-/// this bar even when Zellij hides it from its own. Left unset, the name
-/// follows Zellij's `pane_frames { hide_session_name }`, as Zellij's own tab
-/// bar does, so turning that on hides the name from both: see
-/// `zellij_hides_session_name`. Otherwise it is shown, by
-/// `DEFAULT_SHOW_SESSION`.
+/// `show_session` as the user set it, or `None` while it is unset. See
+/// `zjkit::mode::session_shown`: while it is unset, the name is shown by
+/// `DEFAULT_SHOW_SESSION` unless Zellij's own `hide_session_name` hides it.
 pub(crate) fn session_shown(show_session: Option<bool>, mode_info: &ModeInfo) -> bool {
-    show_session
-        .unwrap_or_else(|| crate::DEFAULT_SHOW_SESSION && !zellij_hides_session_name(mode_info))
-}
-
-/// Whether Zellij's own tab bar leaves the session's name off in
-/// `mode_info`: while its `hide_session_name` is on, except while the
-/// session is being renamed, when the bar shows the name as it is typed.
-/// The same test as `session_name_hidden` in Zellij's `bars` plugin.
-fn zellij_hides_session_name(mode_info: &ModeInfo) -> bool {
-    mode_info.style.hide_session_name && mode_info.mode != InputMode::RenameSession
+    zjkit::mode::session_shown(show_session, crate::DEFAULT_SHOW_SESSION, mode_info)
 }
 
 impl State {
