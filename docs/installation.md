@@ -197,7 +197,7 @@ Four channels are published:
 | `latest`            | Tagged releases. What the URL above resolves to.                                                                                               |
 | `nightly-<date>`    | Built from `main` each night it has moved, tests green. Prerelease; the newest seven are kept.                                                 |
 | `zellij-<line>`     | The newest release built for a given Zellij minor, e.g. `zellij-0.44`.                                                                         |
-| `ea-<label>-<date>` | A build of branches stacked onto `main`, described by a table in `builds.toml`. Prerelease; see [docs/automation.md](automation.md#ea-builds). |
+| `ea-<label>-<date>` | A build of branches stacked onto a base branch, described by a table in `builds.toml`. Prerelease; see [docs/automation.md](automation.md#ea-builds). |
 
 Zellij caches remote plugins by URL, and every nightly has a URL of its own, so pointing the config at one will keep serving whatever it downloaded first. To track nightlies, fetch the newest into the plugin path instead and start a new session:
 
@@ -205,6 +205,8 @@ Zellij caches remote plugins by URL, and every nightly has a URL of its own, so 
 make nightly   # or: make latest
 make ea LABEL=<label>   # the newest build of an EA table
 ```
+
+These targets install `zjhints.wasm` into `~/.local/share/zellij/plugins/`. A release that also carries the tab bar plugin, `zjtabs.wasm`, has it installed next to `zjhints.wasm`; for now only `make ea LABEL=zjtabs` fetches one. On a release without it, the targets skip it and leave any `zjtabs.wasm` you already have in place.
 
 ### Matching your Zellij version
 

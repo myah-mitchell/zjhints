@@ -111,7 +111,7 @@ The session demo draws Zellij's tab bar, pane frames and pane contents by hand. 
 
 CI runs formatting, clippy, tests, a wasm build, a flake MSRV check, the tests of the build tooling, and `cargo audit`. All must pass.
 
-You do not need to bump `version` in `Cargo.toml`. A release is made by the maintainer pushing a `vX.Y.Z` tag, which sets the version for that build. See [docs/automation.md](docs/automation.md#cutting-a-release).
+You do not need to bump `version` in any `Cargo.toml`. A release is made by the maintainer pushing a `vX.Y.Z` tag, which writes that version into every plugin the build makes, for that build only. See [docs/automation.md](docs/automation.md#cutting-a-release).
 
 Small, focused pull requests are easier to take than large ones. If a change grew while you were making it, splitting it is usually worth the effort.
 

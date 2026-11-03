@@ -36,7 +36,7 @@ If you are reading this to get things running, start at [First-time setup](#firs
                                                         |
  builds.yml <-------------------------------------------+
    sees a tag that builds.toml's `release` table matches
-   test + build, with 0.6.0 written into Cargo.toml for the build only
+   test + build, with 0.6.0 written into each plugin's Cargo.toml for the build only
    publish v0.6.0, becomes `latest`
    move the `zellij-<line>` tag to it too
 
@@ -80,7 +80,7 @@ Several commands and tag names below take a value you supply, written in angle b
 | `<name>` | The name of a `[build.<name>]` table in `builds.toml`, such as `release` or `ea-nested-sessions` |
 | `<date>` | The build date as `yymmdd` in UTC, such as `261101`, with `.2`, `.3` added for a second build the same day |
 | `<worktree>` | The directory `tooling/builds.py assemble` prints when a stack does not merge |
-| `<asset>` | A file published on a release, currently only `zjhints.wasm` |
+| `<asset>` | A plugin published on a release: `zjhints.wasm`, or `zjtabs.wasm` when the build has it |
 | `<you>` | The GitHub account owning the fork you are patching against |
 | `<tag-or-branch>` | The ref in that fork to build from |
 | `<owner>` | The GitHub account owning an action you are pinning |
@@ -143,9 +143,23 @@ The file ships with a `release` table and a `nightly` table, and a commented-out
 | 05:00 UTC daily | Each `on = "nightly"` table whose inputs have moved since its newest release; those inputs are the commits of its base and stack |
 | *Actions > Builds > Run workflow* | The tables you name, or all of them |
 
-A run publishes a build only after its tests pass and the plugin compiles. Builds are independent: one that fails to merge, test or compile is reported and left out, and the rest still publish.
+A run publishes a build only after its tests pass and its plugins compile. Builds are independent: one that fails to merge, test or compile is reported and left out, and the rest still publish.
 
-Each release's notes list the base, the stack and the commit built, the Zellij line, a KDL `plugin location=` snippet for loading it, and the changelog since the previous release in the same series. A hidden comment at the end records the build's inputs, which is how the nightly schedule tells whether anything moved.
+Each release's notes list the base, the stack and the commit built, the Zellij line, a KDL `plugin location=` line for loading each plugin it ships, and the changelog since the previous release in the same series. A hidden comment at the end records the build's inputs, which is how the nightly schedule tells whether anything moved.
+
+### Plugins in a release
+
+A release carries every plugin its build compiles, each as a `.wasm` file. What that is depends on the tree the build starts from:
+
+| Tree | Plugins |
+| --- | --- |
+| `main`, a single crate | `zjhints.wasm` |
+| `main-dev`, the zjkit workspace | `zjhints.wasm` |
+| `main-dev` with `feat/zjtabs` stacked | `zjhints.wasm` and `zjtabs.wasm` |
+
+`zjhints.wasm` is required: a build that does not make it fails, and nothing is published. Any other plugin ships when the tree has it, and only then do the release notes name it.
+
+`tooling/builds.py assemble` reads the plugins out of the tree's manifests, as the crates with a binary target, and the *Builds* summary of each run lists them. The build then checks that each one compiled. The zjkit library has no binary target, so it is compiled into each plugin and never ships on its own.
 
 ### Tags and releases
 
@@ -162,7 +176,9 @@ There is deliberately no tag named `latest`. GitHub already tracks the newest re
 
 The version of a release is the tag you push. Neither pull request from `update-deps.yml` touches `version` in `Cargo.toml`, and neither releases anything. The routine one only moves the output of `cargo update` and `nix flake update`, and the zellij-upgrade one only widens the zellij-tile, zellij-tile-utils and zellij-utils requirements. Merging either lands the update on `main`; nothing publishes until you decide it should.
 
-The `release` table writes the version from the tag into `Cargo.toml` for that build only. The `Cargo.toml` on `main` is never changed by a release, and editing its `version` cuts nothing.
+The `release` table writes the version from the tag into the manifest of every plugin the build makes, for that build only. In a single crate that is the root `Cargo.toml`. In a workspace it is each plugin's own `Cargo.toml`, such as `plugins/zjhints/Cargo.toml`, so every plugin in a release carries the release's version. zjkit keeps its own, since it never ships alone. `tooling/builds.py set-version` does the writing, and prints the files it changed.
+
+The manifests on `main` are never changed by a release, and editing their `version` cuts nothing.
 
 Patch, minor, or major is your call each time, as the name of the tag. A Zellij line move landed via a `zellij-upgrade` pull request is a natural candidate for a minor bump specifically; tag it once you have confirmed hints render right. See [Versioning](installation.md#versioning) for the convention this project uses.
 
@@ -187,7 +203,7 @@ A trial tests and compiles a build and publishes nothing, so a stack can be chec
 2. Enter the table names in the builds field, comma-separated, or leave `all`.
 3. Leave the publish box unticked and start the run.
 
-The plugin is attached to the run page as the artifact `<name>--zjhints`. A trial builds a table even when its tag has already been released. Tick the publish box to release for real.
+The plugins are attached to the run page as the artifact `<name>--plugins`, which holds each `.wasm` the build made. A trial builds a table even when its tag has already been released. Tick the publish box to release for real.
 
 ### EA builds
 
@@ -204,11 +220,13 @@ prerelease = true
 keep = 3
 ```
 
-Merging that change to `main` builds and publishes it. The branches in `stack` are merged onto `main` in order, so list them in the order they should apply. A build that merges anything is also pushed to a branch named `build/<name>`, which is rewritten on every build. Check it out to see exactly what was built, but never commit to it.
+Merging that change to `main` builds and publishes it. The branches in `stack` are merged onto `base` in order, so list them in the order they should apply. A build that merges anything is also pushed to a branch named `build/<name>`, which is rewritten on every build. Check it out to see exactly what was built, but never commit to it.
 
 A stack may not change anything under `.github/workflows/`; such a build is refused. `build/<name>` is pushed with the built-in token, which starts no workflows, so a branch in a stack cannot run a workflow of its own with this repository's secrets. Land workflow changes on `main` first.
 
 To rebuild with whatever the branches have gained since, run the workflow by hand naming the table with publish ticked, or set `on = "nightly"` so it rebuilds each night that its inputs moved. Pick a new label to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
+
+The base can be another branch when the work builds on it. `ea-zjtabs` stacks `feat/zjtabs` onto `main-dev`, because the zjtabs plugin needs the zjkit workspace that only `main-dev` has so far. Its releases carry `zjtabs.wasm` next to `zjhints.wasm` (see [Plugins in a release](#plugins-in-a-release)). Remove it once `feat/zjtabs` is merged into `main-dev`, since `ea-main-dev` ships zjtabs from then on.
 
 Install one with `make ea LABEL=<label>`. See [Installing what is published](#installing-what-is-published).
 
@@ -365,7 +383,9 @@ make zellij VERSION=0.44 # newest release built for that Zellij line
 make ea LABEL=<label>    # newest build of an EA table in builds.toml
 ```
 
-All of these fetch straight into the Zellij plugin path. Start a new session to load it: Zellij caches plugins per session, and detaching does not reload.
+All of these fetch `zjhints.wasm` straight into the Zellij plugin directory, `~/.local/share/zellij/plugins/`, and `zjtabs.wasm` next to it when the release has it. A release without zjtabs skips it and leaves any `zjtabs.wasm` already there as it is. Every file is downloaded before any is replaced, so a failed fetch never mixes plugins from two releases.
+
+Start a new session to load what was fetched: Zellij caches plugins per session, and detaching does not reload.
 
 `make nightly` and `make ea` look up the newest dated release through the GitHub API, so they need network access to `api.github.com` as well as to the download.
 
@@ -408,5 +428,7 @@ Pull requests labeled `needs-zellij-upgrade` accumulate rather than merge, and t
 | `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement in the tagged commit; the alias follows whatever line was pinned there, not the newest one available |
 | An EA build fails to resolve a Zellij crate | The stack has no `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet; see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix) |
 | `make ea` finds no build | The table's `tag` is not of the form `ea-<label>-{date}`, or the table has not been built yet |
+| A make target says the release has no `zjtabs.wasm` | Expected for a build of a tree without the zjtabs plugin, such as `main`; `make ea LABEL=zjtabs` installs one that has it |
+| A build fails at *Check the plugins built* | A plugin the tree declares did not compile, or the tree makes no `zjhints.wasm`; the step names the missing file |
 
 The stale-nightly row above is worth knowing in full: GitHub disables scheduled workflows in repositories with no activity for 60 days, and emails you when it does. Any push re-enables them.

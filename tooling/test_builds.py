@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -151,6 +152,140 @@ class SeriesTest(unittest.TestCase):
             path.write_text('[package]\nname = "x"\n')
             with self.assertRaises(Fail):
                 builds.zellij_line(path)
+
+
+SINGLE_CRATE = {
+    "Cargo.toml": '[package]\nname = "zjhints"\n# Not what a release is published as.\nversion = "0.5.1"\n'
+                  'edition = "2021"\n\n[dependencies]\nzellij-tile = "0.46.0"\n',
+    "src/main.rs": "fn main() {}\n",
+}
+
+# main-dev's layout: a virtual workspace root, zjkit as a library, and zjhints.
+WORKSPACE = {
+    "Cargo.toml": '[workspace]\nmembers = ["crates/zjkit", "plugins/zjhints"]\nresolver = "2"\n\n'
+                  '[workspace.package]\nedition = "2021"\n\n'
+                  '[workspace.dependencies]\nzellij-tile = "0.46.0"\nzjkit = { path = "crates/zjkit" }\n',
+    "crates/zjkit/Cargo.toml": '[package]\nname = "zjkit"\nversion = "0.1.0"\npublish = false\n'
+                               'edition.workspace = true\n\n[dependencies]\nzellij-tile.workspace = true\n',
+    "crates/zjkit/src/lib.rs": "",
+    "plugins/zjhints/Cargo.toml": '[package]\nname = "zjhints"\nversion = "0.5.1"\nedition.workspace = true\n\n'
+                                  '[dependencies]\nzjkit.workspace = true\n',
+    "plugins/zjhints/src/main.rs": "fn main() {}\n",
+}
+
+# feat/zjtabs stacked onto it: a second plugin in the same workspace.
+WITH_ZJTABS = {
+    **WORKSPACE,
+    "Cargo.toml": WORKSPACE["Cargo.toml"].replace(
+        '"plugins/zjhints"]', '"plugins/zjhints", "plugins/zjtabs"]'),
+    "plugins/zjtabs/Cargo.toml": '[package]\nname = "zjtabs"\nversion = "0.1.0"\nedition.workspace = true\n\n'
+                                 '[dependencies]\nzjkit.workspace = true\n\n'
+                                 '[dev-dependencies]\nzjkit = { workspace = true, features = ["images"] }\n',
+    "plugins/zjtabs/src/main.rs": "fn main() {}\n",
+}
+
+
+def write_tree(root: Path, files: dict[str, str]) -> Path:
+    for path, text in files.items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text)
+    return root
+
+
+class PluginsTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def tree(self, files: dict[str, str]) -> Path:
+        return write_tree(Path(tempfile.mkdtemp(dir=self.tmp)), files)
+
+    def version_of(self, tree: Path, path: str) -> object:
+        return builds.read_manifest(tree / path).get("package", {}).get("version")
+
+    def test_plugins_of_each_layout(self):
+        self.assertEqual(builds.plugin_names(self.tree(SINGLE_CRATE)), ["zjhints"])
+        # zjkit has no binary target, so it is not a plugin.
+        self.assertEqual(builds.plugin_names(self.tree(WORKSPACE)), ["zjhints"])
+        self.assertEqual(builds.plugin_names(self.tree(WITH_ZJTABS)), ["zjhints", "zjtabs"])
+
+    def test_member_globs_and_excludes(self):
+        files = {**WITH_ZJTABS, "Cargo.toml": WITH_ZJTABS["Cargo.toml"].replace(
+            'members = ["crates/zjkit", "plugins/zjhints", "plugins/zjtabs"]',
+            'members = ["crates/*", "plugins/*"]\nexclude = ["plugins/zjtabs"]')}
+        self.assertEqual(builds.plugin_names(self.tree(files)), ["zjhints"])
+
+    def test_a_named_bin_target_is_the_wasm_name(self):
+        files = {**WORKSPACE, "plugins/zjhints/Cargo.toml": WORKSPACE["plugins/zjhints/Cargo.toml"]
+                 + '\n[[bin]]\nname = "zjhints-dev"\npath = "src/main.rs"\n'}
+        self.assertEqual(builds.plugin_names(self.tree(files)), ["zjhints-dev"])
+
+    def test_a_workspace_with_no_plugin_fails(self):
+        files = {k: v for k, v in WORKSPACE.items() if not k.startswith("plugins/")}
+        with self.assertRaises(Fail):
+            builds.plugin_names(self.tree(files))
+
+    def test_version_goes_into_a_single_crate(self):
+        tree = self.tree(SINGLE_CRATE)
+        self.assertEqual(builds.set_version(tree, "0.6.0"), [tree / "Cargo.toml"])
+        self.assertEqual(self.version_of(tree, "Cargo.toml"), "0.6.0")
+        # Only the version line changes; the comment explaining it survives.
+        self.assertEqual((tree / "Cargo.toml").read_text(),
+                         SINGLE_CRATE["Cargo.toml"].replace('"0.5.1"', '"0.6.0"'))
+
+    def test_version_goes_into_every_plugin_and_not_the_library(self):
+        tree = self.tree(WITH_ZJTABS)
+        written = builds.set_version(tree, "0.6.0")
+        self.assertEqual(written, [tree / "plugins/zjhints/Cargo.toml", tree / "plugins/zjtabs/Cargo.toml"])
+        self.assertEqual(self.version_of(tree, "plugins/zjhints/Cargo.toml"), "0.6.0")
+        self.assertEqual(self.version_of(tree, "plugins/zjtabs/Cargo.toml"), "0.6.0")
+        self.assertEqual(self.version_of(tree, "crates/zjkit/Cargo.toml"), "0.1.0")
+        # The root has no package of its own, so it is left as it was.
+        self.assertEqual((tree / "Cargo.toml").read_text(), WITH_ZJTABS["Cargo.toml"])
+
+    def test_an_inherited_version_is_written_once_into_the_workspace(self):
+        files = {**WITH_ZJTABS}
+        files["Cargo.toml"] = files["Cargo.toml"].replace(
+            '[workspace.package]\n', '[workspace.package]\nversion = "0.0.0"\n')
+        for plugin in ("plugins/zjhints/Cargo.toml", "plugins/zjtabs/Cargo.toml"):
+            files[plugin] = re.sub(r'version = "[^"]*"', "version.workspace = true", files[plugin], count=1)
+        tree = self.tree(files)
+        self.assertEqual(builds.set_version(tree, "1.2.3"), [tree / "Cargo.toml"])
+        root = builds.read_manifest(tree / "Cargo.toml")
+        self.assertEqual(root["workspace"]["package"]["version"], "1.2.3")
+        self.assertEqual(self.version_of(tree, "crates/zjkit/Cargo.toml"), "0.1.0")
+
+    def test_version_must_land_in_the_right_table(self):
+        # A `version` under some other table is not the package's.
+        tree = self.tree({**SINGLE_CRATE, "Cargo.toml": '[package]\nname = "zjhints"\n\n'
+                          '[dependencies.zellij-tile]\nversion = "0.46.0"\n'})
+        with self.assertRaises(Fail) as caught:
+            builds.set_version(tree, "0.6.0")
+        self.assertIn("found no `version", str(caught.exception))
+        self.assertEqual(builds.read_manifest(tree / "Cargo.toml")["dependencies"]["zellij-tile"]["version"],
+                         "0.46.0")
+
+    def test_set_version_command_lists_what_it_wrote(self):
+        # How builds.yml calls it: the files, relative to the tree, one a line.
+        tree = self.tree(WITH_ZJTABS)
+        script = Path(builds.__file__)
+        result = subprocess.run([sys.executable, "-I", str(script), "set-version", "0.6.0", "--tree", str(tree)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), ["plugins/zjhints/Cargo.toml", "plugins/zjtabs/Cargo.toml"])
+        result = subprocess.run([sys.executable, "-I", str(script), "set-version", "nope", "--tree", str(tree)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("is not a version", result.stderr)
+
+    def test_version_is_checked(self):
+        tree = self.tree(SINGLE_CRATE)
+        with self.assertRaises(Fail):
+            builds.set_version(tree, "0.6")
+        self.assertEqual(self.version_of(tree, "Cargo.toml"), "0.5.1")
 
 
 class ReleasesTest(unittest.TestCase):
@@ -438,6 +573,27 @@ class AssembleTest(GitTestCase):
         result = builds.assemble("preview", build, self.args(releases=releases))
         self.assertEqual((result["tag"], result["previous"], result["rolling"]),
                          ("preview", "preview", True))
+
+    def test_plugins_follow_the_stack(self):
+        result = builds.assemble("nightly", NIGHTLY, self.args())
+        self.assertEqual(result["plugins"], ["zjhints"])
+        # main-dev turns the tree into a workspace, and feat/zjtabs adds a
+        # plugin to it.
+        self.run_git("switch", "--quiet", "-c", "main-dev", cwd=self.repo)
+        self.run_git("rm", "--quiet", "Cargo.toml", cwd=self.repo)
+        write_tree(self.repo, WORKSPACE)
+        self.run_git("add", ".", cwd=self.repo)
+        self.run_git("commit", "--quiet", "-m", "workspace", cwd=self.repo)
+        self.run_git("switch", "--quiet", "-c", "feat/zjtabs", cwd=self.repo)
+        write_tree(self.repo, WITH_ZJTABS)
+        self.run_git("add", ".", cwd=self.repo)
+        self.run_git("commit", "--quiet", "-m", "zjtabs", cwd=self.repo)
+        self.push("main-dev", "feat/zjtabs")
+        result = builds.assemble("ea-main-dev", {"tag": "ea-main-dev-{date}", "base": "main-dev"}, self.args())
+        self.assertEqual(result["plugins"], ["zjhints"])
+        build = {"tag": "ea-zjtabs-{date}", "base": "main-dev", "stack": ["feat/zjtabs"]}
+        result = builds.assemble("ea-zjtabs", build, self.args())
+        self.assertEqual((result["tag"], result["plugins"]), ("ea-zjtabs-261101", ["zjhints", "zjtabs"]))
 
     def test_stack_can_move_the_zellij_line(self):
         self.run_git("switch", "--quiet", "-c", "feat/zellij", cwd=self.repo)

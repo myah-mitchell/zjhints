@@ -7,10 +7,11 @@ your own machine. Run it with --help, or see docs/automation.md.
 
 Subcommands:
 
-  plan       Decide which builds a workflow run should make.
-  assemble   Merge one build's stack onto its base and print what came out.
-  record     Save the conflict resolutions in a worktree so CI can replay them.
-  prune      List the releases a build's `keep` setting says to delete.
+  plan         Decide which builds a workflow run should make.
+  assemble     Merge one build's stack onto its base and print what came out.
+  record       Save the conflict resolutions in a worktree so CI can replay them.
+  prune        List the releases a build's `keep` setting says to delete.
+  set-version  Write a release's version into a build's plugin manifests.
 
 The script never talks to the GitHub API. Where it needs to know what has been
 released, the caller passes a file of releases (see load_releases).
@@ -382,6 +383,7 @@ def assemble(name: str, build: dict, args: argparse.Namespace) -> dict:
     merge_stack(name, base, stack, repo, worktree, args)
     sha = git("rev-parse", "HEAD", cwd=worktree)
     zellij = zellij_line(worktree / "Cargo.toml")
+    plugins = plugin_names(worktree)
     values = {
         "version": version,
         "zellij": zellij,
@@ -411,6 +413,8 @@ def assemble(name: str, build: dict, args: argparse.Namespace) -> dict:
         "previous": history[0]["tag_name"] if history else "",
         "version": version,
         "zellij": zellij,
+        # The .wasm files the build makes, each of which the release carries.
+        "plugins": plugins,
         "alias": fill(build["alias"], values) if "alias" in build else "",
         "rolling": bool(build.get("rolling", False)),
         "keep": build.get("keep", 0),
@@ -552,6 +556,125 @@ def zellij_line(cargo_toml: Path) -> str:
     return f"{m.group(1)}.{m.group(2)}"
 
 
+# Plugins
+#
+# A build's tree is either a single crate, which is the zjhints plugin, or a
+# Cargo workspace whose members are plugins (zjhints, zjtabs) and the library
+# they share (zjkit). The workflow and this script come from main and build all
+# of them, so nothing here may assume one layout.
+
+
+def read_manifest(path: Path) -> dict:
+    try:
+        return tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        raise Fail(f"cannot read {path}: {e}")
+
+
+def plugin_manifests(tree: Path) -> list[Path]:
+    """The manifests of the plugins a tree builds, root first, then members in order.
+
+    A plugin is a crate with a binary target: that is what compiles to a .wasm
+    Zellij loads. A library like zjkit is compiled into each plugin and never
+    ships on its own, so it is left out.
+    """
+    root = tree / "Cargo.toml"
+    data = read_manifest(root)
+    workspace = data.get("workspace")
+    if not isinstance(workspace, dict):
+        # A single crate is the plugin, whatever its targets.
+        return [root]
+    crates = [root] if "package" in data else []
+    excluded = {(tree / e).resolve() for e in workspace.get("exclude", [])}
+    for pattern in workspace.get("members", []):
+        # Members may be globs, such as "plugins/*". Path.glob takes a plain
+        # path too, and yields it when it exists.
+        for directory in sorted(tree.glob(pattern)):
+            manifest = directory / "Cargo.toml"
+            if manifest.is_file() and directory.resolve() not in excluded and manifest not in crates:
+                crates.append(manifest)
+    plugins = [m for m in crates if binary_names(m, read_manifest(m))]
+    if not plugins:
+        raise Fail(f"{root}: no crate in the workspace has a binary target, so it builds no plugin")
+    return plugins
+
+
+def binary_names(manifest: Path, data: dict) -> list[str]:
+    """The names of a crate's binary targets, which are its .wasm file names."""
+    package = data.get("package", {})
+    named = [b["name"] for b in data.get("bin", []) if isinstance(b, dict) and "name" in b]
+    if named:
+        return named
+    if package.get("autobins", True) and (manifest.parent / "src" / "main.rs").is_file():
+        return [package.get("name", manifest.parent.name)]
+    return []
+
+
+def plugin_names(tree: Path) -> list[str]:
+    """What the tree's release build makes, as <name>.wasm in the target directory."""
+    names = []
+    for manifest in plugin_manifests(tree):
+        data = read_manifest(manifest)
+        # A single crate with no main.rs still names one plugin: its package.
+        names += binary_names(manifest, data) or [data.get("package", {}).get("name", "")]
+    return [n for n in names if n]
+
+
+def set_version(tree: Path, version: str) -> list[Path]:
+    """Writes `version` into the manifest of every plugin in the tree.
+
+    Every plugin gets it, not just zjhints: one tag releases all of them, so
+    each .wasm says the version of the release it shipped in. zjkit keeps its
+    own, since it never ships alone. A plugin that inherits its version with
+    `version.workspace = true` has it written into [workspace.package] instead.
+    Returns the files written.
+    """
+    if not VERSION_RE.match(version):
+        raise Fail(f"`{version}` is not a version like 1.2.3")
+    root = tree / "Cargo.toml"
+    targets: list[tuple[Path, str]] = []
+    for manifest in plugin_manifests(tree):
+        current = read_manifest(manifest).get("package", {}).get("version")
+        target = (root, "workspace.package") if isinstance(current, dict) else (manifest, "package")
+        if target not in targets:
+            targets.append(target)
+    for path, table in targets:
+        write_version(path, table, version)
+    return [path for path, _ in targets]
+
+
+def write_version(path: Path, table: str, version: str) -> None:
+    """Replaces the `version` line of one table, leaving the rest of the file as it is.
+
+    Edited as text, since tomllib only reads, and the manifest's comments and
+    layout should survive into the build. The result is read back to make sure
+    the edit landed where Cargo will look.
+    """
+    lines = path.read_text().splitlines(keepends=True)
+    header = re.compile(r"^\s*\[\s*" + re.escape(table) + r"\s*\]\s*(#.*)?$")
+    assignment = re.compile(r"""^(\s*version\s*=\s*)(["'])[^"']*\2""")
+    inside = False
+    for i, line in enumerate(lines):
+        if header.match(line):
+            inside = True
+        elif inside and re.match(r"^\s*\[", line):
+            break
+        elif inside and assignment.match(line):
+            lines[i] = assignment.sub(lambda m: f'{m.group(1)}"{version}"', line, count=1)
+            path.write_text("".join(lines))
+            break
+    data = read_manifest(path)
+    for key in table.split("."):
+        data = data.get(key, {}) if isinstance(data, dict) else {}
+    if data.get("version") != version:
+        raise Fail(f"{path}: found no `version = \"...\"` in [{table}] to write {version} into")
+
+
+def cmd_set_version(args: argparse.Namespace) -> None:
+    for path in set_version(Path(args.tree), args.version):
+        print(path.relative_to(args.tree).as_posix())
+
+
 def existing_tags(repo: Path) -> set[str]:
     return {
         line.split("refs/tags/", 1)[1].removesuffix("^{}")
@@ -687,6 +810,12 @@ def main() -> None:
     p.add_argument("--releases", required=True, help="the repository's releases, as JSON")
     p.add_argument("--published", default="", help="the tag just released, counted as newest")
     p.set_defaults(func=cmd_prune)
+
+    p = sub.add_parser("set-version",
+                       help="write a version into every plugin manifest of a tree, listing the files")
+    p.add_argument("version")
+    p.add_argument("--tree", default=".", help="the root of the build's checkout")
+    p.set_defaults(func=cmd_set_version)
 
     args = parser.parse_args()
     try:
