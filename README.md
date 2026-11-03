@@ -12,9 +12,9 @@ This repository is a family of Zellij bars that share one library, `zjkit`: zjhi
 > [!NOTE]
 > zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
-Here it is at the bottom of a Zellij session: the mode first, then each key beside what it does. The narration under the dashed line names each key pressed; it is not part of the session.
+Here it is at the bottom of a Zellij session, with [zjtabs](#zjtabs) as the tab bar at the top: the mode first, then each key beside what it does. The narration under the dashed line names each key pressed; it is not part of the session.
 
-![A Zellij session with the zjhints bar at the bottom, in the catppuccin-mocha colors with pill-shaped hints. The bar shows the normal mode hints, then the pane mode hints after Ctrl p. After r splits the terminal and returns to normal mode, it shows tab mode after Ctrl t, resize mode after Ctrl n, and in locked mode after Ctrl g only the key that unlocks it, before Ctrl g returns to normal mode.](docs/img/session-modes.svg)
+![A Zellij session with the zjtabs tab bar at the top and the zjhints bar at the bottom, in the catppuccin-mocha colors with pill-shaped hints. Both bars start with the current mode. The zjhints bar shows the normal mode hints, then the pane mode hints after Ctrl p. After r splits the terminal and returns to normal mode, it shows tab mode after Ctrl t, resize mode after Ctrl n, and in locked mode after Ctrl g only the key that unlocks it, before Ctrl g returns to normal mode.](docs/img/session-modes.svg)
 
 [Themes](docs/themes.md) restyle it in one line, and the [settings screen](docs/settings.md) edits every option while you watch the bar change.
 
@@ -47,25 +47,25 @@ Each of these is a Zellij session like the one above, showing one feature.
 
 As the terminal narrows, the bar [drops whole hints to fit](docs/fitting.md), and the drop indicator offers the ones that did not.
 
-![A Zellij session with two panes narrowing step by step. The zjhints bar drops whole hints from its end to fit, keeping the mode and the first hints, and ends in an ellipsis. Hovering the ellipsis opens a popup listing every hint that did not fit. The terminal then widens back to full width and the hints return.](docs/img/session-fitting.svg)
+![A Zellij session with two panes narrowing step by step under the zjtabs tab bar. The zjhints bar drops whole hints from its end to fit, keeping the mode and the first hints, and ends in an ellipsis. Hovering the ellipsis opens a popup listing every hint that did not fit. The terminal then widens back to full width and the hints return.](docs/img/session-fitting.svg)
 
 ### Settings screen
 
 The [settings screen](docs/settings.md) edits the options in a floating pane, and the bar previews each change before it is saved.
 
-![A Zellij session where Alt comma opens the zjhints settings screen in a floating pane on its Theme group. Setting format_theme to powerline turns the bar's pills into arrows, and setting color_theme to tokyo-night recolors it, both marked unsaved. Ctrl a saves them, and Esc closes the screen, leaving the bar in the new look.](docs/img/session-settings.svg)
+![A Zellij session under the zjtabs tab bar, where Alt comma opens the zjhints settings screen in a floating pane on its Theme group. Setting format_theme to powerline turns the zjhints bar's pills into arrows, and setting color_theme to tokyo-night recolors it, both marked unsaved. Ctrl a saves them, and Esc closes the screen, leaving the bar in the new look.](docs/img/session-settings.svg)
 
 ### Mouse
 
 With [mouse](docs/mouse.md) on, resting the pointer on a hint opens a menu of what its keys do, and the menus follow the mode.
 
-![A Zellij session with the pointer under the zjhints bar. Moving across the hints opens nothing; resting on the focus hint opens a menu of its four keys. Ctrl p switches to pane mode and the menu closes with the bar it came from. Resting on the float hint opens its menu, and resting on the ellipsis opens the pane mode hints that did not fit, before Esc returns to normal mode.](docs/img/session-mouse.svg)
+![A Zellij session under the zjtabs tab bar, with the pointer under the zjhints bar. Moving across the hints opens nothing; resting on the focus hint opens a menu of its four keys. Ctrl p switches to pane mode and the menu closes with the bar it came from. Resting on the float hint opens its menu, and resting on the ellipsis opens the pane mode hints that did not fit, before Esc returns to normal mode.](docs/img/session-mouse.svg)
 
 ### Themes
 
 [Themes](docs/themes.md) set the colors, the shape of each hint and the symbols for keys, each on its own.
 
-![A Zellij session whose zjhints bar changes look every 1.6 seconds, through fifteen combinations of color, format and alias themes, each named in the narration: catppuccin-mocha with pills and unicode, dracula with powerline and ascii, nord flat, gruvbox-dark pills, tokyo-night plain, catppuccin-latte powerline, Zellij's own look, and more.](docs/img/session-themes.svg)
+![A Zellij session under the zjtabs tab bar, whose zjhints bar changes look every 1.6 seconds, through fifteen combinations of color, format and alias themes, each named in the narration: catppuccin-mocha with pills and unicode, dracula with powerline and ascii, nord flat, gruvbox-dark pills, tokyo-night plain, catppuccin-latte powerline, Zellij's own look, and more.](docs/img/session-themes.svg)
 
 ![Five rows, each a zjhints bar in normal mode under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each hint](docs/img/format-themes.svg)
 
@@ -73,7 +73,7 @@ With [mouse](docs/mouse.md) on, resting the pointer on a hint opens a menu of wh
 
 In a [nested session](docs/nested-sessions.md), the bar shows the keys of the session that has the keyboard.
 
-![A Zellij session that starts a nested session, named work, in its right pane. Descended into it, the host's frames fade and the zjhints bar shows the nested session's normal mode keys, then its pane mode keys after Ctrl p. Back in the host, the bar shows the host's own keys again.](docs/img/session-nested.svg)
+![A Zellij session that starts a nested session, named work, in its right pane. Descended into it, the host's frames and its zjtabs tab bar fade, and the zjhints bar shows the nested session's normal mode keys, then its pane mode keys after Ctrl p. Back in the host, the bar shows the host's own keys again. The nested session draws neither bar of its own, as both hide by default in a nested session.](docs/img/session-nested.svg)
 
 ## What it does
 
