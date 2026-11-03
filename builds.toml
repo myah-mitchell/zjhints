@@ -82,7 +82,7 @@ keep = 7
 # into main. To rebuild after main-dev moves, run the workflow by hand naming
 # ea-main-dev with publish ticked. `make ea LABEL=main-dev` installs it.
 [build.ea-release]
-tag = "ea-v{version}-{date}"
+tag = "ea-v0.6.0-{date}"
 base = "main-dev"
 stack = ["feat/zjtabs"]
 prerelease = true
