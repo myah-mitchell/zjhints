@@ -5,7 +5,7 @@ The settings screen is a floating pane for changing zjhints options without edit
 It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
 
 > [!NOTE]
-> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use `zjtabs` in the launch examples and look for the *zjtabs* entry on Zellij's settings screen. Its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
+> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs or zjtaskbar, use its name in the launch examples and look for its entry on Zellij's settings screen. Their groups are in the [zjtabs](zjtabs/configuration.md) and [zjtaskbar](zjtaskbar/configuration.md) configuration references.
 
 ## Prerequisites
 
@@ -67,6 +67,8 @@ context_menu {
 With `mouse` and [`show_mode`](nested-sessions.md#standing-alone) on, left-click the mode prefix at the start of the bar. No config is needed for this one. While descended into a nested session the prefix opens it only with [`mouse_nested`](mouse.md#while-descended-into-a-nested-session) on, like the rest of the bar. The screen opens on the alias that bar was started from, and clicking again while it is open brings it back up instead of opening a second one.
 
 A zjtabs bar does the same with `mouse` on, and its `show_mode` is on by default, so its prefix is there to click with no config at all. See [Opening the settings screen](zjtabs/mouse.md#opening-the-settings-screen).
+
+A zjtaskbar bar has no mode prefix, but the `mode` item of its tray does the same with `mouse` on. The tray is empty by default, so add `mode` to `tray` first. See [The items](zjtaskbar/tray.md#the-items).
 
 ## Choosing the alias
 
@@ -176,6 +178,8 @@ A value that is a hex color, as in `#89b4fa`, or a `$name` alias whose `color_<n
 
 The *Theme* group draws a bar under its three options, as your bars would draw it with the themes selected there. It uses the session's current mode, keybindings and Zellij theme, so `color_theme zellij` shows the colors you have now. While a theme's dropdown is open, the preview follows the value highlighted in it. Options that hide the whole bar, such as `hidden`, are left out of the preview.
 
+A zjtaskbar preview draws the launcher's button, then as many of six sample floating panes as fit, with markers for the rest, then the tray at the right end once you list items in it. The panes include a focused one, a minimized one and two in another tab, and follow your `pane_scope`. Its clock shows a fixed time, 09:41 UTC in your `clock_format`, moved by `clock_utc_offset` when you set one, so the preview runs no command to learn the time and stays the same while you watch it.
+
 Any key you set that a selected theme sets too, such as `color_accent` or `desc_format`, overrides the theme. The caption over the bar counts them. Press `o`, or click the button beside the caption, to draw the bar without them and see the themes on their own; press it again to put them back. Hiding them changes only the preview, not your settings.
 
 ## Keys outside the fixed options
@@ -184,11 +188,24 @@ Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `c
 
 Each group with families ends in a button per family to add a key, such as *+ add color_\<name\>*. Click it, or select it and press `Enter`, and the key starts with the family's prefix: type the rest, press `Enter`, then type its value.
 
+Families whose keys start alike each have a button of their own. zjtaskbar's *Launcher* group has one per field of a launcher entry, from *+ add launch_\<n\>_name* to *+ add launch_\<n\>_config_\<key\>*, after a *+ add launch entry* button that starts a new entry.
+
 *Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group.
+
+### Launcher entries
+
+An entry takes one key per field, all with the same number, such as `launch_3_name` and `launch_3_command`. The buttons fill the number in, so you never type it:
+
+1. Click **+ add launch entry**. The key starts as the next entry's name, numbered one past the highest entry set, such as `launch_3_name`.
+2. Press `Enter` and type the entry's name.
+3. Click a field's button, such as **+ add launch_\<n\>_command**. The key starts with the same number, as `launch_3_command`.
+4. Press `Enter` and type the field's value. Repeat for the entry's other fields.
+
+The field buttons number a key for the entry you last changed a key of, or the highest-numbered entry when you have changed none, so change a key of another entry first to add fields to it. You can also edit the number before pressing `Enter`. The number is a whole number written without leading zeros, as the launcher reads it. *+ add launch_\<n\>_config_\<key\>* starts the key as far as `config_`, such as `launch_3_config_`, for you to type the plugin's own key.
 
 ### Keys that fit no family
 
-A key that starts like a family's keys but fits none of them is listed in that family's group and marked *✗ ignored*, since the bar does not read it. Examples are `label_` with nothing after it and `mode_label_bogus`, whose last word is no mode. The line under the rows names the keys it could have been, such as `label_*` for both of zjhints' label families. Add the key you meant, then select the ignored one and press `Del` to remove it.
+A key that starts like a family's keys but fits none of them is listed in that family's group and marked *✗ ignored*, since the bar does not read it. Examples are a misspelled `launch_1_nmae`, an entry numbered `launch_01_name`, and `mode_label_bogus`, whose last word is no mode. The line under the rows names the keys it could have been, such as `launch_<n>_*` for the fields of a launcher entry. Add the key you meant, then select the ignored one and press `Del` to remove it.
 
 ## Previewing and saving
 
@@ -214,7 +231,7 @@ Closing does not discard anything, as in Zellij's own settings screen. Unsaved c
 - Bars in this session only. Other sessions pick the saved values up when they start.
 - Keys the alias controls for that bar. A key a layout sets on the bar's own pane, such as `show_mode true`, stays as the layout sets it through every later change to it.
 
-A bar takes a preview only from the settings screen, or another pane running the bar's own plugin. A preview sent by another plugin, or with `zellij pipe` or a keybinding, changes nothing.
+A bar takes a preview only from the settings screen, or another pane running the bar's own plugin. A preview sent by another plugin, or with `zellij pipe` or a keybinding, changes nothing. No other plugin can change a bar's options this way, such as the commands zjtaskbar's launcher runs.
 
 A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so previews reach it by alias like any other bar.
 
@@ -222,7 +239,7 @@ Unsaved changes last until the session ends. They never reach the config file, s
 
 ## Permissions
 
-The screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. Zellij keeps one grant for the screen and the bars, because they load from the same file, and each grant replaces the last; asking for the lot keeps opening the screen from taking permissions away from the bars.
+The screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. For zjtaskbar that takes in *Run commands*, which its clock and its launcher entries use, though the screen itself runs no command. Zellij keeps one grant for the screen and the bars, because they load from the same file, and each grant replaces the last; asking for the lot keeps opening the screen from taking permissions away from the bars.
 
 A bar granted its own, smaller set afterwards replaces the screen's grant in turn, so the screen can ask again the next time it opens. It is a floating pane, so the prompt can always be answered there.
 
