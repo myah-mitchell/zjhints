@@ -7,6 +7,8 @@ Options are grouped by topic, and a group with more to it links the page carryin
 | Placeholder | You replace it with |
 | --- | --- |
 | `<name>` | An alias name you choose, giving `color_blue` |
+| `<n>` | A launcher entry's number, a whole number with no leading zeros, giving `launch_1_name` |
+| `<key>` | A configuration key of the entry's plugin, giving `launch_2_config_welcome_screen` |
 
 Format strings use the zjstatus syntax, with the placeholders each option names below. See [Styling](../styling.md).
 
@@ -62,8 +64,8 @@ Built-in colors, shapes and symbols for the whole bar, laid under your own optio
 | Option | Default | What it does |
 | --- | --- | --- |
 | `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
-| `format_theme` | `zellij` | The shape of entries, markers and separators, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
-| `alias_theme` | `zellij` | Symbols for the flags, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
+| `format_theme` | `zellij` | The shape of entries, markers, separators and the launcher's button, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for the flags and the launcher's button, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
 
 ## Colors
 
@@ -98,6 +100,32 @@ Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus 
 | `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
 
 Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts.
+
+## Launcher
+
+A button at the bar's left end, drawn while `mouse` is on. Left-click it for a menu of new floating panes to open: a new terminal, your own entries, then Zellij's session manager, settings and plugin manager. Right-click it for Zellij's bar menu. See [Launcher](launcher.md) for the entries and an example.
+
+The button's format takes one placeholder:
+
+| Placeholder | What it draws |
+| --- | --- |
+| `{symbol}` | The text of `launcher_symbol` |
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `show_launcher` | `true` | Draw the launcher's button while `mouse` is on and its menu lists something |
+| `launcher_format` | unset | Format string for the button, with `{symbol}`; Zellij's ribbon colors when unset |
+| `launcher_symbol` | `Menu` | What `{symbol}` draws; an `alias_theme` sets a symbol in its place |
+| `launcher_new_terminal` | `true` | List a new terminal first in the menu, started in the focused pane's directory |
+| `launcher_zellij_actions` | `true` | List Zellij's session manager, settings and plugin manager last in the menu |
+| `launch_<n>_name` | unset | What the menu shows for entry `<n>`; entries are listed in the order of `<n>` |
+| `launch_<n>_command` | unset | The program entry `<n>` runs in a new floating pane |
+| `launch_<n>_args` | unset | The arguments of entry `<n>`'s command in one string, split as a shell splits them |
+| `launch_<n>_cwd` | unset | The directory entry `<n>`'s command runs in; the focused pane's when unset |
+| `launch_<n>_plugin` | unset | The plugin URL or alias entry `<n>` opens in a new floating pane |
+| `launch_<n>_config_<key>` | unset | One key of the configuration entry `<n>`'s plugin opens with |
+
+The button asks Zellij for no permission beyond those of `mouse`, apart from one: an entry with `launch_<n>_command` asks for *Run commands*, and only while there is one.
 
 ## Settings screen
 

@@ -1,7 +1,8 @@
-//! Drawing the entries: each from its format, the run of them that fits
-//! around the focused one, the markers for the rest, the separators between
-//! the tabs' groups, and what an empty bar says. Each line comes with the
-//! columns its entries and markers were drawn on, for the mouse.
+//! Drawing the bar: the launcher's button at its left end, then the
+//! entries, each from its format, the run of them that fits around the
+//! focused one, the markers for the rest, the separators between the tabs'
+//! groups, and what an empty bar says. Each line comes with the columns its
+//! button, entries and markers were drawn on, for the mouse.
 
 use crate::entries::Entry;
 use crate::flags::FLAGS;
@@ -24,6 +25,10 @@ const ZELLIJ_ENTRY: &str = " {title}{flags} ";
 /// when no format is set: the arrows and count of Zellij's own tab bar.
 const ZELLIJ_OVERFLOW_LEFT: &str = " \u{2190} +{count} ";
 const ZELLIJ_OVERFLOW_RIGHT: &str = " +{count} \u{2192} ";
+/// What the launcher's button looks like in Zellij's own colors, when its
+/// format is unset: its symbol on a ribbon, as an entry's title is, and in
+/// bold so it stands apart from the entries beside it.
+const ZELLIJ_LAUNCHER: &str = " {symbol} ";
 
 /// What of `ModeInfo` the bar shows: the nested-session state that hides or
 /// dims it. Compared to tell whether a mode update changes anything on
@@ -50,6 +55,9 @@ impl ModeView {
 /// What a stretch of the drawn line stands for, for the mouse. The spacers,
 /// the separators and the end of a cut line stand for nothing.
 ///
+/// The launcher's button is drawn first, at column 0, so its span is the
+/// same whatever the entries do.
+///
 /// Each names a pane by its id, not its place on the bar, so a click acts on
 /// the pane it landed on even if a `PaneUpdate` has moved the entries since
 /// the line was drawn.
@@ -60,6 +68,8 @@ pub(crate) enum Clickable {
     /// A marker for hidden entries, with the pane of the hidden entry
     /// nearest to it. A left click on it acts as one on that entry would.
     Marker(PaneId),
+    /// The launcher's button.
+    Launcher,
 }
 
 /// How an entry is drawn, which picks its format and its Zellij look.
@@ -121,24 +131,100 @@ impl State {
     }
 
     /// Whether the line drawn now is blank: `draws_nothing` says so, or
-    /// there are no entries and no `empty_format` to draw in their place.
+    /// there is no launcher's button, no entries and no `empty_format` to
+    /// draw in their place.
     pub(crate) fn draws_blank_line(&self) -> bool {
-        self.draws_nothing() || (self.entries.is_empty() && self.empty_format.is_none())
+        self.draws_nothing()
+            || (!self.launcher_shown() && self.entries.is_empty() && self.empty_format.is_none())
     }
 
-    /// The line to draw: the entries that fit, or `empty_format` while there
-    /// are none, or nothing while `draws_nothing` says so. With it, the
-    /// columns each entry and marker it shows was drawn on.
+    /// The line to draw: the launcher's button while it is shown, then the
+    /// entries that fit, or `empty_format` while there are none, or nothing
+    /// while `draws_nothing` says so. With it, the columns the button and
+    /// each entry and marker it shows were drawn on.
     pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
             return (String::new(), ColumnSpans::default());
         }
         let dim = self.dim_amount();
         let limit = self.length_limit();
+        if !self.launcher_shown() {
+            return self.draw_listed(limit, dim, 0);
+        }
+        self.draw_with_launcher(limit, dim)
+    }
+
+    /// The launcher's button, then `entry_spacer`, then the entries in what
+    /// columns are left, or `empty_format` while there are none.
+    ///
+    /// The button comes first, and the entries give way to it: they are
+    /// fitted into the columns the button and the spacer leave, and dropped
+    /// whole when none are left. Only a bar too narrow for the button alone
+    /// cuts it. With no entries and no `empty_format`, the button is drawn
+    /// alone, with no spacer after it.
+    fn draw_with_launcher(
+        &self,
+        limit: Option<usize>,
+        dim: f32,
+    ) -> (String, ColumnSpans<Clickable>) {
+        let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
+        let mut button = self.draw_launcher(dim);
+        let mut spans = ColumnSpans::default();
+        let mut kept = width(&button);
+        if let Some(cut) = limit.and_then(|limit| self.cut(&button, limit, dim)) {
+            button = cut.line;
+            kept = cut.kept;
+        }
+        spans.push(0..kept, Clickable::Launcher);
+
+        let nothing_listed = self.entries.is_empty() && self.empty_format.is_none();
+        let spacer = self.draw_format(&self.entry_spacer, dim);
+        let start = width(&button) + width(&spacer);
+        let left = limit.map(|limit| limit.saturating_sub(start));
+        if nothing_listed || left == Some(0) {
+            return (button, spans);
+        }
+        let (listed, listed_spans) = self.draw_listed(left, dim, start);
+        spans.append(listed_spans);
+        (format!("{button}{spacer}{listed}"), spans)
+    }
+
+    /// The entries that fit into `limit` columns, or `empty_format` while
+    /// there are none, with the columns each was drawn on counted from
+    /// `start`, the column the first of them is drawn on.
+    fn draw_listed(
+        &self,
+        limit: Option<usize>,
+        dim: f32,
+        start: usize,
+    ) -> (String, ColumnSpans<Clickable>) {
         if self.entries.is_empty() {
             return (self.draw_empty(limit, dim), ColumnSpans::default());
         }
-        self.draw_entries(limit, dim)
+        self.draw_entries(limit, dim, start)
+    }
+
+    /// The launcher's button, drawn from `launcher_format`, or in Zellij's
+    /// colors when it is unset, with `launcher_symbol` for `{symbol}`.
+    fn draw_launcher(&self, dim: f32) -> String {
+        let template = match self.launcher_format.as_deref() {
+            Some(format) => Cow::Borrowed(format),
+            None => {
+                let ribbon = self
+                    .bar
+                    .zellij_palette
+                    .map(|palette| palette.ribbon_unselected);
+                Cow::Owned(zellij_look(ribbon, ZELLIJ_LAUNCHER, true))
+            }
+        };
+        let symbol = show_controls(&self.launcher_symbol);
+        let parts = format::render_filled(
+            &template,
+            &[("symbol", &[Fill::Text(&symbol)])],
+            &self.bar.configuration,
+            dim,
+        );
+        ANSIStrings(&parts).to_string()
     }
 
     /// What the bar draws with no entries: `empty_format`, cut to `limit`
@@ -155,7 +241,7 @@ impl State {
     }
 
     /// The entries and markers, fitted into `limit` columns, or any width
-    /// for `None`.
+    /// for `None`, with the columns each was drawn on counted from `start`.
     ///
     /// The window of entries shown is kept around the focused one, or the
     /// first while none is focused. Neighboring entries are joined by
@@ -171,7 +257,12 @@ impl State {
     ///
     /// A marker stands for the hidden entry nearest to it, and what the cut
     /// of an overlong line leaves of an entry stands for that entry.
-    fn draw_entries(&self, limit: Option<usize>, dim: f32) -> (String, ColumnSpans<Clickable>) {
+    fn draw_entries(
+        &self,
+        limit: Option<usize>,
+        dim: f32,
+        start: usize,
+    ) -> (String, ColumnSpans<Clickable>) {
         let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
 
         let drawn_entries: Vec<String> = self
@@ -271,7 +362,8 @@ impl State {
         for (text, target) in &pieces {
             let columns = width(text);
             if let Some(target) = target {
-                spans.push(column..(column + columns).min(kept), *target);
+                let end = (column + columns).min(kept);
+                spans.push((start + column)..(start + end), *target);
             }
             column += columns;
         }

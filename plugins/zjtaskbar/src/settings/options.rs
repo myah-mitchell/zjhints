@@ -17,7 +17,7 @@ use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse",
+    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse", "Launcher",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -152,14 +152,14 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Theme",
         Kind::Choice(&FORMAT_CHOICES),
         Some("zellij"),
-        "The shape of entries, markers and separators: Zellij's ribbons or a built-in format",
+        "The shape of entries, markers, separators and the launcher's button: Zellij's ribbons or a built-in format",
     ),
     option(
         "alias_theme",
         "Theme",
         Kind::Choice(&ALIAS_CHOICES),
         Some("zellij"),
-        "The symbols for the flags: the bar's own words or a built-in set",
+        "The symbols for the flags and the launcher's button: the bar's own words or a built-in set",
     ),
     option(
         "hidden",
@@ -217,14 +217,87 @@ pub const OPTIONS: &[OptionSpec] = &[
         Some("true"),
         "Ask before a middle click or the pane menu closes a pane",
     ),
+    option(
+        "show_launcher",
+        "Launcher",
+        Kind::Bool,
+        Some("true"),
+        "Draw a button at the bar's left end whose menu opens new floating panes, while mouse is on",
+    ),
+    option(
+        "launcher_format",
+        "Launcher",
+        Kind::Format,
+        None,
+        "Format string for the launcher's button, with {symbol}, Zellij's ribbon colors when unset",
+    ),
+    option(
+        "launcher_symbol",
+        "Launcher",
+        Kind::Text,
+        Some("Menu"),
+        "What {symbol} draws in the launcher's button",
+    ),
+    option(
+        "launcher_new_terminal",
+        "Launcher",
+        Kind::Bool,
+        Some("true"),
+        "List a new terminal first in the launcher's menu",
+    ),
+    option(
+        "launcher_zellij_actions",
+        "Launcher",
+        Kind::Bool,
+        Some("true"),
+        "List Zellij's session manager, settings and plugin manager last in the launcher's menu",
+    ),
 ];
 
-pub const FAMILIES: &[FamilySpec] = &[family(
-    "color_<name>",
-    "Colors",
-    Kind::Text,
-    "A color alias, used as $name in format strings",
-)];
+pub const FAMILIES: &[FamilySpec] = &[
+    family(
+        "color_<name>",
+        "Colors",
+        Kind::Text,
+        "A color alias, used as $name in format strings",
+    ),
+    family(
+        "launch_<n>_name",
+        "Launcher",
+        Kind::Text,
+        "What the launcher's menu shows for entry n, listed in the order of n",
+    ),
+    family(
+        "launch_<n>_command",
+        "Launcher",
+        Kind::Text,
+        "The program entry n runs in a new floating pane",
+    ),
+    family(
+        "launch_<n>_args",
+        "Launcher",
+        Kind::Text,
+        "The arguments of entry n's command, split as a shell splits them",
+    ),
+    family(
+        "launch_<n>_cwd",
+        "Launcher",
+        Kind::Text,
+        "The directory entry n's command runs in, the focused pane's when unset",
+    ),
+    family(
+        "launch_<n>_plugin",
+        "Launcher",
+        Kind::Text,
+        "The plugin URL or alias entry n opens in a new floating pane",
+    ),
+    family(
+        "launch_<n>_config_<key>",
+        "Launcher",
+        Kind::Text,
+        "One key of the configuration entry n's plugin opens with",
+    ),
+];
 
 /// Options of the settings screen itself, read only when it is opened. They
 /// configure the screen rather than the bar, so they are not listed on it.
@@ -238,14 +311,17 @@ mod tests {
     use crate::{
         CONFIG_AUTO_WIDTH, CONFIG_COLLAPSE_WHEN_EMPTY, CONFIG_DIM_STRENGTH,
         CONFIG_DIM_WHEN_UNFOCUSED, CONFIG_EMPTY_FORMAT, CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER,
-        CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_HIDE_WHEN_NESTED, CONFIG_MAX_LENGTH,
-        CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
+        CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_HIDE_WHEN_NESTED, CONFIG_LAUNCHER_FORMAT,
+        CONFIG_LAUNCHER_NEW_TERMINAL, CONFIG_LAUNCHER_SYMBOL, CONFIG_LAUNCHER_ZELLIJ_ACTIONS,
+        CONFIG_MAX_LENGTH, CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
         CONFIG_MOUSE_WHEEL_REVERSED, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
-        CONFIG_OVERFLOW_STR, CONFIG_PANE_SCOPE, CONFIG_TAB_SEPARATOR, DEFAULT_AUTO_WIDTH,
-        DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH, DEFAULT_DIM_WHEN_UNFOCUSED,
-        DEFAULT_ENTRY_SPACER, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_MAX_LENGTH, DEFAULT_MOUSE,
-        DEFAULT_MOUSE_CLOSE_CONFIRM, DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR,
-        DEFAULT_PANE_SCOPE, DEFAULT_TAB_SEPARATOR,
+        CONFIG_OVERFLOW_STR, CONFIG_PANE_SCOPE, CONFIG_SHOW_LAUNCHER, CONFIG_TAB_SEPARATOR,
+        DEFAULT_AUTO_WIDTH, DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH,
+        DEFAULT_DIM_WHEN_UNFOCUSED, DEFAULT_ENTRY_SPACER, DEFAULT_HIDE_WHEN_NESTED,
+        DEFAULT_LAUNCHER_NEW_TERMINAL, DEFAULT_LAUNCHER_SYMBOL, DEFAULT_LAUNCHER_ZELLIJ_ACTIONS,
+        DEFAULT_MAX_LENGTH, DEFAULT_MOUSE, DEFAULT_MOUSE_CLOSE_CONFIRM,
+        DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR, DEFAULT_PANE_SCOPE,
+        DEFAULT_SHOW_LAUNCHER, DEFAULT_TAB_SEPARATOR,
     };
     use zjkit::settings::reference;
 
@@ -293,6 +369,23 @@ mod tests {
             (
                 CONFIG_MOUSE_CLOSE_CONFIRM,
                 Some(DEFAULT_MOUSE_CLOSE_CONFIRM.to_string()),
+            ),
+            (
+                CONFIG_SHOW_LAUNCHER,
+                Some(DEFAULT_SHOW_LAUNCHER.to_string()),
+            ),
+            (CONFIG_LAUNCHER_FORMAT, None),
+            (
+                CONFIG_LAUNCHER_SYMBOL,
+                Some(DEFAULT_LAUNCHER_SYMBOL.to_string()),
+            ),
+            (
+                CONFIG_LAUNCHER_NEW_TERMINAL,
+                Some(DEFAULT_LAUNCHER_NEW_TERMINAL.to_string()),
+            ),
+            (
+                CONFIG_LAUNCHER_ZELLIJ_ACTIONS,
+                Some(DEFAULT_LAUNCHER_ZELLIJ_ACTIONS.to_string()),
             ),
             // The options zjkit reads for every bar: how wide an ambiguous
             // character is, whether the bar starts hidden, and the themes.
@@ -398,6 +491,39 @@ mod tests {
     }
 
     #[test]
+    fn each_field_of_a_launcher_entry_is_a_family_of_its_own() {
+        let pattern_of = |key: &str| SCHEMA.family_of(key).map(|family| family.pattern);
+        for (key, pattern) in [
+            ("launch_1_name", "launch_<n>_name"),
+            ("launch_10_command", "launch_<n>_command"),
+            ("launch_2_args", "launch_<n>_args"),
+            ("launch_2_cwd", "launch_<n>_cwd"),
+            ("launch_3_plugin", "launch_<n>_plugin"),
+            ("launch_3_config_theme", "launch_<n>_config_<key>"),
+            // A plugin's own key named as an entry's field is still its key.
+            ("launch_3_config_name", "launch_<n>_config_<key>"),
+            ("launch_3_config_command", "launch_<n>_config_<key>"),
+            ("launch_0_name", "launch_<n>_name"),
+        ] {
+            assert_eq!(pattern_of(key), Some(pattern), "{key}");
+            assert_eq!(SCHEMA.group_of(key), Some("Launcher"), "{key}");
+        }
+        // Keys the launcher reads no entry from, so the screen lists them
+        // under "Other" rather than as a field.
+        for key in [
+            "launch_1_bogus",
+            "launch_name",
+            "launcher_bogus",
+            "launch_01_name",
+            "launch_one_name",
+            "launch_1_2_command",
+            "launch_18446744073709551616_name",
+        ] {
+            assert_eq!(pattern_of(key), None, "{key}");
+        }
+    }
+
+    #[test]
     fn formats_are_told_apart_from_plain_text() {
         for name in [
             "entry_format",
@@ -413,11 +539,13 @@ mod tests {
             "overflow_left_format",
             "overflow_right_format",
             "overflow_str",
+            "launcher_format",
         ] {
             assert_eq!(SCHEMA.kind_of(name), Kind::Format, "{name}");
         }
         assert_eq!(SCHEMA.kind_of("max_length"), Kind::Integer);
         assert_eq!(SCHEMA.kind_of("dim_strength"), Kind::Fraction);
         assert!(matches!(SCHEMA.kind_of("pane_scope"), Kind::Choice(_)));
+        assert_eq!(SCHEMA.kind_of("launcher_symbol"), Kind::Text);
     }
 }

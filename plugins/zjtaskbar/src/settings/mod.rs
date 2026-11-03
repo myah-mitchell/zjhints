@@ -55,6 +55,13 @@ fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static 
         ],
         "other_tab_format" => vec![("tab", "docs".to_string())],
         "overflow_left_format" | "overflow_right_format" => vec![("count", "3".to_string())],
+        "launcher_format" => vec![(
+            "symbol",
+            config
+                .get(crate::CONFIG_LAUNCHER_SYMBOL)
+                .map_or(crate::DEFAULT_LAUNCHER_SYMBOL, String::as_str)
+                .to_string(),
+        )],
         _ => vec![],
     }
 }

@@ -8,11 +8,12 @@
 //!
 //! - `color_theme` supplies the `color_<name>` aliases.
 //! - `format_theme` supplies the entry, spacer, tab separator, overflow
-//!   marker and `overflow_str` format strings, which draw with those
-//!   aliases. `zellij` (the default) adds none, leaving the entries in
-//!   Zellij's own ribbon colors.
-//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as.
-//!   `zellij` (the default) adds none, leaving the bar's own words.
+//!   marker, `overflow_str` and launcher button format strings, which draw
+//!   with those aliases. `zellij` (the default) adds none, leaving the bar
+//!   in Zellij's own ribbon colors.
+//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, and
+//!   the launcher's `{symbol}`. `zellij` (the default) adds none, leaving
+//!   the bar's own words.
 //!
 //! The three touch separate options, so the order they are laid in does not
 //! matter. No theme sets `empty_format`: what an empty bar says is the
@@ -20,9 +21,10 @@
 
 use crate::flags::FLAGS;
 use crate::{
-    CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER, CONFIG_FOCUSED_ENTRY_FORMAT,
-    CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT, CONFIG_OVERFLOW_LEFT_FORMAT,
-    CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR, CONFIG_TAB_SEPARATOR,
+    CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER, CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT,
+    CONFIG_LAUNCHER_SYMBOL, CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT,
+    CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR,
+    CONFIG_TAB_SEPARATOR,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::Styling;
@@ -43,6 +45,17 @@ const FLAG_SYMBOLS: [(&str, [&str; FLAGS.len()]); 3] = [
         "nerd-font",
         ["\u{f05b0}", "\u{f0206}", "\u{f0431}", "\u{f04e9}"],
     ),
+];
+
+/// The launcher's `{symbol}` under each alias theme.
+const LAUNCHER_SYMBOLS: [(&str, &str); 3] = [
+    // A plus, for something new to open.
+    ("ascii", "+"),
+    // The trigram for heaven, which reads as a menu's three lines.
+    ("unicode", "\u{2630}"),
+    // The Material Design apps glyph from the Nerd Font set, a grid of
+    // squares, as a desktop's app launcher shows.
+    ("nerd-font", "\u{f003b}"),
 ];
 
 /// `configuration` with the selected themes' options laid under it. A key the
@@ -76,6 +89,9 @@ pub fn layer(
             add(flag.option.to_string(), format);
         }
     }
+    if let Some(symbol) = launcher_symbol(configuration) {
+        add(CONFIG_LAUNCHER_SYMBOL.to_string(), symbol.to_string());
+    }
 
     if let Some(shape) = zjkit::theme::shape(configuration) {
         for (key, value) in format_entries(shape) {
@@ -95,6 +111,16 @@ fn flag_symbols(configuration: &BTreeMap<String, String>) -> Option<[&'static st
         .map(|(_, symbols)| *symbols)
 }
 
+/// The launcher's symbol under the alias theme `configuration` selects, or
+/// `None` for `zellij`, unset or unknown.
+fn launcher_symbol(configuration: &BTreeMap<String, String>) -> Option<&'static str> {
+    let theme = zjkit::theme::alias_theme(configuration)?;
+    LAUNCHER_SYMBOLS
+        .iter()
+        .find(|(name, _)| *name == theme.name)
+        .map(|(_, symbol)| *symbol)
+}
+
 /// The formats a format theme sets.
 ///
 /// The focused entry is drawn the way zjtabs draws the active tab, and every
@@ -105,8 +131,22 @@ fn flag_symbols(configuration: &BTreeMap<String, String>) -> Option<[&'static st
 /// own background. The markers and the overflow string are drawn like a
 /// normal entry, so they read as part of the row, and the tab separator is a
 /// muted line between the groups of entries.
-fn format_entries(shape: Shape) -> [(&'static str, String); 8] {
+///
+/// The launcher's button has the shape of an entry, with its symbol in the
+/// accent color on the background of a normal one and in bold, so it stands
+/// apart from both the focused entry and the rest.
+fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
     let separator = "#[fg=$muted] \u{2502} ".to_string();
+    let launcher = match shape {
+        Shape::Flat => "#[fg=$accent,bg=$surface,bold] {symbol} ".to_string(),
+        Shape::Plain => "#[fg=$accent]{symbol}".to_string(),
+        Shape::Powerline => {
+            format!("#[fg=$accent,bg=$surface,bold] {{symbol}} #[fg=$surface]{ARROW}")
+        }
+        Shape::Pills => format!(
+            "#[fg=$surface]{PILL_LEFT}#[fg=$accent,bg=$surface,bold]{{symbol}}#[fg=$surface]{PILL_RIGHT}"
+        ),
+    };
     let (entry, focused, minimized, spacer, left, right, overflow) = match shape {
         Shape::Flat => (
             "#[fg=$fg,bg=$surface] {title}{flags} ".to_string(),
@@ -164,6 +204,7 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 8] {
         (CONFIG_OVERFLOW_LEFT_FORMAT, left),
         (CONFIG_OVERFLOW_RIGHT_FORMAT, right),
         (CONFIG_OVERFLOW_STR, overflow),
+        (CONFIG_LAUNCHER_FORMAT, launcher),
     ]
 }
 
@@ -250,6 +291,7 @@ pub(crate) mod tests {
                         ("tab", "work"),
                         ("flags", " _"),
                         ("count", "3"),
+                        ("symbol", "+"),
                     ],
                     &layered,
                     0.0,
@@ -288,6 +330,10 @@ pub(crate) mod tests {
             for key in [CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT] {
                 assert!(layered[key].contains("{count}"), "{name} {key}");
             }
+            assert!(
+                layered[CONFIG_LAUNCHER_FORMAT].contains("{symbol}"),
+                "{name}"
+            );
             // Each kind of entry stands out from the others.
             assert_ne!(
                 layered[CONFIG_ENTRY_FORMAT], layered[CONFIG_FOCUSED_ENTRY_FORMAT],
@@ -318,6 +364,14 @@ pub(crate) mod tests {
                 );
             }
             assert!(layered[CONFIG_OTHER_TAB_FORMAT].ends_with("{tab}"));
+            assert_eq!(
+                layered
+                    .get(CONFIG_LAUNCHER_SYMBOL)
+                    .map(|symbol| symbol.chars().count()),
+                Some(1),
+                "{} launcher_symbol",
+                theme.name
+            );
         }
     }
 
@@ -326,6 +380,7 @@ pub(crate) mod tests {
         let layered = themed(&[(CONFIG_ALIAS_THEME, "ascii")]);
         assert_eq!(layered["minimized_format"], " _");
         assert_eq!(layered["other_tab_format"], " @{tab}");
+        assert_eq!(layered["launcher_symbol"], "+");
         assert!(layered.values().all(|value| value.is_ascii()));
     }
 
@@ -334,11 +389,11 @@ pub(crate) mod tests {
         let glyphs = [ARROW, PILL_LEFT, PILL_RIGHT];
         for (name, shape) in FORMAT_THEMES {
             let layered = themed(&[(CONFIG_FORMAT_THEME, name)]);
-            let uses_glyph = glyphs
-                .iter()
-                .any(|glyph| layered[CONFIG_ENTRY_FORMAT].contains(glyph));
             let needs_font = matches!(shape, Shape::Powerline | Shape::Pills);
-            assert_eq!(uses_glyph, needs_font, "{name}");
+            for key in [CONFIG_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT] {
+                let uses_glyph = glyphs.iter().any(|glyph| layered[key].contains(glyph));
+                assert_eq!(uses_glyph, needs_font, "{name} {key}");
+            }
         }
     }
 
@@ -425,6 +480,15 @@ pub(crate) mod tests {
                 layered[CONFIG_MINIMIZED_ENTRY_FORMAT].contains("$muted"),
                 "{name}"
             );
+            // The button takes the entries' shape, and stands apart from the
+            // focused one and the rest.
+            if let Some(ending) = ending {
+                assert!(layered[CONFIG_LAUNCHER_FORMAT].ends_with(ending), "{name}");
+            }
+            for key in [CONFIG_ENTRY_FORMAT, CONFIG_FOCUSED_ENTRY_FORMAT] {
+                let entry_look = layered[key].replace("{title}{flags}", "{symbol}");
+                assert_ne!(layered[CONFIG_LAUNCHER_FORMAT], entry_look, "{name} {key}");
+            }
         }
     }
 

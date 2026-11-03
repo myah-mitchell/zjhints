@@ -40,10 +40,11 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
 pub(crate) enum Feature {
     /// Clicking the bar's entries and the bar itself.
     Mouse,
-    /// The launcher's menu and the floating terminals and plugins it opens.
+    /// The launcher's menu and the plugins it opens.
     Launcher,
-    /// A launcher entry that runs one of Zellij's own actions, such as
-    /// opening the session manager.
+    /// A launcher item that runs one of Zellij's own actions: a new
+    /// terminal, or opening the session manager, the settings or the plugin
+    /// manager.
     LauncherZellijAction,
     /// A launcher entry that runs a command in a new floating pane.
     LauncherCommand,
@@ -74,11 +75,15 @@ impl Feature {
                 PermissionType::OpenTerminalsOrPlugins,
             ],
             Feature::Launcher => &[
-                // The launcher's menu, which is a prompt, and the floating
-                // terminals and plugins it opens.
+                // The launcher's menu, which is a prompt, and the plugin
+                // entries, which open plugins in floating panes.
                 PermissionType::OpenTerminalsOrPlugins,
             ],
-            Feature::LauncherZellijAction => &[PermissionType::RunActionsAsUser],
+            Feature::LauncherZellijAction => &[
+                // Zellij's `NewFloatingPane` and `LaunchOrFocusPlugin`, run
+                // as its own keys run them; see `zjkit::launch`.
+                PermissionType::RunActionsAsUser,
+            ],
             Feature::LauncherCommand => &[
                 // Opening a pane that runs a command.
                 PermissionType::RunCommands,
@@ -124,7 +129,8 @@ pub(crate) const BAR_EVENTS: [EventType; 4] = [
 pub(crate) const MOUSE_EVENTS: [EventType; 2] = [
     // Clicks and the wheel over the bar.
     EventType::Mouse,
-    // The answers to the pane menu and the close confirmation.
+    // The answers to the pane menu, the close confirmation and the
+    // launcher's menu.
     EventType::PromptResult,
 ];
 
