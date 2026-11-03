@@ -86,3 +86,15 @@ tag = "ea-main-dev-{date}"
 base = "main-dev"
 prerelease = true
 keep = 3
+
+# zjtabs, the tab bar, stacked onto main-dev, since it needs the zjkit
+# workspace. Its releases carry zjtabs.wasm next to zjhints.wasm, and `make ea
+# LABEL=zjtabs` installs both. Rebuild it by hand like ea-main-dev. Remove the
+# table once feat/zjtabs is merged into main-dev: ea-main-dev ships zjtabs from
+# then on.
+[build.ea-zjtabs]
+tag = "ea-zjtabs-{date}"
+base = "main-dev"
+stack = ["feat/zjtabs"]
+prerelease = true
+keep = 3
