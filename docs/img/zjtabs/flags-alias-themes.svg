@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="928" height="168" viewBox="0 0 928 168" role="img">
 <!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
-<title>Five tabs after the NORMAL mode prefix, with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol</title>
+<title>Five tabs between the NORMAL mode prefix and the session's name, work, with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol</title>
 <rect width="928" height="168" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <g shape-rendering="crispEdges">
@@ -10,12 +10,14 @@
 <rect x="288" y="18" width="171" height="18" fill="#313244"/>
 <rect x="486" y="18" width="117" height="18" fill="#313244"/>
 <rect x="630" y="18" width="90" height="18" fill="#313244"/>
+<rect x="846" y="18" width="54" height="18" fill="#313244"/>
 <rect x="0" y="72" width="72" height="18" fill="#313244"/>
 <rect x="99" y="72" width="63" height="18" fill="#313244"/>
 <rect x="189" y="72" width="72" height="18" fill="#cba6f7"/>
 <rect x="288" y="72" width="72" height="18" fill="#313244"/>
 <rect x="387" y="72" width="72" height="18" fill="#313244"/>
 <rect x="486" y="72" width="90" height="18" fill="#313244"/>
+<rect x="846" y="72" width="54" height="18" fill="#313244"/>
 <rect x="0" y="126" width="72" height="18" fill="#313244"/>
 <rect x="72" y="126" width="27" height="18" fill="#a6e3a1"/>
 <rect x="126" y="126" width="63" height="18" fill="#313244"/>
@@ -23,6 +25,7 @@
 <rect x="315" y="126" width="72" height="18" fill="#313244"/>
 <rect x="414" y="126" width="72" height="18" fill="#313244"/>
 <rect x="513" y="126" width="90" height="18" fill="#313244"/>
+<rect x="846" y="126" width="54" height="18" fill="#313244"/>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162 171" fill="#878ca4">alias_theme"zellij"</tspan></text>
@@ -37,7 +40,8 @@
 <path d="M603 18A9 9 0 0 1 603 36Z" fill="#313244"/>
 <path d="M630 18A9 9 0 0 0 630 36Z" fill="#313244"/>
 <path d="M720 18A9 9 0 0 1 720 36Z" fill="#313244"/>
-<text y="31"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 351 360 369 378 387 396 405 414 423 432 441 450 486 504 513 522 531 549 558 567 576 585 594 630 648 657 666 675 684 693 711" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server●</tspan></text>
+<path d="M846 18A9 9 0 0 0 846 36Z" fill="#313244"/>
+<text y="31"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 351 360 369 378 387 396 405 414 423 432 441 450 486 504 513 522 531 549 558 567 576 585 594 630 648 657 666 675 684 693 711" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server●</tspan><tspan x="855 864 873 882" fill="#cba6f7" font-weight="bold">work</tspan></text>
 <text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162" fill="#878ca4">alias_theme"ascii"</tspan></text>
 <path d="M72 72A9 9 0 0 1 72 90Z" fill="#313244"/>
 <path d="M99 72A9 9 0 0 0 99 90Z" fill="#313244"/>
@@ -50,7 +54,8 @@
 <path d="M459 72A9 9 0 0 1 459 90Z" fill="#313244"/>
 <path d="M486 72A9 9 0 0 0 486 90Z" fill="#313244"/>
 <path d="M576 72A9 9 0 0 1 576 90Z" fill="#313244"/>
-<text y="85"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 351 387 405 414 423 432 450 486 504 513 522 531 540 549 567" fill="#cdd6f4">3docsZ4logsS5server!</tspan></text>
+<path d="M846 72A9 9 0 0 0 846 90Z" fill="#313244"/>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 351 387 405 414 423 432 450 486 504 513 522 531 540 549 567" fill="#cdd6f4">3docsZ4logsS5server!</tspan><tspan x="855 864 873 882" fill="#cba6f7" font-weight="bold">work</tspan></text>
 <text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162 171 180" fill="#878ca4">alias_theme"unicode"</tspan></text>
 <path d="M99 126A9 9 0 0 1 99 144Z" fill="#a6e3a1"/>
 <path d="M126 126A9 9 0 0 0 126 144Z" fill="#313244"/>
@@ -63,7 +68,8 @@
 <path d="M486 126A9 9 0 0 1 486 144Z" fill="#313244"/>
 <path d="M513 126A9 9 0 0 0 513 144Z" fill="#313244"/>
 <path d="M603 126A9 9 0 0 1 603 144Z" fill="#313244"/>
-<text y="139"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81" fill="#1e1e2e" font-weight="bold">⌨</tspan><tspan x="126 144 153 162 171 180" fill="#cdd6f4">1shell</tspan><tspan x="216 234 243 252 261 270 279" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="315 333 342 351 360 378 414 432 441 450 459 477 513 531 540 549 558 567 576 594" fill="#cdd6f4">3docs⤢4logs⇄5server●</tspan></text>
+<path d="M846 126A9 9 0 0 0 846 144Z" fill="#313244"/>
+<text y="139"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="81" fill="#1e1e2e" font-weight="bold">⌨</tspan><tspan x="126 144 153 162 171 180" fill="#cdd6f4">1shell</tspan><tspan x="216 234 243 252 261 270 279" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="315 333 342 351 360 378 414 432 441 450 459 477 513 531 540 549 558 567 576 594" fill="#cdd6f4">3docs⤢4logs⇄5server●</tspan><tspan x="855 864 873 882" fill="#cba6f7" font-weight="bold">work</tspan></text>
 </g>
 </g>
 </svg>

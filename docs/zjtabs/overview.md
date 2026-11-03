@@ -2,14 +2,15 @@
 
 zjtabs is a tab bar for [Zellij](https://github.com/zellij-org/zellij) that you style with the same format strings, themes and settings screen as [zjhints](../../README.md). This page covers what it draws, how to load it as a one-line pane of its own, and the permissions it asks for.
 
-![The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)](../img/zjtabs/overview-default.svg)
+![The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot and the notes tab in (FLOATING), and at the right end a block naming the session, work](../img/zjtabs/overview-default.svg)
 
 ## What it does
 
-With no options set, zjtabs draws the current input mode, then each tab the way Zellij's own tab bar does: a ribbon in the Zellij theme's colors holding the tab's number, its name and its flags, with the active tab highlighted. It works with no options set, and picking a theme restyles it in one line. See [Themes](../themes.md).
+With no options set, zjtabs draws the current input mode, then each tab the way Zellij's own tab bar does: a ribbon in the Zellij theme's colors holding the tab's number, its name and its flags, with the active tab highlighted. The session's name ends the bar. It works with no options set, and picking a theme restyles it in one line. See [Themes](../themes.md).
 
 - It shows a flag for a tab with a fullscreen pane, synchronized panes, shown floating panes or a bell. See [Flags](formats.md#flags).
 - It draws the current input mode before the tabs, unless `show_mode` is off. See [Mode prefix](formats.md#mode-prefix).
+- It draws the session's name at the right end of the bar, unless `show_session` is off. See [Session name](formats.md#session-name).
 - When the tabs do not fit, it keeps a window of them around the active tab and counts the rest in a marker on each side. See [Overflow](overflow.md).
 - With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. See [Mouse](mouse.md).
 

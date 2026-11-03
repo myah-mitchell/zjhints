@@ -78,9 +78,10 @@ static THEME_TOUR: [Look; 15] = [
 /// The pane a nested session runs in, as the host knows it.
 const NESTED_PANE: PaneId = PaneId::Terminal(2);
 
-/// The name of the host session, as a nested session in it knows it.
+/// The name of the host session, which its tab bar shows and a nested session
+/// in it knows it by.
 const HOST_SESSION: &str = "demo";
-/// The name of the nested session.
+/// The name of the nested session, which its tab bar shows.
 const NESTED_SESSION: &str = "work";
 
 /// The one tab each session has, named as Zellij names a session's first.
@@ -426,6 +427,7 @@ fn draw_test_run(screen: &mut Screen, area: Area, chrome: &Chrome) {
 fn draw_nested(screen: &mut Screen, area: Area, mode: InputMode, descended: bool) {
     let chrome = Chrome::new(!descended);
     let nested = ModeInfo {
+        session_name: Some(NESTED_SESSION.to_string()),
         session_ancestry: vec![HOST_SESSION.to_string()],
         session_ascended: Some(!descended),
         ..mode_info(mode)
@@ -532,6 +534,7 @@ fn draw(scene: &Scene) -> Screen {
     // The host hands its keyboard to the nested session it has descended
     // into, and its tab bar fades as its chrome does.
     let host = ModeInfo {
+        session_name: Some(HOST_SESSION.to_string()),
         session_dimmed: descended.then_some(true),
         ..mode_info(scene.mode)
     };

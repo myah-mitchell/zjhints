@@ -13,7 +13,7 @@ With `auto_width` on, the bar fits the width of its own pane as Zellij reports i
 
 `max_length` is a hard cap alongside it. With both set, the smaller wins, so an explicit cap is never exceeded on a wide terminal. Set `auto_width false` to ignore the pane and use the cap alone.
 
-The [mode prefix](formats.md#mode-prefix) and the spacer after it take their columns first, and the tabs are fitted into what is left.
+The [mode prefix](formats.md#mode-prefix) and the spacer after it take their columns first, then the [session name](formats.md#session-name) and the spacer before it, and the tabs are fitted into what is left. The session name is left off when it would not leave room for the active tab and its markers.
 
 ## The window around the active tab
 
@@ -25,7 +25,7 @@ Showing the last hidden tab on a side removes that side's marker, which frees it
 
 The same ten tabs in bars of 100, 64 and 44 columns, with the logs tab active, in `flat` blocks:
 
-![Ten tabs after the NORMAL mode prefix, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side](../img/zjtabs/overflow-markers.svg)
+![Ten tabs between the NORMAL mode prefix and the session's name, work, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side](../img/zjtabs/overflow-markers.svg)
 
 ## Markers
 

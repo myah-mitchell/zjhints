@@ -63,7 +63,7 @@ A flag is drawn in the style of the tab around it, so a symbol sits on the tab's
 bell_format "#[fg=$red,bold] ●"
 ```
 
-![Five tabs with flat blocks after the NORMAL mode prefix, three times. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names. With sync_format empty the logs tab shows no flag. With a styled bell_format the server tab's dot is red](../img/zjtabs/flags-formats.svg)
+![Five tabs with flat blocks between the NORMAL mode prefix and the session's name, work, three times. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names. With sync_format empty the logs tab shows no flag. With a styled bell_format the server tab's dot is red](../img/zjtabs/flags-formats.svg)
 
 An alias theme swaps all four flags for symbols at once. See [Themes](#themes).
 
@@ -95,7 +95,7 @@ show_mode false
 
 The prefix takes the same options as the zjhints mode prefix, with the same names and meanings: `mode_format` for every mode, `mode_format_<mode>` for one, and `mode_label_<mode>` and `mode_key_<mode>` for the name and symbol drawn as `{desc}` and `{key}`. The mode names, such as `rename_tab` for the mode you rename a tab in, are listed in [Standing alone](../nested-sessions.md#standing-alone), and one format for every mode is described in [One format for every mode](../nested-sessions.md#one-format-for-every-mode).
 
-![Four zjtabs bars with the input mode before the tabs. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow](../img/zjtabs/mode-prefix.svg)
+![Four zjtabs bars with the input mode before the tabs and the session's name, work, after them. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow](../img/zjtabs/mode-prefix.svg)
 
 With no format set, the prefix is a bold block in the colors of Zellij's selected ribbon. A format theme draws it in the shape of its tabs, and an alias theme gives each mode a symbol. See [Themes](#themes).
 
@@ -106,6 +106,41 @@ The prefix sits on the line like this:
 - It dims with the tabs under `dim_when_unfocused`.
 - With `mouse` on, a click on it opens the settings screen, and a right-click opens Zellij's menu for the bar, as a right-click past the tabs does. See [Opening the settings screen](mouse.md#opening-the-settings-screen).
 
+## Session name
+
+The bar draws the session's name at its right end, after the tabs, as Zellij's own tab bar does. It is on by default, since zjtabs takes the place of that bar. Turn it off when something else on screen shows the session's name already, such as zjstatus:
+
+```kdl
+show_session false
+```
+
+`session_format` sets its look, with `{session}` for the name:
+
+```kdl
+session_format "#[fg=$accent,bold]session: {session} "
+```
+
+The name is filled in after the format has been read, as a tab's name is, so a session named with a `#[` or a `{` in it is drawn as typed. See [Names are drawn as text](#names-are-drawn-as-text).
+
+![Five zjtabs bars ending in the session's name, work, at the right edge. In the Zellij theme's colors it is a block like the NORMAL one at the start; with the pills theme a half-pill opens toward the tabs; with the powerline theme an arrow points back at them; with a session_format of its own it reads session: work in bold. In 40 columns the name is left off, so the bar keeps the editor tab and a marker counting the tabs hidden after it](../img/zjtabs/session-name.svg)
+
+With no format set, the name is a bold block in the colors of Zellij's selected ribbon, the same as the mode prefix. A format theme draws it as the mirror image of the prefix, always in `$accent`, since the name does not change with the mode:
+
+| `format_theme` | The session name |
+| --- | --- |
+| `flat` | A bold `$accent` block |
+| `plain` | Bold `$accent` text |
+| `powerline` | A bold `$accent` block behind an arrow that points back at the tabs |
+| `pills` | Bold `$accent` text on a `$surface` half-pill, open toward the tabs and flush with the bar's end |
+
+The name sits on the line like this:
+
+- `tab_spacer` separates it from the last tab or the right [overflow marker](overflow.md#markers). The columns between are left blank, in the bar's own background.
+- It is the first to go when the bar runs short. It is drawn only while the mode prefix, the active tab drawn whole and a marker for each side with tabs hidden behind it all fit beside it, and the other tabs give way to it.
+- With `auto_width` and `max_length` both off, or before Zellij has reported the bar's width, the line has no end to set the name against, so it follows the tabs after a `tab_spacer`. See [Fitting the bar](overflow.md#fitting-the-bar).
+- It dims with the tabs under `dim_when_unfocused`.
+- With `mouse` on, a click on it does nothing, and a right-click opens Zellij's menu for the bar. See [Right-click menus](mouse.md#right-click-menus).
+
 ## Themes
 
 The three theme options can each be picked on its own, and take the same values as for zjhints. See [Themes](../themes.md). For zjtabs they set:
@@ -113,14 +148,14 @@ The three theme options can each be picked on its own, and take the same values 
 | Option | What it sets for tabs |
 | --- | --- |
 | `color_theme` | The color aliases, `$accent` and the rest, exactly as for zjhints |
-| `format_theme` | `tab_format`, `active_tab_format`, `tab_spacer`, both overflow markers, `overflow_str`, and the [mode prefix](#mode-prefix) formats |
+| `format_theme` | `tab_format`, `active_tab_format`, `tab_spacer`, both overflow markers, `overflow_str`, and the [mode prefix](#mode-prefix) and [session name](#session-name) formats |
 | `alias_theme` | The four flag options, as the symbols below, and a `mode_key_<mode>` symbol for each mode |
 
 Your own options always win over a theme, one option at a time.
 
 The same five tabs in each format theme, in `catppuccin-mocha` colors:
 
-![Five rows, each a zjtabs bar of the NORMAL mode prefix and five tabs under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each tab](../img/zjtabs/themes-shapes.svg)
+![Five rows, each a zjtabs bar of the NORMAL mode prefix, five tabs and the session's name, work, under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each tab. The session's name mirrors the prefix, behind an arrow pointing back at the tabs in powerline and a half-pill in pills](../img/zjtabs/themes-shapes.svg)
 
 | Value | Shape |
 | --- | --- |
@@ -141,6 +176,6 @@ The symbols an alias theme gives the flags:
 
 The `nerd-font` theme draws Material Design glyphs for the same four: fullscreen, sync, layers and a bell.
 
-![Five tabs after the NORMAL mode prefix under three alias themes. With zellij the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol](../img/zjtabs/flags-alias-themes.svg)
+![Five tabs between the NORMAL mode prefix and the session's name, work, under three alias themes. With zellij the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol](../img/zjtabs/flags-alias-themes.svg)
 
 The `powerline` and `pills` shapes and the `nerd-font` symbols need a Nerd Font in your terminal. If it draws them two columns wide, set `ambiguous_width 2` so the bar measures them correctly. See [Nerd Fonts](../themes.md#nerd-fonts).

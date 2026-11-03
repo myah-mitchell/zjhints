@@ -824,27 +824,27 @@ fn images() -> Vec<(&'static str, String)> {
     vec![
         (
             "session-modes.svg",
-            session::modes().to_svg("A Zellij session with the zjtabs tab bar at the top and the zjhints bar at the bottom, both showing the mode as the session moves through them, and the zjhints bar the keys of each"),
+            session::modes().to_svg("A Zellij session with the zjtabs tab bar at the top, ending in the session's name, demo, and the zjhints bar at the bottom, both showing the mode as the session moves through them, and the zjhints bar the keys of each"),
         ),
         (
             "session-fitting.svg",
-            session::fitting().to_svg("A Zellij session under the zjtabs tab bar narrowing, its zjhints bar dropping whole hints to fit and offering the ones that did not fit from the drop indicator"),
+            session::fitting().to_svg("A Zellij session narrowing under the zjtabs tab bar, the session's name, demo, keeping to the tab bar's right end and the zjhints bar dropping whole hints to fit and offering the ones that did not fit from the drop indicator"),
         ),
         (
             "session-settings.svg",
-            session::settings().to_svg("A Zellij session under the zjtabs tab bar opening the zjhints settings screen and restyling the zjhints bar, each change previewed on it before saving"),
+            session::settings().to_svg("A Zellij session named demo, under the zjtabs tab bar that ends in that name, opening the zjhints settings screen and restyling the zjhints bar, each change previewed on it before saving"),
         ),
         (
             "session-mouse.svg",
-            session::mouse().to_svg("A Zellij session under the zjtabs tab bar, with the pointer resting on zjhints hints, each one's menu opening over the bar and following the mode"),
+            session::mouse().to_svg("A Zellij session named demo, under the zjtabs tab bar that ends in that name, with the pointer resting on zjhints hints, each one's menu opening over the bar and following the mode"),
         ),
         (
             "session-themes.svg",
-            session::themes().to_svg("A Zellij session under the zjtabs tab bar, its zjhints bar drawn in one combination of color, format and alias themes after another"),
+            session::themes().to_svg("A Zellij session named demo, under the zjtabs tab bar that ends in that name, its zjhints bar drawn in one combination of color, format and alias themes after another"),
         ),
         (
             "session-nested.svg",
-            session::nested().to_svg("A Zellij session with a nested session in one pane, its zjhints bar showing the keys of whichever session has the keyboard, and its zjtabs tab bar fading while the nested session has it"),
+            session::nested().to_svg("A Zellij session named demo, its name at the end of the zjtabs tab bar, with a nested session in one pane, its zjhints bar showing the keys of whichever session has the keyboard, and its zjtabs tab bar fading while the nested session has it"),
         ),
         (
             "color-themes.svg",

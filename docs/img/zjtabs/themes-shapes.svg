@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="928" height="276" viewBox="0 0 928 276" role="img">
 <!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
-<title>The NORMAL mode prefix and the same five tabs under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors</title>
+<title>The NORMAL mode prefix, the same five tabs and the session's name, work, at the right end under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors. The session's name mirrors the prefix, behind an arrow pointing back at the tabs in powerline and a half-pill in pills</title>
 <rect width="928" height="276" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <g shape-rendering="crispEdges">
@@ -10,32 +10,36 @@
 <rect x="270" y="18" width="108" height="18" fill="#cdd6f4"/>
 <rect x="387" y="18" width="72" height="18" fill="#cdd6f4"/>
 <rect x="468" y="18" width="180" height="18" fill="#cdd6f4"/>
+<rect x="846" y="18" width="54" height="18" fill="#a6e3a1"/>
 <rect x="0" y="72" width="72" height="18" fill="#a6e3a1"/>
 <rect x="81" y="72" width="81" height="18" fill="#313244"/>
 <rect x="171" y="72" width="90" height="18" fill="#cba6f7"/>
 <rect x="270" y="72" width="108" height="18" fill="#313244"/>
 <rect x="387" y="72" width="72" height="18" fill="#313244"/>
 <rect x="468" y="72" width="180" height="18" fill="#313244"/>
+<rect x="846" y="72" width="54" height="18" fill="#cba6f7"/>
 <rect x="0" y="180" width="72" height="18" fill="#a6e3a1"/>
 <rect x="90" y="180" width="81" height="18" fill="#313244"/>
 <rect x="189" y="180" width="90" height="18" fill="#cba6f7"/>
 <rect x="297" y="180" width="108" height="18" fill="#313244"/>
 <rect x="423" y="180" width="72" height="18" fill="#313244"/>
 <rect x="513" y="180" width="180" height="18" fill="#313244"/>
+<rect x="846" y="180" width="54" height="18" fill="#cba6f7"/>
 <rect x="0" y="234" width="72" height="18" fill="#313244"/>
 <rect x="99" y="234" width="63" height="18" fill="#313244"/>
 <rect x="189" y="234" width="72" height="18" fill="#cba6f7"/>
 <rect x="288" y="234" width="90" height="18" fill="#313244"/>
 <rect x="405" y="234" width="54" height="18" fill="#313244"/>
 <rect x="486" y="234" width="162" height="18" fill="#313244"/>
+<rect x="846" y="234" width="54" height="18" fill="#313244"/>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180" fill="#878ca4">format_theme"zellij"</tspan></text>
-<text y="31"><tspan x="9 18 27 36 45 54 90 108 117 126 135 144 180 198 207 216 225 234 243 279 297 306 315 324 333 342 360 396 414 423 432 441 477 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630" fill="#181825" font-weight="bold">NORMAL1shell2editor3server●4docs5notes(FLOATING)</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54 90 108 117 126 135 144 180 198 207 216 225 234 243 279 297 306 315 324 333 342 360 396 414 423 432 441 477 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630 855 864 873 882" fill="#181825" font-weight="bold">NORMAL1shell2editor3server●4docs5notes(FLOATING)work</tspan></text>
 <text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162" fill="#878ca4">format_theme"flat"</tspan></text>
-<text y="85"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 126 135 144" fill="#cdd6f4">1shell</tspan><tspan x="180 198 207 216 225 234 243" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="279 297 306 315 324 333 342 360 396 414 423 432 441 477 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan></text>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 126 135 144" fill="#cdd6f4">1shell</tspan><tspan x="180 198 207 216 225 234 243" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="279 297 306 315 324 333 342 360 396 414 423 432 441 477 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="855 864 873 882" fill="#1e1e2e" font-weight="bold">work</tspan></text>
 <text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171" fill="#878ca4">format_theme"plain"</tspan></text>
-<text y="139"><tspan x="0 9 18 27 36 45" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="72 90 99 108 117 126" fill="#6c7086">1shell</tspan><tspan x="153 171 180 189 198 207 216" fill="#cba6f7" font-weight="bold">2editor</tspan><tspan x="243 261 270 279 288 297 306 324 351 369 378 387 396 423 441 450 459 468 477 495 504 513 522 531 540 549 558 567 576" fill="#6c7086">3server●4docs5notes(FLOATING)</tspan></text>
+<text y="139"><tspan x="0 9 18 27 36 45" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="72 90 99 108 117 126" fill="#6c7086">1shell</tspan><tspan x="153 171 180 189 198 207 216" fill="#cba6f7" font-weight="bold">2editor</tspan><tspan x="243 261 270 279 288 297 306 324 351 369 378 387 396 423 441 450 459 468 477 495 504 513 522 531 540 549 558 567 576" fill="#6c7086">3server●4docs5notes(FLOATING)</tspan><tspan x="864 873 882 891" fill="#cba6f7" font-weight="bold">work</tspan></text>
 <text y="175"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189 198 207" fill="#878ca4">format_theme"powerline"</tspan></text>
 <path d="M72 180L81 189L72 198Z" fill="#a6e3a1"/>
 <path d="M171 180L180 189L171 198Z" fill="#313244"/>
@@ -43,7 +47,8 @@
 <path d="M405 180L414 189L405 198Z" fill="#313244"/>
 <path d="M495 180L504 189L495 198Z" fill="#313244"/>
 <path d="M693 180L702 189L693 198Z" fill="#313244"/>
-<text y="193"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="198 216 225 234 243 252 261" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="306 324 333 342 351 360 369 387 432 450 459 468 477 522 540 549 558 567 576 594 603 612 621 630 639 648 657 666 675" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan></text>
+<path d="M846 180L837 189L846 198Z" fill="#cba6f7"/>
+<text y="193"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="198 216 225 234 243 252 261" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="306 324 333 342 351 360 369 387 432 450 459 468 477 522 540 549 558 567 576 594 603 612 621 630 639 648 657 666 675" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="855 864 873 882" fill="#1e1e2e" font-weight="bold">work</tspan></text>
 <text y="229"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171" fill="#878ca4">format_theme"pills"</tspan></text>
 <path d="M72 234A9 9 0 0 1 72 252Z" fill="#313244"/>
 <path d="M99 234A9 9 0 0 0 99 252Z" fill="#313244"/>
@@ -56,7 +61,8 @@
 <path d="M459 234A9 9 0 0 1 459 252Z" fill="#313244"/>
 <path d="M486 234A9 9 0 0 0 486 252Z" fill="#313244"/>
 <path d="M648 234A9 9 0 0 1 648 252Z" fill="#313244"/>
-<text y="247"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 342 351 369 405 423 432 441 450 486 504 513 522 531 540 558 567 576 585 594 603 612 621 630 639" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan></text>
+<path d="M846 234A9 9 0 0 0 846 252Z" fill="#313244"/>
+<text y="247"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 342 351 369 405 423 432 441 450 486 504 513 522 531 540 558 567 576 585 594 603 612 621 630 639" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="855 864 873 882" fill="#cba6f7" font-weight="bold">work</tspan></text>
 </g>
 </g>
 </svg>

@@ -50,7 +50,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `format` | Renders zjstatus-style format strings |
 | `host` | The `Host` trait over every Zellij call a bar makes, with `Zellij` and the test `Recorder` |
 | `images` | The SVG engine behind the documentation images, built only for tests |
-| `mode` | The current input mode drawn as a prefix, its per-mode options and the look each theme gives it |
+| `mode` | The current input mode drawn as a prefix, its per-mode options, and the look each theme gives it and the session name, its mirror image |
 | `mouse` | Click maps, column spans for bars of items, press classification, menus and the hover-preview state machine |
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
@@ -81,7 +81,7 @@ zjtabs is a library with a binary on top. `main.rs` only registers the library's
 | --- | --- |
 | `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
 | `main.rs` | The plugin's registration with Zellij |
-| `tabs.rs` | The tabs and the mode prefix before them, laying them out on one line and the window around the active tab |
+| `tabs.rs` | The tabs, the mode prefix before them and the session name after them, laying them out on one line and the window around the active tab |
 | `flags.rs` | The four flags a tab can show and their formats |
 | `mouse.rs` | Clicks, the wheel, double-click renaming, middle-click closing, the right-click menus and opening the settings screen from the mode prefix |
 | `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |

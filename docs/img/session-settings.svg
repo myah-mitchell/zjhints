@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1108" height="510" viewBox="0 0 1108 510" role="img">
 <!-- Drawn for zjhints by zjkit's image engine: edit the code and run `make images`. -->
-<title>A Zellij session under the zjtabs tab bar opening the zjhints settings screen and restyling the zjhints bar, each change previewed on it before saving</title>
+<title>A Zellij session named demo, under the zjtabs tab bar that ends in that name, opening the zjhints settings screen and restyling the zjhints bar, each change previewed on it before saving</title>
 <rect width="1108" height="510" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <style>
@@ -40,6 +40,7 @@
 <g class="f0">
 <rect x="0" y="0" width="72" height="18" fill="#a6e3a1"/>
 <rect x="81" y="0" width="90" height="18" fill="#a6e3a1"/>
+<rect x="1026" y="0" width="54" height="18" fill="#a6e3a1"/>
 </g>
 <g class="f1">
 <rect x="702" y="36" width="9" height="18" fill="#cdd6f4"/>
@@ -165,7 +166,7 @@
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <g class="f0">
-<text y="13"><tspan x="9 18 27 36 45 54 90 108 117 126 144 153" fill="#181825" font-weight="bold">NORMAL1Tab#1</tspan></text>
+<text y="13"><tspan x="9 18 27 36 45 54 90 108 117 126 144 153 1035 1044 1053 1062" fill="#181825" font-weight="bold">NORMAL1Tab#1demo</tspan></text>
 </g>
 <g class="f1">
 <text y="31"><tspan x="0 18 27 36 45 54 63 72 81 90 99 108 117 126 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">┌~/src/zjhints───────────────────────────────────────────┐</tspan><tspan x="540 558 567 576 585 594 603 612 621 630 639 648 657 666 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">┌~/src/zjhints───────────────────────────────────────────┐</tspan></text>

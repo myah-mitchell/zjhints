@@ -16,7 +16,7 @@ use crate::draw_for_image;
 use crate::flags::FLAGS;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use zellij_tile::prelude::{InputMode, TabInfo};
+use zellij_tile::prelude::{InputMode, ModeInfo, TabInfo};
 use zjkit::images::{mode_info, Pen, Screen};
 
 /// The plugin the images are drawn for. The engine marks each SVG with it and
@@ -39,6 +39,10 @@ const ZELLIJ_THEME: [(&str, &str); 3] = [
     ("format_theme", "zellij"),
     ("alias_theme", "zellij"),
 ];
+
+/// The name of the session every image is drawn in, which the bar shows at
+/// its end.
+const SESSION_NAME: &str = "work";
 
 /// A tab as `(name, active, flags)`, the flags in the order of `FLAGS`:
 /// fullscreen, sync, floating and the bell.
@@ -133,7 +137,7 @@ fn configuration_of(options: &[(&str, &str)]) -> BTreeMap<String, String> {
 }
 
 /// The bar of `tabs`, `columns` wide and in `mode`, with `options` as its
-/// configuration.
+/// configuration, in the session named `SESSION_NAME`.
 fn bar(options: &[(&str, &str)], tabs: &[SampleTab], columns: usize, mode: InputMode) -> String {
     let tabs: Vec<TabInfo> = tabs
         .iter()
@@ -153,7 +157,11 @@ fn bar(options: &[(&str, &str)], tabs: &[SampleTab], columns: usize, mode: Input
             }
         })
         .collect();
-    draw_for_image(configuration_of(options), mode_info(mode), &tabs, columns)
+    let mode_info = ModeInfo {
+        session_name: Some(SESSION_NAME.to_string()),
+        ..mode_info(mode)
+    };
+    draw_for_image(configuration_of(options), mode_info, &tabs, columns)
 }
 
 /// A screen holding each shot under its caption.
@@ -183,6 +191,8 @@ fn images() -> Vec<(&'static str, String)> {
         ("bell_format", "#[fg=$red,bold] \u{25cf}"),
     ];
     let powerline_with_symbols = [("format_theme", "powerline"), ("alias_theme", "unicode")];
+    let powerline = [("format_theme", "powerline")];
+    let own_session_format = [("session_format", "#[fg=$accent,bold]session: {session} ")];
     vec![
         (
             "overview-default.svg",
@@ -192,7 +202,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &[],
                 &SESSION_TABS,
             )])
-            .to_svg("The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)"),
+            .to_svg("The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot and the notes tab in (FLOATING), and at the right end a block naming the session, work"),
         ),
         (
             "themes-shapes.svg",
@@ -206,7 +216,7 @@ fn images() -> Vec<(&'static str, String)> {
                     )
                 }),
             )
-            .to_svg("The NORMAL mode prefix and the same five tabs under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors"),
+            .to_svg("The NORMAL mode prefix, the same five tabs and the session's name, work, at the right end under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors. The session's name mirrors the prefix, behind an arrow pointing back at the tabs in powerline and a half-pill in pills"),
         ),
         (
             "flags-alias-themes.svg",
@@ -215,7 +225,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("alias_theme \"ascii\"", &BASE_THEME, &[("alias_theme", "ascii")], &FLAGGED_TABS),
                 Shot::new("alias_theme \"unicode\"", &BASE_THEME, &[("alias_theme", "unicode")], &FLAGGED_TABS),
             ])
-            .to_svg("Five tabs after the NORMAL mode prefix, with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol"),
+            .to_svg("Five tabs between the NORMAL mode prefix and the session's name, work, with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol"),
         ),
         (
             "flags-formats.svg",
@@ -224,7 +234,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("sync_format \"\" hides the sync flag", &BASE_THEME, &no_sync_flag, &FLAGGED_TABS),
                 Shot::new("bell_format \"#[fg=$red,bold] ●\" styles the bell on its own", &BASE_THEME, &styled_bell, &FLAGGED_TABS),
             ])
-            .to_svg("Five tabs with flat blocks after the NORMAL mode prefix. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red"),
+            .to_svg("Five tabs with flat blocks between the NORMAL mode prefix and the session's name, work. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red"),
         ),
         (
             "mode-prefix.svg",
@@ -234,7 +244,18 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("the same in locked mode", &BASE_THEME, &[], &SESSION_TABS).mode(InputMode::Locked),
                 Shot::new("format_theme \"powerline\", alias_theme \"unicode\"", &BASE_THEME, &powerline_with_symbols, &SESSION_TABS),
             ])
-            .to_svg("Four zjtabs bars with the input mode before the tabs. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow"),
+            .to_svg("Four zjtabs bars with the input mode before the tabs and the session's name, work, after them. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow"),
+        ),
+        (
+            "session-name.svg",
+            shots(&[
+                Shot::new("the default, in the Zellij theme's colors", &ZELLIJ_THEME, &[], &SESSION_TABS),
+                Shot::new("format_theme \"pills\"", &BASE_THEME, &[], &SESSION_TABS),
+                Shot::new("format_theme \"powerline\"", &BASE_THEME, &powerline, &SESSION_TABS),
+                Shot::new("session_format \"#[fg=$accent,bold]session: {session} \"", &BASE_THEME, &own_session_format, &SESSION_TABS),
+                Shot::new("format_theme \"pills\" in 40 columns, too narrow for the name beside the marker", &BASE_THEME, &[], &SESSION_TABS).columns(40),
+            ])
+            .to_svg("Five zjtabs bars ending in the session's name, work, at the right edge. In the Zellij theme's colors it is a block like the NORMAL one at the start; with the pills theme a half-pill opens toward the tabs; with the powerline theme an arrow points back at them; with a session_format of its own it reads session: work in bold. In 40 columns the name is left off, so the bar keeps the editor tab and a marker counting the tabs hidden after it"),
         ),
         (
             "overflow-markers.svg",
@@ -243,7 +264,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("64 columns", &BASE_THEME, &flat, &MANY_TABS).columns(64),
                 Shot::new("44 columns", &BASE_THEME, &flat, &MANY_TABS).columns(44),
             ])
-            .to_svg("Ten tabs after the NORMAL mode prefix, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side"),
+            .to_svg("Ten tabs between the NORMAL mode prefix and the session's name, work, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side"),
         ),
         (
             "overflow-lone-tab.svg",
