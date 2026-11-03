@@ -1,8 +1,10 @@
 //! What the mouse does on the bar: a click switches to the tab under it, or
-//! to the nearest hidden tab for a marker; the wheel steps through the tabs;
-//! a double-click renames a tab; a middle click closes it, asking first with
-//! `mouse_close_confirm` on; a right-click opens Zellij's context menu.
+//! to the nearest hidden tab for a marker, and opens the settings screen on
+//! the mode prefix; the wheel steps through the tabs; a double-click renames
+//! a tab; a middle click closes it, asking first with `mouse_close_confirm`
+//! on; a right-click opens Zellij's context menu.
 
+use crate::host::BAR;
 use crate::tabs::Clickable;
 use crate::State;
 use std::collections::BTreeMap;
@@ -43,6 +45,9 @@ impl State {
                     | (PressKind::Left, Some(Clickable::Marker(position))) => {
                         self.host.switch_tab_to(one_based(position));
                     }
+                    (PressKind::Left, Some(Clickable::ModePrefix)) => {
+                        self.bar.open_settings(&self.host, &BAR)
+                    }
                     (PressKind::Double, Some(Clickable::Tab { position, .. })) => {
                         self.rename_tab(position)
                     }
@@ -55,7 +60,8 @@ impl State {
                         .host
                         .open_context_menu(ContextMenuTarget::Tab(position), 0, column),
                     // A spacer, the cut of an overlong line, the empty end of
-                    // the bar, or a marker: there is no one tab to act on.
+                    // the bar, a marker, or the mode prefix: there is no one
+                    // tab to act on.
                     (PressKind::Right, _) => {
                         self.host
                             .open_context_menu(ContextMenuTarget::Bar, 0, column)

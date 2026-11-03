@@ -88,6 +88,9 @@ pub(crate) enum Clickable {
     /// A marker for hidden tabs, with the position of the hidden tab nearest
     /// to it.
     Marker(usize),
+    /// The mode prefix, which opens the settings screen when clicked, as the
+    /// zjhints mode prefix does.
+    ModePrefix,
 }
 
 /// What of `ModeInfo` the bar shows: whether a tab is being renamed, the
@@ -157,14 +160,16 @@ impl State {
         self.bar.visibility.is_hidden() || self.hidden_by_nesting() || self.tabs.is_empty()
     }
 
-    /// The line to draw, and which of its columns stand for which tab or
-    /// marker.
+    /// The line to draw, and which of its columns stand for which tab,
+    /// marker or the mode prefix.
     ///
     /// The mode prefix, when shown, opens the line, with a `tab_spacer` after
-    /// it, and the tabs are fitted into what is left. It stands for nothing,
-    /// so a click on it does what a click past the tabs does. A prefix that
-    /// alone fills the line leaves no room for tabs, and one wider than the
-    /// line is cut to fit, as a lone tab too wide for the bar is.
+    /// it, and the tabs are fitted into what is left. Its columns stand for
+    /// `Clickable::ModePrefix`; the spacer after it stands for nothing. A
+    /// prefix that alone fills the line leaves no room for tabs, and one wider
+    /// than the line is cut to fit, as a lone tab too wide for the bar is,
+    /// with only what is left of it standing for the prefix and the
+    /// `overflow_str` after it standing for nothing.
     pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
             return (String::new(), ColumnSpans::default());
@@ -184,12 +189,16 @@ impl State {
         // for none at all.
         let room = limit.map(|limit| limit.saturating_sub(start));
         if room == Some(0) {
-            let line = limit
-                .and_then(|limit| self.cut(&prefix, limit, dim))
-                .map_or(prefix, |cut| cut.line);
-            return (line, ColumnSpans::default());
+            let (line, kept) = match limit.and_then(|limit| self.cut(&prefix, limit, dim)) {
+                Some(cut) => (cut.line, cut.kept),
+                None => (prefix, prefix_width),
+            };
+            let mut spans = ColumnSpans::default();
+            spans.push(0..kept, Clickable::ModePrefix);
+            return (line, spans);
         }
-        let (tabs, spans) = self.draw_tabs(room, start, dim);
+        let (tabs, mut spans) = self.draw_tabs(room, start, dim);
+        spans.push(0..prefix_width, Clickable::ModePrefix);
         (format!("{prefix}{spacer}{tabs}"), spans)
     }
 

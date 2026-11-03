@@ -167,7 +167,8 @@ struct State {
     tabs: Vec<Tab>,
     /// The input mode and nested-session state from the last `ModeUpdate`.
     mode_info: ModeInfo,
-    /// Which columns of the line last drawn stand for which tab or marker.
+    /// Which columns of the line last drawn stand for which tab, marker or
+    /// the mode prefix.
     click_spans: ColumnSpans<Clickable>,
 }
 

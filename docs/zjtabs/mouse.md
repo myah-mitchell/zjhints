@@ -1,6 +1,6 @@
 # Mouse
 
-With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. A middle click closes a tab after asking, on a Zellij build that sends plugins middle clicks. This page covers each of those and the permissions they use.
+With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. A middle click closes a tab after asking, on a Zellij build that sends plugins middle clicks, and a click on the mode prefix opens the settings screen. This page covers each of those and the permissions they use.
 
 `mouse` is on by default, since a tab bar you cannot click is unusual. Turn it off to leave the bar to the keyboard:
 
@@ -12,7 +12,7 @@ While the bar draws nothing, because it is hidden or has no tabs, the mouse does
 
 ## Switching tabs
 
-Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs, the [mode prefix](formats.md#mode-prefix) and the empty end of the bar do nothing.
+Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs and the empty end of the bar do nothing.
 
 ### Markers
 
@@ -49,6 +49,12 @@ mouse_close_confirm false
 ```
 
 Closing needs a Zellij build that sends plugins middle clicks. See [Zellij support](#zellij-support).
+
+## Opening the settings screen
+
+Left-click the [mode prefix](formats.md#mode-prefix) at the start of the bar to open the settings screen on the alias that bar was started from. Clicking it again while the screen is open brings it back up instead of opening a second one. No config is needed. See [Settings screen](../settings.md).
+
+A middle click or a double-click on the prefix does nothing, and a right-click there opens the `bar` menu, as on a spacer. The right-click menus reach the screen too. See [Reaching the settings screen](#reaching-the-settings-screen).
 
 ## Right-click menus
 

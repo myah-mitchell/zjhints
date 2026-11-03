@@ -5,7 +5,7 @@ The settings screen is a floating pane for changing zjhints options without edit
 It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
 
 > [!NOTE]
-> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use `zjtabs` in the launch examples and look for the *zjtabs* entry on Zellij's settings screen. Clicking its mode prefix does not open the screen, and its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
+> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use `zjtabs` in the launch examples and look for the *zjtabs* entry on Zellij's settings screen. Its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
 
 ## Prerequisites
 
@@ -65,6 +65,8 @@ context_menu {
 ### By clicking the mode prefix
 
 With `mouse` and [`show_mode`](nested-sessions.md#standing-alone) on, left-click the mode prefix at the start of the bar. No config is needed for this one. While descended into a nested session the prefix opens it only with [`mouse_nested`](mouse.md#while-descended-into-a-nested-session) on, like the rest of the bar. The screen opens on the alias that bar was started from, and clicking again while it is open brings it back up instead of opening a second one.
+
+A zjtabs bar does the same with `mouse` on, and its `show_mode` is on by default, so its prefix is there to click with no config at all. See [Opening the settings screen](zjtabs/mouse.md#opening-the-settings-screen).
 
 ## Choosing the alias
 

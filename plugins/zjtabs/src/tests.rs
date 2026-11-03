@@ -926,11 +926,19 @@ fn a_mode_prefix_that_fills_the_bar_draws_no_tabs_and_one_too_wide_is_cut() {
     for width in [8, 9] {
         let state = bar(&options, width, tabs(3, 1));
         assert_eq!(shown(&state), "<NORMAL>", "{width}");
-        assert_eq!(clickable(&state), vec![], "{width}");
+        assert_eq!(
+            clickable(&state),
+            vec![("<NORMAL>".to_string(), Clickable::ModePrefix)],
+            "{width}"
+        );
     }
+    // The `overflow_str` ending the cut stands for nothing.
     let state = bar(&options, 5, tabs(3, 1));
     assert_eq!(shown(&state), "<NOR~");
-    assert_eq!(clickable(&state), vec![]);
+    assert_eq!(
+        clickable(&state),
+        vec![("<NOR".to_string(), Clickable::ModePrefix)]
+    );
 }
 
 #[test]
@@ -971,6 +979,7 @@ fn a_click_on_the_first_tab_still_hits_it_with_the_mode_prefix_shown() {
     assert_eq!(
         clickable(&state),
         vec![
+            ("<NORMAL>".to_string(), Clickable::ModePrefix),
             ("1:a".to_string(), drawn_tab(0)),
             ("[2:b]".to_string(), drawn_tab(1)),
             ("3:c".to_string(), drawn_tab(2)),
@@ -987,12 +996,52 @@ fn a_click_on_the_first_tab_still_hits_it_with_the_mode_prefix_shown() {
 }
 
 #[test]
-fn a_click_on_the_mode_prefix_does_nothing_but_a_right_click_opens_the_bar_s_menu() {
+fn a_click_on_the_mode_prefix_opens_the_settings_screen() {
+    // "<NORMAL>|1:a|[2:b]|3:c"
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(3, 1));
+    state.bar.own_url = Some("zjtabs".to_string());
+    for column in [0, 7] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::LeftClick(0, column)),
+            vec![Call::OpenSettings {
+                message: OPEN_SETTINGS_MESSAGE.to_string(),
+                pane_title: SETTINGS_PANE_TITLE.to_string(),
+                own_url: Some("zjtabs".to_string()),
+            }],
+            "{column}"
+        );
+    }
+    // The spacer after it stands for nothing.
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 8)), vec![]);
+}
+
+#[test]
+fn a_mode_prefix_cut_to_fit_opens_the_settings_screen_from_what_is_left_of_it() {
+    // "<NOR~"
+    let options = plain_with_mode(&[("overflow_str", "~")]);
+    let mut state = bar(&options, 5, tabs(3, 1));
+    assert!(matches!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 3))[..],
+        [Call::OpenSettings { .. }]
+    ));
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 4)), vec![]);
+}
+
+#[test]
+fn with_mouse_off_a_click_on_the_mode_prefix_does_nothing() {
+    let mut state = bar(&plain_with_mode(&[("mouse", "false")]), 80, tabs(3, 1));
+    for mouse in [Mouse::LeftClick(0, 0), Mouse::RightClick(0, 0)] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+}
+
+#[test]
+fn only_a_left_click_on_the_mode_prefix_acts_on_it_and_a_right_click_opens_the_bar_s_menu() {
     // "<NORMAL>|1:a|[2:b]|3:c", closing at once so a middle click would show.
     let options = plain_with_mode(&[("mouse_close_confirm", "false")]);
     let mut state = bar(&options, 80, tabs(3, 1));
     for column in [0, 7, 8] {
-        for mouse in [Mouse::LeftClick(0, column), Mouse::MiddleClick(0, column)] {
+        for mouse in [Mouse::MiddleClick(0, column), Mouse::DoubleClick(0, column)] {
             assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
         }
         assert_eq!(

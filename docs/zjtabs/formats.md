@@ -104,7 +104,7 @@ The prefix sits on the line like this:
 - `tab_spacer` separates it from the first tab or the left [overflow marker](overflow.md#markers).
 - The tabs are fitted into the columns the prefix leaves. When the prefix alone fills the bar, no tabs are drawn, and a prefix wider than the bar is cut and ends in `overflow_str`.
 - It dims with the tabs under `dim_when_unfocused`.
-- A click on it does nothing, and a right-click opens Zellij's menu for the bar, as a right-click past the tabs does.
+- With `mouse` on, a click on it opens the settings screen, and a right-click opens Zellij's menu for the bar, as a right-click past the tabs does. See [Opening the settings screen](mouse.md#opening-the-settings-screen).
 
 ## Themes
 
