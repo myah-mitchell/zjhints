@@ -94,6 +94,44 @@ pub trait Host {
     /// the same as tabs move. Closes nothing when no tab has that id.
     fn close_tab_with_id(&self, tab_id: u64);
 
+    /// Focus the terminal pane `terminal_pane_id`, switching to its tab if it
+    /// is in another. A pane hidden with `hide_pane_with_id` is shown again:
+    /// as a floating pane with `should_float_if_hidden`, otherwise tiled, and
+    /// in place of the focused pane with `should_be_in_place_if_hidden`.
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    );
+
+    /// Focus the plugin pane `plugin_pane_id`, as `focus_terminal_pane` does
+    /// for a terminal.
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    );
+
+    /// Hide the pane `pane_id` from the screen, keeping it and what runs in
+    /// it. Zellij reports it as suppressed until it is shown or focused again.
+    fn hide_pane_with_id(&self, pane_id: PaneId);
+
+    /// Move and resize each floating pane named in
+    /// `pane_ids_and_coordinates` to its coordinates. A coordinate left
+    /// `None` keeps its value.
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    );
+
+    /// Close the terminal pane `terminal_pane_id`, ending what runs in it.
+    fn close_terminal_pane(&self, terminal_pane_id: u32);
+
+    /// Close the plugin pane `plugin_pane_id`.
+    fn close_plugin_pane(&self, plugin_pane_id: u32);
+
     /// Ask every running bar of the plugin `names` belongs to whether it is
     /// hidden, naming this bar's `alias` when it knows it. See
     /// `visibility::Names::ask`.
@@ -230,6 +268,51 @@ impl Host for Zellij {
         close_tab_with_id(tab_id);
     }
 
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        focus_terminal_pane(
+            terminal_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        );
+    }
+
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        focus_plugin_pane(
+            plugin_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        );
+    }
+
+    fn hide_pane_with_id(&self, pane_id: PaneId) {
+        hide_pane_with_id(pane_id);
+    }
+
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    ) {
+        change_floating_panes_coordinates(pane_ids_and_coordinates);
+    }
+
+    fn close_terminal_pane(&self, terminal_pane_id: u32) {
+        close_terminal_pane(terminal_pane_id);
+    }
+
+    fn close_plugin_pane(&self, plugin_pane_id: u32) {
+        close_plugin_pane(plugin_pane_id);
+    }
+
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
         let mut message = MessageToPlugin::new(names.ask);
         if let Some(alias) = alias {
@@ -323,6 +406,20 @@ pub enum Call {
     },
     SwitchTabTo(u32),
     CloseTabWithId(u64),
+    FocusTerminalPane {
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    },
+    FocusPluginPane {
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    },
+    HidePaneWithId(PaneId),
+    ChangeFloatingPanesCoordinates(Vec<(PaneId, FloatingPaneCoordinates)>),
+    CloseTerminalPane(u32),
+    ClosePluginPane(u32),
     /// `message` is the `ask` name of the `visibility::Names` given.
     AskVisibility {
         message: &'static str,
@@ -480,6 +577,53 @@ impl Host for Recorder {
 
     fn close_tab_with_id(&self, tab_id: u64) {
         self.record(Call::CloseTabWithId(tab_id));
+    }
+
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        self.record(Call::FocusTerminalPane {
+            terminal_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        });
+    }
+
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        self.record(Call::FocusPluginPane {
+            plugin_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        });
+    }
+
+    fn hide_pane_with_id(&self, pane_id: PaneId) {
+        self.record(Call::HidePaneWithId(pane_id));
+    }
+
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    ) {
+        self.record(Call::ChangeFloatingPanesCoordinates(
+            pane_ids_and_coordinates,
+        ));
+    }
+
+    fn close_terminal_pane(&self, terminal_pane_id: u32) {
+        self.record(Call::CloseTerminalPane(terminal_pane_id));
+    }
+
+    fn close_plugin_pane(&self, plugin_pane_id: u32) {
+        self.record(Call::ClosePluginPane(plugin_pane_id));
     }
 
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
