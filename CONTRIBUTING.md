@@ -50,6 +50,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `format` | Renders zjstatus-style format strings |
 | `host` | The `Host` trait over every Zellij call a bar makes, with `Zellij` and the test `Recorder` |
 | `images` | The SVG engine behind the documentation images, built only for tests |
+| `mode` | The current input mode drawn as a prefix, its per-mode options and the look each theme gives it |
 | `mouse` | Click maps, column spans for bars of items, press classification, menus and the hover-preview state machine |
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
@@ -65,7 +66,6 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `main.rs` | The plugin state, its options, and the Zellij event loop |
 | `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
 | `keys.rs` | Key grouping, key and modifier aliases, and key order |
-| `mode_prefix.rs` | The mode drawn ahead of the hints |
 | `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
 | `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
 | `popup.rs` | zjhints' names for the hover-preview popup |
