@@ -26,6 +26,8 @@ mod draw;
 mod entries;
 mod flags;
 mod host;
+#[cfg(test)]
+mod images;
 mod launcher;
 mod mouse;
 mod settings;
@@ -534,6 +536,10 @@ impl ZellijPlugin for State {
 /// asking Zellij for anything. A bar that `mode_info` hides, as
 /// `hide_when_nested` hides a nested session's, draws an empty line.
 ///
+/// A pane of `manifest` reported hidden, suppressed and not floating, is
+/// taken as one the bar minimized itself, so an image can show a minimized
+/// entry without the clicks that would make one.
+///
 /// A clock in the tray shows the settings screen's sample time,
 /// `clock::SAMPLE_UNIX_SECONDS`, at `clock_utc_offset` or else at UTC, so an
 /// image comes out the same whenever it is drawn.
@@ -551,6 +557,12 @@ pub fn draw_for_image(
     state.bar.pane_width = Some(columns);
     state.mode_info = mode_info;
     state.tabs = entries::tabs_of(tabs);
+    for pane in manifest.panes.values().flatten() {
+        if pane.is_suppressed && !pane.is_floating {
+            let pane_id = zjkit::panes::pane_id_of(pane);
+            state.minimized.insert(pane_id, Default::default());
+        }
+    }
     state.panes = manifest;
     // Reads the options and takes the entries from the panes and tabs.
     state.apply_configuration(configuration);

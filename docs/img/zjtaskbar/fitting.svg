@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="330" viewBox="0 0 928 330" role="img">
+<!-- Drawn for zjtaskbar by zjkit's image engine: edit the code and run `make images`. -->
+<title>The launcher's button, four floating panes and a tray of the mode, the session and the clock, as flat blocks in bars from 100 down to 15 columns. At 100 columns everything fits. At 64 the entries give way first, down to htop, the focused editor and a marker for the two hidden after them. At 44 the editor is left alone, as its markers no longer fit, and at 30 the entries are gone while the whole tray still fits. At 22 the tray has dropped the mode from its left end, and at 15 the session too, leaving the button and the clock</title>
+<rect width="928" height="330" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="54" height="18" fill="#313244"/>
+<rect x="63" y="18" width="54" height="18" fill="#313244"/>
+<rect x="126" y="18" width="72" height="18" fill="#cba6f7"/>
+<rect x="207" y="18" width="171" height="18" fill="#313244"/>
+<rect x="405" y="18" width="171" height="18" fill="#313244"/>
+<rect x="693" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="774" y="18" width="54" height="18" fill="#cba6f7"/>
+<rect x="837" y="18" width="63" height="18" fill="#313244"/>
+<rect x="0" y="72" width="54" height="18" fill="#313244"/>
+<rect x="63" y="72" width="54" height="18" fill="#313244"/>
+<rect x="126" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="207" y="72" width="54" height="18" fill="#313244"/>
+<rect x="369" y="72" width="72" height="18" fill="#a6e3a1"/>
+<rect x="450" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="513" y="72" width="63" height="18" fill="#313244"/>
+<rect x="0" y="126" width="54" height="18" fill="#313244"/>
+<rect x="63" y="126" width="72" height="18" fill="#cba6f7"/>
+<rect x="189" y="126" width="72" height="18" fill="#a6e3a1"/>
+<rect x="270" y="126" width="54" height="18" fill="#cba6f7"/>
+<rect x="333" y="126" width="63" height="18" fill="#313244"/>
+<rect x="0" y="180" width="54" height="18" fill="#313244"/>
+<rect x="63" y="180" width="72" height="18" fill="#a6e3a1"/>
+<rect x="144" y="180" width="54" height="18" fill="#cba6f7"/>
+<rect x="207" y="180" width="63" height="18" fill="#313244"/>
+<rect x="0" y="234" width="54" height="18" fill="#313244"/>
+<rect x="72" y="234" width="54" height="18" fill="#cba6f7"/>
+<rect x="135" y="234" width="63" height="18" fill="#313244"/>
+<rect x="0" y="288" width="54" height="18" fill="#313244"/>
+<rect x="72" y="288" width="63" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90" fill="#878ca4">100columns</tspan></text>
+<text y="31"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#cdd6f4">htop</tspan><tspan x="135 144 153 162 171 180" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 387" fill="#6c7086">notes(MINIMIZED)│</tspan><tspan x="414 423 432 450 459 468 477 486 495 513 522 531 540 549 558" fill="#cdd6f4">manzellij(docs)</tspan><tspan x="702 711 720 729 738 747 783 792 801 810" fill="#1e1e2e" font-weight="bold">NORMALwork</tspan><tspan x="846 855 864 873 882" fill="#cdd6f4">09:41</tspan></text>
+<text y="67"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">64columns</tspan></text>
+<text y="85"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#cdd6f4">htop</tspan><tspan x="135 144 153 162 171 180" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="216 225 243" fill="#cdd6f4">+2→</tspan><tspan x="378 387 396 405 414 423 459 468 477 486" fill="#1e1e2e" font-weight="bold">NORMALwork</tspan><tspan x="522 531 540 549 558" fill="#cdd6f4">09:41</tspan></text>
+<text y="121"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">44columns</tspan></text>
+<text y="139"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99 108 117 198 207 216 225 234 243 279 288 297 306" fill="#1e1e2e" font-weight="bold">editorNORMALwork</tspan><tspan x="342 351 360 369 378" fill="#cdd6f4">09:41</tspan></text>
+<text y="175"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">30columns</tspan></text>
+<text y="193"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99 108 117 153 162 171 180" fill="#1e1e2e" font-weight="bold">NORMALwork</tspan><tspan x="216 225 234 243 252" fill="#cdd6f4">09:41</tspan></text>
+<text y="229"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">22columns</tspan></text>
+<text y="247"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="81 90 99 108" fill="#1e1e2e" font-weight="bold">work</tspan><tspan x="144 153 162 171 180" fill="#cdd6f4">09:41</tspan></text>
+<text y="283"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">15columns</tspan></text>
+<text y="301"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="81 90 99 108 117" fill="#cdd6f4">09:41</tspan></text>
+</g>
+</g>
+</svg>

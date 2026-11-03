@@ -18,3 +18,9 @@ zellij-utils.workspace = true
 # draw zjtaskbar into the docs images. The plugin itself never calls it, so
 # the release build leaves it out.
 images = []
+
+[dev-dependencies]
+# The tests draw the images in docs/img/zjtaskbar. A dev-dependency's
+# features stay out of the release build, so the wasm plugin does not
+# compile the engine.
+zjkit = { workspace = true, features = ["images"] }

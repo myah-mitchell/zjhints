@@ -1500,6 +1500,19 @@ fn drawing_for_an_image_draws_what_the_plugin_would() {
     );
 }
 
+#[test]
+fn drawing_for_an_image_takes_a_hidden_pane_as_one_the_bar_minimized() {
+    let by_tab = vec![(
+        0,
+        vec![focused(floating(1, "a")), suppressed(floating(2, "b"))],
+    )];
+    let Event::PaneUpdate(manifest) = panes(40, by_tab) else {
+        unreachable!()
+    };
+    let line = draw_for_image(cfg(&PLAIN), mode(), &tabs(1, 0), manifest, 40);
+    assert_eq!(strip_ansi(&line), "[a]|_b_");
+}
+
 // The mouse.
 
 /// What `mouse` on the bar as last drawn makes it ask of Zellij, through
