@@ -33,7 +33,9 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
 
 /// What `mouse` needs beyond what the bar always asks for.
 pub(crate) const MOUSE_PERMISSIONS: [PermissionType; 1] = [
-    // Renaming a tab on a double-click, which runs Zellij's own rename action.
+    // Renaming a tab on a double-click, and opening Zellij's session manager
+    // from a click on the session name, each of which runs Zellij's own
+    // action for it.
     PermissionType::RunActionsAsUser,
 ];
 

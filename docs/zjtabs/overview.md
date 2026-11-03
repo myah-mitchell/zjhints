@@ -12,7 +12,7 @@ With no options set, zjtabs draws the current input mode, then each tab the way 
 - It draws the current input mode before the tabs, unless `show_mode` is off. See [Mode prefix](formats.md#mode-prefix).
 - It draws the session's name at the right end of the bar, unless `show_session` is off or Zellij's own `hide_session_name` is on. See [Session name](formats.md#session-name).
 - When the tabs do not fit, it keeps a window of them around the active tab and counts the rest in a marker on each side. See [Overflow](overflow.md).
-- With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. See [Mouse](mouse.md).
+- With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. Clicking the session name opens Zellij's session manager. See [Mouse](mouse.md).
 
 ## Getting the plugin
 
@@ -72,7 +72,7 @@ zjtabs asks for these permissions the first time it runs. Zellij shows the promp
 | *Access Zellij state (Panes, Tabs and UI)* | Reading the tabs, the input mode and the bar's own pane |
 | *Change Zellij state (Panes, Tabs and UI) and run commands* | Switching and closing tabs, opening Zellij's menus and adding the *zjtabs* settings entry |
 | *Send messages to and launch other plugins* | The hide, show and toggle messages between bars, and opening the settings screen |
-| *Execute actions as the user* | Renaming a tab on a double-click, asked for only with `mouse` on |
+| *Execute actions as the user* | Renaming a tab on a double-click and opening the session manager from the session name, asked for only with `mouse` on |
 | *Start new terminals and plugins* | Asking before a middle click closes a tab, asked for only with `mouse` and `mouse_close_confirm` both on |
 
 With `mouse` off, the bar asks for the first three alone, and with `mouse_close_confirm` off, for the first four. Turning `mouse` on later asks again with the new ones added, as does turning `mouse_close_confirm` on while `mouse` is on. See [Mouse](mouse.md#permissions).

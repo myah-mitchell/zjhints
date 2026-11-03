@@ -1,6 +1,6 @@
 # Mouse
 
-With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. A middle click closes a tab after asking, on a Zellij build that sends plugins middle clicks, and a click on the mode prefix opens the settings screen. This page covers each of those and the permissions they use.
+With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. A middle click closes a tab after asking, on a Zellij build that sends plugins middle clicks. A click on the mode prefix opens the settings screen, and a click on the session name opens Zellij's session manager. This page covers each of those and the permissions they use.
 
 `mouse` is on by default, since a tab bar you cannot click is unusual. Turn it off to leave the bar to the keyboard:
 
@@ -12,7 +12,7 @@ While the bar draws nothing, because it is hidden or has no tabs, the mouse does
 
 ## Switching tabs
 
-Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs, the empty space after them and the [session name](formats.md#session-name) do nothing.
+Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs and the empty space after them do nothing.
 
 ### Markers
 
@@ -56,6 +56,12 @@ Left-click the [mode prefix](formats.md#mode-prefix) at the start of the bar to 
 
 A middle click or a double-click on the prefix does nothing, and a right-click there opens the `bar` menu, as on a spacer. The right-click menus reach the screen too. See [Reaching the settings screen](#reaching-the-settings-screen).
 
+## Opening the session manager
+
+Left-click the [session name](formats.md#session-name) at the end of the bar to open Zellij's session manager, the same as `Ctrl o` then `w` in Zellij's default keybindings. It opens in a floating pane and takes the focus. If it is already open, the click focuses it instead, bringing it to the tab you are on. No config is needed.
+
+The click opens whatever your Zellij config names `session-manager` in its `plugins` block, as the keybinding does. Only the name itself counts: the spacer before it and the empty space between it and the tabs do nothing. A middle click or a double-click on the name does nothing, and a right-click opens the `bar` menu, as on a spacer.
+
 ## Right-click menus
 
 Right-clicking opens one of Zellij's context menus at the pointer. The items come from the `context_menu` block of Zellij's own config, not from this plugin.
@@ -87,7 +93,7 @@ Turning `mouse` on asks for one permission on top of the ones the bar always nee
 
 | Permission | Used for |
 | --- | --- |
-| *Execute actions as the user* | Renaming a tab on a double-click |
+| *Execute actions as the user* | Renaming a tab on a double-click, and opening the session manager from the session name |
 | *Start new terminals and plugins* | Asking before a middle click closes a tab, since the question is a Zellij prompt |
 
 Switching and closing tabs and opening Zellij's menus also need permission to change Zellij state, which the bar always asks for to add its *zjtabs* settings entry. The full list is in [Permissions](overview.md#permissions).

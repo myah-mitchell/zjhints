@@ -1233,8 +1233,16 @@ fn the_session_name_dims_with_the_tabs() {
     }
 }
 
+/// What the bar asks of Zellij for a left click on the session name.
+fn opening_the_session_manager() -> Vec<Call> {
+    vec![Call::RunAction {
+        action: mouse::session_manager_action(),
+        context: BTreeMap::new(),
+    }]
+}
+
 #[test]
-fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
+fn the_session_name_has_columns_of_its_own_and_the_tabs_and_markers_still_hit() {
     let options = plain_with_session(&[("mouse_close_confirm", "false")]);
     let mut state = bar_in_session(&options, 23, tabs(4, 1));
     assert_eq!(shown(&state), "1:a|[2:b]|3:c|1>|(work)");
@@ -1245,6 +1253,7 @@ fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
             ("[2:b]".to_string(), drawn_tab(1)),
             ("3:c".to_string(), drawn_tab(2)),
             ("1>".to_string(), Clickable::Marker(3)),
+            ("(work)".to_string(), Clickable::SessionName),
         ]
     );
     assert_eq!(
@@ -1255,19 +1264,44 @@ fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
         after_mouse(&mut state, Mouse::LeftClick(0, 15)),
         vec![Call::SwitchTabTo(4)]
     );
-    // The blank on 13 to 22, the spacer on 23 and the name on 24 to 29: a
-    // right-click opens the bar's menu, and nothing else does anything.
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 17)),
+        opening_the_session_manager()
+    );
+    // With no limit on the line's width the name follows the tabs, and its
+    // columns with it.
+    let unfitted = plain_with_session(&[("auto_width", "false")]);
+    let state = bar_in_session(&unfitted, 80, tabs(3, 1));
+    assert_eq!(
+        clickable(&state).last(),
+        Some(&("(work)".to_string(), Clickable::SessionName))
+    );
+}
+
+#[test]
+fn a_left_click_on_the_session_name_opens_the_session_manager() {
+    // The blank on 13 to 22, the spacer on 23 and the name on 24 to 29.
+    let options = plain_with_session(&[("mouse_close_confirm", "false")]);
     let mut state = bar_in_session(&options, 30, tabs(3, 1));
     assert_eq!(
         shown(&state),
         format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
     );
+    for column in [24, 29] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::LeftClick(0, column)),
+            opening_the_session_manager(),
+            "{column}"
+        );
+    }
+    // The blank and the spacer stand for nothing, and only a left click acts
+    // on the name: a right-click anywhere there opens the bar's menu.
     for column in [13, 22, 23, 24, 29] {
-        for mouse in [
-            Mouse::LeftClick(0, column),
-            Mouse::DoubleClick(0, column),
-            Mouse::MiddleClick(0, column),
-        ] {
+        let left = (column < 24).then_some(Mouse::LeftClick(0, column));
+        for mouse in left
+            .into_iter()
+            .chain([Mouse::DoubleClick(0, column), Mouse::MiddleClick(0, column)])
+        {
             assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
         }
         assert_eq!(
@@ -1279,6 +1313,30 @@ fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
             }]
         );
     }
+}
+
+#[test]
+fn with_mouse_off_a_click_on_the_session_name_does_nothing() {
+    let mut state = bar_in_session(&plain_with_session(&[("mouse", "false")]), 30, tabs(3, 1));
+    assert!(shown(&state).ends_with("|(work)"));
+    for mouse in [Mouse::LeftClick(0, 24), Mouse::RightClick(0, 24)] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+}
+
+#[test]
+fn the_session_manager_opens_as_zellij_s_own_ctrl_o_w_opens_it() {
+    let config = zellij_utils::input::config::Config::from_default_assets()
+        .expect("Zellij ships a default config");
+    let key = KeyWithModifier::new(BareKey::Char('w'));
+    let actions = config
+        .keybinds
+        .get_actions_for_key_in_mode(&InputMode::Session, &key)
+        .expect("Zellij binds w in session mode");
+    assert_eq!(actions.first(), Some(&mouse::session_manager_action()));
+    // The alias it names is Zellij's own session manager.
+    let session_manager = &config.plugins.aliases[mouse::SESSION_MANAGER_ALIAS];
+    assert_eq!(session_manager.location.display(), "zellij:session-manager");
 }
 
 /// A mode update in `input_mode` for the session named `work`, with Zellij's own

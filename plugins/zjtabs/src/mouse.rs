@@ -1,11 +1,9 @@
 //! What the mouse does on the bar: a click switches to the tab under it, or
-//! to the nearest hidden tab for a marker, and opens the settings screen on
-//! the mode prefix; the wheel steps through the tabs; a double-click renames
-//! a tab; a middle click closes it, asking first with `mouse_close_confirm`
-//! on; a right-click opens Zellij's context menu. The session name at the
-//! end of the bar is no target of its own: it stands for nothing in the
-//! click spans, so only a right-click acts on it, opening the bar's menu as
-//! the empty end does.
+//! to the nearest hidden tab for a marker, opens the settings screen on the
+//! mode prefix, and opens Zellij's session manager on the session name; the
+//! wheel steps through the tabs; a double-click renames a tab; a middle
+//! click closes it, asking first with `mouse_close_confirm` on; a
+//! right-click opens Zellij's context menu.
 
 use crate::host::BAR;
 use crate::tabs::Clickable;
@@ -13,6 +11,7 @@ use crate::State;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
+use zellij_utils::input::layout::{PluginAlias, RunPluginOrAlias};
 use zjkit::ansi::show_controls;
 use zjkit::host::Host;
 use zjkit::mouse::{classify_bar_mouse, BarMouseEvent, PressKind, WheelDirection};
@@ -51,6 +50,7 @@ impl State {
                     (PressKind::Left, Some(Clickable::ModePrefix)) => {
                         self.bar.open_settings(&self.host, &BAR)
                     }
+                    (PressKind::Left, Some(Clickable::SessionName)) => self.open_session_manager(),
                     (PressKind::Double, Some(Clickable::Tab { position, .. })) => {
                         self.rename_tab(position)
                     }
@@ -75,6 +75,13 @@ impl State {
             BarMouseEvent::Wheel(direction) => self.step_tab(direction),
             BarMouseEvent::Other => {}
         }
+    }
+
+    /// Open Zellij's session manager, floating and focused, or focus the
+    /// one already open, as `Ctrl o w` does. See `session_manager_action`.
+    fn open_session_manager(&self) {
+        self.host
+            .run_action(session_manager_action(), BTreeMap::new());
     }
 
     /// Start renaming the tab at `position`. Zellij renames a tab by id
@@ -174,6 +181,37 @@ impl State {
         if let Some(tab) = next.and_then(|index| self.tabs.get(index)) {
             self.host.switch_tab_to(one_based(tab.position));
         }
+    }
+}
+
+/// The alias Zellij's default config gives its session manager, in its
+/// `plugins` block, as `location="zellij:session-manager"`.
+pub(crate) const SESSION_MANAGER_ALIAS: &str = "session-manager";
+
+/// What Zellij's default `Ctrl o w` binding runs:
+/// `LaunchOrFocusPlugin "session-manager" { floating true; move_to_focused_tab true; }`.
+///
+/// Zellij focuses the session manager if it is open, bringing it to the
+/// tab the user is on from any other, and otherwise opens it there in a
+/// floating pane, focused. It is named by its alias, as the binding names
+/// it, so a user whose config points `session-manager` at another plugin
+/// gets that one here too. Run as an action, which needs
+/// `PermissionType::RunActionsAsUser`, asked for with `mouse` on.
+pub(crate) fn session_manager_action() -> Action {
+    Action::LaunchOrFocusPlugin {
+        // An empty configuration, as the binding's block holds only options
+        // of the action itself.
+        plugin: RunPluginOrAlias::Alias(PluginAlias::new(
+            SESSION_MANAGER_ALIAS,
+            &Some(BTreeMap::new()),
+            None,
+        )),
+        should_float: true,
+        move_to_focused_tab: true,
+        should_open_in_place: false,
+        close_replaced_pane: false,
+        skip_cache: false,
+        tab_id: None,
     }
 }
 

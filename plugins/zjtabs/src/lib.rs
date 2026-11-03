@@ -175,7 +175,8 @@ pub struct State {
     /// The session name's format string, with `{session}` for the name, or
     /// `None` for a block in the colors of Zellij's selected ribbon.
     session_format: Option<String>,
-    /// Switch, rename, close and open the menu of tabs with the mouse.
+    /// Switch, rename, close and open the menu of tabs with the mouse, and
+    /// open the settings screen and Zellij's session manager from the bar.
     mouse: bool,
     /// Swap the wheel's two directions: scroll up goes to the previous tab
     /// and scroll down to the next, rather than the other way around.
@@ -189,8 +190,8 @@ pub struct State {
     /// The input mode, the session's name and the nested-session state from
     /// the last `ModeUpdate`.
     mode_info: ModeInfo,
-    /// Which columns of the line last drawn stand for which tab, marker or
-    /// the mode prefix. The session name stands for nothing.
+    /// Which columns of the line last drawn stand for which tab or marker,
+    /// the mode prefix or the session name.
     click_spans: ColumnSpans<Clickable>,
 }
 

@@ -95,6 +95,10 @@ pub(crate) enum Clickable {
     /// The mode prefix, which opens the settings screen when clicked, as the
     /// zjhints mode prefix does.
     ModePrefix,
+    /// The session name, which opens Zellij's session manager when clicked,
+    /// as `Ctrl o w` does. Only the name itself: the spacer before it and
+    /// the blank between it and the tabs stand for nothing.
+    SessionName,
 }
 
 /// What of `ModeInfo` the bar shows: whether a tab is being renamed, the
@@ -193,8 +197,8 @@ impl State {
         self.bar.visibility.is_hidden() || self.hidden_by_nesting() || self.tabs.is_empty()
     }
 
-    /// The line to draw, and which of its columns stand for which tab,
-    /// marker or the mode prefix.
+    /// The line to draw, and which of its columns stand for which tab or
+    /// marker, the mode prefix or the session name.
     ///
     /// The mode prefix, when shown, opens the line, with a `tab_spacer` after
     /// it, and the session name, when shown, closes it, with a `tab_spacer`
@@ -206,8 +210,9 @@ impl State {
     /// and `max_length` both off, there is no end to set the session name
     /// against, so it follows the tabs straight after its spacer.
     ///
-    /// The prefix's columns stand for `Clickable::ModePrefix`; the spacers,
-    /// the blank and the session name stand for nothing. A prefix that alone
+    /// The prefix's columns stand for `Clickable::ModePrefix` and the session
+    /// name's for `Clickable::SessionName`; the spacers and the blank stand
+    /// for nothing. A prefix that alone
     /// fills the line leaves no room for tabs, and one wider than the line is
     /// cut to fit, as a lone tab too wide for the bar is, with only what is
     /// left of it standing for the prefix and the `overflow_str` after it
@@ -266,6 +271,14 @@ impl State {
             }
             _ => 0,
         };
+        if ending_width > 0 {
+            // After the tabs, the blank and the spacer before the name.
+            let session_start = start + width(&tabs) + blank + width(&spacer);
+            spans.push(
+                session_start..session_start + width(&session),
+                Clickable::SessionName,
+            );
+        }
         let blank = " ".repeat(blank);
         (format!("{opening}{tabs}{blank}{ending}"), spans)
     }
