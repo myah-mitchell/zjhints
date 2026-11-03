@@ -1,11 +1,13 @@
 //! Drawing the bar: the launcher's button at its left end, then the
 //! entries, each from its format, the run of them that fits around the
 //! focused one, the markers for the rest, the separators between the tabs'
-//! groups, and what an empty bar says. Each line comes with the columns its
-//! button, entries and markers were drawn on, for the mouse.
+//! groups, and what an empty bar says, then the tray at its right end (see
+//! `tray`). Each line comes with the columns its button, entries, markers
+//! and tray items were drawn on, for the mouse.
 
 use crate::entries::Entry;
 use crate::flags::FLAGS;
+use crate::tray::TrayItem;
 use crate::State;
 use ansi_term::{ANSIString, ANSIStrings};
 use std::borrow::Cow;
@@ -31,25 +33,19 @@ const ZELLIJ_OVERFLOW_RIGHT: &str = " +{count} \u{2192} ";
 const ZELLIJ_LAUNCHER: &str = " {symbol} ";
 
 /// What of `ModeInfo` the bar shows: the nested-session state that hides or
-/// dims it. Compared to tell whether a mode update changes anything on
-/// screen.
+/// dims it, and the mode and the session's name while the tray shows them.
+/// Compared to tell whether a mode update changes anything on screen. See
+/// `State::mode_view`.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ModeView {
     nested: bool,
     host_ui_is_covered: bool,
     host_descended: bool,
     ascended_out_of: bool,
-}
-
-impl ModeView {
-    pub(crate) fn of(mode_info: &ModeInfo) -> Self {
-        ModeView {
-            nested: nesting::is_nested(mode_info),
-            host_ui_is_covered: nesting::host_ui_is_covered(mode_info),
-            host_descended: nesting::is_host_descended(mode_info),
-            ascended_out_of: nesting::is_ascended_out_of(mode_info),
-        }
-    }
+    /// The input mode, while `mode` is in the tray.
+    mode: Option<InputMode>,
+    /// The session's name, while the tray shows it.
+    session_name: Option<String>,
 }
 
 /// What a stretch of the drawn line stands for, for the mouse. The spacers,
@@ -70,6 +66,8 @@ pub(crate) enum Clickable {
     Marker(PaneId),
     /// The launcher's button.
     Launcher,
+    /// An item of the tray.
+    Tray(TrayItem),
 }
 
 /// How an entry is drawn, which picks its format and its Zellij look.
@@ -95,6 +93,21 @@ impl Look {
 }
 
 impl State {
+    /// What of `mode_info` the bar shows, with the options as read now.
+    pub(crate) fn mode_view(&self, mode_info: &ModeInfo) -> ModeView {
+        ModeView {
+            nested: nesting::is_nested(mode_info),
+            host_ui_is_covered: nesting::host_ui_is_covered(mode_info),
+            host_descended: nesting::is_host_descended(mode_info),
+            ascended_out_of: nesting::is_ascended_out_of(mode_info),
+            mode: self
+                .tray
+                .contains(&TrayItem::Mode)
+                .then_some(mode_info.mode),
+            session_name: self.session_name_shown_for(mode_info).map(str::to_string),
+        }
+    }
+
     /// How wide the line may be, or `None` for no limit.
     ///
     /// `max_length` is a hard cap the user set; `auto_width` fits the bar's
@@ -131,62 +144,117 @@ impl State {
     }
 
     /// Whether the line drawn now is blank: `draws_nothing` says so, or
-    /// there is no launcher's button, no entries and no `empty_format` to
-    /// draw in their place.
+    /// there is no launcher's button, no entries, no `empty_format` to draw
+    /// in their place, and nothing in the tray.
     pub(crate) fn draws_blank_line(&self) -> bool {
         self.draws_nothing()
-            || (!self.launcher_shown() && self.entries.is_empty() && self.empty_format.is_none())
+            || (!self.launcher_shown()
+                && self.entries.is_empty()
+                && self.empty_format.is_none()
+                && self.tray_is_empty())
     }
 
     /// The line to draw: the launcher's button while it is shown, then the
-    /// entries that fit, or `empty_format` while there are none, or nothing
-    /// while `draws_nothing` says so. With it, the columns the button and
-    /// each entry and marker it shows were drawn on.
+    /// entries that fit, or `empty_format` while there are none, then the
+    /// tray at the line's right end, or nothing while `draws_nothing` says
+    /// so. With it, the columns each button, entry, marker and tray item it
+    /// shows was drawn on.
+    ///
+    /// The parts outrank one another in that order: the button, then the
+    /// tray, then the entries.
+    ///
+    /// - The button is cut only when it alone is wider than the line.
+    /// - The tray is fitted into what the button leaves, less a
+    ///   `tray_spacer` between them, dropping items from its left end; see
+    ///   `draw_tray`.
+    /// - The entries are fitted into what is left between the two, after an
+    ///   `entry_spacer` following the button and a `tray_spacer` before the
+    ///   tray, and dropped whole when nothing is left.
+    ///
+    /// The gap between the entries and the tray is filled with spaces in the
+    /// bar's background, so the tray stands flush with the line's right end,
+    /// or with the pane's right edge when that is nearer. With no limit to
+    /// the line's width, or no visible pane, the tray follows the entries.
+    /// See `fit::flush_right_blank`.
     pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
             return (String::new(), ColumnSpans::default());
         }
         let dim = self.dim_amount();
         let limit = self.length_limit();
-        if !self.launcher_shown() {
-            return self.draw_listed(limit, dim, 0);
-        }
-        self.draw_with_launcher(limit, dim)
-    }
-
-    /// The launcher's button, then `entry_spacer`, then the entries in what
-    /// columns are left, or `empty_format` while there are none.
-    ///
-    /// The button comes first, and the entries give way to it: they are
-    /// fitted into the columns the button and the spacer leave, and dropped
-    /// whole when none are left. Only a bar too narrow for the button alone
-    /// cuts it. With no entries and no `empty_format`, the button is drawn
-    /// alone, with no spacer after it.
-    fn draw_with_launcher(
-        &self,
-        limit: Option<usize>,
-        dim: f32,
-    ) -> (String, ColumnSpans<Clickable>) {
         let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
-        let mut button = self.draw_launcher(dim);
         let mut spans = ColumnSpans::default();
-        let mut kept = width(&button);
-        if let Some(cut) = limit.and_then(|limit| self.cut(&button, limit, dim)) {
-            button = cut.line;
-            kept = cut.kept;
+
+        let mut line = String::new();
+        if self.launcher_shown() {
+            let mut button = self.draw_launcher(dim);
+            let mut kept = width(&button);
+            if let Some(cut) = limit.and_then(|limit| self.cut(&button, limit, dim)) {
+                button = cut.line;
+                kept = cut.kept;
+            }
+            spans.push(0..kept, Clickable::Launcher);
+            line = button;
         }
-        spans.push(0..kept, Clickable::Launcher);
+        let button_width = width(&line);
+        // The columns after the button, `None` for no limit.
+        let after_button = limit.map(|limit| limit.saturating_sub(button_width));
+
+        let tray_spacer = self.draw_format(&self.tray_spacer, dim);
+        let tray_room = after_button.map(|room| {
+            if button_width > 0 {
+                room.saturating_sub(width(&tray_spacer))
+            } else {
+                room
+            }
+        });
+        let tray = self.draw_tray(tray_room, dim);
 
         let nothing_listed = self.entries.is_empty() && self.empty_format.is_none();
-        let spacer = self.draw_format(&self.entry_spacer, dim);
-        let start = width(&button) + width(&spacer);
-        let left = limit.map(|limit| limit.saturating_sub(start));
-        if nothing_listed || left == Some(0) {
-            return (button, spans);
+        let entry_spacer = self.draw_format(&self.entry_spacer, dim);
+        let opening = if button_width > 0 {
+            width(&entry_spacer)
+        } else {
+            0
+        };
+        let ending = if tray.width > 0 {
+            width(&tray_spacer) + tray.width
+        } else {
+            0
+        };
+        let entries_room = after_button.map(|room| room.saturating_sub(opening + ending));
+        if !nothing_listed && entries_room != Some(0) {
+            if button_width > 0 {
+                line.push_str(&entry_spacer);
+            }
+            let (listed, listed_spans) = self.draw_listed(entries_room, dim, width(&line));
+            spans.append(listed_spans);
+            line.push_str(&listed);
         }
-        let (listed, listed_spans) = self.draw_listed(left, dim, start);
-        spans.append(listed_spans);
-        (format!("{button}{spacer}{listed}"), spans)
+
+        if tray.width > 0 {
+            let drawn = width(&line);
+            // A spacer only after something: a tray alone on the line stands
+            // at its right end with nothing to keep apart from.
+            let gap = if drawn > 0 {
+                tray_spacer
+            } else {
+                String::new()
+            };
+            let blank =
+                fit::flush_right_blank(limit, self.bar.pane_width, drawn, width(&gap) + tray.width);
+            let tray_start = drawn + blank + width(&gap);
+            for (columns, target) in tray.spans {
+                spans.push(
+                    (tray_start + columns.start)..(tray_start + columns.end),
+                    target,
+                );
+            }
+            line.push_str(&" ".repeat(blank));
+            line.push_str(&gap);
+            line.push_str(&tray.line);
+        }
+        (line, spans)
     }
 
     /// The entries that fit into `limit` columns, or `empty_format` while
@@ -471,7 +539,7 @@ impl State {
     }
 
     /// A format string with no placeholders, such as the spacer.
-    fn draw_format(&self, format: &str, dim: f32) -> String {
+    pub(crate) fn draw_format(&self, format: &str, dim: f32) -> String {
         let parts = format::render_template(format, &[], &self.bar.configuration, dim);
         ANSIStrings(&parts).to_string()
     }

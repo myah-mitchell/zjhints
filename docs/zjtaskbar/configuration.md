@@ -9,6 +9,7 @@ Options are grouped by topic, and a group with more to it links the page carryin
 | `<name>` | An alias name you choose, giving `color_blue` |
 | `<n>` | A launcher entry's number, a whole number with no leading zeros, giving `launch_1_name` |
 | `<key>` | A configuration key of the entry's plugin, giving `launch_2_config_welcome_screen` |
+| `<mode>` | A Zellij mode name, giving `mode_format_locked` |
 
 Format strings use the zjstatus syntax, with the placeholders each option names below. See [Styling](../styling.md).
 
@@ -64,8 +65,8 @@ Built-in colors, shapes and symbols for the whole bar, laid under your own optio
 | Option | Default | What it does |
 | --- | --- | --- |
 | `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
-| `format_theme` | `zellij` | The shape of entries, markers, separators and the launcher's button, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
-| `alias_theme` | `zellij` | Symbols for the flags and the launcher's button, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
+| `format_theme` | `zellij` | The shape of entries, markers, separators, the launcher's button and the tray's items, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for the flags, the launcher's button and the modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
 
 ## Colors
 
@@ -126,6 +127,51 @@ The button's format takes one placeholder:
 | `launch_<n>_config_<key>` | unset | One key of the configuration entry `<n>`'s plugin opens with |
 
 The button asks Zellij for no permission beyond those of `mouse`, apart from one: an entry with `launch_<n>_command` asks for *Run commands*, and only while there is one.
+
+## Tray
+
+A row of items at the bar's right end, flush with it, the way a desktop taskbar keeps its clock apart from the windows. The tray is empty by default, so it draws nothing and asks for no permission until you list an item. The entries give way to the tray, and the tray gives way to the launcher's button. See [Tray](tray.md) for the items, the fitting and the clicks.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `tray` | unset | The items to draw, left to right, from `mode`, `session` and `clock`, split by spaces or commas; no tray when unset or empty |
+| `tray_spacer` | ` ` | Format string drawn between the tray's items and between the tray and what stands before it, empty for no gap |
+
+## Clock
+
+The time of day, drawn while `clock` is in `tray`. The clock's item format takes one placeholder:
+
+| Placeholder | What it draws |
+| --- | --- |
+| `{clock}` | The time, as `clock_format` writes it |
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `clock_format` | `%H:%M` | The text of the time, with `strftime` specifiers such as `%H`, `%M` and `%a`; see [Clock](tray.md#clock) for the full list |
+| `clock_item_format` | unset | Format string for the clock, with `{clock}`; Zellij's ribbon colors when unset |
+| `clock_utc_offset` | unset | The local time's offset from UTC, such as `+02:00` or `-0530`; asked of the system when unset |
+
+While `clock_utc_offset` is unset, the clock asks Zellij for *Run commands*, to run `date +%z`. See [The time zone](tray.md#the-time-zone).
+
+## Session
+
+The session's name, drawn while `session` is in `tray`. The options are named and read as for zjtabs.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `show_session` | `true` | Draw the session's name; while unset, Zellij's `hide_session_name` hides it |
+| `session_format` | unset | Format string for the session's name, with a `{session}` placeholder; a block in the selected ribbon's colors when unset |
+
+## Mode
+
+The current input mode, drawn while `mode` is in `tray`. The options are named and read as for zjhints and zjtabs. See [Standing alone](../nested-sessions.md#standing-alone) for the mode names.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mode_format` | unset | Format string for the mode, with `{desc}`, `{key}` and `{mode}` placeholders; a block in the selected ribbon's colors when unset |
+| `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+| `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
+| `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "L"` |
 
 ## Settings screen
 

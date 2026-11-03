@@ -17,7 +17,8 @@ use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse", "Launcher",
+    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse", "Launcher", "Tray",
+    "Clock", "Session", "Mode",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -252,9 +253,83 @@ pub const OPTIONS: &[OptionSpec] = &[
         Some("true"),
         "List Zellij's session manager, settings and plugin manager last in the launcher's menu",
     ),
+    option(
+        "tray",
+        "Tray",
+        Kind::Text,
+        None,
+        "The items at the bar's right end, in order: any of mode, session and clock; none when unset",
+    ),
+    option(
+        "tray_spacer",
+        "Tray",
+        Kind::Format,
+        Some(" "),
+        "Format string drawn between the tray's items and before the tray, empty for no gap",
+    ),
+    option(
+        "clock_format",
+        "Clock",
+        Kind::Text,
+        Some("%H:%M"),
+        "The time the clock shows, with strftime specifiers such as %H, %M and %a",
+    ),
+    option(
+        "clock_item_format",
+        "Clock",
+        Kind::Format,
+        None,
+        "Format string for the clock, with {clock}, Zellij's ribbon colors when unset",
+    ),
+    option(
+        "clock_utc_offset",
+        "Clock",
+        Kind::Text,
+        None,
+        "The local time's offset from UTC, as +02:00 or -0530; asked of the system when unset",
+    ),
+    option(
+        "show_session",
+        "Session",
+        Kind::Bool,
+        Some("true"),
+        "Draw the session item while session is in the tray; while unset, Zellij's hide_session_name hides it",
+    ),
+    option(
+        "session_format",
+        "Session",
+        Kind::Format,
+        None,
+        "Format string for the session item, with {session}, Zellij's selected ribbon colors when unset",
+    ),
+    option(
+        "mode_format",
+        "Mode",
+        Kind::Format,
+        None,
+        "Format string for the mode item, with {desc}, {key} and {mode}, a block in the selected ribbon's colors when unset",
+    ),
 ];
 
 pub const FAMILIES: &[FamilySpec] = &[
+    family(
+        "mode_format_<mode>",
+        "Mode",
+        Kind::Format,
+        "The mode item's format string for one mode",
+    ),
+    family(
+        "mode_label_<mode>",
+        "Mode",
+        Kind::Text,
+        "A mode's name, drawn for {desc} in the mode item",
+    ),
+    family(
+        "mode_key_<mode>",
+        "Mode",
+        Kind::Text,
+        "A mode's symbol, drawn for {key} in the mode item",
+    ),
     family(
         "color_<name>",
         "Colors",
@@ -323,6 +398,11 @@ mod tests {
         DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR, DEFAULT_PANE_SCOPE,
         DEFAULT_SHOW_LAUNCHER, DEFAULT_TAB_SEPARATOR,
     };
+    use crate::{
+        CONFIG_CLOCK_FORMAT, CONFIG_CLOCK_ITEM_FORMAT, CONFIG_CLOCK_UTC_OFFSET,
+        CONFIG_SESSION_FORMAT, CONFIG_SHOW_SESSION, CONFIG_TRAY, CONFIG_TRAY_SPACER,
+        DEFAULT_CLOCK_FORMAT, DEFAULT_SHOW_SESSION, DEFAULT_TRAY, DEFAULT_TRAY_SPACER,
+    };
     use zjkit::settings::reference;
 
     const REFERENCE: &str = include_str!("../../../../docs/zjtaskbar/configuration.md");
@@ -387,6 +467,19 @@ mod tests {
                 CONFIG_LAUNCHER_ZELLIJ_ACTIONS,
                 Some(DEFAULT_LAUNCHER_ZELLIJ_ACTIONS.to_string()),
             ),
+            // An empty tray is written as unset, as every option that draws
+            // nothing by default is.
+            (
+                CONFIG_TRAY,
+                Some(DEFAULT_TRAY.to_string()).filter(|tray| !tray.is_empty()),
+            ),
+            (CONFIG_TRAY_SPACER, Some(DEFAULT_TRAY_SPACER.to_string())),
+            (CONFIG_CLOCK_FORMAT, Some(DEFAULT_CLOCK_FORMAT.to_string())),
+            (CONFIG_CLOCK_ITEM_FORMAT, None),
+            (CONFIG_CLOCK_UTC_OFFSET, None),
+            (CONFIG_SHOW_SESSION, Some(DEFAULT_SHOW_SESSION.to_string())),
+            (CONFIG_SESSION_FORMAT, None),
+            (zjkit::mode::CONFIG_MODE_FORMAT, None),
             // The options zjkit reads for every bar: how wide an ambiguous
             // character is, whether the bar starts hidden, and the themes.
             (zjkit::config::CONFIG_AMBIGUOUS_WIDTH, Some("1".to_string())),
@@ -524,6 +617,19 @@ mod tests {
     }
 
     #[test]
+    fn per_mode_keys_are_a_family_of_the_mode_group_for_known_modes_only() {
+        for (key, kind) in [
+            ("mode_format_locked", Kind::Format),
+            ("mode_label_enter_search", Kind::Text),
+            ("mode_key_rename_tab", Kind::Text),
+        ] {
+            assert_eq!(SCHEMA.group_of(key), Some("Mode"), "{key}");
+            assert_eq!(SCHEMA.kind_of(key), kind, "{key}");
+        }
+        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+    }
+
+    #[test]
     fn formats_are_told_apart_from_plain_text() {
         for name in [
             "entry_format",
@@ -540,9 +646,18 @@ mod tests {
             "overflow_right_format",
             "overflow_str",
             "launcher_format",
+            "tray_spacer",
+            "clock_item_format",
+            "session_format",
+            "mode_format",
+            "mode_format_normal",
         ] {
             assert_eq!(SCHEMA.kind_of(name), Kind::Format, "{name}");
         }
+        // strftime specifiers, not a format string's placeholders.
+        assert_eq!(SCHEMA.kind_of("clock_format"), Kind::Text);
+        assert_eq!(SCHEMA.kind_of("clock_utc_offset"), Kind::Text);
+        assert_eq!(SCHEMA.kind_of("tray"), Kind::Text);
         assert_eq!(SCHEMA.kind_of("max_length"), Kind::Integer);
         assert_eq!(SCHEMA.kind_of("dim_strength"), Kind::Fraction);
         assert!(matches!(SCHEMA.kind_of("pane_scope"), Kind::Choice(_)));

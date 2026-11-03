@@ -14,6 +14,11 @@
 //! there opens Zellij's bar menu, as anywhere off an entry does. See
 //! `launcher`.
 //!
+//! In the tray, a left click on the session's name opens Zellij's session
+//! manager, and one on the mode opens the settings screen, as zjtabs does
+//! for its own. A left click on the clock does nothing. A right-click on any
+//! of them opens Zellij's bar menu. See `tray`.
+//!
 //! Minimizing hides a pane with `Host::hide_pane_with_id`, which Zellij
 //! reports as suppressed. Zellij forgets where a hidden floating pane stood:
 //! focusing it again places it as if it were new, with a frame. So the bar
@@ -21,7 +26,9 @@
 //! as it restores it; see `geometry_of`.
 
 use crate::draw::Clickable;
+use crate::host::BAR;
 use crate::launcher::LauncherItem;
+use crate::tray::TrayItem;
 use crate::State;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -30,6 +37,7 @@ use zellij_tile::prelude::*;
 use zellij_utils::input::layout::PercentOrFixed;
 use zjkit::ansi::show_controls;
 use zjkit::host::Host;
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
 use zjkit::mouse::{
     classify_bar_mouse, labeled_menu_request, menu_choice, BarMouseEvent, PressKind, WheelDirection,
 };
@@ -185,9 +193,9 @@ impl State {
                     // a surprise.
                     (PressKind::Middle, Some(Clickable::Entry(pane))) => self.close_pane(pane),
                     (PressKind::Right, Some(Clickable::Entry(pane))) => self.open_pane_menu(pane),
-                    // The launcher's button, a spacer, a separator, a marker,
-                    // the cut of an overlong line or the empty end of the
-                    // bar: there is no one pane to act on.
+                    // The launcher's button, a tray item, a spacer, a
+                    // separator, a marker, the cut of an overlong line or the
+                    // blank before the tray: there is no one pane to act on.
                     (PressKind::Right, _) => {
                         self.host
                             .open_context_menu(ContextMenuTarget::Bar, 0, column)
@@ -204,7 +212,7 @@ impl State {
     /// entry under it up, or minimize it if it is the one focused. A marker
     /// acts as its nearest hidden entry would, and the hidden entries are
     /// never focused, so a click on one never minimizes. On the launcher's
-    /// button, open its menu.
+    /// button, open its menu, and on a tray item, do what `tray_click` does.
     ///
     /// A click that follows the last on the same column within
     /// `DOUBLE_CLICK_TIME` is the second half of a double-click, and does
@@ -228,6 +236,10 @@ impl State {
                 self.open_launcher_menu();
                 return;
             }
+            Some(Clickable::Tray(item)) => {
+                self.tray_click(item);
+                return;
+            }
             None => return,
         };
         let Some(entry) = self.entries.iter().find(|entry| entry.pane == pane) else {
@@ -239,6 +251,20 @@ impl State {
             self.minimize(pane);
         } else {
             self.focus(pane);
+        }
+    }
+
+    /// A left click on the tray's `item`: the session's name opens Zellij's
+    /// session manager, floating, or brings it up if it is open, and the
+    /// mode opens the settings screen. The clock has nothing to open.
+    fn tray_click(&self, item: TrayItem) {
+        match item {
+            TrayItem::Session => self.host.run_action(
+                launch_or_focus_floating(SESSION_MANAGER_ALIAS),
+                BTreeMap::new(),
+            ),
+            TrayItem::Mode => self.bar.open_settings(&self.host, &BAR),
+            TrayItem::Clock => {}
         }
     }
 

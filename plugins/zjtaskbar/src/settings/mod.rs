@@ -43,10 +43,17 @@ const SAMPLE_ENTRIES: [(&str, &str, bool, [bool; FLAGS.len()]); 6] = [
     ("man zellij", "docs", false, [false, false, false, true]),
 ];
 
+/// The session's name in the samples of `session_format` in the list, and in
+/// the preview while the screen has not been told its own session's name.
+/// The same as zjtabs'.
+const SAMPLE_SESSION_NAME: &str = "work";
+
 /// The placeholders the bar fills in a format string under `key`, with
 /// the sample value each gets in the list.
 fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static str, String)> {
     match key {
+        "session_format" => vec![("session", SAMPLE_SESSION_NAME.to_string())],
+        "clock_item_format" => vec![("clock", sample_clock(config))],
         "entry_format" | "focused_entry_format" | "minimized_entry_format" => vec![
             ("title", "editor".to_string()),
             ("index", "2".to_string()),
@@ -62,8 +69,27 @@ fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static 
                 .map_or(crate::DEFAULT_LAUNCHER_SYMBOL, String::as_str)
                 .to_string(),
         )],
-        _ => vec![],
+        _ => zjkit::mode::sample_values(key, config).unwrap_or_default(),
     }
+}
+
+/// What `{clock}` stands for in the list: the sample time drawn from the
+/// `clock_format` being edited. See `clock::Clock::sample_text`.
+fn sample_clock(config: &BTreeMap<String, String>) -> String {
+    let clock = crate::clock::Clock {
+        format: config
+            .get(crate::CONFIG_CLOCK_FORMAT)
+            .map_or(crate::DEFAULT_CLOCK_FORMAT, String::as_str)
+            .to_string(),
+        offset_source: crate::clock::OffsetSource::of(
+            config
+                .get(crate::CONFIG_CLOCK_UTC_OFFSET)
+                .map(String::as_str)
+                .filter(|offset| !offset.is_empty()),
+        ),
+        ..Default::default()
+    };
+    clock.sample_text().unwrap_or_default()
 }
 
 /// What `{flags}` stands for in a sample entry: the exited flag as the bar
@@ -83,8 +109,11 @@ fn sample_flags(config: &BTreeMap<String, String>) -> String {
         .collect()
 }
 
-/// The bar as `configuration` draws it `width` columns wide, in the Zellij
-/// theme of `mode_info`, showing `SAMPLE_ENTRIES`.
+/// The bar as `configuration` draws it `width` columns wide, in the mode and
+/// Zellij theme of `mode_info`, showing `SAMPLE_ENTRIES`. The tray's clock
+/// shows the sample time (see `clock::Clock::sample_text`), and its session
+/// name is the one of the session the screen runs in, or
+/// `SAMPLE_SESSION_NAME` before Zellij has sent it.
 fn draw_bar(
     mut configuration: BTreeMap<String, String>,
     mode_info: &ModeInfo,
@@ -116,6 +145,11 @@ fn draw_bar(
     };
     state.apply_configuration(configuration);
     state.mode_info = mode_info.clone();
+    state
+        .mode_info
+        .session_name
+        .get_or_insert_with(|| SAMPLE_SESSION_NAME.to_string());
+    state.clock.text = state.clock.sample_text();
     state.entries = SAMPLE_ENTRIES
         .iter()
         .enumerate()

@@ -29,6 +29,7 @@ fn loaded(pairs: &[(&str, &str)]) -> State {
 fn loading_the_bar_asks_for_its_permissions_and_events_with_the_mouse_on_by_default() {
     let state = loaded(&[]);
     let calls = state.host.calls();
+    // The default tray is empty, so it asks for nothing of its own.
     let permissions = bar_permissions(&[Feature::Mouse]);
     assert!(calls.contains(&Call::RequestPermission(permissions)));
     assert!(calls.contains(&Call::Subscribe(BAR_EVENTS.to_vec())));
@@ -252,6 +253,14 @@ fn every_option_is_read_from_its_key() {
         ("launcher_zellij_actions", "false"),
         ("launch_1_name", "htop"),
         ("launch_1_command", "htop"),
+        ("tray", "session mode"),
+        ("tray_spacer", "/"),
+        ("clock_format", "%H"),
+        ("clock_item_format", "<{clock}>"),
+        ("clock_utc_offset", "+01:00"),
+        ("show_session", "false"),
+        ("session_format", "[{session}]"),
+        ("mode_format", "({desc})"),
     ]);
     assert_eq!(state.pane_scope, PaneScope::Tab);
     assert_eq!(state.entry_format.as_deref(), Some("{title}"));
@@ -280,6 +289,17 @@ fn every_option_is_read_from_its_key() {
     assert!(!state.launcher_new_terminal);
     assert!(!state.launcher_zellij_actions);
     assert_eq!(state.launch_entries.len(), 1);
+    assert_eq!(state.tray, [TrayItem::Session, TrayItem::Mode]);
+    assert_eq!(state.tray_spacer, "/");
+    assert_eq!(state.clock.format, "%H");
+    assert_eq!(state.clock.item_format.as_deref(), Some("<{clock}>"));
+    assert_eq!(
+        state.clock.offset_source,
+        clock::OffsetSource::of(Some("+01:00"))
+    );
+    assert_eq!(state.show_session, Some(false));
+    assert_eq!(state.session_format.as_deref(), Some("[{session}]"));
+    assert_eq!(state.mode_format.as_deref(), Some("({desc})"));
 }
 
 #[test]
@@ -1105,13 +1125,21 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
         ),
         (2, vec![floating(6, "logs"), floating(7, "mail")]),
     ];
+    let mut mode_info = mode();
+    mode_info.session_name = Some("work".to_string());
     for combination in theme::tests::every_combination() {
+        // Every tray item, with an offset set so the clock draws at once.
+        let mut options = combination.clone();
+        options.extend([
+            ("tray", "mode session clock"),
+            ("clock_utc_offset", "+00:00"),
+        ]);
         // Wide enough for every entry, narrow enough for markers, and too
         // narrow for the focused entry beside its markers.
         for width in [400, 30, 8] {
-            let mut state = loaded(&combination);
+            let mut state = loaded(&options);
             state.minimized = state_minimized.clone();
-            state.update(Event::ModeUpdate(mode()));
+            state.update(Event::ModeUpdate(mode_info.clone()));
             state.update(Event::TabUpdate(tabs(3, 1)));
             state.update(panes(width, by_tab.clone()));
             let line = state.draw_bar().0;
@@ -1136,6 +1164,24 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
                 );
                 for title in ["htop", "notes", "editor", "picker", "mail"] {
                     assert!(text.contains(title), "{combination:?}: {text:?}");
+                }
+                // The whole tray, flush with the line's right end, with the
+                // mode's name, the session's and the time.
+                assert_eq!(columns, width, "{combination:?}");
+                assert!(
+                    text.trim_end().ends_with("00:00"),
+                    "{combination:?}: {text:?}"
+                );
+                for shown in ["NORMAL", "work"] {
+                    assert!(text.contains(shown), "{combination:?}: {text:?}");
+                }
+                let spans = state.draw_bar().1;
+                for item in TrayItem::ALL {
+                    assert!(
+                        (0..width)
+                            .any(|column| spans.value_at(column) == Some(&Clickable::Tray(item))),
+                        "{combination:?}: {item:?}"
+                    );
                 }
             }
         }
@@ -1207,7 +1253,7 @@ fn renaming_a_tab_with_no_listed_pane_does_not_redraw() {
 }
 
 #[test]
-fn a_mode_change_redraws_only_for_nesting() {
+fn a_mode_change_redraws_only_for_nesting_without_the_mode_or_session_in_the_tray() {
     let mut state = bar(&PLAIN, 80, tabs(1, 0), vec![(0, vec![floating(1, "a")])]);
     for input_mode in [InputMode::Pane, InputMode::Tab, InputMode::Normal] {
         let mut mode_info = mode();
@@ -2904,4 +2950,782 @@ fn the_preview_samples_fill_the_launcher_s_symbol() {
         (settings::SCHEMA.sample_values)("launcher_format", &cfg(&[("launcher_symbol", "+")])),
         vec![("symbol", "+".to_string())]
     );
+}
+
+// The tray.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
+
+/// 2026-11-03 at `hour:minute:second` UTC.
+fn utc(hour: u64, minute: u64, second: u64) -> SystemTime {
+    const MIDNIGHT: u64 = 1_793_664_000;
+    UNIX_EPOCH + Duration::from_secs(MIDNIGHT + hour * 3600 + minute * 60 + second)
+}
+
+/// `PLAIN` with the tray named `tray`, each item drawn as bare text with a
+/// `~` between them, and the clock at UTC, so it draws at once.
+fn tray_with(
+    tray: &'static str,
+    pairs: &[(&'static str, &'static str)],
+) -> Vec<(&'static str, &'static str)> {
+    let mut all = plain_with(&[
+        ("tray", tray),
+        ("tray_spacer", "~"),
+        ("clock_item_format", "{clock}"),
+        ("session_format", "{session}"),
+        ("mode_format", "{desc}"),
+        ("clock_utc_offset", "+00:00"),
+    ]);
+    all.extend_from_slice(pairs);
+    all
+}
+
+/// The mode update of a session named `work` in normal mode.
+fn mode_of_work() -> ModeInfo {
+    let mut mode_info = mode();
+    mode_info.session_name = Some("work".to_string());
+    mode_info
+}
+
+/// A bar with `pairs`, `width` columns wide, in the session `work`, listing
+/// `a`, focused, and `b`, loaded when the system clock reads `now`.
+fn tray_bar(pairs: &[(&str, &str)], width: usize, now: SystemTime) -> State {
+    let mut state = State::default();
+    state.host.set_system_time(now);
+    state.load(cfg(pairs));
+    state.update(Event::ModeUpdate(mode_of_work()));
+    state.update(panes(
+        width,
+        vec![(0, vec![focused(floating(1, "a")), floating(2, "b")])],
+    ));
+    state.update(Event::TabUpdate(tabs(1, 0)));
+    state
+}
+
+/// What each column of the line the bar draws stands for, as the tray item
+/// under it, for the columns with one.
+fn tray_columns(state: &State, width: usize) -> Vec<(usize, TrayItem)> {
+    let spans = state.draw_bar().1;
+    (0..width)
+        .filter_map(|column| match spans.value_at(column) {
+            Some(Clickable::Tray(item)) => Some((column, *item)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_tray_is_empty_by_default_and_asks_for_nothing() {
+    let state = loaded(&[]);
+    assert_eq!(state.tray, []);
+    assert_eq!(state.clock.format, DEFAULT_CLOCK_FORMAT);
+    assert_eq!(state.tray_spacer, DEFAULT_TRAY_SPACER);
+    assert!(!state.features().contains(&Feature::ClockCommand));
+}
+
+#[test]
+fn the_tray_stands_flush_with_the_right_end_after_a_blank() {
+    let state = tray_bar(&tray_with("mode session clock", &[]), 40, utc(12, 0, 0));
+    let line = shown(&state);
+    assert_eq!(line, format!("[a]|b{}~NORMAL~work~12:00", " ".repeat(17)));
+    assert_eq!(line.chars().count(), 40);
+    let columns = tray_columns(&state, 40);
+    let at = |item: TrayItem| -> Vec<usize> {
+        columns
+            .iter()
+            .filter(|(_, of)| *of == item)
+            .map(|(column, _)| *column)
+            .collect()
+    };
+    assert_eq!(at(TrayItem::Mode), (23..29).collect::<Vec<_>>());
+    assert_eq!(at(TrayItem::Session), (30..34).collect::<Vec<_>>());
+    assert_eq!(at(TrayItem::Clock), (35..40).collect::<Vec<_>>());
+}
+
+#[test]
+fn a_huge_max_length_pads_the_tray_only_to_the_pane_s_edge() {
+    let options = tray_with(
+        "mode session clock",
+        &[("auto_width", "false"), ("max_length", "4000000000")],
+    );
+    let state = tray_bar(&options, 40, utc(12, 0, 0));
+    assert_eq!(
+        shown(&state),
+        format!("[a]|b{}~NORMAL~work~12:00", " ".repeat(17))
+    );
+    assert_eq!(
+        tray_columns(&state, 40).last(),
+        Some(&(39, TrayItem::Clock))
+    );
+
+    // With no pane seen there is no edge to stand against, and the tray
+    // follows the entries.
+    let mut state = State::default();
+    state.host.set_system_time(utc(12, 0, 0));
+    state.load(cfg(&options));
+    state.update(Event::ModeUpdate(mode_of_work()));
+    state.update(Event::PaneUpdate(PaneManifest {
+        panes: HashMap::from([(0, vec![focused(floating(1, "a")), floating(2, "b")])]),
+    }));
+    state.update(Event::TabUpdate(tabs(1, 0)));
+    assert_eq!(shown(&state), "[a]|b~NORMAL~work~12:00");
+}
+
+#[test]
+fn the_entries_give_way_to_the_tray_and_the_tray_drops_items_from_its_left() {
+    let options = tray_with("mode session clock", &[]);
+    for (width, line) in [
+        // The entries fit beside the whole tray, with the gap between them.
+        (23, "[a]|b~NORMAL~work~12:00".to_string()),
+        // They go first, whole, and the tray stands alone at the right end.
+        (18, " NORMAL~work~12:00".to_string()),
+        (17, "NORMAL~work~12:00".to_string()),
+        // Then the tray drops the item it lists first, and the entries take
+        // what that frees as far as they fit.
+        (16, "[a]|b~work~12:00".to_string()),
+        (14, "[a]~work~12:00".to_string()),
+        (10, "work~12:00".to_string()),
+        (9, "[a]~12:00".to_string()),
+        (6, " 12:00".to_string()),
+        (5, "12:00".to_string()),
+    ] {
+        let state = tray_bar(&options, width, utc(12, 0, 0));
+        assert_eq!(shown(&state), line, "{width}");
+    }
+    // Too narrow for even the clock, the tray is gone, and the entries take
+    // the line again.
+    let state = tray_bar(&options, 4, utc(12, 0, 0));
+    assert!(tray_columns(&state, 4).is_empty());
+    assert!(shown(&state).starts_with("[a]"), "{:?}", shown(&state));
+}
+
+#[test]
+fn the_launcher_s_button_outranks_the_tray() {
+    let options = [
+        &tray_with("mode session clock", &[])[..],
+        &[
+            ("show_launcher", "true"),
+            ("launcher_format", "{symbol}"),
+            ("launcher_symbol", "+"),
+        ],
+    ]
+    .concat();
+    for (width, line) in [
+        (40, format!("+|[a]|b{}~NORMAL~work~12:00", " ".repeat(15))),
+        // Beside the button, the tray keeps a spacer before it too.
+        (19, "+~NORMAL~work~12:00".to_string()),
+        (18, "+|[a]|b~work~12:00".to_string()),
+        (7, "+~12:00".to_string()),
+        // With no room for even the clock, the button stands alone.
+        (2, "+".to_string()),
+    ] {
+        let state = tray_bar(&options, width, utc(12, 0, 0));
+        let drawn = shown(&state);
+        assert_eq!(drawn.trim_end(), line.trim_end(), "{width}");
+        assert_eq!(state.draw_bar().1.value_at(0), Some(&Clickable::Launcher));
+    }
+}
+
+#[test]
+fn with_no_limit_to_the_line_the_tray_follows_the_entries() {
+    let state = tray_bar(
+        &tray_with("clock session", &[("auto_width", "false")]),
+        10,
+        utc(9, 5, 0),
+    );
+    assert_eq!(shown(&state), "[a]|b~09:05~work");
+}
+
+#[test]
+fn a_tray_alone_on_the_bar_is_drawn_and_takes_the_mouse() {
+    let mut state = tray_bar(&tray_with("session", &[]), 20, utc(12, 0, 0));
+    state.update(panes(20, vec![]));
+    assert!(state.entries.is_empty());
+    assert!(!state.draws_blank_line());
+    assert_eq!(shown(&state), format!("{}work", " ".repeat(16)));
+    let calls = after_mouse(&mut state, Mouse::LeftClick(0, 17));
+    assert_eq!(
+        calls,
+        vec![Call::RunAction {
+            action: launch_or_focus_floating(SESSION_MANAGER_ALIAS),
+            context: BTreeMap::new(),
+        }]
+    );
+}
+
+#[test]
+fn unknown_tray_items_are_skipped_and_an_empty_tray_draws_nothing() {
+    let state = tray_with("weather clock clock", &[]);
+    let state = tray_bar(&state, 20, utc(12, 0, 0));
+    assert_eq!(state.tray, [TrayItem::Clock]);
+    assert_eq!(shown(&state), format!("[a]|b{}~12:00", " ".repeat(9)));
+    for tray in ["", "weather"] {
+        let state = tray_bar(&tray_with(tray, &[]), 20, utc(12, 0, 0));
+        assert_eq!(shown(&state), "[a]|b", "{tray:?}");
+        assert!(state.tray_is_empty());
+    }
+}
+
+#[test]
+fn the_session_item_follows_zellij_s_hide_session_name_unless_show_session_is_set() {
+    let mut hidden = mode_of_work();
+    hidden.style.hide_session_name = true;
+    let drawn = |pairs: &[(&'static str, &'static str)], mode_info: &ModeInfo| {
+        let mut state = tray_bar(&tray_with("session", pairs), 20, utc(12, 0, 0));
+        state.update(Event::ModeUpdate(mode_info.clone()));
+        shown(&state)
+    };
+    assert!(drawn(&[], &mode_of_work()).ends_with("work"));
+    assert_eq!(drawn(&[], &hidden), "[a]|b");
+    assert!(drawn(&[("show_session", "true")], &hidden).ends_with("work"));
+    assert_eq!(
+        drawn(&[("show_session", "false")], &mode_of_work()),
+        "[a]|b"
+    );
+    // Renaming the session shows the name being typed.
+    let mut renaming = hidden.clone();
+    renaming.mode = InputMode::RenameSession;
+    assert!(drawn(&[], &renaming).ends_with("work"));
+    // An empty name, or none yet, draws no item.
+    let mut nameless = mode();
+    nameless.session_name = Some(String::new());
+    assert_eq!(drawn(&[], &nameless), "[a]|b");
+}
+
+#[test]
+fn the_tray_s_names_are_drawn_with_their_control_characters_escaped() {
+    let mut state = tray_bar(
+        &tray_with("session clock", &[("clock_format", "%H\u{1b}[31m")]),
+        40,
+        utc(12, 0, 0),
+    );
+    let mut mode_info = mode_of_work();
+    mode_info.session_name = Some("w\u{7}{x}#[bold]".to_string());
+    state.update(Event::ModeUpdate(mode_info));
+    let line = state.draw_bar().0;
+    assert!(!line.contains('\u{7}'), "{line:?}");
+    assert!(line.contains("{x}#[bold]"), "{line:?}");
+    assert!(!line.contains("12\u{1b}[31m"), "{line:?}");
+}
+
+#[test]
+fn the_mode_item_is_drawn_from_the_per_mode_formats_and_labels() {
+    let options = tray_with(
+        "mode",
+        &[
+            ("mode_format_locked", "<{desc}>"),
+            ("mode_label_pane", "P"),
+            ("mode_key_tab", "T"),
+            ("mode_format_tab", "{key}{desc}"),
+        ],
+    );
+    for (input_mode, drawn) in [
+        (InputMode::Normal, "NORMAL"),
+        (InputMode::Locked, "<LOCKED>"),
+        (InputMode::Pane, "P"),
+        (InputMode::Tab, "TTAB"),
+    ] {
+        let mut state = tray_bar(&options, 20, utc(12, 0, 0));
+        let mut mode_info = mode_of_work();
+        mode_info.mode = input_mode;
+        state.update(Event::ModeUpdate(mode_info));
+        assert!(
+            shown(&state).ends_with(&format!("~{drawn}")),
+            "{input_mode:?}: {:?}",
+            shown(&state)
+        );
+    }
+    // In Zellij's own look, the mode is a block of its own.
+    let state = tray_bar(
+        &plain_with(&[("tray", "mode"), ("clock_utc_offset", "+00:00")]),
+        30,
+        utc(12, 0, 0),
+    );
+    assert!(shown(&state).trim_end().ends_with("NORMAL"));
+    assert_ne!(shown(&state), state.draw_bar().0);
+}
+
+#[test]
+fn the_unset_tray_formats_draw_in_zellij_s_colors() {
+    let state = tray_bar(
+        &plain_with(&[("tray", "session clock"), ("clock_utc_offset", "+00:00")]),
+        40,
+        utc(12, 0, 0),
+    );
+    let line = state.draw_bar().0;
+    assert!(strip_ansi(&line).ends_with(" work   12:00 "), "{line:?}");
+    // The session's name on the selected ribbon, the time on the other.
+    let selected = palette().ribbon_selected.background;
+    let unselected = palette().ribbon_unselected.background;
+    for color in [selected, unselected] {
+        let PaletteColor::Rgb((red, green, blue)) = color else {
+            unreachable!()
+        };
+        assert!(
+            line.contains(&format!("48;2;{red};{green};{blue}")),
+            "{line:?}"
+        );
+    }
+}
+
+// The tray and the mouse.
+
+#[test]
+fn a_left_click_on_the_session_opens_the_session_manager_and_on_the_mode_the_settings() {
+    let mut state = tray_bar(&tray_with("mode session clock", &[]), 40, utc(12, 0, 0));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 31)),
+        vec![Call::RunAction {
+            action: launch_or_focus_floating(SESSION_MANAGER_ALIAS),
+            context: BTreeMap::new(),
+        }]
+    );
+    assert!(matches!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 24))[..],
+        [Call::OpenSettings { .. }]
+    ));
+    // The clock opens nothing, and nor does the spacer between items.
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 37)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 34)), vec![]);
+}
+
+#[test]
+fn a_right_click_on_any_tray_item_opens_zellij_s_bar_menu() {
+    let mut state = tray_bar(&tray_with("mode session clock", &[]), 40, utc(12, 0, 0));
+    for column in [24, 31, 37] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }],
+            "{column}"
+        );
+    }
+}
+
+// The clock.
+
+/// The context the clock's command is run with.
+fn clock_context() -> BTreeMap<String, String> {
+    BTreeMap::from([("zjtaskbar".to_string(), "clock_utc_offset".to_string())])
+}
+
+/// The call that runs the clock's command.
+fn clock_command() -> Call {
+    Call::RunCommand {
+        command: vec!["date".to_string(), "+%z".to_string()],
+        context: clock_context(),
+    }
+}
+
+/// The answer of the clock's command, printing `stdout` and ending with
+/// `exit_code`.
+fn clock_answer(exit_code: Option<i32>, stdout: &str) -> Event {
+    Event::RunCommandResult(
+        exit_code,
+        stdout.as_bytes().to_vec(),
+        vec![],
+        clock_context(),
+    )
+}
+
+/// A bar with the clock alone in its tray and `pairs`, with no offset set
+/// unless `pairs` sets one.
+fn clock_bar(pairs: &[(&'static str, &'static str)], now: SystemTime) -> State {
+    let mut options = tray_with("clock", &[("clock_utc_offset", "")]);
+    options.extend_from_slice(pairs);
+    tray_bar(&options, 40, now)
+}
+
+fn granted() -> Event {
+    Event::PermissionRequestResult(PermissionStatus::Granted)
+}
+
+/// The timers `calls` arms.
+fn timers(calls: &[Call]) -> Vec<f64> {
+    calls
+        .iter()
+        .filter_map(|call| match call {
+            Call::SetTimeout(seconds) => Some(*seconds),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_system_s_offset_is_asked_once_permitted_and_the_clock_waits_for_it() {
+    let mut state = clock_bar(&[], utc(9, 41, 27));
+    assert!(state.features().contains(&Feature::ClockCommand));
+    // Nothing is run before the permission, and nothing drawn.
+    assert!(!state.host.calls().contains(&clock_command()));
+    assert_eq!(shown(&state), "[a]|b");
+    state.host.clear();
+    state.update(granted());
+    assert!(state.host.calls().contains(&clock_command()));
+    assert_eq!(shown(&state), "[a]|b");
+    // The answer redraws, at the offset it printed.
+    assert!(state.update(clock_answer(Some(0), "+0200\n")));
+    assert!(shown(&state).ends_with("~11:41"), "{:?}", shown(&state));
+    assert_eq!(state.clock.system_offset, clock::UtcOffset::parse("+02:00"));
+}
+
+#[test]
+fn a_denied_permission_leaves_the_clock_in_utc() {
+    let mut state = clock_bar(&[], utc(9, 41, 27));
+    state.host.clear();
+    assert!(state.update(Event::PermissionRequestResult(PermissionStatus::Denied)));
+    assert!(!state.host.calls().contains(&clock_command()));
+    assert!(shown(&state).ends_with("~09:41"));
+}
+
+#[test]
+fn an_answer_that_does_not_parse_keeps_the_offset_known_or_utc() {
+    let mut state = clock_bar(&[], utc(9, 41, 27));
+    state.update(granted());
+    // A failure with none known yet: UTC.
+    state.update(clock_answer(Some(1), "+0200"));
+    assert!(shown(&state).ends_with("~09:41"));
+    state.update(clock_answer(Some(0), "-0100"));
+    assert!(shown(&state).ends_with("~08:41"));
+    // With one known, every kind of bad answer keeps it.
+    for answer in [
+        clock_answer(Some(0), "CEST"),
+        clock_answer(Some(0), ""),
+        clock_answer(Some(2), ""),
+        clock_answer(None, "+0300"),
+        Event::RunCommandResult(Some(0), vec![0xff, 0xfe], vec![], clock_context()),
+    ] {
+        state.update(answer);
+        assert!(shown(&state).ends_with("~08:41"));
+    }
+    // Another command's answer is not the clock's.
+    state.update(Event::RunCommandResult(
+        Some(0),
+        b"+0500".to_vec(),
+        vec![],
+        BTreeMap::new(),
+    ));
+    assert!(shown(&state).ends_with("~08:41"));
+}
+
+#[test]
+fn an_offset_the_user_sets_is_used_and_no_command_is_run() {
+    for (offset, drawn) in [("+05:30", "~15:11"), ("-0800", "~01:41")] {
+        let mut state = clock_bar(&[("clock_utc_offset", offset)], utc(9, 41, 27));
+        assert!(!state.features().contains(&Feature::ClockCommand));
+        assert!(shown(&state).ends_with(drawn), "{offset}");
+        state.update(granted());
+        assert!(!state.host.calls().contains(&clock_command()), "{offset}");
+    }
+    // One that does not parse is ignored, and the clock keeps UTC.
+    for offset in ["Europe/Paris", "+2", "+25:00"] {
+        let mut state = clock_bar(&[("clock_utc_offset", offset)], utc(9, 41, 27));
+        assert!(!state.features().contains(&Feature::ClockCommand));
+        state.update(granted());
+        assert!(!state.host.calls().contains(&clock_command()), "{offset}");
+        assert!(shown(&state).ends_with("~09:41"), "{offset}");
+    }
+}
+
+#[test]
+fn a_grant_from_before_the_clock_needed_its_command_runs_none() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+01:00")], utc(9, 41, 27));
+    state.update(granted());
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state.host.clear();
+    // The offset is taken out on the settings screen, so the clock is to ask
+    // the system, which the grant the bar holds does not allow.
+    preview(
+        &mut state,
+        "zjtaskbar",
+        &[("clock_utc_offset", Some("+01:00"), None)],
+    );
+    let asked_to_run_commands = state.host.calls().iter().any(|call| {
+        matches!(call, Call::RequestPermission(asked) if asked.contains(&PermissionType::RunCommands))
+    });
+    assert!(asked_to_run_commands, "{:?}", state.host.calls());
+    assert!(!state.host.calls().contains(&clock_command()));
+    // The clock waits for the answer, drawing nothing rather than UTC.
+    assert_eq!(shown(&state), "[a]|b");
+
+    state.host.clear();
+    state.update(granted());
+    assert!(state.host.calls().contains(&clock_command()));
+}
+
+#[test]
+fn the_offset_is_asked_again_in_each_new_hour() {
+    let mut state = clock_bar(&[], utc(9, 41, 27));
+    state.update(granted());
+    state.update(clock_answer(Some(0), "+0100"));
+    state.host.clear();
+    state.host.set_system_time(utc(9, 59, 0));
+    state.update(Event::Timer(60.0));
+    assert!(!state.host.calls().contains(&clock_command()));
+    state.host.set_system_time(utc(10, 0, 0));
+    state.update(Event::Timer(60.0));
+    assert!(state.host.calls().contains(&clock_command()));
+    state.host.clear();
+    state.host.set_system_time(utc(10, 1, 0));
+    state.update(Event::Timer(60.0));
+    assert!(!state.host.calls().contains(&clock_command()));
+}
+
+#[test]
+fn the_clock_s_timer_is_armed_once_for_the_next_minute_and_again_only_when_it_fires() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+00:00")], utc(9, 41, 27));
+    let armed = timers(&state.host.calls());
+    assert_eq!(armed.len(), 1);
+    assert!((armed[0] - 33.01).abs() < 1e-6, "{armed:?}");
+    // Nothing else the bar is sent arms another.
+    state.host.clear();
+    state.update(Event::ModeUpdate(mode()));
+    state.update(panes(40, vec![(0, vec![floating(1, "a")])]));
+    state.update(granted());
+    let other_format = cfg(&tray_with("clock", &[("clock_format", "%H.%M")]));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(other_format));
+    state.follow_clock();
+    assert!(timers(&state.host.calls()).is_empty());
+    // Firing arms the next.
+    state
+        .host
+        .set_system_time(utc(9, 42, 0) + Duration::from_millis(10));
+    state.update(Event::Timer(33.01));
+    let armed = timers(&state.host.calls());
+    assert_eq!(armed.len(), 1);
+    assert!((armed[0] - 60.0).abs() < 1e-6, "{armed:?}");
+}
+
+#[test]
+fn seconds_added_to_the_format_tick_from_the_next_second() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+00:00")], utc(9, 41, 27));
+    state.host.clear();
+    let with_seconds = cfg(&tray_with("clock", &[("clock_format", "%H:%M:%S")]));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(with_seconds));
+    state.follow_clock();
+    let armed = timers(&state.host.calls());
+    assert_eq!(armed.len(), 1);
+    assert!((armed[0] - 1.01).abs() < 1e-6, "{armed:?}");
+    // Following again before it fires arms no more.
+    state.host.clear();
+    state.follow_clock();
+    assert!(timers(&state.host.calls()).is_empty());
+}
+
+/// Fire the timers `state` arms, as Zellij would, earliest first, with the
+/// system time at each one's moment, until `until`. `due` holds those armed
+/// before the call and keeps those still waiting after it. Returns how many
+/// timers were waiting after each fire.
+fn fire_timers_until(
+    state: &mut State,
+    due: &mut Vec<SystemTime>,
+    until: SystemTime,
+) -> Vec<usize> {
+    let mut waiting = Vec::new();
+    while let Some(index) = (0..due.len()).min_by_key(|index| due[*index]) {
+        if due[index] > until {
+            break;
+        }
+        let now = due.remove(index);
+        state.host.set_system_time(now);
+        state.host.clear();
+        state.update(Event::Timer(0.0));
+        due.extend(
+            timers(&state.host.calls())
+                .into_iter()
+                .map(|seconds| now + Duration::from_secs_f64(seconds)),
+        );
+        waiting.push(due.len());
+    }
+    waiting
+}
+
+#[test]
+fn timers_armed_for_a_format_that_changed_never_multiply() {
+    let start = utc(9, 41, 27);
+    let mut state = clock_bar(&[("clock_utc_offset", "+00:00")], start);
+    let mut due: Vec<SystemTime> = timers(&state.host.calls())
+        .into_iter()
+        .map(|seconds| start + Duration::from_secs_f64(seconds))
+        .collect();
+    // Seconds are added, beside the minute's timer still waiting, then
+    // taken out and added again in the same second.
+    state.host.clear();
+    for format in ["%H:%M:%S", "%H:%M", "%H:%M:%S"] {
+        let options = cfg(&tray_with("clock", &[("clock_format", format)]));
+        BarCore::follow(&mut state, &BAR, Handled::Reconfigure(options));
+        state.follow_clock();
+    }
+    due.extend(
+        timers(&state.host.calls())
+            .into_iter()
+            .map(|seconds| start + Duration::from_secs_f64(seconds)),
+    );
+    assert_eq!(due.len(), 2, "{due:?}");
+    let waiting = fire_timers_until(&mut state, &mut due, utc(9, 44, 0));
+    // Two timers wait, the second's and the minute's, until the minute's
+    // fires at 09:42, and one ever after.
+    let minute_fired = waiting.iter().position(|count| *count == 1).unwrap();
+    assert!(
+        waiting[..minute_fired].iter().all(|count| *count == 2),
+        "{waiting:?}"
+    );
+    assert!(
+        waiting[minute_fired..].iter().all(|count| *count == 1),
+        "{waiting:?}"
+    );
+    // A tick each second from 09:41:28 to 09:43:59, the minute's timer
+    // standing for the one at 09:42:00.
+    assert_eq!(waiting.len(), 32 + 60 + 60);
+    assert!(shown(&state).ends_with("~09:43:59"), "{:?}", shown(&state));
+
+    // Taken out again, the clock goes back to a tick a minute, the second's
+    // timer waiting standing for the one at 09:44.
+    let options = cfg(&tray_with("clock", &[("clock_format", "%H:%M")]));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(options));
+    state.follow_clock();
+    let waiting = fire_timers_until(&mut state, &mut due, utc(9, 50, 0));
+    assert!(waiting.iter().all(|count| *count == 1), "{waiting:?}");
+    assert_eq!(waiting.len(), 6);
+}
+
+#[test]
+fn a_clock_taken_out_of_the_tray_is_not_armed_again() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+00:00")], utc(9, 41, 27));
+    let without = cfg(&tray_with("session", &[]));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(without));
+    state.host.clear();
+    state.update(Event::Timer(33.01));
+    assert!(timers(&state.host.calls()).is_empty());
+    assert_eq!(state.clock.text, None);
+    // Put back, it is armed again at once, as no timer is waiting.
+    let with = cfg(&tray_with("clock", &[]));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(with));
+    state.follow_clock();
+    assert_eq!(timers(&state.host.calls()).len(), 1);
+}
+
+#[test]
+fn a_tick_redraws_only_when_the_drawn_time_changes() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+00:00")], utc(9, 41, 27));
+    // Early, still in the same minute.
+    state.host.set_system_time(utc(9, 41, 59));
+    assert!(!state.update(Event::Timer(33.01)));
+    state.host.set_system_time(utc(9, 42, 0));
+    assert!(state.update(Event::Timer(1.0)));
+    assert!(shown(&state).ends_with("~09:42"));
+    // With seconds shown, every second draws differently.
+    let mut state = clock_bar(
+        &[("clock_utc_offset", "+00:00"), ("clock_format", "%M:%S")],
+        utc(9, 41, 27),
+    );
+    state.host.set_system_time(utc(9, 41, 28));
+    assert!(state.update(Event::Timer(1.0)));
+    // A date alone ticks each minute and redraws only when the day changes.
+    let mut state = clock_bar(
+        &[("clock_utc_offset", "+00:00"), ("clock_format", "%a %e")],
+        utc(23, 59, 0),
+    );
+    assert!(shown(&state).ends_with("~Tue  3"));
+    state.host.set_system_time(utc(23, 59, 30));
+    assert!(!state.update(Event::Timer(60.0)));
+    state.host.set_system_time(utc(24, 0, 0));
+    assert!(state.update(Event::Timer(60.0)));
+    assert!(shown(&state).ends_with("~Wed  4"));
+}
+
+// The tray and redrawing.
+
+#[test]
+fn a_mode_or_session_change_redraws_only_when_that_item_is_in_the_tray() {
+    let new_mode = || {
+        let mut mode_info = mode_of_work();
+        mode_info.mode = InputMode::Locked;
+        Event::ModeUpdate(mode_info)
+    };
+    let new_session = || {
+        let mut mode_info = mode_of_work();
+        mode_info.session_name = Some("play".to_string());
+        Event::ModeUpdate(mode_info)
+    };
+    for (tray, redraws_for_mode, redraws_for_session) in [
+        ("mode", true, false),
+        ("session", false, true),
+        ("mode session", true, true),
+        ("clock", false, false),
+        ("", false, false),
+    ] {
+        let mut state = tray_bar(&tray_with(tray, &[]), 40, utc(12, 0, 0));
+        assert_eq!(state.update(new_mode()), redraws_for_mode, "{tray:?}");
+        let mut state = tray_bar(&tray_with(tray, &[]), 40, utc(12, 0, 0));
+        assert_eq!(state.update(new_session()), redraws_for_session, "{tray:?}");
+    }
+    // A session name the tray hides changes nothing on screen either.
+    let mut state = tray_bar(
+        &tray_with("session", &[("show_session", "false")]),
+        40,
+        utc(12, 0, 0),
+    );
+    assert!(!state.update(new_session()));
+    // Nor does an empty name after none, as the tray shows neither.
+    let mut state = tray_bar(&tray_with("session", &[]), 40, utc(12, 0, 0));
+    let mut nameless = mode();
+    assert!(state.update(Event::ModeUpdate(nameless.clone())));
+    nameless.session_name = Some(String::new());
+    assert!(!state.update(Event::ModeUpdate(nameless)));
+}
+
+// The tray on the settings screen and in the docs images.
+
+#[test]
+fn the_preview_shows_the_tray_with_the_sample_time_and_session() {
+    let options = cfg(&[("tray", "session clock"), ("clock_format", "%H:%M:%S")]);
+    let line = strip_ansi(&(settings::SCHEMA.draw_bar)(options, &mode(), 200));
+    assert!(line.trim_end().ends_with("work   09:41:27"), "{line:?}");
+    // The screen's own session's name when Zellij has sent it.
+    let options = cfg(&[("tray", "session")]);
+    let line = strip_ansi(&(settings::SCHEMA.draw_bar)(options, &mode_of_work(), 200));
+    assert!(line.trim_end().ends_with("work"), "{line:?}");
+}
+
+#[test]
+fn the_list_samples_fill_the_tray_s_formats() {
+    let sample =
+        |key: &str, pairs: &[(&str, &str)]| (settings::SCHEMA.sample_values)(key, &cfg(pairs));
+    assert_eq!(
+        sample("clock_item_format", &[]),
+        vec![("clock", "09:41".to_string())]
+    );
+    assert_eq!(
+        sample(
+            "clock_item_format",
+            &[("clock_format", "%I:%M %p"), ("clock_utc_offset", "+04:00")]
+        ),
+        vec![("clock", "01:41 PM".to_string())]
+    );
+    assert_eq!(
+        sample("session_format", &[]),
+        vec![("session", "work".to_string())]
+    );
+    assert_eq!(
+        sample("mode_format_locked", &[("mode_key_locked", "L")]),
+        vec![
+            ("mode", "LOCKED".to_string()),
+            ("desc", "LOCKED".to_string()),
+            ("key", "L".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn an_image_shows_the_sample_time() {
+    let options = tray_with("clock", &[("clock_utc_offset", "")]);
+    let Event::PaneUpdate(manifest) = panes(30, vec![(0, vec![floating(1, "a")])]) else {
+        unreachable!()
+    };
+    let line = draw_for_image(cfg(&options), mode(), &tabs(1, 0), manifest, 30);
+    assert!(strip_ansi(&line).ends_with("~09:41"), "{line:?}");
 }

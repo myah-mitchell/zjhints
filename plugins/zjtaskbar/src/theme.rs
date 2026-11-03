@@ -8,12 +8,12 @@
 //!
 //! - `color_theme` supplies the `color_<name>` aliases.
 //! - `format_theme` supplies the entry, spacer, tab separator, overflow
-//!   marker, `overflow_str` and launcher button format strings, which draw
-//!   with those aliases. `zellij` (the default) adds none, leaving the bar
-//!   in Zellij's own ribbon colors.
-//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, and
-//!   the launcher's `{symbol}`. `zellij` (the default) adds none, leaving
-//!   the bar's own words.
+//!   marker, `overflow_str`, launcher button and tray format strings, which
+//!   draw with those aliases. `zellij` (the default) adds none, leaving the
+//!   bar in Zellij's own ribbon colors.
+//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, the
+//!   launcher's `{symbol}`, and each mode's `{key}` in the tray. `zellij`
+//!   (the default) adds none, leaving the bar's own words.
 //!
 //! The three touch separate options, so the order they are laid in does not
 //! matter. No theme sets `empty_format`: what an empty bar says is the
@@ -21,14 +21,16 @@
 
 use crate::flags::FLAGS;
 use crate::{
-    CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER, CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT,
-    CONFIG_LAUNCHER_SYMBOL, CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT,
-    CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR,
-    CONFIG_TAB_SEPARATOR,
+    CONFIG_CLOCK_ITEM_FORMAT, CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER,
+    CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT, CONFIG_LAUNCHER_SYMBOL,
+    CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT, CONFIG_OVERFLOW_LEFT_FORMAT,
+    CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR, CONFIG_SESSION_FORMAT, CONFIG_TAB_SEPARATOR,
+    CONFIG_TRAY_SPACER,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::Styling;
-use zjkit::theme::{color_entries, Shape, ARROW, PILL_LEFT, PILL_RIGHT};
+use zjkit::mode::Edge;
+use zjkit::theme::{color_entries, Shape, ARROW, ARROW_LEFT, PILL_LEFT, PILL_RIGHT};
 
 /// The symbol each flag shows as under each alias theme, in the order of
 /// `flags::FLAGS`: minimized, exited, plugin, and in another tab.
@@ -98,6 +100,9 @@ pub fn layer(
             add(key.to_string(), value);
         }
     }
+    // The tray's mode item, in the shape the mode prefix of zjhints and
+    // zjtabs takes, turned to face the entries from the line's right end.
+    zjkit::mode::layer_theme_at(configuration, &mut layered, Edge::Right);
     layered
 }
 
@@ -135,7 +140,14 @@ fn launcher_symbol(configuration: &BTreeMap<String, String>) -> Option<&'static 
 /// The launcher's button has the shape of an entry, with its symbol in the
 /// accent color on the background of a normal one and in bold, so it stands
 /// apart from both the focused entry and the rest.
-fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
+///
+/// The tray's items stand at the line's right end, so each is the mirror
+/// image of an entry: a shape with ends draws only its left one, facing
+/// back along the line toward the entries, as zjtabs draws its session
+/// name. The clock is drawn like a normal entry, and the session's name as
+/// zjtabs draws it, in the accent color; see `zjkit::mode::session_format`.
+/// The tray's spacer is the entries' own.
+fn format_entries(shape: Shape) -> [(&'static str, String); 12] {
     let separator = "#[fg=$muted] \u{2502} ".to_string();
     let launcher = match shape {
         Shape::Flat => "#[fg=$accent,bg=$surface,bold] {symbol} ".to_string(),
@@ -146,6 +158,14 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
         Shape::Pills => format!(
             "#[fg=$surface]{PILL_LEFT}#[fg=$accent,bg=$surface,bold]{{symbol}}#[fg=$surface]{PILL_RIGHT}"
         ),
+    };
+    let clock = match shape {
+        Shape::Flat => "#[fg=$fg,bg=$surface] {clock} ".to_string(),
+        Shape::Plain => "#[fg=$fg]{clock}".to_string(),
+        Shape::Powerline => {
+            format!("#[fg=$surface]{ARROW_LEFT}#[fg=$fg,bg=$surface] {{clock}} ")
+        }
+        Shape::Pills => format!("#[fg=$surface]{PILL_LEFT}#[fg=$fg,bg=$surface] {{clock}} "),
     };
     let (entry, focused, minimized, spacer, left, right, overflow) = match shape {
         Shape::Flat => (
@@ -205,6 +225,9 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
         (CONFIG_OVERFLOW_RIGHT_FORMAT, right),
         (CONFIG_OVERFLOW_STR, overflow),
         (CONFIG_LAUNCHER_FORMAT, launcher),
+        (CONFIG_TRAY_SPACER, spacer.to_string()),
+        (CONFIG_CLOCK_ITEM_FORMAT, clock),
+        (CONFIG_SESSION_FORMAT, zjkit::mode::session_format(shape)),
     ]
 }
 
@@ -272,8 +295,10 @@ pub(crate) mod tests {
     /// The options a theme may set that are format strings.
     fn is_format(key: &str) -> bool {
         key.ends_with("_format")
+            || key.starts_with(zjkit::mode::CONFIG_MODE_FORMAT_PREFIX)
             || key == CONFIG_ENTRY_SPACER
             || key == CONFIG_TAB_SEPARATOR
+            || key == CONFIG_TRAY_SPACER
             || key == CONFIG_OVERFLOW_STR
     }
 
@@ -292,6 +317,11 @@ pub(crate) mod tests {
                         ("flags", " _"),
                         ("count", "3"),
                         ("symbol", "+"),
+                        ("clock", "09:41"),
+                        ("session", "work"),
+                        ("desc", "NORMAL"),
+                        ("key", "N"),
+                        ("mode", "NORMAL"),
                     ],
                     &layered,
                     0.0,
