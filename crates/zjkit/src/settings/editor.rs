@@ -4,7 +4,7 @@
 //! from the config and the keys pressed, and carries out what it asks for
 //! (previewing, saving) against the host.
 
-use super::schema::{validate, Kind, OptionSpec, Schema, RESERVED_KEYS};
+use super::schema::{pattern_prefix, validate, Kind, OptionSpec, Schema, RESERVED_KEYS};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{fuzzy_match_indices, PluginAliasEntry};
 
@@ -37,8 +37,10 @@ pub enum Row {
     Option(&'static OptionSpec),
     /// A key outside the fixed options, such as `label_split_down`.
     Key(String),
-    /// The line that adds a new key starting with this prefix: a family's,
-    /// or nothing under "Other".
+    /// The line that adds a new key of the family with this pattern, such
+    /// as `color_<name>`, or, empty, any key under "Other". Each family has
+    /// its own, so families sharing a prefix, as `launch_<n>_name` and
+    /// `launch_<n>_command` do, each name the key they add.
     Add(&'static str),
     /// The title of the section the search results under it come from. It
     /// cannot be selected.
@@ -330,8 +332,8 @@ impl Editor {
     }
 
     /// The lines of the list for `section`: its fixed options, then the
-    /// keys set in it, then a line to add a key for each family prefix in
-    /// it. "Other" holds the keys that fit nowhere else.
+    /// keys set in it, then a line to add a key for each family in it.
+    /// "Other" holds the keys that fit nowhere else.
     pub fn rows_of(&self, section: Section) -> Vec<Row> {
         let group = match section {
             Section::Alias => return vec![Row::Alias],
@@ -354,16 +356,13 @@ impl Editor {
                 .map(|key| Row::Key(key.clone())),
         );
         match group {
-            Some(group) => {
-                let mut prefixes: Vec<&'static str> = Vec::new();
-                let families = self.schema.families.iter();
-                for family in families.filter(|family| family.group == group) {
-                    if !prefixes.contains(&family.prefix()) {
-                        prefixes.push(family.prefix());
-                    }
-                }
-                rows.extend(prefixes.into_iter().map(Row::Add));
-            }
+            Some(group) => rows.extend(
+                self.schema
+                    .families
+                    .iter()
+                    .filter(|family| family.group == group)
+                    .map(|family| Row::Add(family.pattern)),
+            ),
             None => rows.push(Row::Add("")),
         }
         rows
@@ -599,9 +598,9 @@ impl Editor {
                 text: self.value(&key).unwrap_or_default().to_string(),
                 field: Field::Value { key },
             },
-            Some(Row::Add(prefix)) => Outcome::StartField {
+            Some(Row::Add(pattern)) => Outcome::StartField {
                 field: Field::NewKey,
-                text: prefix.to_string(),
+                text: pattern_prefix(pattern).to_string(),
             },
             Some(Row::Heading(_)) | None => Outcome::None,
         }
@@ -740,13 +739,8 @@ impl Editor {
                         "A key is letters, digits and underscores".to_string(),
                     );
                 }
-                if let Some(family) = self
-                    .schema
-                    .families
-                    .iter()
-                    .find(|family| family.prefix() == key)
-                {
-                    return Outcome::Refused(format!("Finish the key, as in {}", family.pattern));
+                if let Some(pattern) = self.pattern_to_finish(key) {
+                    return Outcome::Refused(format!("Finish the key, as in {pattern}"));
                 }
                 if let Some((section, row)) = self.locate(key) {
                     self.show(section, row);
@@ -770,6 +764,28 @@ impl Editor {
                 }
             }
         }
+    }
+
+    /// The pattern of the family whose prefix `key` is and nothing more, so
+    /// a key typed that far is not finished yet. Several families may share
+    /// the prefix, as `launch_<n>_name` and `launch_<n>_command` do; the one
+    /// whose add line the key was started from is named then, and otherwise
+    /// the first.
+    fn pattern_to_finish(&self, key: &str) -> Option<&'static str> {
+        let mut unfinished = self
+            .schema
+            .families
+            .iter()
+            .filter(|family| family.prefix() == key)
+            .map(|family| family.pattern);
+        let adding = match self.selected_row() {
+            Some(Row::Add(pattern)) => Some(pattern),
+            _ => None,
+        };
+        unfinished
+            .clone()
+            .find(|pattern| Some(*pattern) == adding)
+            .or_else(|| unfinished.next())
     }
 
     /// Show `section` with `row` selected and the list focused, leaving any

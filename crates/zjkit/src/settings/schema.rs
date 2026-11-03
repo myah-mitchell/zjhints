@@ -56,10 +56,16 @@ pub struct FamilySpec {
 impl FamilySpec {
     /// The part of the name before the first placeholder, such as `color_`.
     pub fn prefix(&self) -> &'static str {
-        self.pattern
-            .split_once('<')
-            .map_or(self.pattern, |(prefix, _)| prefix)
+        pattern_prefix(self.pattern)
     }
+}
+
+/// The part of a family's `pattern` before its first placeholder, such as
+/// `color_` of `color_<name>`: what every key of the family starts with.
+pub fn pattern_prefix(pattern: &str) -> &str {
+    pattern
+        .split_once('<')
+        .map_or(pattern, |(prefix, _)| prefix)
 }
 
 pub const fn family(

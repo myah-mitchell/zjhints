@@ -162,14 +162,19 @@ fn control_characters_in_keys_and_values_show_as_escapes() {
 #[test]
 fn add_rows_are_buttons_naming_the_families_they_add() {
     let editor = editor(&[]);
-    let button = |prefix| row_view(&editor, &Row::Add(prefix), FormatView::Raw).control;
+    let button = |pattern| row_view(&editor, &Row::Add(pattern), FormatView::Raw).control;
     assert_eq!(
-        button("color_"),
+        button("color_<name>"),
         Control::Button("+ add color_<name>".to_string())
     );
+    // Two families sharing a prefix each have a line of their own.
     assert_eq!(
-        button("label_"),
-        Control::Button("+ add label_<id> or label_<mode>_<id>".to_string())
+        button("label_<id>"),
+        Control::Button("+ add label_<id>".to_string())
+    );
+    assert_eq!(
+        button("label_<mode>_<id>"),
+        Control::Button("+ add label_<mode>_<id>".to_string())
     );
     assert_eq!(button(""), Control::Button("+ add a key".to_string()));
     assert_eq!(

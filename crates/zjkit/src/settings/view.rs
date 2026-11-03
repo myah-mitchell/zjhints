@@ -247,8 +247,8 @@ impl<'a> Rows<'a> {
                     .collect();
                 return RowView::plain("alias", Control::Dropdown(names, chosen));
             }
-            Row::Add(prefix) => {
-                let what = add_what(editor.schema(), prefix);
+            Row::Add(pattern) => {
+                let what = if pattern.is_empty() { "a key" } else { pattern };
                 return RowView::plain("", Control::Button(format!("+ add {what}")));
             }
             Row::Heading(title) => return RowView::plain("", Control::Heading(title.to_string())),
@@ -365,20 +365,6 @@ pub fn trailer_columns(view: &RowView, field_end: usize, list_end: usize) -> (us
         list_end.saturating_sub(marker_width)
     };
     (swatch, marker)
-}
-
-/// What an add line adds: every family starting with `prefix`, or any key.
-fn add_what(schema: &Schema, prefix: &str) -> String {
-    if prefix.is_empty() {
-        return "a key".to_string();
-    }
-    schema
-        .families
-        .iter()
-        .filter(|family| family.prefix() == prefix)
-        .map(|family| family.pattern)
-        .collect::<Vec<_>>()
-        .join(" or ")
 }
 
 /// A value as shown in its field. Text is always quoted, so its spaces show
@@ -542,10 +528,10 @@ pub fn describe(editor: &Editor) -> Option<String> {
         Row::Add("") => format!(
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
-        Row::Add(prefix) => {
-            let family = editor.schema().families.iter().find(|family| family.prefix() == prefix);
+        Row::Add(pattern) => {
+            let family = editor.schema().families.iter().find(|family| family.pattern == pattern);
             let what = family.map_or("", |family| family.description);
-            format!("Add a key starting {prefix}. {what}.")
+            format!("Add a {pattern} key. {what}.")
         }
         Row::Alias => "The plugins {} alias being edited.".to_string(),
         Row::Heading(_) => return None,
