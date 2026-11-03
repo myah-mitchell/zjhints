@@ -81,19 +81,8 @@ keep = 7
 # main-dev, where the zjkit workspace work lands until it is proven and merged
 # into main. To rebuild after main-dev moves, run the workflow by hand naming
 # ea-main-dev with publish ticked. `make ea LABEL=main-dev` installs it.
-[build.ea-main-dev]
-tag = "ea-main-dev-{date}"
-base = "main-dev"
-prerelease = true
-keep = 3
-
-# zjtabs, the tab bar, stacked onto main-dev, since it needs the zjkit
-# workspace. Its releases carry zjtabs.wasm next to zjhints.wasm, and `make ea
-# LABEL=zjtabs` installs both. Rebuild it by hand like ea-main-dev. Remove the
-# table once feat/zjtabs is merged into main-dev: ea-main-dev ships zjtabs from
-# then on.
-[build.ea-zjtabs]
-tag = "ea-zjtabs-{date}"
+[build.ea-release]
+tag = "ea-v{version}-{date}"
 base = "main-dev"
 stack = ["feat/zjtabs"]
 prerelease = true
