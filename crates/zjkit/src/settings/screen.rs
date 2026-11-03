@@ -794,16 +794,10 @@ impl SettingsScreen {
             .and_then(|path| path.rsplit('/').next())
             .unwrap_or("The config file")
             .to_string();
-        let request = PromptRequest::menu(vec![
-            ChoiceItem::labeled("overwrite", "Overwrite: save your changes over the file"),
-            ChoiceItem::labeled(
-                "reload",
-                "Reload: take the file as it is, dropping your unsaved changes",
-            ),
-            ChoiceItem::labeled("cancel", "Cancel"),
-        ])
-        .title(format!("{file} changed outside Zellij"));
-        self.question = Some((prompt(request), Question::ChangedOutside));
+        self.question = Some((
+            prompt(changed_outside_request(&file)),
+            Question::ChangedOutside,
+        ));
     }
 
     fn answer(&mut self, id: u64, result: &PromptResult) -> bool {
@@ -1421,6 +1415,22 @@ fn revert_all_request(unsaved: usize) -> PromptRequest {
         .default("false")
 }
 
+/// The question asked when the config `file` changed on disk since the screen
+/// read it. Zellij's menu highlights its first item and ignores a default, and
+/// Enter picks the highlighted item, so Cancel comes first: Enter never saves
+/// over the file or drops edits by accident.
+fn changed_outside_request(file: &str) -> PromptRequest {
+    PromptRequest::menu(vec![
+        ChoiceItem::labeled("cancel", "Cancel"),
+        ChoiceItem::labeled("overwrite", "Overwrite: save your changes over the file"),
+        ChoiceItem::labeled(
+            "reload",
+            "Reload: take the file as it is, dropping your unsaved changes",
+        ),
+    ])
+    .title(format!("{file} changed outside Zellij"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1431,6 +1441,16 @@ mod tests {
     fn revert_all_asks_with_cancel_as_the_default() {
         let request = revert_all_request(2);
         assert_eq!(request.default.as_deref(), Some("false"));
+    }
+
+    #[test]
+    fn changed_outside_lists_cancel_first() {
+        let request = changed_outside_request("config.kdl");
+        let PromptSpec::Menu { items, .. } = request.spec else {
+            panic!("the question is a menu");
+        };
+        let values: Vec<&str> = items.iter().map(|item| item.value.as_str()).collect();
+        assert_eq!(values, ["cancel", "overwrite", "reload"]);
     }
 
     /// A screen searching the options of an alias with no configuration.
