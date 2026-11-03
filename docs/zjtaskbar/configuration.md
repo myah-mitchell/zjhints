@@ -15,7 +15,7 @@ Format strings use the zjstatus syntax, with the placeholders each option names 
 
 ## Entries
 
-Which floating panes the bar lists, and how each is drawn. The entries are grouped by tab in the order the tabs stand, and ordered by pane id within a tab. An entry's format takes these placeholders:
+Which floating panes the bar lists, and how each is drawn. The entries are grouped by tab in the order the tabs stand, and ordered by pane id within a tab. See [Entry formats and flags](formats.md) for examples. An entry's format takes these placeholders:
 
 | Placeholder | What it draws |
 | --- | --- |
@@ -36,7 +36,7 @@ Which floating panes the bar lists, and how each is drawn. The entries are group
 
 ## Flags
 
-The indicators `{flags}` draws after an entry's title. Each is a format string drawn only for a pane in that state, and an empty one hides it.
+The indicators `{flags}` draws after an entry's title. Each is a format string drawn only for a pane in that state, and an empty one hides it. See [Flags](formats.md#flags).
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -47,7 +47,7 @@ The indicators `{flags}` draws after an entry's title. Each is a format string d
 
 ## Overflow
 
-Fitting the entries to the bar when there are more than fit, and marking the ones left out. The bar keeps a window of entries around the focused one, or the first while none is focused.
+Fitting the entries to the bar when there are more than fit, and marking the ones left out. The bar keeps a window of entries around the focused one, or the first while none is focused. See [Overflow](overflow.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -163,7 +163,7 @@ Whether the bar shows at all, and how it behaves beside other sessions. See [Hid
 
 ## Mouse
 
-Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it.
+Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it. See [Mouse](mouse.md) for every click.
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -171,7 +171,7 @@ Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus 
 | `mouse_wheel_reversed` | `false` | Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar |
 | `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
 
-Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts.
+Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts. See [Permissions](mouse.md#permissions).
 
 ## Settings screen
 

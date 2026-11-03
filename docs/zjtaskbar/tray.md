@@ -34,6 +34,8 @@ The bar's columns go first to the launcher's button, then to the tray, then to t
 
 With `auto_width` off and no `max_length`, or before Zellij has reported the bar's width, the line has no right end to stand against, so the tray follows the entries after `tray_spacer`. With `auto_width` off and a `max_length` wider than the bar's pane, the tray stands at the pane's right edge, where you can see it, rather than at `max_length`.
 
+See [Sharing the line](overflow.md#sharing-the-line) in the overflow page for the same bar drawn at six widths.
+
 ## Clicking
 
 With `mouse` on, a left click on an item does what the table under [The items](#the-items) says. A right click on any item opens Zellij's menu for the bar, as a right click anywhere off an entry does.
@@ -132,6 +134,10 @@ A `format_theme` gives every item a look in the shape of the entries. The sessio
 | `pills` | A half-pill on `$surface`, open to the right | A half-pill on `$surface`, open to the right, with the name in the item's color |
 
 The item's color is the mode's own color for the mode, such as `$red` for locked mode, and `$accent` for the session's name, which does not change with the mode.
+
+The whole tray in the Zellij theme's colors and in three format themes, then the session and a clock with the date:
+
+![Five zjtaskbar bars with a tray at the right end. With the mode, the session and the clock in the Zellij theme's colors the tray reads NORMAL, work and 09:41 as blocks. With the flat theme each item is a block, with NORMAL in the mode's green and work in the accent color. With the powerline theme in locked mode the mode reads LOCKED in red, and each item sits behind an arrow pointing back at the entries. With the pills theme each item is a half-pill, rounded on the side facing the entries. The last bar shows only the session and a clock reading Tue 03 Nov 09:41](../img/zjtaskbar/tray-items.svg)
 
 An `alias_theme` gives each mode a symbol for `{key}`. The mode's block then holds the symbol before the name, and in `pills` the symbol gets a half-pill of its own in the mode's color. See [Themes](../themes.md).
 
