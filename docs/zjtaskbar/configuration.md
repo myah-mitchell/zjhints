@@ -58,50 +58,6 @@ Fitting the entries to the bar when there are more than fit, and marking the one
 | `overflow_right_format` | unset | Format string for the marker of entries hidden after the shown ones, with `{count}`; Zellij's ribbon colors when unset |
 | `overflow_str` | `...` | Format string appended when a lone entry is too wide to fit and must be cut |
 
-## Theme
-
-Built-in colors, shapes and symbols for the whole bar, laid under your own options. See [Themes](../themes.md).
-
-| Option | Default | What it does |
-| --- | --- | --- |
-| `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
-| `format_theme` | `zellij` | The shape of entries, markers, separators, the launcher's button and the tray's items, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
-| `alias_theme` | `zellij` | Symbols for the flags, the launcher's button and the modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
-
-## Colors
-
-Named colors for format strings. See [Colors](../styling.md#colors).
-
-| Option | Default | What it does |
-| --- | --- | --- |
-| `color_<name>` | unset | Define a color alias referenced as `$name` in any format string |
-
-## Behavior
-
-Whether the bar shows at all, and how it behaves beside other sessions. See [Hiding the bar](../hiding.md) and [Nested sessions](../nested-sessions.md).
-
-| Option | Default | What it does |
-| --- | --- | --- |
-| `hidden` | `false` | Start with the bar hidden, until a `zjtaskbar::show` or `zjtaskbar::toggle` message; see [Hiding the bar](../hiding.md) |
-| `hide_when_nested` | `true` | Render nothing while this session is nested inside another |
-| `collapse_when_empty` | `true` | Hand this plugin's layout row back to the panes around it while the bar has nothing to draw |
-| `dim_when_unfocused` | `true` | Dim the entries while this session is not the one receiving input |
-| `dim_strength` | `0.5` | How strongly to dim, from `0.0` to `1.0`, quoted |
-
-`dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
-
-## Mouse
-
-Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it.
-
-| Option | Default | What it does |
-| --- | --- | --- |
-| `mouse` | `true` | Click an entry to focus, minimize or restore its pane, scroll to step through the panes on screen, double-click to rename, middle-click to close, right-click for the pane's menu or Zellij's bar menu |
-| `mouse_wheel_reversed` | `false` | Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar |
-| `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
-
-Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts.
-
 ## Launcher
 
 A button at the bar's left end, drawn while `mouse` is on. Left-click it for a menu of new floating panes to open: a new terminal, your own entries, then Zellij's session manager, settings and plugin manager. Right-click it for Zellij's bar menu. See [Launcher](launcher.md) for the entries and an example.
@@ -172,6 +128,50 @@ The current input mode, drawn while `mode` is in `tray`. The options are named a
 | `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
 | `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
 | `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "L"` |
+
+## Theme
+
+Built-in colors, shapes and symbols for the whole bar, laid under your own options. See [Themes](../themes.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
+| `format_theme` | `zellij` | The shape of entries, markers, separators, the launcher's button and the tray's items, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for the flags, the launcher's button and the modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
+
+## Colors
+
+Named colors for format strings. See [Colors](../styling.md#colors).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `color_<name>` | unset | Define a color alias referenced as `$name` in any format string |
+
+## Behavior
+
+Whether the bar shows at all, and how it behaves beside other sessions. See [Hiding the bar](../hiding.md) and [Nested sessions](../nested-sessions.md).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `hidden` | `false` | Start with the bar hidden, until a `zjtaskbar::show` or `zjtaskbar::toggle` message; see [Hiding the bar](../hiding.md) |
+| `hide_when_nested` | `true` | Render nothing while this session is nested inside another |
+| `collapse_when_empty` | `true` | Hand this plugin's layout row back to the panes around it while the bar has nothing to draw |
+| `dim_when_unfocused` | `true` | Dim the entries while this session is not the one receiving input |
+| `dim_strength` | `0.5` | How strongly to dim, from `0.0` to `1.0`, quoted |
+
+`dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
+
+## Mouse
+
+Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mouse` | `true` | Click an entry to focus, minimize or restore its pane, scroll to step through the panes on screen, double-click to rename, middle-click to close, right-click for the pane's menu or Zellij's bar menu |
+| `mouse_wheel_reversed` | `false` | Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar |
+| `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
+
+Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts.
 
 ## Settings screen
 

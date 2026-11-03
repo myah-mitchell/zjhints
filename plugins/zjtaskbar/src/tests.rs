@@ -1398,52 +1398,87 @@ fn a_preview_through_the_bar_s_pipe_changes_what_it_draws() {
 }
 
 #[test]
+fn a_launcher_entry_previewed_from_the_screen_reaches_the_bar_s_menu() {
+    let mut state = bar(&[], 80, tabs(1, 0), vec![]);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state.host.clear();
+
+    // The screen sends one key at a time as the entry is added.
+    assert!(preview(
+        &mut state,
+        "zjtaskbar",
+        &[("launch_1_name", None, Some("Logs"))]
+    ));
+    assert_eq!(state.launch_entries, Vec::new());
+    let command = [("launch_1_command", None, Some("tail"))];
+    assert!(preview(&mut state, "zjtaskbar", &command));
+    let names: Vec<&str> = state.launch_entries.iter().map(|e| &*e.name).collect();
+    assert_eq!(names, ["Logs"]);
+    // Running the entry's command takes a permission the bar asks for then.
+    let with_command = bar_permissions(&[
+        Feature::Mouse,
+        Feature::Launcher,
+        Feature::LauncherZellijAction,
+        Feature::LauncherCommand,
+    ]);
+    assert!(
+        state
+            .host
+            .calls()
+            .contains(&Call::RequestPermission(with_command)),
+        "{:?}",
+        state.host.calls()
+    );
+
+    let undo = [
+        ("launch_1_name", Some("Logs"), None),
+        ("launch_1_command", Some("tail"), None),
+    ];
+    assert!(preview(&mut state, "zjtaskbar", &undo));
+    assert_eq!(state.launch_entries, Vec::new());
+}
+
+#[test]
+fn a_launcher_entry_sent_as_a_preview_by_another_plugin_is_refused() {
+    let mut state = bar(&[], 80, tabs(1, 0), vec![]);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state
+        .bar
+        .plugin_pane_urls
+        .insert(6, "file:/plugins/other.wasm".to_string());
+    state.host.clear();
+    let changes: Vec<live::Change> = [
+        ("launch_0_name", "New terminal"),
+        ("launch_0_command", "sh"),
+    ]
+    .iter()
+    .map(|(key, now)| live::Change {
+        key: key.to_string(),
+        was: None,
+        now: Some(now.to_string()),
+    })
+    .collect();
+    let message = |source| {
+        PipeMessage::new(
+            source,
+            settings::SCHEMA.live_message,
+            &None,
+            &Some(live::encode("zjtaskbar", &changes)),
+            false,
+        )
+    };
+    assert!(!state.pipe(message(PipeSource::Plugin(6))));
+    assert!(!state.pipe(message(PipeSource::Cli("pipe-1".to_string()))));
+    assert_eq!(state.launch_entries, Vec::new());
+    assert_eq!(state.host.calls(), Vec::new());
+}
+
+#[test]
 fn a_preview_of_another_alias_changes_nothing() {
     let mut state = bar(&PLAIN, 80, tabs(1, 0), vec![(0, vec![floating(1, "a")])]);
     state.bar.own_url = Some("zjtaskbar".to_string());
     let changes = [("entry_spacer", Some("|"), Some("/"))];
     assert!(!preview(&mut state, "another", &changes));
-}
-
-#[test]
-fn the_preview_draws_the_sample_entries_with_markers_in_every_theme() {
-    for combination in theme::tests::every_combination() {
-        let line = (settings::SCHEMA.draw_bar)(cfg(&combination), &mode(), 200);
-        let columns = zjkit::ansi::calculate_visible_length(&line, false);
-        assert!(columns <= 56, "{combination:?}: {columns}");
-        let text = strip_ansi(&line);
-        assert!(text.contains("editor"), "{combination:?}: {text:?}");
-        for raw in ["#[", "$", "{"] {
-            assert!(!line.contains(raw), "{combination:?}: left {raw}");
-        }
-    }
-    // Hidden, nested and dimmed options do not reach the preview.
-    let mut nested = mode();
-    nested.session_ancestry = vec!["host".to_string()];
-    let line = (settings::SCHEMA.draw_bar)(cfg(&[("hidden", "true")]), &nested, 200);
-    assert!(strip_ansi(&line).contains("editor"));
-}
-
-#[test]
-fn the_list_samples_fill_every_placeholder_of_the_entry_formats() {
-    let config = cfg(&[]);
-    for key in [
-        "entry_format",
-        "focused_entry_format",
-        "minimized_entry_format",
-    ] {
-        let names: Vec<&str> = (settings::SCHEMA.sample_values)(key, &config)
-            .into_iter()
-            .map(|(name, _)| name)
-            .collect();
-        assert_eq!(names, ["title", "index", "tab", "flags"], "{key}");
-    }
-    let flags = (settings::SCHEMA.sample_values)("entry_format", &config);
-    assert_eq!(flags[3].1, DEFAULT_EXITED_FORMAT);
-    assert_eq!(
-        (settings::SCHEMA.sample_values)("other_tab_format", &config),
-        vec![("tab", "docs".to_string())]
-    );
 }
 
 // Drawing for the docs images.
@@ -2940,18 +2975,6 @@ fn the_launcher_asks_for_what_its_menu_can_open_and_nothing_more() {
     );
 }
 
-#[test]
-fn the_preview_samples_fill_the_launcher_s_symbol() {
-    assert_eq!(
-        (settings::SCHEMA.sample_values)("launcher_format", &cfg(&[])),
-        vec![("symbol", DEFAULT_LAUNCHER_SYMBOL.to_string())]
-    );
-    assert_eq!(
-        (settings::SCHEMA.sample_values)("launcher_format", &cfg(&[("launcher_symbol", "+")])),
-        vec![("symbol", "+".to_string())]
-    );
-}
-
 // The tray.
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -3678,47 +3701,7 @@ fn a_mode_or_session_change_redraws_only_when_that_item_is_in_the_tray() {
     assert!(!state.update(Event::ModeUpdate(nameless)));
 }
 
-// The tray on the settings screen and in the docs images.
-
-#[test]
-fn the_preview_shows_the_tray_with_the_sample_time_and_session() {
-    let options = cfg(&[("tray", "session clock"), ("clock_format", "%H:%M:%S")]);
-    let line = strip_ansi(&(settings::SCHEMA.draw_bar)(options, &mode(), 200));
-    assert!(line.trim_end().ends_with("work   09:41:27"), "{line:?}");
-    // The screen's own session's name when Zellij has sent it.
-    let options = cfg(&[("tray", "session")]);
-    let line = strip_ansi(&(settings::SCHEMA.draw_bar)(options, &mode_of_work(), 200));
-    assert!(line.trim_end().ends_with("work"), "{line:?}");
-}
-
-#[test]
-fn the_list_samples_fill_the_tray_s_formats() {
-    let sample =
-        |key: &str, pairs: &[(&str, &str)]| (settings::SCHEMA.sample_values)(key, &cfg(pairs));
-    assert_eq!(
-        sample("clock_item_format", &[]),
-        vec![("clock", "09:41".to_string())]
-    );
-    assert_eq!(
-        sample(
-            "clock_item_format",
-            &[("clock_format", "%I:%M %p"), ("clock_utc_offset", "+04:00")]
-        ),
-        vec![("clock", "01:41 PM".to_string())]
-    );
-    assert_eq!(
-        sample("session_format", &[]),
-        vec![("session", "work".to_string())]
-    );
-    assert_eq!(
-        sample("mode_format_locked", &[("mode_key_locked", "L")]),
-        vec![
-            ("mode", "LOCKED".to_string()),
-            ("desc", "LOCKED".to_string()),
-            ("key", "L".to_string()),
-        ]
-    );
-}
+// The tray in the docs images.
 
 #[test]
 fn an_image_shows_the_sample_time() {

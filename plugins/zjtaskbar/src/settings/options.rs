@@ -12,13 +12,16 @@ use crate::entries::PANE_SCOPE_CHOICES;
 use zjkit::settings::schema::{family, option, FamilySpec, Kind, OptionSpec};
 use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 
-/// A heading the options are grouped under, in the order they are shown.
+/// A heading the options are grouped under, in the order they are shown:
+/// zjtaskbar's own first, in the order the bar draws what they set up, then
+/// Theme, Colors, Behavior and Mouse, where zjtabs shows them, so the groups
+/// the bars share sit in the same place in each.
 ///
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse", "Launcher", "Tray",
-    "Clock", "Session", "Mode",
+    "Entries", "Flags", "Overflow", "Launcher", "Tray", "Clock", "Session", "Mode", "Theme",
+    "Colors", "Behavior", "Mouse",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -153,14 +156,14 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Theme",
         Kind::Choice(&FORMAT_CHOICES),
         Some("zellij"),
-        "The shape of entries, markers, separators and the launcher's button: Zellij's ribbons or a built-in format",
+        "The shape of entries, markers, separators, the launcher's button and the tray's items: Zellij's ribbons or a built-in format",
     ),
     option(
         "alias_theme",
         "Theme",
         Kind::Choice(&ALIAS_CHOICES),
         Some("zellij"),
-        "The symbols for the flags and the launcher's button: the bar's own words or a built-in set",
+        "The symbols for the flags, the launcher's button and the modes: the bar's own words or a built-in set",
     ),
     option(
         "hidden",
