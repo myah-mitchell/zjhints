@@ -100,7 +100,7 @@ For a config in daily use rather than one written for the docs, see the [Zellij 
 
 ## zjtabs
 
-zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename, a middle click to close and Zellij's right-click menus.
+zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, shows the current input mode before the tabs, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename, a middle click to close and Zellij's right-click menus.
 
 [zjtabs overview](docs/zjtabs/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtabs configuration reference](docs/zjtabs/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to both plugins.
 

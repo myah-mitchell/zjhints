@@ -13,6 +13,8 @@ With `auto_width` on, the bar fits the width of its own pane as Zellij reports i
 
 `max_length` is a hard cap alongside it. With both set, the smaller wins, so an explicit cap is never exceeded on a wide terminal. Set `auto_width false` to ignore the pane and use the cap alone.
 
+The [mode prefix](formats.md#mode-prefix) and the spacer after it take their columns first, and the tabs are fitted into what is left.
+
 ## The window around the active tab
 
 If every tab fits, every tab is shown. Otherwise the window starts as the active tab alone and grows one tab at a time, alternating between the two sides, so the active tab stays near the middle. When one side has nothing left or cannot take its next tab, the other side keeps growing until neither can.

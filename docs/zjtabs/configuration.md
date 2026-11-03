@@ -36,7 +36,7 @@ The indicators `{flags}` draws after a tab's name. Each is a format string drawn
 
 ## Mode prefix
 
-The current input mode, drawn before the tabs. The options are named and read as for zjhints. See [Standing alone](../nested-sessions.md#standing-alone).
+The current input mode, drawn before the tabs. The options are named and read as for zjhints. See [Mode prefix](formats.md#mode-prefix) and [Standing alone](../nested-sessions.md#standing-alone).
 
 | Option | Default | What it does |
 | --- | --- | --- |

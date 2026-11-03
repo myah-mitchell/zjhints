@@ -6,9 +6,10 @@ zjtabs is a tab bar for [Zellij](https://github.com/zellij-org/zellij) that you 
 
 ## What it does
 
-With no options set, zjtabs draws each tab the way Zellij's own tab bar does: a ribbon in the Zellij theme's colors holding the tab's number, its name and its flags, with the active tab highlighted. It works with no options set, and picking a theme restyles it in one line. See [Themes](../themes.md).
+With no options set, zjtabs draws the current input mode, then each tab the way Zellij's own tab bar does: a ribbon in the Zellij theme's colors holding the tab's number, its name and its flags, with the active tab highlighted. It works with no options set, and picking a theme restyles it in one line. See [Themes](../themes.md).
 
 - It shows a flag for a tab with a fullscreen pane, synchronized panes, shown floating panes or a bell. See [Flags](formats.md#flags).
+- It draws the current input mode before the tabs, unless `show_mode` is off. See [Mode prefix](formats.md#mode-prefix).
 - When the tabs do not fit, it keeps a window of them around the active tab and counts the rest in a marker on each side. See [Overflow](overflow.md).
 - With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. See [Mouse](mouse.md).
 
@@ -80,7 +81,7 @@ With `mouse` off, the bar asks for the first three alone, and with `mouse_close_
 | Page | What it covers |
 | --- | --- |
 | [Configuration](configuration.md) | Every option zjtabs reads, with its default |
-| [Tab formats and flags](formats.md) | The tab placeholders, the flags, spacing, numbering, renaming and the themes for tabs |
+| [Tab formats and flags](formats.md) | The tab placeholders, the flags, spacing, numbering, renaming, the mode prefix and the themes for tabs |
 | [Overflow](overflow.md) | Fitting the tabs to the bar, the markers for hidden tabs, and cutting a tab that is too wide |
 | [Mouse](mouse.md) | Clicking, scrolling, renaming, closing and the right-click menus |
 | [Themes](../themes.md) | Color, format and alias themes, shared with zjhints |

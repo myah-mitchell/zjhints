@@ -12,7 +12,7 @@ While the bar draws nothing, because it is hidden or has no tabs, the mouse does
 
 ## Switching tabs
 
-Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs, and the empty end of the bar, do nothing.
+Left-click a tab to switch to it. A click anywhere on the tab counts, its number and flags included. The spacers between tabs, the [mode prefix](formats.md#mode-prefix) and the empty end of the bar do nothing.
 
 ### Markers
 
@@ -38,7 +38,7 @@ While the name is empty the tab shows [`rename_placeholder`](formats.md#renaming
 
 ## Closing
 
-Middle-click a tab to close it. A middle click anywhere else on the bar, such as a marker, a spacer or the empty end, does nothing.
+Middle-click a tab to close it. A middle click anywhere else on the bar, such as a marker, a spacer, the mode prefix or the empty end, does nothing.
 
 Before closing, the bar asks in Zellij's prompt popup, naming the tab by its number and name, because closing a tab closes every pane in it and ends what runs there. *Cancel* is selected when the prompt opens, so `Enter` or `Esc` straight away keeps the tab. Choose **Close tab** to close it. If the tab closes some other way while the prompt is open, choosing **Close tab** does nothing.
 
@@ -55,7 +55,7 @@ Closing needs a Zellij build that sends plugins middle clicks. See [Zellij suppo
 Right-clicking opens one of Zellij's context menus at the pointer. The items come from the `context_menu` block of Zellij's own config, not from this plugin.
 
 - Right-click a tab for the menu of that tab, from the `tab` section. Its defaults include *Rename tab*, moving the tab and *Close tab*.
-- Right-click anywhere else on the bar, such as a spacer, a marker or the empty end, for the `bar` section. Its defaults include *New pane* and *New tab*.
+- Right-click anywhere else on the bar, such as a spacer, a marker, the mode prefix or the empty end, for the `bar` section. Its defaults include *New pane* and *New tab*.
 
 Both menus end with the `common` section, whose defaults include *Settings…* and *Detach*. To add an item to a menu, add it to the matching section:
 

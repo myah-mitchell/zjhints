@@ -1,6 +1,6 @@
 # Tab formats and flags
 
-Each tab is drawn from a format string, and the states worth noticing from the bar, such as a bell, are flags drawn from small formats of their own. This page covers the placeholders, the flags, the gap between tabs, numbering and renaming, for anyone restyling the tabs.
+Each tab is drawn from a format string, and the states worth noticing from the bar, such as a bell, are flags drawn from small formats of their own. This page covers the placeholders, the flags, the gap between tabs, numbering, renaming and the mode prefix, for anyone restyling the tabs.
 
 With nothing set, every tab is a ribbon in the Zellij theme's colors, the way Zellij's own tab bar draws it: its number, its name and its flags, with the active tab in the selected ribbon color. The sections below change that one part at a time, or all of it with a [theme](#themes).
 
@@ -85,6 +85,27 @@ rename_placeholder "new name"
 
 The placeholder is plain text and appears only on the tab being renamed. Double-clicking a tab starts a rename; see [Mouse](mouse.md#renaming).
 
+## Mode prefix
+
+The bar draws the current input mode at its left end, before the tabs. It is on by default. zjhints' own `show_mode` is off by default, so with both bars at their defaults the mode shows once, on the tab bar. Turn it off when something else on screen shows the mode already, such as zjstatus or a zjhints bar with `show_mode` on:
+
+```kdl
+show_mode false
+```
+
+The prefix takes the same options as the zjhints mode prefix, with the same names and meanings: `mode_format` for every mode, `mode_format_<mode>` for one, and `mode_label_<mode>` and `mode_key_<mode>` for the name and symbol drawn as `{desc}` and `{key}`. The mode names, such as `rename_tab` for the mode you rename a tab in, are listed in [Standing alone](../nested-sessions.md#standing-alone), and one format for every mode is described in [One format for every mode](../nested-sessions.md#one-format-for-every-mode).
+
+![Four zjtabs bars with the input mode before the tabs. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow](../img/zjtabs/mode-prefix.svg)
+
+With no format set, the prefix is a bold block in the colors of Zellij's selected ribbon. A format theme draws it in the shape of its tabs, and an alias theme gives each mode a symbol. See [Themes](#themes).
+
+The prefix sits on the line like this:
+
+- `tab_spacer` separates it from the first tab or the left [overflow marker](overflow.md#markers).
+- The tabs are fitted into the columns the prefix leaves. When the prefix alone fills the bar, no tabs are drawn, and a prefix wider than the bar is cut and ends in `overflow_str`.
+- It dims with the tabs under `dim_when_unfocused`.
+- A click on it does nothing, and a right-click opens Zellij's menu for the bar, as a right-click past the tabs does.
+
 ## Themes
 
 The three theme options can each be picked on its own, and take the same values as for zjhints. See [Themes](../themes.md). For zjtabs they set:
@@ -92,8 +113,8 @@ The three theme options can each be picked on its own, and take the same values 
 | Option | What it sets for tabs |
 | --- | --- |
 | `color_theme` | The color aliases, `$accent` and the rest, exactly as for zjhints |
-| `format_theme` | `tab_format`, `active_tab_format`, `tab_spacer`, both overflow markers and `overflow_str` |
-| `alias_theme` | The four flag options, as the symbols below |
+| `format_theme` | `tab_format`, `active_tab_format`, `tab_spacer`, both overflow markers, `overflow_str`, and the [mode prefix](#mode-prefix) formats |
+| `alias_theme` | The four flag options, as the symbols below, and a `mode_key_<mode>` symbol for each mode |
 
 Your own options always win over a theme, one option at a time.
 

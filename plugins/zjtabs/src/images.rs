@@ -92,6 +92,8 @@ struct Shot<'a> {
     options: Vec<(&'a str, &'a str)>,
     tabs: &'a [SampleTab],
     columns: usize,
+    /// The input mode the bar is drawn in, which only the mode prefix shows.
+    mode: InputMode,
 }
 
 impl<'a> Shot<'a> {
@@ -109,11 +111,17 @@ impl<'a> Shot<'a> {
             options: all,
             tabs,
             columns: IMAGE_COLUMNS,
+            mode: InputMode::Normal,
         }
     }
 
     fn columns(mut self, columns: usize) -> Self {
         self.columns = columns;
+        self
+    }
+
+    fn mode(mut self, mode: InputMode) -> Self {
+        self.mode = mode;
         self
     }
 }
@@ -125,13 +133,14 @@ fn configuration_of(options: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// The bar of `tabs`, `columns` wide, with `options` as its configuration.
-fn bar(options: &[(&str, &str)], tabs: &[SampleTab], columns: usize) -> String {
+/// The bar of `tabs`, `columns` wide and in `mode`, with `options` as its
+/// configuration.
+fn bar(options: &[(&str, &str)], tabs: &[SampleTab], columns: usize, mode: InputMode) -> String {
     let mut state = State::default();
     state.bar.zellij_palette = Some(palette());
     state.apply_configuration(configuration_of(options));
     state.bar.pane_width = Some(columns);
-    state.mode_info = mode_info(InputMode::Normal);
+    state.mode_info = mode_info(mode);
     state.tabs = tabs
         .iter()
         .enumerate()
@@ -155,7 +164,11 @@ fn shots(shots: &[Shot]) -> Screen {
             dim: true,
             ..Pen::default()
         });
-        screen.print(row + 1, 0, &bar(&shot.options, shot.tabs, shot.columns));
+        screen.print(
+            row + 1,
+            0,
+            &bar(&shot.options, shot.tabs, shot.columns, shot.mode),
+        );
     }
     screen
 }
@@ -168,6 +181,7 @@ fn images() -> Vec<(&'static str, String)> {
         ("format_theme", "flat"),
         ("bell_format", "#[fg=$red,bold] \u{25cf}"),
     ];
+    let powerline_with_symbols = [("format_theme", "powerline"), ("alias_theme", "unicode")];
     vec![
         (
             "overview-default.svg",
@@ -210,6 +224,16 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("bell_format \"#[fg=$red,bold] ●\" styles the bell on its own", &BASE_THEME, &styled_bell, &FLAGGED_TABS),
             ])
             .to_svg("Five tabs with flat blocks after the NORMAL mode prefix. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red"),
+        ),
+        (
+            "mode-prefix.svg",
+            shots(&[
+                Shot::new("the default, in the Zellij theme's colors", &ZELLIJ_THEME, &[], &SESSION_TABS),
+                Shot::new("format_theme \"pills\"", &BASE_THEME, &[], &SESSION_TABS),
+                Shot::new("the same in locked mode", &BASE_THEME, &[], &SESSION_TABS).mode(InputMode::Locked),
+                Shot::new("format_theme \"powerline\", alias_theme \"unicode\"", &BASE_THEME, &powerline_with_symbols, &SESSION_TABS),
+            ])
+            .to_svg("Four zjtabs bars with the input mode before the tabs. In the Zellij theme's colors a NORMAL block leads the ribbons; with the pills theme a half-pill reading NORMAL in green leads the pills, and one reading LOCKED in red in locked mode; with the powerline theme and unicode symbols a green block holds a keyboard symbol and NORMAL, ending in an arrow"),
         ),
         (
             "overflow-markers.svg",
