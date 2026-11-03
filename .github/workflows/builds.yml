@@ -17,9 +17,14 @@
 #   plan      works out which builds this run makes
 #   assemble  merges each build's stack onto its base with tooling/builds.py,
 #             pushes the result to build/<name>, and picks its tag
-#   build     for each build: tests, compiles, keeps the plugin
-#   publish   for each build whose plugin exists: tags and releases it, moves
-#             its alias, and prunes old releases past its `keep`
+#   build     for each build: tests, compiles, keeps the plugins
+#   publish   for each build whose plugins exist: tags and releases them,
+#             moves its alias, and prunes old releases past its `keep`
+#
+# A build's tree is main's single crate, which builds zjhints.wasm, or a cargo
+# workspace such as main-dev, which builds a .wasm for each plugin in it, such
+# as zjtabs.wasm next to zjhints.wasm. This file comes from main and handles
+# both: every plugin a build makes ships, and zjhints.wasm always has to.
 #
 # Builds are independent of each other from assemble on. One that fails to
 # merge, test or compile is reported and left out, and the rest still publish.
@@ -198,9 +203,10 @@ jobs:
               where=""
             fi
             echo "::endgroup::"
+            plugins="$(jq -r '[.plugins[] | "`\(.).wasm`"] | join(", ")' "${out}")"
             echo "::notice::${name}: $(jq -r .tag "${out}") from ${sha:0:9}"
             {
-              echo "- **${name}**: \`$(jq -r .tag "${out}")\` from \`${sha:0:9}\`${where}"
+              echo "- **${name}**: \`$(jq -r .tag "${out}")\` from \`${sha:0:9}\`${where}, building ${plugins}"
               jq -r '.stack[] | select(.merged | not) | "  - `\(.ref)` is already in the base and can be dropped from the stack"' "${out}"
             } >> "${summary}"
           done
@@ -226,9 +232,9 @@ jobs:
             exit 1
           fi
 
-  # Each job tests the build, then compiles it, then keeps the plugin. The
-  # plugin therefore exists only if the tests and build passed, and that is
-  # what publish checks: one build failing never holds back another, which a
+  # Each job tests the build, then compiles it, then keeps the plugins. They
+  # therefore exist only if the tests and build passed, and that is what
+  # publish checks: one build failing never holds back another, which a
   # separate test job could not promise, since a job that needs a matrix waits
   # on all of it.
   #
@@ -243,10 +249,23 @@ jobs:
       matrix:
         build: ${{ fromJSON(needs.assemble.outputs.builds) }}
     runs-on: ubuntu-latest
+    # The build in src, and main in tooling for tooling/builds.py, the same
+    # layout publish uses. The build's own copy of the tooling may predate
+    # what this file calls.
+    defaults:
+      run:
+        working-directory: src
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: ${{ matrix.build.sha }}
+          path: src
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # builds.toml and the tooling always come from main, even on a tag
+          # push, whose own commit may predate them.
+          ref: ${{ github.ref_type == 'tag' && github.event.repository.default_branch || '' }}
+          path: tooling
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@4f647fc679bcd3b11499ccb42104547c83dabe96 # stable
@@ -254,20 +273,15 @@ jobs:
           toolchain: "1.96.0"
           target: wasm32-wasip1
 
-      # The version the release is published as, so the package says the same
-      # as its tag. Only in this build: main's Cargo.toml is never changed.
-      - name: Write the version into Cargo.toml
+      # The version the release is published as, so each plugin says the same
+      # as its tag. Only in this build: main's manifests are never changed.
+      # builds.py finds the manifests, since a single crate keeps the version
+      # in Cargo.toml and a workspace in each plugin's own manifest.
+      - name: Write the version into the plugins' manifests
         if: ${{ matrix.build.version != '' }}
         env:
           VERSION: ${{ matrix.build.version }}
-        run: |
-          set -euo pipefail
-          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::'${VERSION}' is not a version" >&2
-            exit 1
-          fi
-          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" Cargo.toml
-          grep -m1 '^version = ' Cargo.toml
+        run: python3 -I ../tooling/tooling/builds.py set-version "${VERSION}" --tree .
 
       # Tests build for the host, not wasm, which pulls in OpenSSL through
       # zellij-utils. See ci.yml.
@@ -285,11 +299,30 @@ jobs:
       - name: Build
         run: cargo build --release --target=wasm32-wasip1
 
-      - name: Keep the plugin
+      # assemble listed the plugins the tree declares. Each must have built,
+      # which a workspace's default-members could otherwise quietly skip, and
+      # zjhints must be among them, since every release carries it.
+      - name: Check the plugins built
+        env:
+          PLUGINS: ${{ toJSON(matrix.build.plugins) }}
+        run: |
+          set -euo pipefail
+          for plugin in $(jq -r '.[]' <<<"${PLUGINS}") zjhints; do
+            if [[ ! -s "target/wasm32-wasip1/release/${plugin}.wasm" ]]; then
+              echo "::error::${plugin}.wasm was not built"
+              exit 1
+            fi
+          done
+          ls -l target/wasm32-wasip1/release/*.wasm
+
+      # Every .wasm at the top of the release directory is a plugin binary;
+      # dependencies build under deps/. The build starts from scratch, so none
+      # is left over from another tree.
+      - name: Keep the plugins
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.build.name }}--zjhints
-          path: target/wasm32-wasip1/release/zjhints.wasm
+          name: ${{ matrix.build.name }}--plugins
+          path: src/target/wasm32-wasip1/release/*.wasm
           if-no-files-found: error
 
   publish:
@@ -306,15 +339,19 @@ jobs:
     steps:
       # Fails when the artifact is missing, which is what happens when this
       # build's tests or compile failed: a release never ships without its
-      # plugin.
-      - name: Collect the plugin
+      # plugins.
+      - name: Collect the plugins
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ${{ matrix.build.name }}--zjhints
+          name: ${{ matrix.build.name }}--plugins
           path: dist
 
-      - name: Check the plugin built
-        run: test -s dist/zjhints.wasm
+      # zjhints is in every release. The others, such as zjtabs, ship when the
+      # build's tree has them.
+      - name: Check the plugins built
+        run: |
+          test -s dist/zjhints.wasm
+          ls -l dist
 
       # main, for tooling/builds.py and cliff.toml, and
       # the build itself with its full history and tags, for the changelog.
@@ -395,10 +432,28 @@ jobs:
             echo "| Zellij | $(jq -r .zellij <<<"${BUILD}").x |"
             echo "| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |"
             echo
-            echo "Load it with:"
+            # zjhints first, then any other plugin the build made, so the
+            # notes name zjtabs only when it shipped.
+            plugins=(zjhints.wasm)
+            for wasm in dist/*.wasm; do
+              [[ "${wasm}" == dist/zjhints.wasm ]] || plugins+=("${wasm#dist/}")
+            done
+            if (( ${#plugins[@]} > 1 )); then
+              list=""
+              for wasm in "${plugins[@]}"; do
+                list+="${list:+, }\`${wasm}\`"
+              done
+              echo "This build ships ${#plugins[@]} plugins: ${list}."
+              echo
+              echo "Load them with:"
+            else
+              echo "Load it with:"
+            fi
             echo
             echo '```kdl'
-            echo "plugin location=\"https://github.com/${REPO}/releases/download/${tag}/zjhints.wasm\""
+            for wasm in "${plugins[@]}"; do
+              echo "plugin location=\"https://github.com/${REPO}/releases/download/${tag}/${wasm}\""
+            done
             echo '```'
             echo
             cat CHANGES.md
@@ -434,7 +489,7 @@ jobs:
           # /releases/latest/ resolves to.
           make_latest: ${{ !matrix.build.prerelease }}
           fail_on_unmatched_files: true
-          files: dist/zjhints.wasm
+          files: dist/*.wasm
 
       # A stable pointer at this build, like zellij-<line>: always the newest
       # build of this table for that value, however many have shipped since.
@@ -450,6 +505,27 @@ jobs:
           set -euo pipefail
           git tag -f "${ALIAS}" "${SHA}"
           git push -f origin "refs/tags/${ALIAS}"
+
+      # The alias release is updated in place, which replaces the assets this
+      # build has and keeps the rest. A plugin an earlier build shipped and
+      # this one does not would stay, from that older build, so it goes.
+      - name: Remove plugins this build does not ship from the alias release
+        if: ${{ matrix.build.alias != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ALIAS: ${{ matrix.build.alias }}
+        run: |
+          set -euo pipefail
+          if gh release view "${ALIAS}" --repo "${REPO}" >/dev/null 2>&1; then
+            gh release view "${ALIAS}" --repo "${REPO}" --json assets --jq '.assets[].name' \
+              | while read -r asset; do
+                  if [[ "${asset}" == *.wasm && ! -e "dist/${asset}" ]]; then
+                    echo "Removing ${asset}"
+                    gh release delete-asset "${ALIAS}" "${asset}" --repo "${REPO}" --yes
+                  fi
+                done
+          fi
 
       - name: Publish the alias release
         if: ${{ matrix.build.alias != '' }}
@@ -470,7 +546,7 @@ jobs:
           # Never latest: that is the release this one points at.
           make_latest: false
           fail_on_unmatched_files: true
-          files: dist/zjhints.wasm
+          files: dist/*.wasm
 
       - name: Prune old releases
         if: ${{ matrix.build.keep > 0 }}

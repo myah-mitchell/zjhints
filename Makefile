@@ -1,8 +1,14 @@
 TARGET  := wasm32-wasip1
 ASSET   := zjhints.wasm
 WASM    := target/$(TARGET)/release/$(ASSET)
-PLUGIN  := $(HOME)/.local/share/zellij/plugins/$(ASSET)
+PLUGINS := $(HOME)/.local/share/zellij/plugins
+PLUGIN  := $(PLUGINS)/$(ASSET)
 REPO    := myah-mitchell/zjhints
+
+# The other plugins a release may carry next to zjhints.wasm. A release built
+# from main has none yet; one built from the zjkit workspace with zjtabs in it
+# has zjtabs.wasm. The download targets install each one a release has.
+EXTRA_ASSETS := zjtabs.wasm
 
 # The asset name every release before 0.5.0 was published under. `latest` and
 # `zellij` try the current name and fall back to this one, so the older
@@ -51,6 +57,33 @@ check: test
 newest_release = curl -fsSL "https://api.github.com/repos/$(REPO)/releases?per_page=100" \
 	| grep -Eo "\"tag_name\": *\"$(1)\"" | sed -E 's/.*"([^"]+)"$$/\1/' | sort -V | tail -n1
 
+# Installs the plugins of the release whose download URL is $(1), in a recipe
+# running under `set -e`. zjhints.wasm is required, and $(2), when given, is a
+# second name to try for it.
+#
+# Each of EXTRA_ASSETS is fetched as well. A release made before that plugin
+# existed answers 404 for it, which is not an error: the plugin is skipped,
+# and a copy already installed is left as it is. Any other failure stops the
+# install. Everything is downloaded before anything is moved into place, so a
+# failed install never leaves plugins from two releases side by side.
+fetch_plugins = \
+	trap 'rm -f $(foreach a,$(ASSET) $(EXTRA_ASSETS),"$(PLUGINS)/$(a).tmp")' EXIT; \
+	curl -fsSL -o "$(PLUGIN).tmp" "$(1)/$(ASSET)" \
+		$(if $(2),|| curl -fsSL -o "$(PLUGIN).tmp" "$(1)/$(2)"); \
+	fetched="$(ASSET)"; \
+	for asset in $(EXTRA_ASSETS); do \
+		status="$$(curl -fsL -o "$(PLUGINS)/$$asset.tmp" -w '%{http_code}' "$(1)/$$asset")" || true; \
+		case "$$status" in \
+			200) fetched="$$fetched $$asset" ;; \
+			404) echo "This release has no $$asset, so it was skipped." ;; \
+			*) echo "Fetching $$asset failed (HTTP status '$$status')" >&2; exit 1 ;; \
+		esac; \
+	done; \
+	for asset in $$fetched; do \
+		mv "$(PLUGINS)/$$asset.tmp" "$(PLUGINS)/$$asset"; \
+		echo "Installed $$asset -> $(PLUGINS)/$$asset"; \
+	done
+
 # Install the newest nightly from GitHub.
 #
 # Zellij caches remote plugins by URL, and every nightly has a URL of its own,
@@ -64,22 +97,15 @@ nightly:
 		exit 1; \
 	fi; \
 	echo "Fetching $$tag from $(REPO)…"; \
-	curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/$$tag/$(ASSET)"; \
-	mv "$(PLUGIN).tmp" "$(PLUGIN)"; \
-	echo "Installed $$tag -> $(PLUGIN)"; \
-	echo "Start a new Zellij session to load it."
+	$(call fetch_plugins,https://github.com/$(REPO)/releases/download/$$tag); \
+	echo "Start a new Zellij session to load $$tag."
 
 # Same, but the current stable release.
 latest:
-	@echo "Fetching latest release from $(REPO)…"
-	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/latest/download/$(ASSET)" \
-		|| curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/latest/download/$(LEGACY_ASSET)"
-	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
-	@echo "Installed latest -> $(PLUGIN)"
-	@echo "Start a new Zellij session to load it."
+	@set -e; \
+	echo "Fetching latest release from $(REPO)…"; \
+	$(call fetch_plugins,https://github.com/$(REPO)/releases/latest/download,$(LEGACY_ASSET)); \
+	echo "Start a new Zellij session to load it."
 
 # `latest` tracks the newest zjhints, which is not always the newest
 # release built for the Zellij you actually run — zellij-tile only moves past
@@ -93,14 +119,10 @@ zellij:
 		echo "Usage: make zellij VERSION=0.44   (your Zellij's major.minor)" >&2; \
 		exit 1; \
 	fi
-	@echo "Fetching the newest release for Zellij $(VERSION).x from $(REPO)…"
-	@curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/$(ASSET)" \
-		|| curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/zellij-$(VERSION)/$(LEGACY_ASSET)"
-	@mv "$(PLUGIN).tmp" "$(PLUGIN)"
-	@echo "Installed -> $(PLUGIN)"
-	@echo "Start a new Zellij session to load it."
+	@set -e; \
+	echo "Fetching the newest release for Zellij $(VERSION).x from $(REPO)…"; \
+	$(call fetch_plugins,https://github.com/$(REPO)/releases/download/zellij-$(VERSION),$(LEGACY_ASSET)); \
+	echo "Start a new Zellij session to load it."
 
 # Install the newest build of an EA channel: a [build.ea-<label>] table in
 # builds.toml (see docs/automation.md). The channel can be rebuilt or removed
@@ -129,8 +151,5 @@ ea:
 		exit 1; \
 	fi; \
 	echo "Fetching $$tag from $(REPO)…"; \
-	curl -fsSL -o "$(PLUGIN).tmp" \
-		"https://github.com/$(REPO)/releases/download/$$tag/$(ASSET)"; \
-	mv "$(PLUGIN).tmp" "$(PLUGIN)"; \
-	echo "Installed $$tag -> $(PLUGIN)"; \
-	echo "Start a new Zellij session to load it."
+	$(call fetch_plugins,https://github.com/$(REPO)/releases/download/$$tag); \
+	echo "Start a new Zellij session to load $$tag."

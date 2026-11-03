@@ -2,6 +2,9 @@
 # releases, built and published by .github/workflows/builds.yml with
 # tooling/builds.py. See docs/automation.md.
 #
+# A release carries every plugin its build makes: zjhints.wasm always, and
+# zjtabs.wasm when the build's tree has the zjtabs plugin.
+#
 # A table builds when:
 #   - a push to main changes it
 #   - a tag matching its `tag` is pushed, for version = "tags"
@@ -19,11 +22,12 @@
 #   stack       Merged onto the base in order. Empty means the base as it is.
 #   on          "change" (default) builds when this table changes.
 #               "nightly" also builds every night that its inputs moved.
-#   version     Filled into {version}, and written into Cargo.toml for the
-#               build. Either a version like "1.2.3", bumped to cut the next
-#               release, or "tags": the version comes from a pushed tag that
-#               matches `tag`, and that tag's commit (which must be on `base`)
-#               is what gets built. Pushing the tag is the release.
+#   version     Filled into {version}, and written for the build into the
+#               manifest of each plugin it builds. Either a version like
+#               "1.2.3", bumped to cut the next release, or "tags": the
+#               version comes from a pushed tag that matches `tag`, and that
+#               tag's commit (which must be on `base`) is what gets built.
+#               Pushing the tag is the release.
 #   prerelease  Marks the release as a prerelease. Defaults to false for a
 #               build with a `version` and true for one without. A release that is not a
 #               prerelease becomes the repository's latest.
