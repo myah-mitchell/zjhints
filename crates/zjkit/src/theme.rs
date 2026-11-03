@@ -15,7 +15,7 @@
 //! values a theme selects under the user's own configuration.
 
 use std::collections::BTreeMap;
-use zellij_tile::prelude::{PaletteColor, Styling};
+use zellij_tile::prelude::{PaletteColor, StyleDeclaration, Styling};
 
 /// The option that picks a color theme.
 pub const CONFIG_COLOR_THEME: &str = "color_theme";
@@ -404,6 +404,25 @@ pub fn color_value(color: PaletteColor) -> String {
     }
 }
 
+/// `text` as a format string drawn in the colors of a Zellij ribbon, bold
+/// when `bold` is set, or unstyled while `ribbon` is `None`, before Zellij
+/// has sent its theme.
+///
+/// This is how a bar draws a piece in Zellij's own look, the one it has
+/// while its format option is unset: a tab bar's tabs on the selected and
+/// unselected ribbons, say, the way Zellij's own tab bar draws them.
+pub fn zellij_look(ribbon: Option<StyleDeclaration>, text: &str, bold: bool) -> String {
+    match ribbon {
+        Some(ribbon) => format!(
+            "#[fg={},bg={}{}]{text}",
+            color_value(ribbon.base),
+            color_value(ribbon.background),
+            if bold { ",bold" } else { "" },
+        ),
+        None => text.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -413,6 +432,24 @@ mod tests {
             .iter()
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn the_zellij_look_draws_text_on_a_ribbon_once_its_colors_are_known() {
+        let ribbon = StyleDeclaration {
+            base: PaletteColor::Rgb((1, 2, 3)),
+            background: PaletteColor::EightBit(238),
+            ..Default::default()
+        };
+        assert_eq!(
+            zellij_look(Some(ribbon), " {name} ", true),
+            "#[fg=#010203,bg=238,bold] {name} "
+        );
+        assert_eq!(
+            zellij_look(Some(ribbon), "+{count}", false),
+            "#[fg=#010203,bg=238]+{count}"
+        );
+        assert_eq!(zellij_look(None, " {name} ", true), " {name} ");
     }
 
     fn is_hex_color(value: &str) -> bool {

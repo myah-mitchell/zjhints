@@ -7,16 +7,14 @@ use crate::flags::FLAGS;
 use crate::State;
 use ansi_term::{ANSIString, ANSIStrings};
 use std::borrow::Cow;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use zellij_tile::prelude::*;
 use zjkit::ansi::{calculate_visible_length, cut_line, show_controls, CutLine};
-use zjkit::fit;
+use zjkit::fit::{self, once_per_count};
 use zjkit::format::{self, Fill};
 use zjkit::mode::render_mode_prefix;
 use zjkit::mouse::ColumnSpans;
 use zjkit::nesting;
-use zjkit::theme::color_value;
+use zjkit::theme::zellij_look;
 
 /// What the tab looks like in Zellij's own colors, when no format is set:
 /// its index, its name and its flags on a ribbon.
@@ -589,54 +587,9 @@ impl State {
     }
 }
 
-/// `measure`, remembering its answer for each count so that it runs once per
-/// count. `fit::window` asks for a marker's width at every step it tries, and
-/// mostly for counts it has asked about before, while each answer means
-/// drawing the marker.
-fn once_per_count(measure: impl Fn(usize) -> usize) -> impl Fn(usize) -> usize {
-    let known = RefCell::new(HashMap::new());
-    move |count| {
-        *known
-            .borrow_mut()
-            .entry(count)
-            .or_insert_with(|| measure(count))
-    }
-}
-
 /// Which side of the shown tabs a marker stands on.
 #[derive(Clone, Copy)]
 enum Side {
     Left,
     Right,
-}
-
-/// `text` as a format string drawn in the colors of a Zellij ribbon, or
-/// unstyled before Zellij has sent its theme.
-fn zellij_look(ribbon: Option<StyleDeclaration>, text: &str, bold: bool) -> String {
-    match ribbon {
-        Some(ribbon) => format!(
-            "#[fg={},bg={}{}]{text}",
-            color_value(ribbon.base),
-            color_value(ribbon.background),
-            if bold { ",bold" } else { "" },
-        ),
-        None => text.to_string(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::once_per_count;
-    use std::cell::Cell;
-
-    #[test]
-    fn a_width_is_measured_once_for_each_count() {
-        let measured = Cell::new(0);
-        let width = once_per_count(|count| {
-            measured.set(measured.get() + 1);
-            count * 2
-        });
-        assert_eq!([width(3), width(3), width(10), width(3)], [6, 6, 20, 6]);
-        assert_eq!(measured.get(), 2);
-    }
 }

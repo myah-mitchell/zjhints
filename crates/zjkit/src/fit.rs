@@ -14,6 +14,9 @@
 //! tabs. Nothing is pinned by group there; one item (the active tab) must stay
 //! on screen, and the rest are shown as far outward from it as they fit.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 /// Where an item sits relative to the unpinned ones in a pinned order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
@@ -279,9 +282,35 @@ pub fn window(
     }
 }
 
+/// `measure`, remembering its answer for each count so that it runs once per
+/// count. `window` asks for a marker's width at every step it tries, and
+/// mostly for counts it has asked about before, while each answer means
+/// drawing the marker, so a bar hands its marker widths to `window` through
+/// this.
+pub fn once_per_count(measure: impl Fn(usize) -> usize) -> impl Fn(usize) -> usize {
+    let known = RefCell::new(HashMap::new());
+    move |count| {
+        *known
+            .borrow_mut()
+            .entry(count)
+            .or_insert_with(|| measure(count))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_width_is_measured_once_for_each_count() {
+        let measured = std::cell::Cell::new(0);
+        let width = once_per_count(|count| {
+            measured.set(measured.get() + 1);
+            count * 2
+        });
+        assert_eq!([width(3), width(3), width(10), width(3)], [6, 6, 20, 6]);
+        assert_eq!(measured.get(), 2);
+    }
 
     #[derive(Debug, PartialEq)]
     struct Item {
