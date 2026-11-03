@@ -159,22 +159,47 @@ fn colour_of(color: PaletteColor) -> Colour {
     }
 }
 
+/// The end of a bar's line a block of it stands against, which decides
+/// which of a shape's two ends the block draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Edge {
+    /// The start of the line, as the mode prefix of zjhints and zjtabs is.
+    /// The block draws only its right end, which faces the rest of the line.
+    Left,
+    /// The end of the line, as a tray or zjtabs' session name is. The block
+    /// draws only its left end, the mirror image of a block at the start.
+    Right,
+}
+
 /// Lay the mode prefix's options the selected themes set under `layered`,
 /// which is `configuration` with the plugin's own theme options laid under it
-/// so far. A key already in `layered`, the user's own included, is never
-/// replaced.
+/// so far, for a bar that draws the prefix at the start of its line. See
+/// `layer_theme_at`.
+pub fn layer_theme(
+    configuration: &BTreeMap<String, String>,
+    layered: &mut BTreeMap<String, String>,
+) {
+    layer_theme_at(configuration, layered, Edge::Left);
+}
+
+/// Lay the mode prefix's options the selected themes set under `layered`,
+/// which is `configuration` with the plugin's own theme options laid under it
+/// so far, for a bar that draws the mode against `edge` of its line. A key
+/// already in `layered`, the user's own included, is never replaced.
 ///
 /// - The alias theme gives every mode a symbol, `mode_key_<mode>`.
 /// - The format theme gives `mode_format` and a `mode_format_<mode>` for
 ///   every mode, each in the color `theme::MODES` gives that mode, with a
-///   block for the mode's symbol when it has one.
+///   block for the mode's symbol when it has one, in the shape that fits
+///   `edge`.
 ///
 /// A per-mode format outranks `mode_format`. When the user sets
 /// `mode_format` they mean it for every mode, so the theme's per-mode
 /// formats are left out rather than overriding it.
-pub fn layer_theme(
+pub fn layer_theme_at(
     configuration: &BTreeMap<String, String>,
     layered: &mut BTreeMap<String, String>,
+    edge: Edge,
 ) {
     if let Some(theme) = theme::alias_theme(configuration) {
         for (mode, symbol) in theme.modes {
@@ -200,38 +225,54 @@ pub fn layer_theme(
     let user_sets_mode_format = configuration.contains_key(CONFIG_MODE_FORMAT);
     layered
         .entry(CONFIG_MODE_FORMAT.to_string())
-        .or_insert_with(|| mode_format("accent", shape, false));
+        .or_insert_with(|| mode_format("accent", shape, false, edge));
     if !user_sets_mode_format {
         for ((mode, alias), keyed) in MODES.iter().zip(keyed) {
             layered
                 .entry(format!("{CONFIG_MODE_FORMAT_PREFIX}{mode}"))
-                .or_insert_with(|| mode_format(alias, shape, keyed));
+                .or_insert_with(|| mode_format(alias, shape, keyed, edge));
         }
     }
 }
 
 /// The mode prefix drawn on the color `alias` in `shape`, with a block for
-/// the mode's `{key}` symbol when `keyed`.
+/// the mode's `{key}` symbol when `keyed`, against `edge` of the line.
 ///
-/// The prefix opens the line, against the edge of the pane, so a shape with
-/// ends draws only the end that faces the rest of the line.
-fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
-    match (shape, keyed) {
-        (Shape::Flat, false) => format!("#[fg=$bg,bg=${alias},bold] {{desc}} "),
-        (Shape::Flat, true) => format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} "),
-        (Shape::Plain, false) => format!("#[fg=${alias},bold]{{desc}}"),
-        (Shape::Plain, true) => format!("#[fg=${alias},bold]{{key}} {{desc}}"),
-        (Shape::Powerline, false) => {
+/// A shape with ends draws only the end that faces the rest of the line:
+/// the right one at the start of the line, the left one at its end. A pill
+/// draws the symbol in its own block by the drawn end, so that block moves
+/// to the name's other side; the other shapes read the symbol, then the
+/// name, at either edge. A flat or plain shape has no ends, so it is the
+/// same at either edge.
+fn mode_format(alias: &str, shape: Shape, keyed: bool, edge: Edge) -> String {
+    match (shape, keyed, edge) {
+        (Shape::Flat, false, _) => format!("#[fg=$bg,bg=${alias},bold] {{desc}} "),
+        (Shape::Flat, true, _) => format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} "),
+        (Shape::Plain, false, _) => format!("#[fg=${alias},bold]{{desc}}"),
+        (Shape::Plain, true, _) => format!("#[fg=${alias},bold]{{key}} {{desc}}"),
+        (Shape::Powerline, false, Edge::Left) => {
             format!("#[fg=$bg,bg=${alias},bold] {{desc}} #[fg=${alias}]{ARROW}")
         }
-        (Shape::Powerline, true) => {
+        (Shape::Powerline, true, Edge::Left) => {
             format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} #[fg=${alias}]{ARROW}")
         }
-        (Shape::Pills, false) => {
+        (Shape::Powerline, false, Edge::Right) => {
+            format!("#[fg=${alias}]{ARROW_LEFT}#[fg=$bg,bg=${alias},bold] {{desc}} ")
+        }
+        (Shape::Powerline, true, Edge::Right) => {
+            format!("#[fg=${alias}]{ARROW_LEFT}#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} ")
+        }
+        (Shape::Pills, false, Edge::Left) => {
             format!("#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$surface]{PILL_RIGHT}")
         }
-        (Shape::Pills, true) => format!(
+        (Shape::Pills, true, Edge::Left) => format!(
             "#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$bg,bg=${alias},bold] {{key}} #[fg=${alias}]{PILL_RIGHT}"
+        ),
+        (Shape::Pills, false, Edge::Right) => {
+            format!("#[fg=$surface]{PILL_LEFT}#[fg=${alias},bg=$surface,bold] {{desc}} ")
+        }
+        (Shape::Pills, true, Edge::Right) => format!(
+            "#[fg=${alias}]{PILL_LEFT}#[fg=$bg,bg=${alias},bold] {{key}} #[fg=${alias},bg=$surface,bold] {{desc}} "
         ),
     }
 }
@@ -248,23 +289,10 @@ const SESSION_COLOR: &str = "accent";
 /// the mirror image of the mode prefix, which opens the line. Its one
 /// placeholder, `{session}`, is the session's name.
 ///
-/// The block closes the line, against the right edge of the pane, so a shape
-/// with ends draws only the end that faces the rest of the line, on its left:
-/// the left half of a pill, or an arrow pointing back along the line. A flat
-/// or plain one is the mode prefix's look with the name in place of the
-/// mode's.
+/// It is the mode prefix's own look against the line's right edge, with no
+/// symbol and the name in place of the mode's: see `mode_format`.
 pub fn session_format(shape: Shape) -> String {
-    let color = SESSION_COLOR;
-    match shape {
-        Shape::Flat => format!("#[fg=$bg,bg=${color},bold] {{session}} "),
-        Shape::Plain => format!("#[fg=${color},bold]{{session}}"),
-        Shape::Powerline => {
-            format!("#[fg=${color}]{ARROW_LEFT}#[fg=$bg,bg=${color},bold] {{session}} ")
-        }
-        Shape::Pills => {
-            format!("#[fg=$surface]{PILL_LEFT}#[fg=${color},bg=$surface,bold] {{session}} ")
-        }
-    }
+    mode_format(SESSION_COLOR, shape, false, Edge::Right).replace("{desc}", "{session}")
 }
 
 /// Whether a bar draws the session's name in `mode_info`, with its
@@ -376,7 +404,7 @@ mod tests {
     fn the_session_format_mirrors_the_mode_prefix_in_every_shape() {
         for (name, shape) in FORMAT_THEMES {
             let session = session_format(shape);
-            let mode = mode_format("accent", shape, false);
+            let mode = mode_format("accent", shape, false, Edge::Left);
             assert!(session.contains("{session}"), "{name}");
             assert!(session.contains("$accent"), "{name}");
             // The prefix's end faces right, after its block; the session's
@@ -442,6 +470,73 @@ mod tests {
                 assert!(session_shown(Some(true), default, &mode_info));
                 assert!(!session_shown(Some(false), default, &mode_info));
             }
+        }
+    }
+
+    fn layered_at(pairs: &[(&str, &str)], edge: Edge) -> BTreeMap<String, String> {
+        let configuration = cfg(pairs);
+        let mut layered = configuration.clone();
+        layer_theme_at(&configuration, &mut layered, edge);
+        layered
+    }
+
+    #[test]
+    fn at_the_right_edge_every_mode_format_is_the_mirror_image_of_the_left_one() {
+        for (name, shape) in FORMAT_THEMES {
+            for alias_theme in ["zellij", "unicode"] {
+                let pairs = [
+                    (CONFIG_FORMAT_THEME, name),
+                    (CONFIG_ALIAS_THEME, alias_theme),
+                ];
+                let left = layered_at(&pairs, Edge::Left);
+                let right = layered_at(&pairs, Edge::Right);
+                assert_eq!(left, layered(&pairs), "{name}");
+                let keys: Vec<&String> = left.keys().collect();
+                assert_eq!(keys, right.keys().collect::<Vec<_>>(), "{name}");
+                for key in keys
+                    .into_iter()
+                    .filter(|key| key.starts_with(CONFIG_MODE_FORMAT))
+                {
+                    let (left, right) = (&left[key], &right[key]);
+                    for placeholder in ["{desc}", "{key}"] {
+                        assert_eq!(
+                            left.contains(placeholder),
+                            right.contains(placeholder),
+                            "{name} {key}"
+                        );
+                    }
+                    match shape {
+                        // The end comes first, facing back along the line,
+                        // and the right-facing one is gone.
+                        Shape::Powerline => {
+                            assert!(right.find(ARROW_LEFT) < right.find("{desc}"), "{key}");
+                            assert!(!right.contains(ARROW), "{name} {key}");
+                        }
+                        Shape::Pills => {
+                            assert!(right.find(PILL_LEFT) < right.find("{desc}"), "{key}");
+                            assert!(!right.contains(PILL_RIGHT), "{name} {key}");
+                        }
+                        Shape::Flat | Shape::Plain => assert_eq!(left, right, "{name} {key}"),
+                    }
+                    // A pill's symbol block stays by its drawn end.
+                    if right.contains("{key}") && shape == Shape::Pills {
+                        assert!(right.find("{key}") < right.find("{desc}"), "{name} {key}");
+                        assert!(left.find("{desc}") < left.find("{key}"), "{name} {key}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_session_format_is_the_right_edge_mode_prefix_with_the_name() {
+        for (name, shape) in FORMAT_THEMES {
+            let mode = mode_format(SESSION_COLOR, shape, false, Edge::Right);
+            assert_eq!(
+                session_format(shape).replace("{session}", "{desc}"),
+                mode,
+                "{name}"
+            );
         }
     }
 
