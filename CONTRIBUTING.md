@@ -75,9 +75,12 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 
 ### The zjtabs plugin
 
+zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij, so that zjhints' tests can depend on the library and draw zjtabs in its images (see [Images](#images)).
+
 | File | What it holds |
 | --- | --- |
-| `main.rs` | The plugin state, its options, and the Zellij event loop |
+| `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
+| `main.rs` | The plugin's registration with Zellij |
 | `tabs.rs` | The tabs and the mode prefix before them, laying them out on one line and the window around the active tab |
 | `flags.rs` | The four flags a tab can show and their formats |
 | `mouse.rs` | Clicks, the wheel, double-click renaming, middle-click closing, the right-click menus and opening the settings screen from the mode prefix |

@@ -12,13 +12,12 @@
 //! files, so `cargo test` in CI fails when a change to the bar leaves an image
 //! out of date.
 
+use crate::draw_for_image;
 use crate::flags::FLAGS;
-use crate::tabs::Tab;
-use crate::State;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use zellij_tile::prelude::InputMode;
-use zjkit::images::{mode_info, palette, Pen, Screen};
+use zellij_tile::prelude::{InputMode, TabInfo};
+use zjkit::images::{mode_info, Pen, Screen};
 
 /// The plugin the images are drawn for. The engine marks each SVG with it and
 /// removes only the SVGs that carry it.
@@ -136,23 +135,25 @@ fn configuration_of(options: &[(&str, &str)]) -> BTreeMap<String, String> {
 /// The bar of `tabs`, `columns` wide and in `mode`, with `options` as its
 /// configuration.
 fn bar(options: &[(&str, &str)], tabs: &[SampleTab], columns: usize, mode: InputMode) -> String {
-    let mut state = State::default();
-    state.bar.zellij_palette = Some(palette());
-    state.apply_configuration(configuration_of(options));
-    state.bar.pane_width = Some(columns);
-    state.mode_info = mode_info(mode);
-    state.tabs = tabs
+    let tabs: Vec<TabInfo> = tabs
         .iter()
         .enumerate()
-        .map(|(position, (name, active, flags))| Tab {
-            position,
-            tab_id: position,
-            name: name.to_string(),
-            active: *active,
-            flags: *flags,
+        .map(|(position, (name, active, flags))| {
+            let [fullscreen, sync, floating, bell] = *flags;
+            TabInfo {
+                position,
+                tab_id: position,
+                name: name.to_string(),
+                active: *active,
+                is_fullscreen_active: fullscreen,
+                is_sync_panes_active: sync,
+                are_floating_panes_visible: floating,
+                has_bell_notification: bell,
+                ..Default::default()
+            }
         })
         .collect();
-    state.draw_bar().0
+    draw_for_image(configuration_of(options), mode_info(mode), &tabs, columns)
 }
 
 /// A screen holding each shot under its caption.
