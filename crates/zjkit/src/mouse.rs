@@ -146,6 +146,13 @@ impl<T> ColumnSpans<T> {
         }
     }
 
+    /// Make the columns of every span of `other` stand for its value here
+    /// too, as when one part of a line is laid out on its own and then drawn
+    /// after another.
+    pub fn append(&mut self, other: ColumnSpans<T>) {
+        self.spans.extend(other.spans);
+    }
+
     /// The span covering `column`, if any.
     pub fn span_at(&self, column: usize) -> Option<&ColumnSpan<T>> {
         self.spans
@@ -794,6 +801,15 @@ mod tests {
         assert_eq!(spans.value_at(1), Some(&'b'));
         assert_eq!(spans.value_at(2), None);
         assert_eq!(ColumnSpans::<char>::default().value_at(0), None);
+    }
+
+    #[test]
+    fn appended_spans_keep_their_own_columns() {
+        let mut spans = ColumnSpans::lay_out(0, [(2, Some('a'))]);
+        spans.append(ColumnSpans::lay_out(3, [(1, Some('b'))]));
+        assert_eq!(spans.value_at(1), Some(&'a'));
+        assert_eq!(spans.value_at(2), None);
+        assert_eq!(spans.value_at(3), Some(&'b'));
     }
 
     fn press(kind: PressKind, column: usize) -> BarMouseEvent {
