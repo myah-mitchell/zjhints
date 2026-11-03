@@ -132,6 +132,31 @@ pub trait Host {
     /// Close the plugin pane `plugin_pane_id`.
     fn close_plugin_pane(&self, plugin_pane_id: u32);
 
+    /// Open a new floating pane running `command`, at `coordinates` or
+    /// wherever Zellij finds room. `context` comes back with the events
+    /// about the pane. A command with no `cwd` runs in the working directory
+    /// of the pane focused when it opens, as a pane Zellij's own keys open
+    /// does. A relative `cwd` is taken from this plugin's own working
+    /// directory, and Zellij maps a `cwd` under `/host`, `/data`, `/cache` or
+    /// `/tmp` to the plugin's own folders, as it maps every path a plugin
+    /// gives it.
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    );
+
+    /// Open the plugin at `url`, a URL or an alias, in a new floating pane
+    /// with `configuration`, at `coordinates` or wherever Zellij finds room.
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    );
+
     /// Ask every running bar of the plugin `names` belongs to whether it is
     /// hidden, naming this bar's `alias` when it knows it. See
     /// `visibility::Names::ask`.
@@ -313,6 +338,25 @@ impl Host for Zellij {
         close_plugin_pane(plugin_pane_id);
     }
 
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        open_command_pane_floating(command, coordinates, context);
+    }
+
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        open_plugin_pane_floating(url, configuration, coordinates, context);
+    }
+
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
         let mut message = MessageToPlugin::new(names.ask);
         if let Some(alias) = alias {
@@ -420,6 +464,22 @@ pub enum Call {
     ChangeFloatingPanesCoordinates(Vec<(PaneId, FloatingPaneCoordinates)>),
     CloseTerminalPane(u32),
     ClosePluginPane(u32),
+    /// The fields of the `CommandToRun` given, which has no `PartialEq` of
+    /// its own to compare by. Its border style is left out, as no plugin
+    /// sets one.
+    OpenCommandPaneFloating {
+        path: PathBuf,
+        args: Vec<String>,
+        cwd: Option<PathBuf>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    },
+    OpenPluginPaneFloating {
+        url: String,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    },
     /// `message` is the `ask` name of the `visibility::Names` given.
     AskVisibility {
         message: &'static str,
@@ -624,6 +684,36 @@ impl Host for Recorder {
 
     fn close_plugin_pane(&self, plugin_pane_id: u32) {
         self.record(Call::ClosePluginPane(plugin_pane_id));
+    }
+
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        self.record(Call::OpenCommandPaneFloating {
+            path: command.path,
+            args: command.args,
+            cwd: command.cwd,
+            coordinates,
+            context,
+        });
+    }
+
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        self.record(Call::OpenPluginPaneFloating {
+            url: url.to_string(),
+            configuration,
+            coordinates,
+            context,
+        });
     }
 
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
