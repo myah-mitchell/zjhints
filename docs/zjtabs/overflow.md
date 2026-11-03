@@ -23,7 +23,7 @@ Showing the last hidden tab on a side removes that side's marker, which frees it
 
 The same ten tabs in bars of 100, 64 and 44 columns, with the logs tab active, in `flat` blocks:
 
-![Ten tabs in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side](../img/zjtabs/overflow-markers.svg)
+![Ten tabs after the NORMAL mode prefix, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side](../img/zjtabs/overflow-markers.svg)
 
 ## Markers
 
@@ -57,7 +57,7 @@ overflow_str "..." // default
 
 `overflow_str` is a format string, so it can be styled or a single glyph such as `…`. The default matches zjhints, so the two bars cut alike, and a format theme sets its own.
 
-![One active tab named for everything it is used for, in a bar of 36 columns. The tab is cut to fit and ends in three dots, then in an ellipsis with overflow_str set to one](../img/zjtabs/overflow-lone-tab.svg)
+![One active tab named for everything it is used for, after the NORMAL mode prefix in a bar of 36 columns. The tab is cut to fit and ends in three dots, then in an ellipsis with overflow_str set to one](../img/zjtabs/overflow-lone-tab.svg)
 
 The part of the cut tab still showing can be clicked as usual. The `overflow_str` itself stands for nothing.
 

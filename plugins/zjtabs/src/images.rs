@@ -177,7 +177,7 @@ fn images() -> Vec<(&'static str, String)> {
                 &[],
                 &SESSION_TABS,
             )])
-            .to_svg("The zjtabs bar in the Zellij theme's colors: five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)"),
+            .to_svg("The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)"),
         ),
         (
             "themes-shapes.svg",
@@ -191,7 +191,7 @@ fn images() -> Vec<(&'static str, String)> {
                     )
                 }),
             )
-            .to_svg("The same five tabs under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors"),
+            .to_svg("The NORMAL mode prefix and the same five tabs under each format theme: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills, all in catppuccin-mocha colors"),
         ),
         (
             "flags-alias-themes.svg",
@@ -200,7 +200,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("alias_theme \"ascii\"", &BASE_THEME, &[("alias_theme", "ascii")], &FLAGGED_TABS),
                 Shot::new("alias_theme \"unicode\"", &BASE_THEME, &[("alias_theme", "unicode")], &FLAGGED_TABS),
             ])
-            .to_svg("Five tabs with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols"),
+            .to_svg("Five tabs after the NORMAL mode prefix, with the docs tab fullscreen, the logs tab synced and the server tab belled. With the zellij alias theme the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol"),
         ),
         (
             "flags-formats.svg",
@@ -209,7 +209,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("sync_format \"\" hides the sync flag", &BASE_THEME, &no_sync_flag, &FLAGGED_TABS),
                 Shot::new("bell_format \"#[fg=$red,bold] ●\" styles the bell on its own", &BASE_THEME, &styled_bell, &FLAGGED_TABS),
             ])
-            .to_svg("Five tabs with flat blocks. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red"),
+            .to_svg("Five tabs with flat blocks after the NORMAL mode prefix. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red"),
         ),
         (
             "overflow-markers.svg",
@@ -218,7 +218,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("64 columns", &BASE_THEME, &flat, &MANY_TABS).columns(64),
                 Shot::new("44 columns", &BASE_THEME, &flat, &MANY_TABS).columns(44),
             ])
-            .to_svg("Ten tabs in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side"),
+            .to_svg("Ten tabs after the NORMAL mode prefix, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side"),
         ),
         (
             "overflow-lone-tab.svg",
@@ -226,7 +226,7 @@ fn images() -> Vec<(&'static str, String)> {
                 Shot::new("a lone tab wider than the bar, 36 columns", &ZELLIJ_THEME, &[], &LONE_TAB).columns(36),
                 Shot::new("the same with overflow_str \"…\"", &ZELLIJ_THEME, &[("overflow_str", "\u{2026}")], &LONE_TAB).columns(36),
             ])
-            .to_svg("One active tab named for everything it is used for, in a bar of 36 columns. The tab is cut to fit and ends in three dots, then in an ellipsis with overflow_str set to one"),
+            .to_svg("One active tab named for everything it is used for, after the NORMAL mode prefix in a bar of 36 columns. The tab is cut to fit and ends in three dots, then in an ellipsis with overflow_str set to one"),
         ),
     ]
 }

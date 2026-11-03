@@ -1,32 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="928" height="168" viewBox="0 0 928 168" role="img">
 <!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
-<title>Five tabs with flat blocks. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red</title>
+<title>Five tabs with flat blocks after the NORMAL mode prefix. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names; with sync_format empty the logs tab shows no flag; with a styled bell_format the server tab's dot is red</title>
 <rect width="928" height="168" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
 <g shape-rendering="crispEdges">
-<rect x="0" y="18" width="81" height="18" fill="#313244"/>
-<rect x="90" y="18" width="90" height="18" fill="#cba6f7"/>
-<rect x="189" y="18" width="189" height="18" fill="#313244"/>
-<rect x="387" y="18" width="135" height="18" fill="#313244"/>
-<rect x="531" y="18" width="108" height="18" fill="#313244"/>
-<rect x="0" y="72" width="81" height="18" fill="#313244"/>
-<rect x="90" y="72" width="90" height="18" fill="#cba6f7"/>
-<rect x="189" y="72" width="189" height="18" fill="#313244"/>
-<rect x="387" y="72" width="72" height="18" fill="#313244"/>
-<rect x="468" y="72" width="108" height="18" fill="#313244"/>
-<rect x="0" y="126" width="81" height="18" fill="#313244"/>
-<rect x="90" y="126" width="90" height="18" fill="#cba6f7"/>
-<rect x="189" y="126" width="189" height="18" fill="#313244"/>
-<rect x="387" y="126" width="135" height="18" fill="#313244"/>
-<rect x="531" y="126" width="108" height="18" fill="#313244"/>
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="81" height="18" fill="#313244"/>
+<rect x="171" y="18" width="90" height="18" fill="#cba6f7"/>
+<rect x="270" y="18" width="189" height="18" fill="#313244"/>
+<rect x="468" y="18" width="135" height="18" fill="#313244"/>
+<rect x="612" y="18" width="108" height="18" fill="#313244"/>
+<rect x="0" y="72" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="72" width="81" height="18" fill="#313244"/>
+<rect x="171" y="72" width="90" height="18" fill="#cba6f7"/>
+<rect x="270" y="72" width="189" height="18" fill="#313244"/>
+<rect x="468" y="72" width="72" height="18" fill="#313244"/>
+<rect x="549" y="72" width="108" height="18" fill="#313244"/>
+<rect x="0" y="126" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="126" width="81" height="18" fill="#313244"/>
+<rect x="171" y="126" width="90" height="18" fill="#cba6f7"/>
+<rect x="270" y="126" width="189" height="18" fill="#313244"/>
+<rect x="468" y="126" width="135" height="18" fill="#313244"/>
+<rect x="612" y="126" width="108" height="18" fill="#313244"/>
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90 108 117 126 135 153 162 171 180 189 198 207" fill="#878ca4">thedefaultflagformats</tspan></text>
-<text y="31"><tspan x="9 27 36 45 54 63" fill="#cdd6f4">1shell</tspan><tspan x="99 117 126 135 144 153 162" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="198 216 225 234 243 261 270 279 288 297 306 315 324 333 342 351 360 396 414 423 432 441 459 468 477 486 495 504 540 558 567 576 585 594 603 621" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server●</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 126 135 144" fill="#cdd6f4">1shell</tspan><tspan x="180 198 207 216 225 234 243" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="279 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 477 495 504 513 522 540 549 558 567 576 585 621 639 648 657 666 675 684 702" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server●</tspan></text>
 <text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 135 144 153 162 171 189 198 207 225 234 243 252 270 279 288 297" fill="#878ca4">sync_format""hidesthesyncflag</tspan></text>
-<text y="85"><tspan x="9 27 36 45 54 63" fill="#cdd6f4">1shell</tspan><tspan x="99 117 126 135 144 153 162" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="198 216 225 234 243 261 270 279 288 297 306 315 324 333 342 351 360 396 414 423 432 441 477 495 504 513 522 531 540 558" fill="#cdd6f4">3docs(FULLSCREEN)4logs5server●</tspan></text>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 126 135 144" fill="#cdd6f4">1shell</tspan><tspan x="180 198 207 216 225 234 243" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="279 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 477 495 504 513 522 558 576 585 594 603 612 621 639" fill="#cdd6f4">3docs(FULLSCREEN)4logs5server●</tspan></text>
 <text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 261 270 288 297 306 315 324 333 351 360 369 387 396 405 414 432 441 459 468 477 495 504 513" fill="#878ca4">bell_format"#[fg=$red,bold]●"stylesthebellonitsown</tspan></text>
-<text y="139"><tspan x="9 27 36 45 54 63" fill="#cdd6f4">1shell</tspan><tspan x="99 117 126 135 144 153 162" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="198 216 225 234 243 261 270 279 288 297 306 315 324 333 342 351 360 396 414 423 432 441 459 468 477 486 495 504 540 558 567 576 585 594 603" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server</tspan><tspan x="621" fill="#f38ba8" font-weight="bold">●</tspan></text>
+<text y="139"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 126 135 144" fill="#cdd6f4">1shell</tspan><tspan x="180 198 207 216 225 234 243" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="279 297 306 315 324 342 351 360 369 378 387 396 405 414 423 432 441 477 495 504 513 522 540 549 558 567 576 585 621 639 648 657 666 675 684" fill="#cdd6f4">3docs(FULLSCREEN)4logs(SYNC)5server</tspan><tspan x="702" fill="#f38ba8" font-weight="bold">●</tspan></text>
 </g>
 </g>
 </svg>

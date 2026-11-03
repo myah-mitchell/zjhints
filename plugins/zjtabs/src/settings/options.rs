@@ -15,7 +15,14 @@ use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Tabs", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse",
+    "Tabs",
+    "Flags",
+    "Mode prefix",
+    "Overflow",
+    "Theme",
+    "Colors",
+    "Behavior",
+    "Mouse",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -83,6 +90,20 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Format string for the flag of a tab that rang the bell or needs you, empty to hide it",
     ),
     option(
+        "show_mode",
+        "Mode prefix",
+        Kind::Bool,
+        Some("true"),
+        "Draw the current input mode before the tabs",
+    ),
+    option(
+        "mode_format",
+        "Mode prefix",
+        Kind::Format,
+        None,
+        "Format string for the mode prefix, with {desc}, {key} and {mode} placeholders",
+    ),
+    option(
         "auto_width",
         "Overflow",
         Kind::Bool,
@@ -136,14 +157,14 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Theme",
         Kind::Choice(&FORMAT_CHOICES),
         Some("zellij"),
-        "The shape of tabs and markers: Zellij's ribbons or a built-in format",
+        "The shape of tabs, markers and the mode prefix: Zellij's ribbons or a built-in format",
     ),
     option(
         "alias_theme",
         "Theme",
         Kind::Choice(&ALIAS_CHOICES),
         Some("zellij"),
-        "The symbols for the flags: Zellij's words or a built-in set",
+        "The symbols for the flags and modes: Zellij's words or a built-in set",
     ),
     option(
         "hidden",
@@ -203,12 +224,32 @@ pub const OPTIONS: &[OptionSpec] = &[
     ),
 ];
 
-pub const FAMILIES: &[FamilySpec] = &[family(
-    "color_<name>",
-    "Colors",
-    Kind::Text,
-    "A color alias, used as $name in format strings",
-)];
+pub const FAMILIES: &[FamilySpec] = &[
+    family(
+        "mode_format_<mode>",
+        "Mode prefix",
+        Kind::Format,
+        "The mode prefix's format string for one mode",
+    ),
+    family(
+        "mode_label_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's name, drawn for {desc} in the mode prefix",
+    ),
+    family(
+        "mode_key_<mode>",
+        "Mode prefix",
+        Kind::Text,
+        "A mode's symbol, drawn for {key} in the mode prefix",
+    ),
+    family(
+        "color_<name>",
+        "Colors",
+        Kind::Text,
+        "A color alias, used as $name in format strings",
+    ),
+];
 
 /// Options of the settings screen itself, read only when it is opened. They
 /// configure the screen rather than the bar, so they are not listed on it.
@@ -224,12 +265,12 @@ mod tests {
         CONFIG_DIM_STRENGTH, CONFIG_DIM_WHEN_UNFOCUSED, CONFIG_HIDE_WHEN_NESTED,
         CONFIG_INDEX_FROM_ZERO, CONFIG_MAX_LENGTH, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
         CONFIG_MOUSE_WHEEL_REVERSED, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
-        CONFIG_OVERFLOW_STR, CONFIG_RENAME_PLACEHOLDER, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER,
-        DEFAULT_AUTO_WIDTH, DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH,
+        CONFIG_OVERFLOW_STR, CONFIG_RENAME_PLACEHOLDER, CONFIG_SHOW_MODE, CONFIG_TAB_FORMAT,
+        CONFIG_TAB_SPACER, DEFAULT_AUTO_WIDTH, DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH,
         DEFAULT_DIM_WHEN_UNFOCUSED, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_INDEX_FROM_ZERO,
         DEFAULT_MAX_LENGTH, DEFAULT_MOUSE, DEFAULT_MOUSE_CLOSE_CONFIRM,
         DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR, DEFAULT_RENAME_PLACEHOLDER,
-        DEFAULT_TAB_SPACER,
+        DEFAULT_SHOW_MODE, DEFAULT_TAB_SPACER,
     };
     use zjkit::settings::reference;
 
@@ -270,6 +311,8 @@ mod tests {
                 Some(DEFAULT_DIM_WHEN_UNFOCUSED.to_string()),
             ),
             (CONFIG_DIM_STRENGTH, Some(DEFAULT_DIM_STRENGTH.to_string())),
+            (CONFIG_SHOW_MODE, Some(DEFAULT_SHOW_MODE.to_string())),
+            (zjkit::mode::CONFIG_MODE_FORMAT, None),
             (CONFIG_MOUSE, Some(DEFAULT_MOUSE.to_string())),
             (
                 CONFIG_MOUSE_WHEEL_REVERSED,
@@ -383,6 +426,19 @@ mod tests {
     }
 
     #[test]
+    fn per_mode_keys_are_a_family_of_the_mode_prefix_group_for_known_modes_only() {
+        for (key, kind) in [
+            ("mode_format_locked", Kind::Format),
+            ("mode_label_enter_search", Kind::Text),
+            ("mode_key_rename_tab", Kind::Text),
+        ] {
+            assert_eq!(SCHEMA.group_of(key), Some("Mode prefix"), "{key}");
+            assert_eq!(SCHEMA.kind_of(key), kind, "{key}");
+        }
+        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+    }
+
+    #[test]
     fn formats_are_told_apart_from_plain_text() {
         for name in [
             "tab_format",
@@ -395,6 +451,8 @@ mod tests {
             "overflow_left_format",
             "overflow_right_format",
             "overflow_str",
+            "mode_format",
+            "mode_format_normal",
         ] {
             assert_eq!(SCHEMA.kind_of(name), Kind::Format, "{name}");
         }

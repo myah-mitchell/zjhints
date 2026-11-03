@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
+use zjkit::mode::CONFIG_MODE_FORMAT;
 use zjkit::mouse::ColumnSpans;
 
 mod flags;
@@ -39,6 +40,7 @@ const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
 const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
+const CONFIG_SHOW_MODE: &str = "show_mode";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
 const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
@@ -78,6 +80,9 @@ const DEFAULT_COLLAPSE_WHEN_EMPTY: bool = true;
 // as zjhints, so a shared layout's bars dim in step.
 const DEFAULT_DIM_WHEN_UNFOCUSED: bool = true;
 const DEFAULT_DIM_STRENGTH: f32 = 0.5;
+// On by default, unlike zjhints: zjhints' own `show_mode` is off by default,
+// so with both bars at their defaults the mode shows once, on the tab bar.
+const DEFAULT_SHOW_MODE: bool = true;
 // On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
 // is expected to do, and Zellij's own tab bar does it.
 const DEFAULT_MOUSE: bool = true;
@@ -141,6 +146,14 @@ struct State {
     dim_when_unfocused: bool,
     /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
     dim_strength: f32,
+    /// Draw the current input mode at the start of the line, before the tabs,
+    /// so the bar can show the mode with no zjhints or zjstatus beside it.
+    /// See `zjkit::mode::render_mode_prefix`.
+    show_mode: bool,
+    /// The mode prefix's format string for every mode a `mode_format_<mode>`
+    /// does not cover, or `None` for a block in the colors of Zellij's
+    /// selected ribbon.
+    mode_format: Option<String>,
     /// Switch, rename, close and open the menu of tabs with the mouse.
     mouse: bool,
     /// Swap the wheel's two directions: scroll up goes to the previous tab
@@ -216,6 +229,8 @@ impl State {
         // inverts the blend direction below 0.0.
         self.dim_strength =
             config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
+        self.show_mode = config::bool_option(configuration, CONFIG_SHOW_MODE, DEFAULT_SHOW_MODE);
+        self.mode_format = config::non_empty_string_option(configuration, CONFIG_MODE_FORMAT);
         self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
         self.mouse_wheel_reversed = config::bool_option(
             configuration,
@@ -282,11 +297,12 @@ impl ZellijPlugin for State {
                 }
             }
             // A mode update arrives on every mode change and more, but the
-            // bar shows only whether a tab is being renamed and how nesting
-            // hides or dims it. The Zellij theme it also carries is
-            // `BarCore`'s to follow.
+            // bar shows only whether a tab is being renamed, how nesting
+            // hides or dims it, and the mode itself while `show_mode` is on.
+            // The Zellij theme it also carries is `BarCore`'s to follow.
             Event::ModeUpdate(mode_info) => {
-                if ModeView::of(&mode_info) != ModeView::of(&self.mode_info) {
+                let view = |mode_info: &ModeInfo| ModeView::of(mode_info, self.show_mode);
+                if view(&mode_info) != view(&self.mode_info) {
                     should_render = true;
                 }
                 self.mode_info = mode_info;

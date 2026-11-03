@@ -2,7 +2,7 @@
 
 zjtabs is a tab bar for [Zellij](https://github.com/zellij-org/zellij) that you style with the same format strings, themes and settings screen as [zjhints](../../README.md). This page covers what it draws, how to load it as a one-line pane of its own, and the permissions it asks for.
 
-![The zjtabs bar in the Zellij theme's colors: five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)](../img/zjtabs/overview-default.svg)
+![The zjtabs bar in the Zellij theme's colors: a NORMAL block for the input mode, then five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)](../img/zjtabs/overview-default.svg)
 
 ## What it does
 

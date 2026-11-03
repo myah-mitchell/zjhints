@@ -1,6 +1,7 @@
-//! Drawing the tabs: each tab from its format, the run of them that fits
-//! around the active one, the markers for the rest, and which columns of the
-//! line stand for which tab.
+//! Drawing the tabs: the mode prefix before them when `show_mode` is on,
+//! each tab from its format, the run of them that fits around the active
+//! one, the markers for the rest, and which columns of the line stand for
+//! which tab.
 
 use crate::flags::FLAGS;
 use crate::State;
@@ -9,9 +10,10 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use zellij_tile::prelude::*;
-use zjkit::ansi::{calculate_visible_length, cut_line, show_controls};
+use zjkit::ansi::{calculate_visible_length, cut_line, show_controls, CutLine};
 use zjkit::fit;
 use zjkit::format::{self, Fill};
+use zjkit::mode::render_mode_prefix;
 use zjkit::mouse::ColumnSpans;
 use zjkit::nesting;
 use zjkit::theme::color_value;
@@ -88,11 +90,15 @@ pub(crate) enum Clickable {
     Marker(usize),
 }
 
-/// What of `ModeInfo` the bar shows: whether a tab is being renamed, and the
-/// nested-session state that hides or dims it. Compared to tell whether a
-/// mode update changes anything on screen.
+/// What of `ModeInfo` the bar shows: whether a tab is being renamed, the
+/// nested-session state that hides or dims it, and the mode itself while the
+/// mode prefix is shown. Compared to tell whether a mode update changes
+/// anything on screen.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ModeView {
+    /// The input mode, or `None` while `show_mode` is off, so that a change
+    /// between two modes that look the same to the tabs draws nothing new.
+    mode: Option<InputMode>,
     renaming: bool,
     nested: bool,
     host_ui_is_covered: bool,
@@ -101,8 +107,11 @@ pub(crate) struct ModeView {
 }
 
 impl ModeView {
-    pub(crate) fn of(mode_info: &ModeInfo) -> Self {
+    /// What the bar shows of `mode_info`, with the mode itself only when
+    /// `show_mode` is on.
+    pub(crate) fn of(mode_info: &ModeInfo, show_mode: bool) -> Self {
         ModeView {
+            mode: show_mode.then_some(mode_info.mode),
             renaming: mode_info.mode == InputMode::RenameTab,
             nested: nesting::is_nested(mode_info),
             host_ui_is_covered: nesting::host_ui_is_covered(mode_info),
@@ -150,11 +159,75 @@ impl State {
 
     /// The line to draw, and which of its columns stand for which tab or
     /// marker.
+    ///
+    /// The mode prefix, when shown, opens the line, with a `tab_spacer` after
+    /// it, and the tabs are fitted into what is left. It stands for nothing,
+    /// so a click on it does what a click past the tabs does. A prefix that
+    /// alone fills the line leaves no room for tabs, and one wider than the
+    /// line is cut to fit, as a lone tab too wide for the bar is.
     pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
             return (String::new(), ColumnSpans::default());
         }
         let dim = self.dim_amount();
+        let limit = self.length_limit();
+        let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
+        let prefix = self.draw_mode_prefix(dim);
+        let prefix_width = width(&prefix);
+        if prefix_width == 0 {
+            return self.draw_tabs(limit, 0, dim);
+        }
+
+        let spacer = self.draw_format(&self.tab_spacer, dim);
+        let start = prefix_width + width(&spacer);
+        // The columns left for the tabs, `None` for no limit and `Some(0)`
+        // for none at all.
+        let room = limit.map(|limit| limit.saturating_sub(start));
+        if room == Some(0) {
+            let line = limit
+                .and_then(|limit| self.cut(&prefix, limit, dim))
+                .map_or(prefix, |cut| cut.line);
+            return (line, ColumnSpans::default());
+        }
+        let (tabs, spans) = self.draw_tabs(room, start, dim);
+        (format!("{prefix}{spacer}{tabs}"), spans)
+    }
+
+    /// The current input mode, drawn as `zjkit::mode::render_mode_prefix`
+    /// draws it, or nothing while `show_mode` is off. Dimmed the way the tabs
+    /// are, through the Zellij theme's colors for the built-in look and
+    /// through `dim` for a format string.
+    fn draw_mode_prefix(&self, dim: f32) -> String {
+        if !self.show_mode {
+            return String::new();
+        }
+        let colors = &self.mode_info.style.colors;
+        let dimmed_colors;
+        let colors = if dim > 0.0 {
+            dimmed_colors = zjkit::dim::styling(colors, dim);
+            &dimmed_colors
+        } else {
+            colors
+        };
+        let parts = render_mode_prefix(
+            self.mode_info.mode,
+            colors,
+            self.mode_format.as_deref(),
+            &self.bar.configuration,
+            dim,
+        );
+        ANSIStrings(&parts).to_string()
+    }
+
+    /// The tabs and markers, fitted into `limit` columns, or any width for
+    /// `None`, and which of their columns stand for which tab or marker,
+    /// counting the line's columns from `start`, where the tabs begin.
+    fn draw_tabs(
+        &self,
+        limit: Option<usize>,
+        start: usize,
+        dim: f32,
+    ) -> (String, ColumnSpans<Clickable>) {
         let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
 
         let drawn_tabs: Vec<String> = self
@@ -167,7 +240,6 @@ impl State {
         let left = |count: usize| self.draw_marker(Side::Left, count, dim);
         let right = |count: usize| self.draw_marker(Side::Right, count, dim);
         let active = self.tabs.iter().position(|tab| tab.active).unwrap_or(0);
-        let limit = self.length_limit();
 
         let window = fit::window(
             &tab_widths,
@@ -220,16 +292,7 @@ impl State {
         }
 
         let line: String = pieces.iter().map(|(text, _, _)| text.as_str()).collect();
-        let cut = limit.and_then(|limit| {
-            cut_line(
-                &line,
-                &self.overflow_str,
-                limit,
-                self.wide_ambiguous,
-                &self.bar.configuration,
-                dim,
-            )
-        });
+        let cut = limit.and_then(|limit| self.cut(&line, limit, dim));
         let (line, kept) = match cut {
             Some(cut) => (cut.line, cut.kept),
             None => (line, usize::MAX),
@@ -240,11 +303,25 @@ impl State {
         let mut column = 0;
         for (_, columns, target) in pieces {
             if let Some(target) = target {
-                spans.push(column..(column + columns).min(kept), target);
+                let end = (column + columns).min(kept);
+                spans.push(start + column..start + end, target);
             }
             column += columns;
         }
         (line, spans)
+    }
+
+    /// `line` cut to `limit` columns and ended with `overflow_str`, or `None`
+    /// when it already fits. See `zjkit::ansi::cut_line`.
+    fn cut(&self, line: &str, limit: usize, dim: f32) -> Option<CutLine> {
+        cut_line(
+            line,
+            &self.overflow_str,
+            limit,
+            self.wide_ambiguous,
+            &self.bar.configuration,
+            dim,
+        )
     }
 
     /// One tab, drawn from its format, or in Zellij's ribbon colors when its
@@ -258,7 +335,8 @@ impl State {
         let index = index.to_string();
         // Zellij clears the name when renaming starts and updates it as the
         // user types, so the tab shows the name as it is being typed.
-        let name = if tab.active && tab.name.is_empty() && ModeView::of(&self.mode_info).renaming {
+        let renaming = self.mode_info.mode == InputMode::RenameTab;
+        let name = if tab.active && tab.name.is_empty() && renaming {
             show_controls(&self.rename_placeholder)
         } else {
             show_controls(&tab.name)

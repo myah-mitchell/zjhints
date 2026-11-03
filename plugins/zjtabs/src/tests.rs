@@ -156,6 +156,8 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.collapse_when_empty, DEFAULT_COLLAPSE_WHEN_EMPTY);
     assert_eq!(state.dim_when_unfocused, DEFAULT_DIM_WHEN_UNFOCUSED);
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
+    assert_eq!(state.show_mode, DEFAULT_SHOW_MODE);
+    assert_eq!(state.mode_format, None);
     assert_eq!(state.mouse, DEFAULT_MOUSE);
     assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
     assert_eq!(state.mouse_close_confirm, DEFAULT_MOUSE_CLOSE_CONFIRM);
@@ -183,6 +185,8 @@ fn every_option_is_read_from_its_key() {
         ("collapse_when_empty", "false"),
         ("dim_when_unfocused", "false"),
         ("dim_strength", "0.25"),
+        ("show_mode", "false"),
+        ("mode_format", "<{mode}>"),
         ("mouse", "false"),
         ("mouse_wheel_reversed", "true"),
         ("mouse_close_confirm", "false"),
@@ -203,6 +207,8 @@ fn every_option_is_read_from_its_key() {
     assert!(!state.collapse_when_empty);
     assert!(!state.dim_when_unfocused);
     assert_eq!(state.dim_strength, 0.25);
+    assert!(!state.show_mode);
+    assert_eq!(state.mode_format.as_deref(), Some("<{mode}>"));
     assert!(!state.mouse);
     assert!(state.mouse_wheel_reversed);
     assert!(!state.mouse_close_confirm);
@@ -253,8 +259,11 @@ use zellij_tile::prelude::{AttentionStatus, TabAttention};
 use zjkit::ansi::{char_width, AnsiParser, AnsiSegment};
 use zjkit::host::Recorder;
 
-/// Formats with no styling, so a test can read the line as plain text.
-const PLAIN: [(&str, &str); 5] = [
+/// Formats with no styling, so a test can read the line as plain text, and
+/// no mode prefix, so the line holds only the tabs. A test about the prefix
+/// turns `show_mode` back on.
+const PLAIN: [(&str, &str); 6] = [
+    ("show_mode", "false"),
     ("tab_format", "{index}:{name}{flags}"),
     ("active_tab_format", "[{index}:{name}{flags}]"),
     ("tab_spacer", "|"),
@@ -332,6 +341,14 @@ fn bar(pairs: &[(&str, &str)], width: usize, infos: Vec<TabInfo>) -> State {
     state.update(own_pane(width));
     state.update(Event::TabUpdate(infos));
     state
+}
+
+/// `pairs` with the mode prefix turned off, for a test about the tabs in a
+/// look other than `PLAIN`'s.
+fn without_prefix(pairs: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static str)> {
+    let mut all = vec![("show_mode", "false")];
+    all.extend_from_slice(pairs);
+    all
 }
 
 /// `PLAIN` with `pairs` added.
@@ -499,7 +516,7 @@ fn a_tab_name_is_drawn_as_text_and_its_control_characters_escaped() {
 
 #[test]
 fn with_no_formats_the_tabs_take_zellij_s_ribbon_colors() {
-    let state = bar(&[], 80, tabs(2, 0));
+    let state = bar(&without_prefix(&[]), 80, tabs(2, 0));
     let (line, _) = state.draw_bar();
     assert_eq!(strip_ansi(&line), " 1 a   2 b ");
     // The active tab on `ribbon_selected`, the other on `ribbon_unselected`.
@@ -512,7 +529,7 @@ fn with_no_formats_the_tabs_take_zellij_s_ribbon_colors() {
 
 #[test]
 fn before_zellij_sends_its_theme_the_tabs_are_unstyled() {
-    let mut state = loaded(&[]);
+    let mut state = loaded(&without_prefix(&[]));
     state.update(own_pane(80));
     state.update(Event::TabUpdate(tabs(2, 0)));
     assert_eq!(state.draw_bar().0, " 1 a   2 b ");
@@ -523,10 +540,10 @@ fn a_flag_with_styles_of_its_own_is_drawn_over_the_tab_s_style() {
     let mut info = active(tab(0, "a"));
     info.is_sync_panes_active = true;
     let state = bar(
-        &[
+        &without_prefix(&[
             ("active_tab_format", "#[bold]<{flags}>"),
             ("sync_format", "#[fg=red]S"),
-        ],
+        ]),
         80,
         vec![info],
     );
@@ -550,10 +567,10 @@ fn a_styled_flag_keeps_the_tab_s_background_and_bold_under_it() {
     let mut other = tab(1, "b");
     other.has_bell_notification = true;
     let state = bar(
-        &[
+        &without_prefix(&[
             ("format_theme", "flat"),
             ("bell_format", "#[fg=$red,bold] \u{25cf}"),
-        ],
+        ]),
         80,
         vec![belled, other],
     );
@@ -660,7 +677,7 @@ fn tabs_that_do_not_fit_are_counted_by_markers_around_the_active_one() {
 
 #[test]
 fn the_markers_are_drawn_in_zellij_s_colors_with_no_format() {
-    let state = bar(&[("tab_spacer", "|")], 20, tabs(10, 5));
+    let state = bar(&without_prefix(&[("tab_spacer", "|")]), 20, tabs(10, 5));
     let line = shown(&state);
     assert!(line.starts_with(" \u{2190} +"), "{line:?}");
     assert!(line.ends_with(" \u{2192} "), "{line:?}");
@@ -717,12 +734,12 @@ fn an_active_tab_too_wide_with_its_markers_is_cut_alone_with_no_markers() {
     // In Zellij's look, whose markers are wider.
     let mut infos = tabs(13, 12);
     infos[12].name = "editor".to_string();
-    assert_eq!(shown(&bar(&[], 10, infos)), " 13 edi...");
+    assert_eq!(shown(&bar(&without_prefix(&[]), 10, infos)), " 13 edi...");
 }
 
 #[test]
 fn a_cut_line_keeps_its_styles_closed() {
-    let state = bar(&[], 6, vec![active(tab(0, "a long name"))]);
+    let state = bar(&without_prefix(&[]), 6, vec![active(tab(0, "a long name"))]);
     let (line, _) = state.draw_bar();
     assert_eq!(strip_ansi(&line), " 1 ...");
     assert!(line.ends_with(zjkit::ansi::ANSI_RESET));
@@ -747,7 +764,11 @@ fn the_click_spans_match_the_columns_each_tab_and_marker_was_drawn_on() {
 fn the_click_spans_count_wide_characters_and_skip_styling() {
     let infos = vec![active(tab(0, "\u{65e5}\u{672c}")), tab(1, "x")];
     // Styled by a format theme, with a CJK name two columns per character.
-    let state = bar(&[("format_theme", "flat")], 80, infos.clone());
+    let state = bar(
+        &without_prefix(&[("format_theme", "flat")]),
+        80,
+        infos.clone(),
+    );
     assert_eq!(
         clickable(&state),
         vec![
@@ -790,6 +811,198 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
                 assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
             }
         }
+        // The mode prefix too, in modes with and without a symbol of their
+        // own in some alias theme, and cut when it alone is too wide.
+        let mut with_prefix = combination.clone();
+        with_prefix.push(("show_mode", "true"));
+        for input_mode in [InputMode::Normal, InputMode::Locked, InputMode::RenameTab] {
+            for width in [400, 30, 4] {
+                let mut state = bar(&with_prefix, width, infos.clone());
+                state.update(Event::ModeUpdate(mode(input_mode)));
+                let (line, _) = state.draw_bar();
+                let text = strip_ansi(&line);
+                let name = format!("{input_mode:?}").to_uppercase();
+                assert!(
+                    text.contains(&name) || width == 4,
+                    "{combination:?} {input_mode:?} {width}: {text:?}"
+                );
+                for raw in ["#[", "$", "{"] {
+                    assert!(
+                        !line.contains(raw),
+                        "{combination:?} {input_mode:?} {width}: left {raw}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+// The mode prefix.
+
+/// `PLAIN` with the mode prefix shown as `<` and the mode's name and `>`.
+fn plain_with_mode(pairs: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static str)> {
+    let mut all = plain_with(&[("show_mode", "true"), ("mode_format", "<{desc}>")]);
+    all.extend_from_slice(pairs);
+    all
+}
+
+#[test]
+fn the_mode_prefix_is_drawn_before_the_tabs_only_with_show_mode_on() {
+    assert_eq!(shown(&bar(&PLAIN, 80, tabs(2, 0))), "[1:a]|2:b");
+    assert_eq!(
+        shown(&bar(&plain_with_mode(&[]), 80, tabs(2, 0))),
+        "<NORMAL>|[1:a]|2:b"
+    );
+    // A format of its own outranks it, but `mode_format` alone sets nothing.
+    let unshown = plain_with(&[("mode_format", "<{desc}>")]);
+    assert_eq!(shown(&bar(&unshown, 80, tabs(2, 0))), "[1:a]|2:b");
+}
+
+#[test]
+fn the_mode_prefix_takes_each_mode_s_label_symbol_and_format() {
+    let options = plain_with_mode(&[
+        ("mode_format", "<{key}{desc}:{mode}>"),
+        ("mode_label_normal", "N"),
+        ("mode_key_normal", "*"),
+        ("mode_format_locked", "LOCKED!"),
+    ]);
+    let mut state = bar(&options, 80, tabs(1, 0));
+    assert_eq!(shown(&state), "<*N:NORMAL>|[1:a]");
+    state.update(Event::ModeUpdate(mode(InputMode::Locked)));
+    assert_eq!(shown(&state), "LOCKED!|[1:a]");
+    state.update(Event::ModeUpdate(mode(InputMode::EnterSearch)));
+    assert_eq!(shown(&state), "<ENTERSEARCH:ENTERSEARCH>|[1:a]");
+}
+
+#[test]
+fn rename_mode_shows_as_rename_tab() {
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(1, 0));
+    state.update(Event::ModeUpdate(mode(InputMode::RenameTab)));
+    assert_eq!(shown(&state), "<RENAMETAB>|[1:a]");
+    let mut state = bar(
+        &plain_with_mode(&[("mode_label_rename_tab", "RENAME")]),
+        80,
+        tabs(1, 0),
+    );
+    state.update(Event::ModeUpdate(mode(InputMode::RenameTab)));
+    assert_eq!(shown(&state), "<RENAME>|[1:a]");
+}
+
+#[test]
+fn with_no_format_the_mode_prefix_is_a_bold_block_in_the_selected_ribbon_colors() {
+    // Shown with no options at all, as `show_mode` is on by default.
+    let state = bar(&[], 80, tabs(1, 0));
+    let (line, _) = state.draw_bar();
+    assert_eq!(strip_ansi(&line), " NORMAL   1 a ");
+    // Bold, on `ribbon_selected`'s background in its base color.
+    assert!(
+        line.starts_with("\u{1b}[1;48;2;166;227;161;38;2;1;2;3m NORMAL "),
+        "{line:?}"
+    );
+}
+
+#[test]
+fn the_tabs_are_fitted_into_what_the_mode_prefix_leaves() {
+    // "<NORMAL>|" takes 9 columns, so 28 leave the 19 that take three tabs
+    // and both markers, and 26 the 17 that take two.
+    let options = plain_with_mode(&[]);
+    assert_eq!(
+        shown(&bar(&options, 28, tabs(10, 5))),
+        "<NORMAL>|<4|5:e|[6:f]|7:g|3>"
+    );
+    assert_eq!(
+        shown(&bar(&options, 26, tabs(10, 5))),
+        "<NORMAL>|<5|[6:f]|7:g|3>"
+    );
+    // The tabs alone are cut, never the prefix while it fits.
+    let options = plain_with_mode(&[("overflow_str", "~")]);
+    let state = bar(&options, 14, vec![active(tab(0, "a long name"))]);
+    assert_eq!(shown(&state), "<NORMAL>|[1:a~");
+}
+
+#[test]
+fn a_mode_prefix_that_fills_the_bar_draws_no_tabs_and_one_too_wide_is_cut() {
+    let options = plain_with_mode(&[("overflow_str", "~")]);
+    for width in [8, 9] {
+        let state = bar(&options, width, tabs(3, 1));
+        assert_eq!(shown(&state), "<NORMAL>", "{width}");
+        assert_eq!(clickable(&state), vec![], "{width}");
+    }
+    let state = bar(&options, 5, tabs(3, 1));
+    assert_eq!(shown(&state), "<NOR~");
+    assert_eq!(clickable(&state), vec![]);
+}
+
+#[test]
+fn the_mode_prefix_dims_with_the_tabs() {
+    let dimmed_mode = || {
+        let mut mode_info = mode(InputMode::Normal);
+        mode_info.session_dimmed = Some(true);
+        Event::ModeUpdate(mode_info)
+    };
+    // The tabs are unstyled, so only the prefix can change with the dimming:
+    // in the Zellij theme's colors, and in a format's own.
+    for options in [
+        plain_with(&[("show_mode", "true")]),
+        plain_with(&[
+            ("show_mode", "true"),
+            ("mode_format", "#[fg=#ff0000]<{desc}>"),
+        ]),
+    ] {
+        let undimmed = bar(&options, 80, tabs(1, 0)).draw_bar().0;
+        let mut state = bar(&options, 80, tabs(1, 0));
+        state.update(dimmed_mode());
+        let dimmed = state.draw_bar().0;
+        assert_ne!(dimmed, undimmed, "{options:?}");
+        assert_eq!(strip_ansi(&dimmed), strip_ansi(&undimmed));
+
+        let mut undimming = options.clone();
+        undimming.push(("dim_when_unfocused", "false"));
+        let mut state = bar(&undimming, 80, tabs(1, 0));
+        state.update(dimmed_mode());
+        assert_eq!(state.draw_bar().0, undimmed, "{options:?}");
+    }
+}
+
+#[test]
+fn a_click_on_the_first_tab_still_hits_it_with_the_mode_prefix_shown() {
+    // "<NORMAL>|1:a|[2:b]|3:c"
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(3, 1));
+    assert_eq!(
+        clickable(&state),
+        vec![
+            ("1:a".to_string(), drawn_tab(0)),
+            ("[2:b]".to_string(), drawn_tab(1)),
+            ("3:c".to_string(), drawn_tab(2)),
+        ]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 9)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 21)),
+        vec![Call::SwitchTabTo(3)]
+    );
+}
+
+#[test]
+fn a_click_on_the_mode_prefix_does_nothing_but_a_right_click_opens_the_bar_s_menu() {
+    // "<NORMAL>|1:a|[2:b]|3:c", closing at once so a middle click would show.
+    let options = plain_with_mode(&[("mouse_close_confirm", "false")]);
+    let mut state = bar(&options, 80, tabs(3, 1));
+    for column in [0, 7, 8] {
+        for mouse in [Mouse::LeftClick(0, column), Mouse::MiddleClick(0, column)] {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }]
+        );
     }
 }
 
@@ -826,6 +1039,33 @@ fn a_mode_change_redraws_only_for_renaming_or_nesting() {
     let mut themed = mode(InputMode::Normal);
     themed.style.colors.ribbon_selected.base = PaletteColor::Rgb((9, 9, 9));
     assert!(state.update(Event::ModeUpdate(themed)));
+}
+
+#[test]
+fn a_mode_change_redraws_for_every_mode_while_the_mode_prefix_shows_it() {
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(1, 0));
+    assert!(!state.update(Event::ModeUpdate(mode(InputMode::Normal))));
+    assert!(state.update(Event::ModeUpdate(mode(InputMode::Pane))));
+    assert!(!state.update(Event::ModeUpdate(mode(InputMode::Pane))));
+    assert!(state.update(Event::ModeUpdate(mode(InputMode::Tab))));
+    assert_eq!(shown(&state), "<TAB>|[1:a]");
+}
+
+#[test]
+fn turning_show_mode_on_or_changing_its_format_redraws() {
+    let mut state = bar(&PLAIN, 80, tabs(1, 0));
+    for (options, drawn) in [
+        (plain_with(&[("show_mode", "true")]), " NORMAL |[1:a]"),
+        (plain_with_mode(&[]), "<NORMAL>|[1:a]"),
+        (plain_with_mode(&[("mode_label_normal", "N")]), "<N>|[1:a]"),
+    ] {
+        assert!(BarCore::follow(
+            &mut state,
+            &BAR,
+            Handled::Reconfigure(cfg(&options))
+        ));
+        assert_eq!(shown(&state), drawn);
+    }
 }
 
 #[test]

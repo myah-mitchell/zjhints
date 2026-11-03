@@ -6,6 +6,7 @@ Options are grouped by topic, and each group names the page carrying the detail 
 
 | Placeholder | You replace it with |
 | --- | --- |
+| `<mode>` | A Zellij mode name, giving `mode_format_locked` |
 | `<name>` | An alias name you choose, giving `color_blue` |
 
 Format strings use the zjstatus syntax, with the placeholders each option names below. See [Styling](../styling.md).
@@ -33,6 +34,18 @@ The indicators `{flags}` draws after a tab's name. Each is a format string drawn
 | `floating_format` | ` (FLOATING)` | Flag of a tab showing its floating panes |
 | `bell_format` | ` ●` | Flag of a tab that rang the bell or needs you |
 
+## Mode prefix
+
+The current input mode, drawn before the tabs. The options are named and read as for zjhints. See [Standing alone](../nested-sessions.md#standing-alone).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `show_mode` | `true` | Draw the current input mode before the tabs |
+| `mode_format` | unset | Format string for the mode prefix, with `{desc}`, `{key}` and `{mode}` placeholders; a block in the selected ribbon's colors when unset |
+| `mode_format_<mode>` | unset | The same for one mode only, as in `mode_format_normal`, falling back to `mode_format` |
+| `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
+| `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "🔒"` |
+
 ## Overflow
 
 Fitting the tabs to the bar when there are more than fit, and marking the ones left out. See [Overflow](overflow.md).
@@ -53,8 +66,8 @@ Built-in colors, shapes and symbols for the whole bar, laid under your own optio
 | Option | Default | What it does |
 | --- | --- | --- |
 | `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
-| `format_theme` | `zellij` | The shape of tabs and markers, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
-| `alias_theme` | `zellij` | Symbols for the flags, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
+| `format_theme` | `zellij` | The shape of tabs, markers and the mode prefix, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `alias_theme` | `zellij` | Symbols for the flags and the modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
 
 ## Colors
 

@@ -139,6 +139,7 @@ fn the_preview_fits_the_pane_whatever_auto_width_says() {
 #[test]
 fn the_preview_draws_the_users_formats_with_the_sample_tabs() {
     let configuration = config_of(&[
+        ("show_mode", "false"),
         ("tab_format", "{index}:{name}{flags}"),
         ("active_tab_format", "[{index}:{name}{flags}]"),
         ("tab_spacer", "|"),
@@ -160,6 +161,47 @@ fn the_preview_draws_every_theme_combination_with_nothing_left_raw() {
             let line = draw_bar(configuration.clone(), &mode_info, width);
             assert!(!line.is_empty(), "{combination:?} {width}");
             let text = plain(&line);
+            assert!(text.contains("editor"), "{combination:?} {width}: {text:?}");
+            for raw in ["#[", "$", "{"] {
+                assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_mode_format_is_sampled_with_the_mode_it_is_for() {
+    assert_eq!(
+        sampled("mode_format", "<{mode}>", &[]).as_deref(),
+        Some("<NORMAL>")
+    );
+    assert_eq!(
+        sampled("mode_format_enter_search", "<{mode}>", &[]).as_deref(),
+        Some("<ENTERSEARCH>")
+    );
+}
+
+#[test]
+fn the_preview_shows_the_mode_prefix_unless_show_mode_is_off() {
+    let line = plain(&draw_bar(BTreeMap::new(), &mode_info(), 200));
+    assert!(line.starts_with(" NORMAL "), "{line:?}");
+    assert!(line.contains("3 editor"), "{line:?}");
+    let unshown = config_of(&[("show_mode", "false")]);
+    let line = plain(&draw_bar(unshown, &mode_info(), 200));
+    assert!(!line.contains("NORMAL"), "{line:?}");
+    assert!(line.contains("3 editor"), "{line:?}");
+}
+
+#[test]
+fn the_preview_draws_the_mode_prefix_in_every_theme_combination_with_nothing_left_raw() {
+    let mode_info = mode_info();
+    for combination in every_combination() {
+        let mut configuration = config_of(&combination);
+        configuration.insert("show_mode".to_string(), "true".to_string());
+        for width in [200, 40] {
+            let line = draw_bar(configuration.clone(), &mode_info, width);
+            let text = plain(&line);
+            assert!(text.contains("NORMAL"), "{combination:?} {width}: {text:?}");
             assert!(text.contains("editor"), "{combination:?} {width}: {text:?}");
             for raw in ["#[", "$", "{"] {
                 assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");

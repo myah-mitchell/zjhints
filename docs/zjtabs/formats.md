@@ -63,7 +63,7 @@ A flag is drawn in the style of the tab around it, so a symbol sits on the tab's
 bell_format "#[fg=$red,bold] ●"
 ```
 
-![Five tabs with flat blocks, three times. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names. With sync_format empty the logs tab shows no flag. With a styled bell_format the server tab's dot is red](../img/zjtabs/flags-formats.svg)
+![Five tabs with flat blocks after the NORMAL mode prefix, three times. The default flag formats show (FULLSCREEN), (SYNC) and a dot after the names. With sync_format empty the logs tab shows no flag. With a styled bell_format the server tab's dot is red](../img/zjtabs/flags-formats.svg)
 
 An alias theme swaps all four flags for symbols at once. See [Themes](#themes).
 
@@ -99,7 +99,7 @@ Your own options always win over a theme, one option at a time.
 
 The same five tabs in each format theme, in `catppuccin-mocha` colors:
 
-![Five rows, each a zjtabs bar of five tabs under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each tab](../img/zjtabs/themes-shapes.svg)
+![Five rows, each a zjtabs bar of the NORMAL mode prefix and five tabs under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each tab](../img/zjtabs/themes-shapes.svg)
 
 | Value | Shape |
 | --- | --- |
@@ -120,6 +120,6 @@ The symbols an alias theme gives the flags:
 
 The `nerd-font` theme draws Material Design glyphs for the same four: fullscreen, sync, layers and a bell.
 
-![Five tabs under three alias themes. With zellij the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols](../img/zjtabs/flags-alias-themes.svg)
+![Five tabs after the NORMAL mode prefix under three alias themes. With zellij the flags read (FULLSCREEN), (SYNC) and a dot; with ascii they read Z, S and !; with unicode they are symbols, and the prefix gains a keyboard symbol](../img/zjtabs/flags-alias-themes.svg)
 
 The `powerline` and `pills` shapes and the `nerd-font` symbols need a Nerd Font in your terminal. If it draws them two columns wide, set `ambiguous_width 2` so the bar measures them correctly. See [Nerd Fonts](../themes.md#nerd-fonts).

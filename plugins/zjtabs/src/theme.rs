@@ -7,11 +7,12 @@
 //! know a theme was involved.
 //!
 //! - `color_theme` supplies the `color_<name>` aliases.
-//! - `format_theme` supplies the tab, spacer, overflow marker and
-//!   `overflow_str` format strings, which draw with those aliases. `zellij`
+//! - `format_theme` supplies the tab, spacer, overflow marker, `overflow_str`
+//!   and mode prefix format strings, which draw with those aliases. `zellij`
 //!   (the default) adds none, leaving the tabs in Zellij's own ribbon colors.
-//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as.
-//!   `zellij` (the default) adds none, leaving Zellij's own words.
+//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, and
+//!   each mode's `{key}` symbol. `zellij` (the default) adds none, leaving
+//!   Zellij's own words.
 //!
 //! The three touch separate options, so the order they are laid in does not
 //! matter.
@@ -47,6 +48,9 @@ const FLAG_SYMBOLS: [(&str, [&str; FLAGS.len()]); 3] = [
 ///
 /// `zellij_palette` is the running Zellij theme, which `color_theme zellij`
 /// takes its aliases from. `None` (no palette has arrived yet) adds none.
+///
+/// The mode prefix's options are laid in by `zjkit::mode::layer_theme`, the
+/// same as zjhints', so the prefix looks the same on both bars.
 pub fn layer(
     configuration: &BTreeMap<String, String>,
     zellij_palette: Option<&Styling>,
@@ -73,6 +77,8 @@ pub fn layer(
             add(key.to_string(), value);
         }
     }
+
+    zjkit::mode::layer_theme(configuration, &mut layered);
     layered
 }
 
@@ -210,7 +216,10 @@ pub(crate) mod tests {
 
     /// The options a theme may set that are format strings.
     fn is_format(key: &str) -> bool {
-        key.ends_with("_format") || key == CONFIG_TAB_SPACER || key == CONFIG_OVERFLOW_STR
+        key.ends_with("_format")
+            || key.starts_with(zjkit::mode::CONFIG_MODE_FORMAT_PREFIX)
+            || key == CONFIG_TAB_SPACER
+            || key == CONFIG_OVERFLOW_STR
     }
 
     #[test]
@@ -226,6 +235,9 @@ pub(crate) mod tests {
                         ("name", "editor"),
                         ("flags", " Z"),
                         ("count", "3"),
+                        ("desc", "NORMAL"),
+                        ("key", "N"),
+                        ("mode", "NORMAL"),
                     ],
                     &layered,
                     0.0,
@@ -357,6 +369,52 @@ pub(crate) mod tests {
         let layered = layer(&cfg(&[]), Some(&zellij_palette()));
         assert_eq!(layered["color_accent"], "#a6e3a1");
         assert_eq!(layered["color_red"], "196");
+    }
+
+    #[test]
+    fn a_format_theme_gives_the_mode_prefix_the_shape_of_its_tabs() {
+        for (name, shape) in FORMAT_THEMES {
+            let layered = themed(&[(CONFIG_FORMAT_THEME, name)]);
+            let tab = &layered[CONFIG_ACTIVE_TAB_FORMAT];
+            for (mode, alias) in MODES {
+                let format = &layered[&format!("mode_format_{mode}")];
+                assert!(format.contains("{desc}"), "{name} {mode}");
+                assert!(format.contains(&format!("${alias}")), "{name} {mode}");
+                // A tab and the prefix end the same way, so the prefix reads
+                // as one more of the row's blocks.
+                let ending = match shape {
+                    Shape::Powerline => Some(ARROW),
+                    Shape::Pills => Some(PILL_RIGHT),
+                    Shape::Flat | Shape::Plain => None,
+                };
+                if let Some(ending) = ending {
+                    assert!(tab.ends_with(ending), "{name}");
+                    assert!(format.ends_with(ending), "{name} {mode}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_alias_theme_gives_each_mode_a_symbol_the_prefix_draws() {
+        let layered = themed(&[
+            (CONFIG_FORMAT_THEME, "flat"),
+            (CONFIG_ALIAS_THEME, "unicode"),
+        ]);
+        for (mode, _) in MODES {
+            assert!(!layered[&format!("mode_key_{mode}")].is_empty(), "{mode}");
+            assert!(
+                layered[&format!("mode_format_{mode}")].contains("{key}"),
+                "{mode}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_user_s_mode_format_is_not_outranked_by_the_theme_s_per_mode_ones() {
+        let layered = themed(&[(CONFIG_FORMAT_THEME, "pills"), ("mode_format", "<{mode}>")]);
+        assert_eq!(layered["mode_format"], "<{mode}>");
+        assert!(layered.keys().all(|key| !key.starts_with("mode_format_")));
     }
 
     #[test]
