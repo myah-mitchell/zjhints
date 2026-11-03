@@ -18,6 +18,7 @@ pub const GROUPS: &[&str] = &[
     "Tabs",
     "Flags",
     "Mode prefix",
+    "Session name",
     "Overflow",
     "Theme",
     "Colors",
@@ -104,6 +105,20 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Format string for the mode prefix, with {desc}, {key} and {mode} placeholders",
     ),
     option(
+        "show_session",
+        "Session name",
+        Kind::Bool,
+        Some("true"),
+        "Draw the session's name at the end of the bar, after the tabs",
+    ),
+    option(
+        "session_format",
+        "Session name",
+        Kind::Format,
+        None,
+        "Format string for the session name, with a {session} placeholder",
+    ),
+    option(
         "auto_width",
         "Overflow",
         Kind::Bool,
@@ -157,7 +172,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Theme",
         Kind::Choice(&FORMAT_CHOICES),
         Some("zellij"),
-        "The shape of tabs, markers and the mode prefix: Zellij's ribbons or a built-in format",
+        "The shape of tabs, markers, the mode prefix and the session name: Zellij's ribbons or a built-in format",
     ),
     option(
         "alias_theme",
@@ -265,12 +280,12 @@ mod tests {
         CONFIG_DIM_STRENGTH, CONFIG_DIM_WHEN_UNFOCUSED, CONFIG_HIDE_WHEN_NESTED,
         CONFIG_INDEX_FROM_ZERO, CONFIG_MAX_LENGTH, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
         CONFIG_MOUSE_WHEEL_REVERSED, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
-        CONFIG_OVERFLOW_STR, CONFIG_RENAME_PLACEHOLDER, CONFIG_SHOW_MODE, CONFIG_TAB_FORMAT,
-        CONFIG_TAB_SPACER, DEFAULT_AUTO_WIDTH, DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH,
-        DEFAULT_DIM_WHEN_UNFOCUSED, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_INDEX_FROM_ZERO,
-        DEFAULT_MAX_LENGTH, DEFAULT_MOUSE, DEFAULT_MOUSE_CLOSE_CONFIRM,
-        DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR, DEFAULT_RENAME_PLACEHOLDER,
-        DEFAULT_SHOW_MODE, DEFAULT_TAB_SPACER,
+        CONFIG_OVERFLOW_STR, CONFIG_RENAME_PLACEHOLDER, CONFIG_SESSION_FORMAT, CONFIG_SHOW_MODE,
+        CONFIG_SHOW_SESSION, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER, DEFAULT_AUTO_WIDTH,
+        DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH, DEFAULT_DIM_WHEN_UNFOCUSED,
+        DEFAULT_HIDE_WHEN_NESTED, DEFAULT_INDEX_FROM_ZERO, DEFAULT_MAX_LENGTH, DEFAULT_MOUSE,
+        DEFAULT_MOUSE_CLOSE_CONFIRM, DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR,
+        DEFAULT_RENAME_PLACEHOLDER, DEFAULT_SHOW_MODE, DEFAULT_SHOW_SESSION, DEFAULT_TAB_SPACER,
     };
     use zjkit::settings::reference;
 
@@ -313,6 +328,8 @@ mod tests {
             (CONFIG_DIM_STRENGTH, Some(DEFAULT_DIM_STRENGTH.to_string())),
             (CONFIG_SHOW_MODE, Some(DEFAULT_SHOW_MODE.to_string())),
             (zjkit::mode::CONFIG_MODE_FORMAT, None),
+            (CONFIG_SHOW_SESSION, Some(DEFAULT_SHOW_SESSION.to_string())),
+            (CONFIG_SESSION_FORMAT, None),
             (CONFIG_MOUSE, Some(DEFAULT_MOUSE.to_string())),
             (
                 CONFIG_MOUSE_WHEEL_REVERSED,
@@ -453,6 +470,7 @@ mod tests {
             "overflow_str",
             "mode_format",
             "mode_format_normal",
+            "session_format",
         ] {
             assert_eq!(SCHEMA.kind_of(name), Kind::Format, "{name}");
         }

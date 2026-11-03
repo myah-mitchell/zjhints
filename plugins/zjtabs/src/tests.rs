@@ -158,6 +158,8 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
     assert_eq!(state.show_mode, DEFAULT_SHOW_MODE);
     assert_eq!(state.mode_format, None);
+    assert_eq!(state.show_session, DEFAULT_SHOW_SESSION);
+    assert_eq!(state.session_format, None);
     assert_eq!(state.mouse, DEFAULT_MOUSE);
     assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
     assert_eq!(state.mouse_close_confirm, DEFAULT_MOUSE_CLOSE_CONFIRM);
@@ -187,6 +189,8 @@ fn every_option_is_read_from_its_key() {
         ("dim_strength", "0.25"),
         ("show_mode", "false"),
         ("mode_format", "<{mode}>"),
+        ("show_session", "false"),
+        ("session_format", "[{session}]"),
         ("mouse", "false"),
         ("mouse_wheel_reversed", "true"),
         ("mouse_close_confirm", "false"),
@@ -209,6 +213,8 @@ fn every_option_is_read_from_its_key() {
     assert_eq!(state.dim_strength, 0.25);
     assert!(!state.show_mode);
     assert_eq!(state.mode_format.as_deref(), Some("<{mode}>"));
+    assert!(!state.show_session);
+    assert_eq!(state.session_format.as_deref(), Some("[{session}]"));
     assert!(!state.mouse);
     assert!(state.mouse_wheel_reversed);
     assert!(!state.mouse_close_confirm);
@@ -260,10 +266,12 @@ use zjkit::ansi::{char_width, AnsiParser, AnsiSegment};
 use zjkit::host::Recorder;
 
 /// Formats with no styling, so a test can read the line as plain text, and
-/// no mode prefix, so the line holds only the tabs. A test about the prefix
-/// turns `show_mode` back on.
-const PLAIN: [(&str, &str); 6] = [
+/// no mode prefix or session name, so the line holds only the tabs. A test
+/// about the prefix turns `show_mode` back on, and one about the session
+/// name `show_session`.
+const PLAIN: [(&str, &str); 7] = [
     ("show_mode", "false"),
+    ("show_session", "false"),
     ("tab_format", "{index}:{name}{flags}"),
     ("active_tab_format", "[{index}:{name}{flags}]"),
     ("tab_spacer", "|"),
@@ -802,11 +810,23 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
     let mut infos = tabs(12, 6);
     infos[0] = info;
     for combination in theme::tests::every_combination() {
-        // Wide enough for every tab, and narrow enough for markers.
-        for width in [400, 30] {
-            let state = bar(&combination, width, infos.clone());
+        // Wide enough for every tab, narrow enough for markers with room for
+        // the session name, and too narrow for the name beside the markers.
+        for width in [400, 50, 24] {
+            let mut state = bar(&combination, width, infos.clone());
             let (line, _) = state.draw_bar();
             assert!(!line.is_empty(), "{combination:?}");
+            for raw in ["#[", "$", "{"] {
+                assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
+            }
+            state.update(in_session("work"));
+            let (line, _) = state.draw_bar();
+            let text = strip_ansi(&line);
+            assert_eq!(
+                text.trim_end().ends_with("work"),
+                width > 24,
+                "{combination:?} {width}: {text:?}"
+            );
             for raw in ["#[", "$", "{"] {
                 assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
             }
@@ -1055,6 +1075,211 @@ fn only_a_left_click_on_the_mode_prefix_acts_on_it_and_a_right_click_opens_the_b
     }
 }
 
+// The session name.
+
+/// A mode update in normal mode for the session named `name`.
+fn in_session(name: &str) -> Event {
+    let mut mode_info = mode(InputMode::Normal);
+    mode_info.session_name = Some(name.to_string());
+    Event::ModeUpdate(mode_info)
+}
+
+/// `PLAIN` with the session name shown in parentheses, and `pairs` added.
+fn plain_with_session(pairs: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static str)> {
+    let mut all = plain_with(&[("show_session", "true"), ("session_format", "({session})")]);
+    all.extend_from_slice(pairs);
+    all
+}
+
+/// A bar as `bar` sets one up, in the session named `work`.
+fn bar_in_session(pairs: &[(&str, &str)], width: usize, infos: Vec<TabInfo>) -> State {
+    let mut state = bar(pairs, width, infos);
+    state.update(in_session("work"));
+    state
+}
+
+#[test]
+fn the_session_name_ends_the_bar_only_with_show_session_on_and_a_name() {
+    // "1:a|[2:b]|3:c" is 13 columns, and "|(work)" 7, so 30 leave 10 blank.
+    let state = bar_in_session(&plain_with_session(&[]), 30, tabs(3, 1));
+    assert_eq!(
+        shown(&state),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
+    );
+    // Off by its option, or before Zellij has named the session.
+    let unshown = plain_with(&[("session_format", "({session})")]);
+    assert_eq!(
+        shown(&bar_in_session(&unshown, 30, tabs(3, 1))),
+        "1:a|[2:b]|3:c"
+    );
+    assert_eq!(
+        shown(&bar(&plain_with_session(&[]), 30, tabs(3, 1))),
+        "1:a|[2:b]|3:c"
+    );
+}
+
+#[test]
+fn with_no_format_the_session_name_is_a_bold_block_in_the_selected_ribbon_colors() {
+    // Shown with no options at all, as `show_session` is on by default.
+    let state = bar_in_session(&[], 30, tabs(1, 0));
+    let (line, _) = state.draw_bar();
+    // " NORMAL " and " 1 a " with a spacer after the first, then 9 blank
+    // columns and the spacer before the name.
+    assert_eq!(
+        strip_ansi(&line),
+        format!(" NORMAL   1 a {} work ", " ".repeat(10))
+    );
+    // The blank and the spacer are unstyled, in the bar's own background,
+    // and the name is bold on `ribbon_selected`'s background in its base
+    // color, as the mode prefix is.
+    let session = "\u{1b}[1;48;2;166;227;161;38;2;1;2;3m work ";
+    assert!(
+        line.contains(&format!("{}{session}", " ".repeat(10))),
+        "{line:?}"
+    );
+    assert!(line.ends_with(zjkit::ansi::ANSI_RESET), "{line:?}");
+}
+
+#[test]
+fn a_session_name_is_drawn_as_text_and_its_control_characters_escaped() {
+    let mut state = bar(&plain_with_session(&[]), 80, tabs(1, 0));
+    state.update(in_session("#[fg=red]{session}$x\u{1b}"));
+    let line = shown(&state);
+    assert!(line.ends_with("|(#[fg=red]{session}$x\\u{1b})"), "{line:?}");
+}
+
+#[test]
+fn the_session_name_gives_way_before_the_active_tab_or_a_marker_does() {
+    let options = plain_with_session(&[]);
+    // "<1|[2:b]|1>" and "|(work)" take 18 columns, so 18 keep the name, the
+    // active tab and the markers for the tabs on each side. 17 drop the name,
+    // which leaves room for every tab.
+    for (width, drawn) in [
+        (20, "1:a|[2:b]|3:c|(work)"),
+        (18, "<1|[2:b]|1>|(work)"),
+        (17, "1:a|[2:b]|3:c"),
+        (12, "<1|[2:b]|3:c"),
+        (5, "[2:b]"),
+    ] {
+        let state = bar_in_session(&options, width, tabs(3, 1));
+        assert_eq!(shown(&state), drawn, "{width}");
+    }
+    // With tabs hidden on one side only, only that side's marker counts:
+    // "[1:a]|2>|(work)" is 15 columns.
+    for (width, drawn) in [(15, "[1:a]|2>|(work)"), (14, "[1:a]|2:b|3:c")] {
+        let state = bar_in_session(&options, width, tabs(3, 0));
+        assert_eq!(shown(&state), drawn, "{width}");
+    }
+    // The prefix outranks it too: "<NORMAL>|" takes 9 more columns.
+    let options = plain_with_session(&[("show_mode", "true"), ("mode_format", "<{desc}>")]);
+    for (width, drawn) in [
+        (27, "<NORMAL>|<1|[2:b]|1>|(work)"),
+        (26, "<NORMAL>|1:a|[2:b]|3:c"),
+        (8, "<NORMAL>"),
+    ] {
+        let state = bar_in_session(&options, width, tabs(3, 1));
+        assert_eq!(shown(&state), drawn, "{width}");
+    }
+    // An active tab too wide to fit whole keeps the name off and is cut.
+    let state = bar_in_session(
+        &plain_with_session(&[("overflow_str", "~")]),
+        14,
+        vec![active(tab(0, "a long name"))],
+    );
+    assert_eq!(shown(&state), "[1:a long nam~");
+}
+
+#[test]
+fn the_session_name_ends_at_max_length_and_follows_the_tabs_with_no_limit() {
+    let capped = plain_with_session(&[("max_length", "25")]);
+    assert_eq!(
+        shown(&bar_in_session(&capped, 80, tabs(3, 1))),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(5))
+    );
+    let unfitted = plain_with_session(&[("auto_width", "false")]);
+    assert_eq!(
+        shown(&bar_in_session(&unfitted, 30, tabs(3, 1))),
+        "1:a|[2:b]|3:c|(work)"
+    );
+}
+
+#[test]
+fn the_session_name_dims_with_the_tabs() {
+    let dimmed_session = || {
+        let mut mode_info = mode(InputMode::Normal);
+        mode_info.session_name = Some("work".to_string());
+        mode_info.session_dimmed = Some(true);
+        Event::ModeUpdate(mode_info)
+    };
+    // The tabs are unstyled, so only the name can change with the dimming:
+    // in the Zellij theme's colors, and in a format's own.
+    for options in [
+        plain_with(&[("show_session", "true")]),
+        plain_with_session(&[("session_format", "#[fg=#ff0000]({session})")]),
+    ] {
+        let undimmed = bar_in_session(&options, 80, tabs(1, 0)).draw_bar().0;
+        let mut state = bar_in_session(&options, 80, tabs(1, 0));
+        state.update(dimmed_session());
+        let dimmed = state.draw_bar().0;
+        assert_ne!(dimmed, undimmed, "{options:?}");
+        assert_eq!(strip_ansi(&dimmed), strip_ansi(&undimmed));
+
+        let mut undimming = options.clone();
+        undimming.push(("dim_when_unfocused", "false"));
+        let mut state = bar_in_session(&undimming, 80, tabs(1, 0));
+        state.update(dimmed_session());
+        assert_eq!(state.draw_bar().0, undimmed, "{options:?}");
+    }
+}
+
+#[test]
+fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
+    let options = plain_with_session(&[("mouse_close_confirm", "false")]);
+    let mut state = bar_in_session(&options, 23, tabs(4, 1));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c|1>|(work)");
+    assert_eq!(
+        clickable(&state),
+        vec![
+            ("1:a".to_string(), drawn_tab(0)),
+            ("[2:b]".to_string(), drawn_tab(1)),
+            ("3:c".to_string(), drawn_tab(2)),
+            ("1>".to_string(), Clickable::Marker(3)),
+        ]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 4)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 15)),
+        vec![Call::SwitchTabTo(4)]
+    );
+    // The blank on 13 to 22, the spacer on 23 and the name on 24 to 29: a
+    // right-click opens the bar's menu, and nothing else does anything.
+    let mut state = bar_in_session(&options, 30, tabs(3, 1));
+    assert_eq!(
+        shown(&state),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
+    );
+    for column in [13, 22, 23, 24, 29] {
+        for mouse in [
+            Mouse::LeftClick(0, column),
+            Mouse::DoubleClick(0, column),
+            Mouse::MiddleClick(0, column),
+        ] {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }]
+        );
+    }
+}
+
 // Redrawing only when something shown changed.
 
 #[test]
@@ -1114,6 +1339,39 @@ fn turning_show_mode_on_or_changing_its_format_redraws() {
             Handled::Reconfigure(cfg(&options))
         ));
         assert_eq!(shown(&state), drawn);
+    }
+}
+
+#[test]
+fn renaming_the_session_redraws_only_while_its_name_is_shown() {
+    let mut state = bar_in_session(&plain_with_session(&[]), 80, tabs(1, 0));
+    assert!(!state.update(in_session("work")));
+    assert!(state.update(in_session("renamed")));
+    assert!(shown(&state).ends_with("|(renamed)"));
+
+    let mut state = bar_in_session(&PLAIN, 80, tabs(1, 0));
+    assert!(!state.update(in_session("renamed")));
+}
+
+#[test]
+fn turning_show_session_on_or_changing_its_format_redraws() {
+    let mut state = bar_in_session(&PLAIN, 30, tabs(1, 0));
+    assert_eq!(shown(&state), "[1:a]");
+    for (options, ending) in [
+        (plain_with(&[("show_session", "true")]), "| work "),
+        (plain_with_session(&[]), "|(work)"),
+        (
+            plain_with_session(&[("session_format", "<{session}>")]),
+            "|<work>",
+        ),
+    ] {
+        assert!(BarCore::follow(
+            &mut state,
+            &BAR,
+            Handled::Reconfigure(cfg(&options))
+        ));
+        let blank = " ".repeat(30 - "[1:a]".len() - ending.len());
+        assert_eq!(shown(&state), format!("[1:a]{blank}{ending}"));
     }
 }
 

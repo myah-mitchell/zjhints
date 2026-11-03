@@ -2,7 +2,10 @@
 //! to the nearest hidden tab for a marker, and opens the settings screen on
 //! the mode prefix; the wheel steps through the tabs; a double-click renames
 //! a tab; a middle click closes it, asking first with `mouse_close_confirm`
-//! on; a right-click opens Zellij's context menu.
+//! on; a right-click opens Zellij's context menu. The session name at the
+//! end of the bar is no target of its own: it stands for nothing in the
+//! click spans, so only a right-click acts on it, opening the bar's menu as
+//! the empty end does.
 
 use crate::host::BAR;
 use crate::tabs::Clickable;
@@ -60,8 +63,8 @@ impl State {
                         .host
                         .open_context_menu(ContextMenuTarget::Tab(position), 0, column),
                     // A spacer, the cut of an overlong line, the empty end of
-                    // the bar, a marker, or the mode prefix: there is no one
-                    // tab to act on.
+                    // the bar, a marker, the mode prefix or the session name:
+                    // there is no one tab to act on.
                     (PressKind::Right, _) => {
                         self.host
                             .open_context_menu(ContextMenuTarget::Bar, 0, column)

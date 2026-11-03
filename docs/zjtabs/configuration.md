@@ -46,6 +46,15 @@ The current input mode, drawn before the tabs. The options are named and read as
 | `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
 | `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "🔒"` |
 
+## Session name
+
+The session's name, drawn at the right end of the bar, after the tabs. See [Session name](formats.md#session-name).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `show_session` | `true` | Draw the session's name at the end of the bar, after the tabs |
+| `session_format` | unset | Format string for the session name, with a `{session}` placeholder; a block in the selected ribbon's colors when unset |
+
 ## Overflow
 
 Fitting the tabs to the bar when there are more than fit, and marking the ones left out. See [Overflow](overflow.md).
@@ -66,7 +75,7 @@ Built-in colors, shapes and symbols for the whole bar, laid under your own optio
 | Option | Default | What it does |
 | --- | --- | --- |
 | `color_theme` | `zellij` | The color aliases: `zellij` takes them from the Zellij theme, `custom` adds none, or a built-in palette such as `catppuccin-mocha` |
-| `format_theme` | `zellij` | The shape of tabs, markers and the mode prefix, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
+| `format_theme` | `zellij` | The shape of tabs, markers, the mode prefix and the session name, `flat`, `plain`, `powerline` or `pills`; `zellij` adds none |
 | `alias_theme` | `zellij` | Symbols for the flags and the modes, `ascii`, `unicode` or `nerd-font`; `zellij` adds none |
 
 ## Colors

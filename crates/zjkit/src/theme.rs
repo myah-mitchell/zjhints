@@ -113,6 +113,9 @@ pub const COLOR_THEMES: [ColorTheme; 6] = [
 
 /// The Powerline right-pointing arrow, a Nerd Font glyph.
 pub const ARROW: &str = "\u{e0b0}";
+/// The Powerline left-pointing arrow, a Nerd Font glyph: `ARROW` mirrored,
+/// for a block at the right end of a line, which points back along it.
+pub const ARROW_LEFT: &str = "\u{e0b2}";
 /// The left and right halves of a rounded pill, Nerd Font glyphs.
 pub const PILL_LEFT: &str = "\u{e0b6}";
 pub const PILL_RIGHT: &str = "\u{e0b4}";

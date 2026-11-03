@@ -46,6 +46,8 @@ const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_SHOW_MODE: &str = "show_mode";
+const CONFIG_SHOW_SESSION: &str = "show_session";
+const CONFIG_SESSION_FORMAT: &str = "session_format";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
 const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
@@ -88,6 +90,9 @@ const DEFAULT_DIM_STRENGTH: f32 = 0.5;
 // On by default, unlike zjhints: zjhints' own `show_mode` is off by default,
 // so with both bars at their defaults the mode shows once, on the tab bar.
 const DEFAULT_SHOW_MODE: bool = true;
+// On by default: Zellij's own tab bar shows the session's name, and zjtabs is
+// the tab bar that takes its place, so leaving the name off would lose it.
+const DEFAULT_SHOW_SESSION: bool = true;
 // On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
 // is expected to do, and Zellij's own tab bar does it.
 const DEFAULT_MOUSE: bool = true;
@@ -159,6 +164,12 @@ pub struct State {
     /// does not cover, or `None` for a block in the colors of Zellij's
     /// selected ribbon.
     mode_format: Option<String>,
+    /// Draw the session's name at the end of the line, after the tabs, as
+    /// Zellij's own tab bar shows it. See `draw_session` in `tabs.rs`.
+    show_session: bool,
+    /// The session name's format string, with `{session}` for the name, or
+    /// `None` for a block in the colors of Zellij's selected ribbon.
+    session_format: Option<String>,
     /// Switch, rename, close and open the menu of tabs with the mouse.
     mouse: bool,
     /// Swap the wheel's two directions: scroll up goes to the previous tab
@@ -170,10 +181,11 @@ pub struct State {
     pending_close: Option<mouse::PendingClose>,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
-    /// The input mode and nested-session state from the last `ModeUpdate`.
+    /// The input mode, the session's name and the nested-session state from
+    /// the last `ModeUpdate`.
     mode_info: ModeInfo,
     /// Which columns of the line last drawn stand for which tab, marker or
-    /// the mode prefix.
+    /// the mode prefix. The session name stands for nothing.
     click_spans: ColumnSpans<Clickable>,
 }
 
@@ -235,6 +247,9 @@ impl State {
             config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
         self.show_mode = config::bool_option(configuration, CONFIG_SHOW_MODE, DEFAULT_SHOW_MODE);
         self.mode_format = config::non_empty_string_option(configuration, CONFIG_MODE_FORMAT);
+        self.show_session =
+            config::bool_option(configuration, CONFIG_SHOW_SESSION, DEFAULT_SHOW_SESSION);
+        self.session_format = config::non_empty_string_option(configuration, CONFIG_SESSION_FORMAT);
         self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
         self.mouse_wheel_reversed = config::bool_option(
             configuration,
@@ -302,10 +317,14 @@ impl ZellijPlugin for State {
             }
             // A mode update arrives on every mode change and more, but the
             // bar shows only whether a tab is being renamed, how nesting
-            // hides or dims it, and the mode itself while `show_mode` is on.
-            // The Zellij theme it also carries is `BarCore`'s to follow.
+            // hides or dims it, the mode itself while `show_mode` is on, and
+            // the session's name while `show_session` is on, which changes
+            // when the session is renamed. The Zellij theme it also carries
+            // is `BarCore`'s to follow.
             Event::ModeUpdate(mode_info) => {
-                let view = |mode_info: &ModeInfo| ModeView::of(mode_info, self.show_mode);
+                let view = |mode_info: &ModeInfo| {
+                    ModeView::of(mode_info, self.show_mode, self.show_session)
+                };
                 if view(&mode_info) != view(&self.mode_info) {
                     should_render = true;
                 }
@@ -348,7 +367,8 @@ impl ZellijPlugin for State {
 
 /// The line zjtabs draws for `tabs` in a bar `columns` wide, with
 /// `configuration` as its options and `mode_info` as the last `ModeUpdate`
-/// Zellij sent it: the ANSI the plugin prints, drawn by the same code.
+/// Zellij sent it, which names the session: the ANSI the plugin prints, drawn
+/// by the same code.
 ///
 /// For the docs images: zjtabs' own images draw the bar alone, and zjhints'
 /// draw it as the tab bar of a whole Zellij session, so neither needs a

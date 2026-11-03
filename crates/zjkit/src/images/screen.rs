@@ -19,6 +19,8 @@ const BASELINE: usize = 13;
 /// The Powerline right-pointing arrow. It lives in a Nerd Font's private use
 /// area, which a viewer is unlikely to have, so it is drawn as a triangle.
 pub const POWERLINE_ARROW: char = '\u{e0b0}';
+/// The same arrow pointing left, drawn as the mirrored triangle.
+pub const POWERLINE_ARROW_LEFT: char = '\u{e0b2}';
 /// The round caps the pills format theme draws at each end of a block.
 pub const PILL_LEFT: char = '\u{e0b6}';
 pub const PILL_RIGHT: char = '\u{e0b4}';
@@ -206,6 +208,7 @@ pub(super) fn write_arrows(svg: &mut String, row: usize, cells: &[Cell]) {
         let (radius_x, radius_y) = (CELL_WIDTH, CELL_HEIGHT / 2);
         let path = match cell.character {
             POWERLINE_ARROW => format!("M{left} {top}L{right} {middle}L{left} {bottom}Z"),
+            POWERLINE_ARROW_LEFT => format!("M{right} {top}L{left} {middle}L{right} {bottom}Z"),
             PILL_RIGHT => format!("M{left} {top}A{radius_x} {radius_y} 0 0 1 {left} {bottom}Z"),
             PILL_LEFT => format!("M{right} {top}A{radius_x} {radius_y} 0 0 0 {right} {bottom}Z"),
             MOUSE_POINTER => {
@@ -246,7 +249,7 @@ pub(super) fn write_text(svg: &mut String, row: usize, cells: &[Cell]) {
         let invisible = cell.character == COVERED
             || matches!(
                 cell.character,
-                POWERLINE_ARROW | PILL_LEFT | PILL_RIGHT | MOUSE_POINTER
+                POWERLINE_ARROW | POWERLINE_ARROW_LEFT | PILL_LEFT | PILL_RIGHT | MOUSE_POINTER
             )
             || (cell.character == ' ' && !underline && !strike);
         if invisible {
@@ -385,6 +388,15 @@ mod tests {
         screen.print(0, 0, "\u{e0b0}");
         let svg = screen.to_svg("t");
         assert!(svg.contains("<path d=\"M0 0L9 9L0 18Z\""));
+        assert!(!svg.contains("<tspan"));
+    }
+
+    #[test]
+    fn the_left_pointing_powerline_arrow_is_drawn_as_the_mirrored_triangle() {
+        let mut screen = Screen::new(1, 2);
+        screen.print(0, 0, "\u{e0b2}");
+        let svg = screen.to_svg("t");
+        assert!(svg.contains("<path d=\"M9 0L0 9L9 18Z\""));
         assert!(!svg.contains("<tspan"));
     }
 

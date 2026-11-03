@@ -1,7 +1,7 @@
 //! Drawing the tabs: the mode prefix before them when `show_mode` is on,
-//! each tab from its format, the run of them that fits around the active
-//! one, the markers for the rest, and which columns of the line stand for
-//! which tab.
+//! the session name after them when `show_session` is on, each tab from its
+//! format, the run of them that fits around the active one, the markers for
+//! the rest, and which columns of the line stand for which tab.
 
 use crate::flags::FLAGS;
 use crate::State;
@@ -25,6 +25,10 @@ const ZELLIJ_TAB: &str = " {index} {name}{flags} ";
 /// format is set: the arrows and count of Zellij's own tab bar.
 const ZELLIJ_OVERFLOW_LEFT: &str = " \u{2190} +{count} ";
 const ZELLIJ_OVERFLOW_RIGHT: &str = " +{count} \u{2192} ";
+/// What the session name looks like in Zellij's own colors, when no format is
+/// set: a block in the selected ribbon's colors, the same as the mode prefix
+/// that opens the line.
+const ZELLIJ_SESSION: &str = " {session} ";
 
 /// One tab, as the bar draws it: what `TabUpdate` says about it, less what
 /// the bar never shows, so a change to the rest of it does not redraw.
@@ -94,14 +98,17 @@ pub(crate) enum Clickable {
 }
 
 /// What of `ModeInfo` the bar shows: whether a tab is being renamed, the
-/// nested-session state that hides or dims it, and the mode itself while the
-/// mode prefix is shown. Compared to tell whether a mode update changes
-/// anything on screen.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// nested-session state that hides or dims it, the mode itself while the
+/// mode prefix is shown, and the session's name while that is shown.
+/// Compared to tell whether a mode update changes anything on screen.
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ModeView {
     /// The input mode, or `None` while `show_mode` is off, so that a change
     /// between two modes that look the same to the tabs draws nothing new.
     mode: Option<InputMode>,
+    /// The session's name, or `None` while `show_session` is off, so that
+    /// renaming a session whose name is not shown draws nothing new.
+    session_name: Option<String>,
     renaming: bool,
     nested: bool,
     host_ui_is_covered: bool,
@@ -111,10 +118,11 @@ pub(crate) struct ModeView {
 
 impl ModeView {
     /// What the bar shows of `mode_info`, with the mode itself only when
-    /// `show_mode` is on.
-    pub(crate) fn of(mode_info: &ModeInfo, show_mode: bool) -> Self {
+    /// `show_mode` is on and the session's name only when `show_session` is.
+    pub(crate) fn of(mode_info: &ModeInfo, show_mode: bool, show_session: bool) -> Self {
         ModeView {
             mode: show_mode.then_some(mode_info.mode),
+            session_name: mode_info.session_name.clone().filter(|_| show_session),
             renaming: mode_info.mode == InputMode::RenameTab,
             nested: nesting::is_nested(mode_info),
             host_ui_is_covered: nesting::host_ui_is_covered(mode_info),
@@ -164,12 +172,24 @@ impl State {
     /// marker or the mode prefix.
     ///
     /// The mode prefix, when shown, opens the line, with a `tab_spacer` after
-    /// it, and the tabs are fitted into what is left. Its columns stand for
-    /// `Clickable::ModePrefix`; the spacer after it stands for nothing. A
-    /// prefix that alone fills the line leaves no room for tabs, and one wider
-    /// than the line is cut to fit, as a lone tab too wide for the bar is,
-    /// with only what is left of it standing for the prefix and the
-    /// `overflow_str` after it standing for nothing.
+    /// it, and the session name, when shown, closes it, with a `tab_spacer`
+    /// before it, against the end of the line. The tabs are fitted into what
+    /// the two leave. The columns between the last tab or marker and the
+    /// spacer before the session name are left blank, in the bar's own
+    /// background, as the rest of the line is when there is no session name
+    /// at its end. Without a limit on the line's width, as with `auto_width`
+    /// and `max_length` both off, there is no end to set the session name
+    /// against, so it follows the tabs straight after its spacer.
+    ///
+    /// The prefix's columns stand for `Clickable::ModePrefix`; the spacers,
+    /// the blank and the session name stand for nothing. A prefix that alone
+    /// fills the line leaves no room for tabs, and one wider than the line is
+    /// cut to fit, as a lone tab too wide for the bar is, with only what is
+    /// left of it standing for the prefix and the `overflow_str` after it
+    /// standing for nothing.
+    ///
+    /// The session name is the first to go when the line runs short: see
+    /// `session_fits`.
     pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
             return (String::new(), ColumnSpans::default());
@@ -177,18 +197,32 @@ impl State {
         let dim = self.dim_amount();
         let limit = self.length_limit();
         let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
+        let spacer = self.draw_format(&self.tab_spacer, dim);
         let prefix = self.draw_mode_prefix(dim);
         let prefix_width = width(&prefix);
-        if prefix_width == 0 {
-            return self.draw_tabs(limit, 0, dim);
-        }
+        // The prefix and the spacer after it, which the tabs begin after.
+        let opening = if prefix_width == 0 {
+            String::new()
+        } else {
+            format!("{prefix}{spacer}")
+        };
+        let start = width(&opening);
+        // The spacer and the session name after it, or nothing when the name
+        // is not shown or does not fit.
+        let session = self.draw_session(dim);
+        let ending = format!("{spacer}{session}");
+        let ending = if width(&session) > 0 && self.session_fits(limit, start, width(&ending), dim)
+        {
+            ending
+        } else {
+            String::new()
+        };
+        let ending_width = width(&ending);
 
-        let spacer = self.draw_format(&self.tab_spacer, dim);
-        let start = prefix_width + width(&spacer);
         // The columns left for the tabs, `None` for no limit and `Some(0)`
         // for none at all.
-        let room = limit.map(|limit| limit.saturating_sub(start));
-        if room == Some(0) {
+        let room = limit.map(|limit| limit.saturating_sub(start + ending_width));
+        if prefix_width > 0 && room == Some(0) {
             let (line, kept) = match limit.and_then(|limit| self.cut(&prefix, limit, dim)) {
                 Some(cut) => (cut.line, cut.kept),
                 None => (prefix, prefix_width),
@@ -198,8 +232,95 @@ impl State {
             return (line, spans);
         }
         let (tabs, mut spans) = self.draw_tabs(room, start, dim);
-        spans.push(0..prefix_width, Clickable::ModePrefix);
-        (format!("{prefix}{spacer}{tabs}"), spans)
+        if prefix_width > 0 {
+            spans.push(0..prefix_width, Clickable::ModePrefix);
+        }
+        let blank = match limit {
+            Some(limit) if ending_width > 0 => {
+                limit.saturating_sub(start + width(&tabs) + ending_width)
+            }
+            _ => 0,
+        };
+        let blank = " ".repeat(blank);
+        (format!("{opening}{tabs}{blank}{ending}"), spans)
+    }
+
+    /// Whether the session name fits on a line `limit` columns wide, or of
+    /// any width for `None`, taking `ending` columns with the spacer before
+    /// it, when the tabs begin at `start`, after the mode prefix.
+    ///
+    /// It fits only when the active tab, drawn whole, fits beside it too,
+    /// with a marker on each side that has tabs hidden behind it. The prefix,
+    /// the active tab and the markers outrank the session name, so the name
+    /// goes before the active tab would have to be cut for it, or a marker
+    /// left off and the hidden tabs with it. The other tabs do not count:
+    /// they give way to the name, and the window around the active tab
+    /// shrinks to what is left.
+    fn session_fits(&self, limit: Option<usize>, start: usize, ending: usize, dim: f32) -> bool {
+        let Some(limit) = limit else {
+            return true;
+        };
+        let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
+        // The tab `draw_tabs` keeps on screen: the active one, or the first
+        // while none is.
+        let Some(active) = self
+            .tabs
+            .iter()
+            .position(|tab| tab.active)
+            .or((!self.tabs.is_empty()).then_some(0))
+        else {
+            return start + ending <= limit;
+        };
+        let spacer = width(&self.draw_format(&self.tab_spacer, dim));
+        let mut tabs = width(&self.draw_tab(&self.tabs[active], dim));
+        // The markers for every tab hidden on each side, each with the spacer
+        // between it and the active tab, as `draw_tabs` lays them out.
+        let hidden_after = self.tabs.len() - 1 - active;
+        if active > 0 {
+            tabs += width(&self.draw_marker(Side::Left, active, dim)) + spacer;
+        }
+        if hidden_after > 0 {
+            tabs += width(&self.draw_marker(Side::Right, hidden_after, dim)) + spacer;
+        }
+        start + tabs + ending <= limit
+    }
+
+    /// The session's name, drawn from `session_format`, or as a block in the
+    /// colors of Zellij's selected ribbon while that is unset. Nothing while
+    /// `show_session` is off, or while Zellij has not sent the session's
+    /// name.
+    ///
+    /// The name is filled in after the format is read and its control
+    /// characters are escaped, as a tab's name is, so a session named with a
+    /// `{` or a `#[` in it is drawn as typed. Dimmed the way the tabs are.
+    fn draw_session(&self, dim: f32) -> String {
+        if !self.show_session {
+            return String::new();
+        }
+        let Some(name) = self.mode_info.session_name.as_deref() else {
+            return String::new();
+        };
+        if name.is_empty() {
+            return String::new();
+        }
+        let name = show_controls(name);
+        let template = match self.session_format.as_deref() {
+            Some(format) => Cow::Borrowed(format),
+            None => {
+                let ribbon = self
+                    .bar
+                    .zellij_palette
+                    .map(|palette| palette.ribbon_selected);
+                Cow::Owned(zellij_look(ribbon, ZELLIJ_SESSION, true))
+            }
+        };
+        let parts = format::render_filled(
+            &template,
+            &[("session", &[Fill::Text(&name)])],
+            &self.bar.configuration,
+            dim,
+        );
+        ANSIStrings(&parts).to_string()
     }
 
     /// The current input mode, drawn as `zjkit::mode::render_mode_prefix`

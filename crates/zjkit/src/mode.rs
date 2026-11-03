@@ -16,9 +16,13 @@
 //! `ribbon_selected` colors.
 //!
 //! The themes supply all of these: see `layer_theme`.
+//!
+//! A bar that ends its line with the session's name, as zjtabs does, draws it
+//! as the prefix's mirror image. `session_format` is the look each format
+//! theme gives it.
 
 use crate::format;
-use crate::theme::{self, Shape, ARROW, MODES, PILL_RIGHT};
+use crate::theme::{self, Shape, ARROW, ARROW_LEFT, MODES, PILL_LEFT, PILL_RIGHT};
 use ansi_term::{
     ANSIString,
     Colour::{self, Fixed, RGB},
@@ -232,6 +236,37 @@ fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
     }
 }
 
+/// The color alias every format theme draws the session name on.
+///
+/// The mode prefix takes the color of its mode, so it changes as the mode
+/// does. The session name stays the same from one mode to the next, so it
+/// keeps one color: the theme's accent, which the active tab and the theme's
+/// own `mode_format` are drawn in too.
+const SESSION_COLOR: &str = "accent";
+
+/// The session name drawn in `shape`, for a bar that ends its line with it:
+/// the mirror image of the mode prefix, which opens the line. Its one
+/// placeholder, `{session}`, is the session's name.
+///
+/// The block closes the line, against the right edge of the pane, so a shape
+/// with ends draws only the end that faces the rest of the line, on its left:
+/// the left half of a pill, or an arrow pointing back along the line. A flat
+/// or plain one is the mode prefix's look with the name in place of the
+/// mode's.
+pub fn session_format(shape: Shape) -> String {
+    let color = SESSION_COLOR;
+    match shape {
+        Shape::Flat => format!("#[fg=$bg,bg=${color},bold] {{session}} "),
+        Shape::Plain => format!("#[fg=${color},bold]{{session}}"),
+        Shape::Powerline => {
+            format!("#[fg=${color}]{ARROW_LEFT}#[fg=$bg,bg=${color},bold] {{session}} ")
+        }
+        Shape::Pills => {
+            format!("#[fg=$surface]{PILL_LEFT}#[fg=${color},bg=$surface,bold] {{session}} ")
+        }
+    }
+}
+
 /// The placeholders a bar fills in the mode prefix's format string under
 /// `key`, with the sample value each gets in the settings screen's list, or
 /// `None` when `key` is not one of the mode prefix's formats.
@@ -312,6 +347,33 @@ mod tests {
         for (mode, _) in MODES {
             assert!(!layered[&format!("{CONFIG_MODE_KEY_PREFIX}{mode}")].is_empty());
             assert!(layered[&format!("{CONFIG_MODE_FORMAT_PREFIX}{mode}")].contains("{key}"));
+        }
+    }
+
+    #[test]
+    fn the_session_format_mirrors_the_mode_prefix_in_every_shape() {
+        for (name, shape) in FORMAT_THEMES {
+            let session = session_format(shape);
+            let mode = mode_format("accent", shape, false);
+            assert!(session.contains("{session}"), "{name}");
+            assert!(session.contains("$accent"), "{name}");
+            // The prefix's end faces right, after its block; the session's
+            // faces left, before its block.
+            let (session_end, mode_end) = match shape {
+                Shape::Powerline => (Some(ARROW_LEFT), Some(ARROW)),
+                Shape::Pills => (Some(PILL_LEFT), Some(PILL_RIGHT)),
+                Shape::Flat | Shape::Plain => (None, None),
+            };
+            match (session_end, mode_end) {
+                (Some(session_end), Some(mode_end)) => {
+                    assert!(mode.ends_with(mode_end), "{name}");
+                    let end = session.find(session_end).expect(name);
+                    assert!(end < session.find("{session}").unwrap(), "{name}");
+                    assert!(!session.contains(mode_end), "{name}");
+                }
+                // The same look as the prefix, with the name for the mode's.
+                _ => assert_eq!(session.replace("{session}", "{desc}"), mode, "{name}"),
+            }
         }
     }
 

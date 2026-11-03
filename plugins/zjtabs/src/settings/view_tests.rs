@@ -140,6 +140,7 @@ fn the_preview_fits_the_pane_whatever_auto_width_says() {
 fn the_preview_draws_the_users_formats_with_the_sample_tabs() {
     let configuration = config_of(&[
         ("show_mode", "false"),
+        ("show_session", "false"),
         ("tab_format", "{index}:{name}{flags}"),
         ("active_tab_format", "[{index}:{name}{flags}]"),
         ("tab_spacer", "|"),
@@ -202,6 +203,53 @@ fn the_preview_draws_the_mode_prefix_in_every_theme_combination_with_nothing_lef
             let line = draw_bar(configuration.clone(), &mode_info, width);
             let text = plain(&line);
             assert!(text.contains("NORMAL"), "{combination:?} {width}: {text:?}");
+            assert!(text.contains("editor"), "{combination:?} {width}: {text:?}");
+            for raw in ["#[", "$", "{"] {
+                assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_session_format_is_sampled_with_a_session_name() {
+    assert_eq!(
+        sampled("session_format", "[{session}]", &[]).as_deref(),
+        Some("[work]")
+    );
+}
+
+#[test]
+fn the_preview_ends_with_the_session_name_unless_show_session_is_off() {
+    // The sample name before Zellij has named the screen's own session, and
+    // that name once it has.
+    let mut named = mode_info();
+    named.session_name = Some("my-session".to_string());
+    for (mode_info, session) in [(mode_info(), " work "), (named, " my-session ")] {
+        let line = plain(&draw_bar(BTreeMap::new(), &mode_info, 200));
+        assert!(line.ends_with(session), "{line:?}");
+        assert_eq!(calculate_visible_length(&line, false), PREVIEW_COLUMNS);
+        assert!(line.contains("3 editor"), "{line:?}");
+    }
+    let unshown = config_of(&[("show_session", "false")]);
+    let line = plain(&draw_bar(unshown, &mode_info(), 200));
+    assert!(!line.contains("work"), "{line:?}");
+}
+
+#[test]
+fn the_preview_draws_the_session_name_in_every_theme_combination_with_nothing_left_raw() {
+    let mode_info = mode_info();
+    for combination in every_combination() {
+        let configuration = config_of(&combination);
+        // Wide enough for every tab, and narrow enough for markers with room
+        // for the session name beside them.
+        for width in [200, 60] {
+            let line = draw_bar(configuration.clone(), &mode_info, width);
+            let text = plain(&line);
+            assert!(
+                text.trim_end().ends_with("work"),
+                "{combination:?} {width}: {text:?}"
+            );
             assert!(text.contains("editor"), "{combination:?} {width}: {text:?}");
             for raw in ["#[", "$", "{"] {
                 assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");

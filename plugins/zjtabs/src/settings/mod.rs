@@ -45,10 +45,15 @@ const SAMPLE_TABS: [(&str, bool, [bool; FLAGS.len()]); 8] = [
     ("build", false, [false, false, false, false]),
 ];
 
+/// The session's name in the samples of `session_format` in the list, and in
+/// the preview while the screen has not been told its own session's name.
+const SAMPLE_SESSION_NAME: &str = "work";
+
 /// The placeholders the bar fills in a format string under `key`, with
 /// the sample value each gets in the list.
 fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static str, String)> {
     match key {
+        "session_format" => vec![("session", SAMPLE_SESSION_NAME.to_string())],
         "tab_format" | "active_tab_format" => vec![
             ("index", "2".to_string()),
             ("name", "editor".to_string()),
@@ -71,7 +76,9 @@ fn sample_flags(config: &BTreeMap<String, String>) -> String {
 }
 
 /// The bar as `configuration` draws it `width` columns wide, in the mode and
-/// Zellij theme of `mode_info`, showing `SAMPLE_TABS`.
+/// Zellij theme of `mode_info`, showing `SAMPLE_TABS`. The session name is
+/// the one of the session the screen runs in, or `SAMPLE_SESSION_NAME`
+/// before Zellij has sent it.
 fn draw_bar(
     mut configuration: BTreeMap<String, String>,
     mode_info: &ModeInfo,
@@ -103,6 +110,10 @@ fn draw_bar(
     };
     state.apply_configuration(configuration);
     state.mode_info = mode_info.clone();
+    state
+        .mode_info
+        .session_name
+        .get_or_insert_with(|| SAMPLE_SESSION_NAME.to_string());
     state.tabs = SAMPLE_TABS
         .iter()
         .enumerate()

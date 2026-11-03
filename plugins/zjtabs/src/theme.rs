@@ -7,9 +7,10 @@
 //! know a theme was involved.
 //!
 //! - `color_theme` supplies the `color_<name>` aliases.
-//! - `format_theme` supplies the tab, spacer, overflow marker, `overflow_str`
-//!   and mode prefix format strings, which draw with those aliases. `zellij`
-//!   (the default) adds none, leaving the tabs in Zellij's own ribbon colors.
+//! - `format_theme` supplies the tab, spacer, overflow marker, `overflow_str`,
+//!   mode prefix and session name format strings, which draw with those
+//!   aliases. `zellij` (the default) adds none, leaving the tabs in Zellij's
+//!   own ribbon colors.
 //! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, and
 //!   each mode's `{key}` symbol. `zellij` (the default) adds none, leaving
 //!   Zellij's own words.
@@ -20,7 +21,7 @@
 use crate::flags::FLAGS;
 use crate::{
     CONFIG_ACTIVE_TAB_FORMAT, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
-    CONFIG_OVERFLOW_STR, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER,
+    CONFIG_OVERFLOW_STR, CONFIG_SESSION_FORMAT, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::Styling;
@@ -97,8 +98,9 @@ fn flag_symbols(configuration: &BTreeMap<String, String>) -> Option<[&'static st
 /// A tab's `{flags}` take the style of the text around them, so a flag's
 /// symbol shows on the tab's own background. Every marker and the overflow
 /// string are drawn like an inactive tab, so they read as part of the row of
-/// tabs.
-fn format_entries(shape: Shape) -> [(&'static str, String); 6] {
+/// tabs. The session name is the mode prefix's mirror image, from
+/// `zjkit::mode::session_format`, so the two frame the tabs between them.
+fn format_entries(shape: Shape) -> [(&'static str, String); 7] {
     let (tab, active_tab, spacer, left, right, overflow) = match shape {
         Shape::Flat => (
             "#[fg=$fg,bg=$surface] {index} {name}{flags} ".to_string(),
@@ -150,6 +152,7 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 6] {
         (CONFIG_OVERFLOW_LEFT_FORMAT, left),
         (CONFIG_OVERFLOW_RIGHT_FORMAT, right),
         (CONFIG_OVERFLOW_STR, overflow),
+        (CONFIG_SESSION_FORMAT, zjkit::mode::session_format(shape)),
     ]
 }
 
@@ -238,6 +241,7 @@ pub(crate) mod tests {
                         ("desc", "NORMAL"),
                         ("key", "N"),
                         ("mode", "NORMAL"),
+                        ("session", "demo"),
                     ],
                     &layered,
                     0.0,
@@ -261,9 +265,14 @@ pub(crate) mod tests {
                 CONFIG_OVERFLOW_LEFT_FORMAT,
                 CONFIG_OVERFLOW_RIGHT_FORMAT,
                 CONFIG_OVERFLOW_STR,
+                CONFIG_SESSION_FORMAT,
             ] {
                 assert!(layered.contains_key(key), "{name} lacks {key}");
             }
+            assert!(
+                layered[CONFIG_SESSION_FORMAT].contains("{session}"),
+                "{name}"
+            );
             for key in [CONFIG_TAB_FORMAT, CONFIG_ACTIVE_TAB_FORMAT] {
                 for placeholder in ["{index}", "{name}", "{flags}"] {
                     assert!(layered[key].contains(placeholder), "{name} {key}");
@@ -393,6 +402,36 @@ pub(crate) mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_format_theme_gives_the_session_name_the_mirror_image_of_the_mode_prefix() {
+        for (name, shape) in FORMAT_THEMES {
+            let layered = themed(&[(CONFIG_FORMAT_THEME, name)]);
+            let session = &layered[CONFIG_SESSION_FORMAT];
+            // The prefix ends with the end that faces the tabs, after its
+            // block; the session name starts with it, before its block.
+            match shape {
+                Shape::Powerline => assert!(session.contains(ARROW_LEFT), "{name}"),
+                Shape::Pills => assert!(session.contains(PILL_LEFT), "{name}"),
+                Shape::Flat | Shape::Plain => {}
+            }
+            assert!(
+                !session.contains(ARROW) && !session.contains(PILL_RIGHT),
+                "{name}"
+            );
+            // One color in every mode, rather than the mode's own.
+            assert!(session.contains("$accent"), "{name}");
+        }
+    }
+
+    #[test]
+    fn the_user_s_session_format_wins_over_the_theme() {
+        let layered = themed(&[
+            (CONFIG_FORMAT_THEME, "pills"),
+            ("session_format", "[{session}]"),
+        ]);
+        assert_eq!(layered[CONFIG_SESSION_FORMAT], "[{session}]");
     }
 
     #[test]

@@ -38,7 +38,9 @@ pub use environment::{default_keybinds, mode_info, palette};
 pub use pen::{
     rgb_of, xterm_color, Look, Pen, ANSI_COLORS, TERMINAL_BACKGROUND, TERMINAL_FOREGROUND,
 };
-pub use screen::{Screen, MOUSE_POINTER, PILL_LEFT, PILL_RIGHT, POWERLINE_ARROW};
+pub use screen::{
+    Screen, MOUSE_POINTER, PILL_LEFT, PILL_RIGHT, POWERLINE_ARROW, POWERLINE_ARROW_LEFT,
+};
 
 use std::fs;
 use std::path::Path;
