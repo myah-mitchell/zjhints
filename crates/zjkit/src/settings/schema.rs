@@ -181,29 +181,33 @@ impl Schema {
         self.options.iter().find(|option| option.name == name)
     }
 
-    /// What a key outside the fixed options is, by the family it fits. A key
-    /// fitting both `label_<mode>_<id>` and `label_<id>` is taken as the
+    /// What a key outside the fixed options is, by the family it fits. See
+    /// `fits_pattern` for what fitting a pattern takes.
+    ///
+    /// A key that fits more than one family is taken as the one whose pattern
+    /// spells out the most of it, the most specific: `label_locked_quit` fits
+    /// both `label_<mode>_<id>` and `label_<id>` and is taken as the
     /// mode-scoped one, the way the bar reads it.
+    ///
+    /// Between patterns that spell out as much, the key is read left to
+    /// right, as the bars read their keys: the family whose first
+    /// placeholder takes the fewest characters wins, then the one whose
+    /// second does, and so on. `item_1_config_command` fits `item_<id>_command`
+    /// with `1_config` for `<id>` and `item_<id>_config_<key>` with `1`, so it
+    /// is taken as the second. Patterns that still tie differ only in their
+    /// placeholders' names, and the first in the alphabet is taken, so the
+    /// order the families are declared in never decides.
     pub fn family_of(&self, key: &str) -> Option<&'static FamilySpec> {
-        let fits = |family: &&FamilySpec| {
-            let (prefix, placeholders) = family.pattern.split_once('<').unwrap_or_default();
-            let Some(rest) = key.strip_prefix(prefix).filter(|rest| !rest.is_empty()) else {
-                return false;
-            };
-            match placeholders {
-                "mode>" => MODE_NAMES.contains(&rest),
-                "mode>_<id>" => MODE_NAMES.iter().any(|mode| {
-                    rest.strip_prefix(mode)
-                        .and_then(|after| after.strip_prefix('_'))
-                        .is_some_and(|id| !id.is_empty())
-                }),
-                _ => true,
-            }
-        };
         self.families
             .iter()
-            .filter(fits)
-            .max_by_key(|family| (family.pattern.find('<'), family.pattern.contains("<mode>")))
+            .filter_map(|family| Some((family, placeholder_lengths(family.pattern, key)?)))
+            .max_by(|(family, lengths), (other_family, other_lengths)| {
+                literal_length(family.pattern)
+                    .cmp(&literal_length(other_family.pattern))
+                    .then_with(|| other_lengths.cmp(lengths))
+                    .then_with(|| other_family.pattern.cmp(family.pattern))
+            })
+            .map(|(family, _)| family)
     }
 
     /// The group a key is listed under: its option's, or its family's. `None`
@@ -221,6 +225,83 @@ impl Schema {
             .or_else(|| self.family_of(key).map(|family| family.kind))
             .unwrap_or(Kind::Text)
     }
+}
+
+/// Whether `key` fits a family's `pattern`: the text outside the
+/// placeholders as written, and each placeholder standing for at least one
+/// character. `<mode>` stands for one of `MODE_NAMES` only, and `<n>` for a
+/// whole number as zjtaskbar's launcher reads one: digits alone, with no
+/// leading zero unless the number is `0`, and small enough for a `u64`. Any
+/// other placeholder stands for anything.
+#[cfg(test)]
+fn fits_pattern(pattern: &str, key: &str) -> bool {
+    placeholder_lengths(pattern, key).is_some()
+}
+
+/// How many bytes of `key` each placeholder of `pattern` stands for, in
+/// order, when `key` fits it (see `fits_pattern`), or `None` when it does
+/// not. Where a key fits in more than one way, each placeholder takes as
+/// little as it can, the first before the second and so on: `a_b_c` fits
+/// `<x>_<y>` as `a` and `b_c`.
+fn placeholder_lengths(pattern: &str, key: &str) -> Option<Vec<usize>> {
+    let Some((literal, rest)) = pattern.split_once('<') else {
+        return (key == pattern).then(Vec::new);
+    };
+    let key = key.strip_prefix(literal)?;
+    // An unclosed placeholder is a typo in the plugin's own schema.
+    let (placeholder, pattern_after) = rest.split_once('>')?;
+    // Every length that leaves the placeholder at least one character,
+    // shortest first, so the text after it can be found wherever it falls.
+    // No mode name begins another, so a `<mode>` placeholder takes at most
+    // one of them.
+    let lengths: Vec<usize> = if placeholder == "mode" {
+        MODE_NAMES
+            .iter()
+            .filter(|mode| key.starts_with(*mode))
+            .map(|mode| mode.len())
+            .collect()
+    } else if placeholder == "n" {
+        let digits = key.bytes().take_while(u8::is_ascii_digit).count();
+        (1..=digits)
+            .filter(|&length| is_whole_number(&key[..length]))
+            .collect()
+    } else {
+        key.char_indices()
+            .skip(1)
+            .map(|(index, _)| index)
+            .chain([key.len()])
+            .filter(|index| *index > 0)
+            .collect()
+    };
+    lengths.into_iter().find_map(|length| {
+        let mut lengths = vec![length];
+        lengths.extend(placeholder_lengths(pattern_after, &key[length..])?);
+        Some(lengths)
+    })
+}
+
+/// Whether `digits`, all ASCII digits, spell a whole number the way
+/// zjtaskbar's launcher takes an entry's number: no leading zero unless the
+/// number is `0` itself, and no larger than a `u64` holds.
+fn is_whole_number(digits: &str) -> bool {
+    let leading_zero = digits.len() > 1 && digits.starts_with('0');
+    !leading_zero && digits.parse::<u64>().is_ok()
+}
+
+/// How many characters of `pattern` are written out rather than
+/// placeholders, which is how much of a key fitting it the pattern names.
+fn literal_length(pattern: &str) -> usize {
+    let mut length = 0;
+    let mut in_placeholder = false;
+    for character in pattern.chars() {
+        match character {
+            '<' => in_placeholder = true,
+            '>' => in_placeholder = false,
+            _ if !in_placeholder => length += 1,
+            _ => {}
+        }
+    }
+    length
 }
 
 /// Whether `value` is acceptable for an option of this kind. Text is always
@@ -249,6 +330,178 @@ pub fn validate(kind: Kind, value: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_key_fits_a_pattern_with_its_text_as_written_and_a_placeholder_for_the_rest() {
+        assert!(fits_pattern("color_<name>", "color_blue"));
+        assert!(!fits_pattern("color_<name>", "color_"));
+        assert!(!fits_pattern("color_<name>", "colour_blue"));
+        assert!(fits_pattern("launch_<n>_name", "launch_12_name"));
+        assert!(!fits_pattern("launch_<n>_name", "launch__name"));
+        assert!(!fits_pattern("launch_<n>_name", "launch_1_names"));
+        assert!(fits_pattern("launch_<n>_name", "launch_0_name"));
+        assert!(fits_pattern(
+            "launch_<n>_config_<key>",
+            "launch_1_config_a_b"
+        ));
+        assert!(!fits_pattern("launch_<n>_config_<key>", "launch_1_config_"));
+        assert!(fits_pattern("plain", "plain"));
+        assert!(!fits_pattern("plain", "plainer"));
+    }
+
+    #[test]
+    fn a_mode_placeholder_takes_only_a_mode_name() {
+        assert!(fits_pattern("mode_format_<mode>", "mode_format_locked"));
+        assert!(fits_pattern(
+            "mode_format_<mode>",
+            "mode_format_enter_search"
+        ));
+        assert!(!fits_pattern("mode_format_<mode>", "mode_format_bogus"));
+        assert!(!fits_pattern("mode_format_<mode>", "mode_format_locked_x"));
+        assert!(fits_pattern(
+            "label_<mode>_<id>",
+            "label_locked_mode_normal"
+        ));
+        assert!(!fits_pattern("label_<mode>_<id>", "label_locked_"));
+        assert!(!fits_pattern("label_<mode>_<id>", "label_split_down"));
+    }
+
+    #[test]
+    fn a_number_placeholder_takes_only_a_whole_number_without_leading_zeros() {
+        for key in [
+            "launch_01_name",
+            "launch_00_name",
+            "launch_x_name",
+            "launch_1x_name",
+            "launch_-1_name",
+            "launch_+1_name",
+            "launch_1_2_name",
+            "launch_\u{0661}_name",
+            // One more than `u64::MAX`.
+            "launch_18446744073709551616_name",
+        ] {
+            assert!(!fits_pattern("launch_<n>_name", key), "{key}");
+        }
+        assert!(fits_pattern(
+            "launch_<n>_name",
+            "launch_18446744073709551615_name"
+        ));
+        assert!(fits_pattern("item_<n>", "item_10"));
+        assert!(!fits_pattern("item_<n>", "item_10a"));
+    }
+
+    fn no_values(_: &str, _: &Configuration) -> Vec<(&'static str, String)> {
+        vec![]
+    }
+
+    fn no_bar(_: Configuration, _: &ModeInfo, _: usize) -> String {
+        String::new()
+    }
+
+    static FAMILIES: [FamilySpec; 4] = [
+        family("label_<id>", "Labels", Kind::Text, "label"),
+        family("label_<mode>_<id>", "Labels", Kind::Text, "mode label"),
+        family("launch_<n>_name", "Launcher", Kind::Text, "name"),
+        family(
+            "launch_<n>_config_<key>",
+            "Launcher",
+            Kind::Format,
+            "config",
+        ),
+    ];
+
+    static FAMILY_SCHEMA: Schema = Schema {
+        plugin: "test",
+        groups: &["Labels", "Launcher"],
+        options: &[],
+        families: &FAMILIES,
+        screen_options: &[],
+        internal_options: &[],
+        live_message: "test::configure",
+        preview_group: None,
+        permissions: Vec::new,
+        layer: |configuration, _| configuration.clone(),
+        sample_values: no_values,
+        draw_bar: no_bar,
+    };
+
+    #[test]
+    fn a_key_fitting_several_families_is_taken_as_the_most_specific() {
+        let description = |key: &str| FAMILY_SCHEMA.family_of(key).map(|f| f.description);
+        assert_eq!(description("label_quit"), Some("label"));
+        assert_eq!(description("label_locked_quit"), Some("mode label"));
+        assert_eq!(description("label_locked"), Some("label"));
+        assert_eq!(description("launch_1_name"), Some("name"));
+        assert_eq!(description("launch_1_config_name"), Some("config"));
+        assert_eq!(FAMILY_SCHEMA.kind_of("launch_1_config_name"), Kind::Format);
+        assert_eq!(description("launch_1_other"), None);
+        assert_eq!(description("launch_01_name"), None);
+        assert_eq!(description("launch_a_config_name"), None);
+        assert_eq!(FAMILY_SCHEMA.group_of("launch_1_other"), None);
+    }
+
+    #[test]
+    fn a_placeholder_takes_as_little_as_it_can_from_the_left() {
+        assert_eq!(placeholder_lengths("<x>_<y>", "a_b_c"), Some(vec![1, 3]));
+        assert_eq!(
+            placeholder_lengths("item_<id>_command", "item_1_config_command"),
+            Some(vec![8])
+        );
+        assert_eq!(
+            placeholder_lengths("label_<mode>_<id>", "label_rename_tab_quit"),
+            Some(vec![10, 4])
+        );
+        assert_eq!(placeholder_lengths("plain", "plain"), Some(vec![]));
+        assert_eq!(placeholder_lengths("color_<name>", "color_"), None);
+    }
+
+    /// A schema of `families` alone, to sort keys with.
+    fn schema_of(families: &'static [FamilySpec]) -> Schema {
+        Schema {
+            families,
+            ..FAMILY_SCHEMA
+        }
+    }
+
+    static COMMAND_THEN_CONFIG: [FamilySpec; 2] = [
+        family("item_<id>_command", "Items", Kind::Text, "command"),
+        family("item_<id>_config_<key>", "Items", Kind::Format, "config"),
+    ];
+
+    static CONFIG_THEN_COMMAND: [FamilySpec; 2] = [
+        family("item_<id>_config_<key>", "Items", Kind::Format, "config"),
+        family("item_<id>_command", "Items", Kind::Text, "command"),
+    ];
+
+    static TWO_NAMES_IN_ONE_ORDER: [FamilySpec; 2] = [
+        family("thing_<a>", "Items", Kind::Text, "a"),
+        family("thing_<b>", "Items", Kind::Text, "b"),
+    ];
+
+    static TWO_NAMES_IN_THE_OTHER: [FamilySpec; 2] = [
+        family("thing_<b>", "Items", Kind::Text, "b"),
+        family("thing_<a>", "Items", Kind::Text, "a"),
+    ];
+
+    #[test]
+    fn families_that_spell_out_as_much_are_told_apart_the_same_in_either_order() {
+        for families in [&COMMAND_THEN_CONFIG, &CONFIG_THEN_COMMAND] {
+            let schema = schema_of(families);
+            let description = |key: &str| schema.family_of(key).map(|f| f.description);
+            // Both spell out 13 characters; `<id>` is `1` for the config
+            // family and `1_config` for the command one.
+            assert_eq!(description("item_1_config_command"), Some("config"));
+            assert_eq!(description("item_1_command"), Some("command"));
+            assert_eq!(description("item_1_config_name"), Some("config"));
+        }
+        for families in [&TWO_NAMES_IN_ONE_ORDER, &TWO_NAMES_IN_THE_OTHER] {
+            let schema = schema_of(families);
+            assert_eq!(
+                schema.family_of("thing_x").map(|f| f.description),
+                Some("a")
+            );
+        }
+    }
 
     #[test]
     fn values_are_checked_by_kind() {
