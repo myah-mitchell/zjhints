@@ -1,6 +1,7 @@
 //! Drawing the entries: each from its format, the run of them that fits
 //! around the focused one, the markers for the rest, the separators between
-//! the tabs' groups, and what an empty bar says.
+//! the tabs' groups, and what an empty bar says. Each line comes with the
+//! columns its entries and markers were drawn on, for the mouse.
 
 use crate::entries::Entry;
 use crate::flags::FLAGS;
@@ -11,6 +12,7 @@ use zellij_tile::prelude::*;
 use zjkit::ansi::{calculate_visible_length, cut_line, show_controls, CutLine};
 use zjkit::fit::{self, once_per_count};
 use zjkit::format::{self, Fill};
+use zjkit::mouse::ColumnSpans;
 use zjkit::nesting;
 use zjkit::theme::zellij_look;
 
@@ -43,6 +45,21 @@ impl ModeView {
             ascended_out_of: nesting::is_ascended_out_of(mode_info),
         }
     }
+}
+
+/// What a stretch of the drawn line stands for, for the mouse. The spacers,
+/// the separators and the end of a cut line stand for nothing.
+///
+/// Each names a pane by its id, not its place on the bar, so a click acts on
+/// the pane it landed on even if a `PaneUpdate` has moved the entries since
+/// the line was drawn.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Clickable {
+    /// The entry of the pane.
+    Entry(PaneId),
+    /// A marker for hidden entries, with the pane of the hidden entry
+    /// nearest to it. A left click on it acts as one on that entry would.
+    Marker(PaneId),
 }
 
 /// How an entry is drawn, which picks its format and its Zellij look.
@@ -103,16 +120,23 @@ impl State {
         self.bar.visibility.is_hidden() || self.hidden_by_nesting()
     }
 
+    /// Whether the line drawn now is blank: `draws_nothing` says so, or
+    /// there are no entries and no `empty_format` to draw in their place.
+    pub(crate) fn draws_blank_line(&self) -> bool {
+        self.draws_nothing() || (self.entries.is_empty() && self.empty_format.is_none())
+    }
+
     /// The line to draw: the entries that fit, or `empty_format` while there
-    /// are none, or nothing while `draws_nothing` says so.
-    pub(crate) fn draw_bar(&self) -> String {
+    /// are none, or nothing while `draws_nothing` says so. With it, the
+    /// columns each entry and marker it shows was drawn on.
+    pub(crate) fn draw_bar(&self) -> (String, ColumnSpans<Clickable>) {
         if self.draws_nothing() {
-            return String::new();
+            return (String::new(), ColumnSpans::default());
         }
         let dim = self.dim_amount();
         let limit = self.length_limit();
         if self.entries.is_empty() {
-            return self.draw_empty(limit, dim);
+            return (self.draw_empty(limit, dim), ColumnSpans::default());
         }
         self.draw_entries(limit, dim)
     }
@@ -144,7 +168,10 @@ impl State {
     /// wider by the difference. That is exact when the entry before it is
     /// shown too, and leaves a few columns spare when it is behind a marker
     /// instead, so the window never picks more than fits.
-    fn draw_entries(&self, limit: Option<usize>, dim: f32) -> String {
+    ///
+    /// A marker stands for the hidden entry nearest to it, and what the cut
+    /// of an overlong line leaves of an entry stands for that entry.
+    fn draw_entries(&self, limit: Option<usize>, dim: f32) -> (String, ColumnSpans<Clickable>) {
         let width = |text: &str| calculate_visible_length(text, self.wide_ambiguous);
 
         let drawn_entries: Vec<String> = self
@@ -189,44 +216,66 @@ impl State {
         );
 
         // The pieces of the line in drawing order, joined as described
-        // above. The markers are left out when `with_markers` is false.
+        // above, each with what it stands for. The markers are left out when
+        // `with_markers` is false.
         let lay_out = |with_markers: bool| {
-            let mut line = String::new();
+            let mut pieces: Vec<(String, Option<Clickable>)> = vec![];
             let has_left_marker = with_markers && window.hidden_before > 0;
             if has_left_marker {
-                line.push_str(&left(window.hidden_before));
+                let nearest = self.entries[window.range.start - 1].pane;
+                let marker = left(window.hidden_before);
+                pieces.push((marker, Some(Clickable::Marker(nearest))));
             }
             for index in window.range.clone() {
                 if index > window.range.start || has_left_marker {
                     let shown_before = index > window.range.start;
                     if shown_before && starts_group(index) {
-                        line.push_str(&separator);
+                        pieces.push((separator.clone(), None));
                     } else {
-                        line.push_str(&spacer);
+                        pieces.push((spacer.clone(), None));
                     }
                 }
-                line.push_str(&drawn_entries[index]);
+                let entry = Clickable::Entry(self.entries[index].pane);
+                pieces.push((drawn_entries[index].clone(), Some(entry)));
             }
             if with_markers && window.hidden_after > 0 {
-                line.push_str(&spacer);
-                line.push_str(&right(window.hidden_after));
+                let nearest = self.entries[window.range.end].pane;
+                let marker = right(window.hidden_after);
+                pieces.push((spacer.clone(), None));
+                pieces.push((marker, Some(Clickable::Marker(nearest))));
             }
-            line
+            pieces
         };
-        let mut line = lay_out(true);
+        let joined = |pieces: &[(String, Option<Clickable>)]| -> String {
+            pieces.iter().map(|(text, _)| text.as_str()).collect()
+        };
+        let mut pieces = lay_out(true);
         // The window keeps the pinned entry even when it and its markers
         // alone are wider than the line may be, and the cut below takes from
         // the right, which could leave the left marker and none of the entry.
         // So the markers go first, and the entry is cut on its own, as a lone
         // entry too wide for the bar is.
         let hides_entries = window.hidden_before > 0 || window.hidden_after > 0;
-        if hides_entries && limit.is_some_and(|limit| width(&line) > limit) {
-            line = lay_out(false);
+        if hides_entries && limit.is_some_and(|limit| width(&joined(&pieces)) > limit) {
+            pieces = lay_out(false);
         }
-        match limit.and_then(|limit| self.cut(&line, limit, dim)) {
-            Some(cut) => cut.line,
-            None => line,
+        let line = joined(&pieces);
+        let (line, kept) = match limit.and_then(|limit| self.cut(&line, limit, dim)) {
+            Some(cut) => (cut.line, cut.kept),
+            None => (line, usize::MAX),
+        };
+        // What the cut left of each piece stands for it; the overflow string
+        // after the cut stands for nothing.
+        let mut spans = ColumnSpans::default();
+        let mut column = 0;
+        for (text, target) in &pieces {
+            let columns = width(text);
+            if let Some(target) = target {
+                spans.push(column..(column + columns).min(kept), *target);
+            }
+            column += columns;
         }
+        (line, spans)
     }
 
     /// `line` cut to `limit` columns and ended with `overflow_str`, or `None`

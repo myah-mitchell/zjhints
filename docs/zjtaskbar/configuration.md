@@ -87,6 +87,18 @@ Whether the bar shows at all, and how it behaves beside other sessions. See [Hid
 
 `dim_strength` has to be quoted. Zellij's plugin-config parser accepts only string, integer and boolean node values, so a bare decimal fails to load.
 
+## Mouse
+
+Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `mouse` | `true` | Click an entry to focus, minimize or restore its pane, scroll to step through the panes on screen, double-click to rename, middle-click to close, right-click for the pane's menu or Zellij's bar menu |
+| `mouse_wheel_reversed` | `false` | Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar |
+| `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
+
+Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts.
+
 ## Settings screen
 
 Options of the settings screen itself. They are read only by the instance that runs the screen, not by the bar. See [Settings screen](../settings.md).

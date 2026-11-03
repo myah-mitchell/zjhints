@@ -11,6 +11,7 @@ rust-version.workspace = true
 zjkit.workspace = true
 ansi_term.workspace = true
 zellij-tile.workspace = true
+zellij-utils.workspace = true
 
 [features]
 # Makes `draw_for_image` public, for tests elsewhere in the workspace that

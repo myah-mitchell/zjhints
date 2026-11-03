@@ -17,7 +17,7 @@ use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior",
+    "Entries", "Flags", "Overflow", "Theme", "Colors", "Behavior", "Mouse",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -196,6 +196,27 @@ pub const OPTIONS: &[OptionSpec] = &[
         Some("0.5"),
         "How strongly to dim, from 0.0 to 1.0",
     ),
+    option(
+        "mouse",
+        "Mouse",
+        Kind::Bool,
+        Some("true"),
+        "Click an entry to focus, minimize or restore its pane, scroll to step through them, double-click to rename, middle-click to close, right-click for a menu",
+    ),
+    option(
+        "mouse_wheel_reversed",
+        "Mouse",
+        Kind::Bool,
+        Some("false"),
+        "Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar",
+    ),
+    option(
+        "mouse_close_confirm",
+        "Mouse",
+        Kind::Bool,
+        Some("true"),
+        "Ask before a middle click or the pane menu closes a pane",
+    ),
 ];
 
 pub const FAMILIES: &[FamilySpec] = &[family(
@@ -218,10 +239,12 @@ mod tests {
         CONFIG_AUTO_WIDTH, CONFIG_COLLAPSE_WHEN_EMPTY, CONFIG_DIM_STRENGTH,
         CONFIG_DIM_WHEN_UNFOCUSED, CONFIG_EMPTY_FORMAT, CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER,
         CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_HIDE_WHEN_NESTED, CONFIG_MAX_LENGTH,
-        CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
+        CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
+        CONFIG_MOUSE_WHEEL_REVERSED, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
         CONFIG_OVERFLOW_STR, CONFIG_PANE_SCOPE, CONFIG_TAB_SEPARATOR, DEFAULT_AUTO_WIDTH,
         DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH, DEFAULT_DIM_WHEN_UNFOCUSED,
-        DEFAULT_ENTRY_SPACER, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_MAX_LENGTH, DEFAULT_OVERFLOW_STR,
+        DEFAULT_ENTRY_SPACER, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_MAX_LENGTH, DEFAULT_MOUSE,
+        DEFAULT_MOUSE_CLOSE_CONFIRM, DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR,
         DEFAULT_PANE_SCOPE, DEFAULT_TAB_SEPARATOR,
     };
     use zjkit::settings::reference;
@@ -262,6 +285,15 @@ mod tests {
                 Some(DEFAULT_DIM_WHEN_UNFOCUSED.to_string()),
             ),
             (CONFIG_DIM_STRENGTH, Some(DEFAULT_DIM_STRENGTH.to_string())),
+            (CONFIG_MOUSE, Some(DEFAULT_MOUSE.to_string())),
+            (
+                CONFIG_MOUSE_WHEEL_REVERSED,
+                Some(DEFAULT_MOUSE_WHEEL_REVERSED.to_string()),
+            ),
+            (
+                CONFIG_MOUSE_CLOSE_CONFIRM,
+                Some(DEFAULT_MOUSE_CLOSE_CONFIRM.to_string()),
+            ),
             // The options zjkit reads for every bar: how wide an ambiguous
             // character is, whether the bar starts hidden, and the themes.
             (zjkit::config::CONFIG_AMBIGUOUS_WIDTH, Some("1".to_string())),

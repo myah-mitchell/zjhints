@@ -22,9 +22,10 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
     // The panes, the tabs and the input mode, from `PaneUpdate`, `TabUpdate`
     // and `ModeUpdate`.
     PermissionType::ReadApplicationState,
-    // Adding the bar's entry to Zellij's settings screen. Handing the bar's
-    // row back while it is empty needs no permission, as it changes only the
-    // bar's own pane.
+    // Adding the bar's entry to Zellij's settings screen. With `mouse` on,
+    // also focusing, minimizing, moving and closing the listed panes, and
+    // opening Zellij's bar menu. Handing the bar's row back while it is empty
+    // needs no permission, as it changes only the bar's own pane.
     PermissionType::ChangeApplicationState,
     // The hide, show and toggle messages between bars, and opening the
     // settings screen, which is this plugin again in a floating pane.
@@ -66,8 +67,8 @@ impl Feature {
     pub(crate) fn permissions(self) -> &'static [PermissionType] {
         match self {
             Feature::Mouse => &[
-                // Renaming a pane on a double-click, and the bar's menu, each
-                // of which runs Zellij's own action for it.
+                // Renaming a pane, from a double-click or the pane menu,
+                // which runs Zellij's own action for it.
                 PermissionType::RunActionsAsUser,
                 // The pane menu and the close confirmation, which are prompts.
                 PermissionType::OpenTerminalsOrPlugins,
@@ -119,6 +120,14 @@ pub(crate) const BAR_EVENTS: [EventType; 4] = [
     EventType::TabUpdate,
 ];
 
+/// The events the bar subscribes to while `mouse` is on.
+pub(crate) const MOUSE_EVENTS: [EventType; 2] = [
+    // Clicks and the wheel over the bar.
+    EventType::Mouse,
+    // The answers to the pane menu and the close confirmation.
+    EventType::PromptResult,
+];
+
 /// The pipe message that opens the settings screen, or brings it up.
 pub(crate) const OPEN_SETTINGS_MESSAGE: &str = "zjtaskbar::open_settings";
 
@@ -138,6 +147,5 @@ pub(crate) static BAR: BarSpec = BarSpec {
     // bar asks for what its options as read need; see `State::permissions`.
     permissions: |_mouse| bar_permissions(&Feature::ALL),
     events: &BAR_EVENTS,
-    // The bar takes no clicks, so it needs no mouse events.
-    mouse_events: &[],
+    mouse_events: &MOUSE_EVENTS,
 };

@@ -8,15 +8,73 @@
 //! reports a hidden floating pane as suppressed and no longer floating, the
 //! same as a hidden tiled pane, so the bar cannot tell from the manifest
 //! which hidden panes were floating. It keeps the ids of the panes it
-//! minimized itself instead, in `State::minimized`, and lists those.
+//! minimized itself instead, in `State::minimized`, and lists those. With
+//! each id it keeps where the pane stood, which Zellij forgets as it hides a
+//! pane; see `mouse::geometry_of`.
 //!
 //! The entries are grouped by tab, in the order the tabs stand, and within a
 //! tab ordered by pane id, terminals before plugins. A pane's id never
 //! changes, so the entries stay where they are as the focus moves between
 //! them.
 
-use std::collections::BTreeSet;
-use zellij_tile::prelude::{PaneId, PaneInfo, PaneManifest, TabInfo};
+use std::collections::BTreeMap;
+use zellij_tile::prelude::{FloatingPaneCoordinates, PaneId, PaneInfo, PaneManifest, TabInfo};
+
+/// The panes the bar minimized itself, each with where it stood on screen
+/// before it was hidden, so restoring it puts it back there.
+///
+/// A pane is kept from the moment the bar asks Zellij to hide it until a
+/// `PaneUpdate` shows it is no longer minimized. See `forget_gone` for when
+/// that is.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Minimized {
+    panes: BTreeMap<PaneId, MinimizedPane>,
+}
+
+/// One pane the bar minimized.
+#[derive(Clone, Debug, PartialEq)]
+struct MinimizedPane {
+    /// Where the pane stood on screen before the bar hid it.
+    geometry: FloatingPaneCoordinates,
+    /// Whether a `PaneUpdate` has shown the pane hidden since the bar hid
+    /// it, which says the hide took effect. Until then, an update showing
+    /// the pane on screen may be one Zellij sent before the hide.
+    seen_hidden: bool,
+}
+
+impl Minimized {
+    /// Keep `pane` as minimized, standing at `geometry` before it was
+    /// hidden. Called as the bar asks Zellij to hide it.
+    pub(crate) fn insert(&mut self, pane: PaneId, geometry: FloatingPaneCoordinates) {
+        let minimized = MinimizedPane {
+            geometry,
+            seen_hidden: false,
+        };
+        self.panes.insert(pane, minimized);
+    }
+
+    /// Forget `pane` as minimized, handing back where it stood, if the bar
+    /// minimized it.
+    pub(crate) fn remove(&mut self, pane: &PaneId) -> Option<FloatingPaneCoordinates> {
+        self.panes.remove(pane).map(|minimized| minimized.geometry)
+    }
+
+    /// Whether the bar minimized `pane` and has not forgotten it since.
+    pub(crate) fn contains_key(&self, pane: &PaneId) -> bool {
+        self.panes.contains_key(pane)
+    }
+
+    /// Where `pane` stood before the bar minimized it.
+    #[cfg(test)]
+    pub(crate) fn get(&self, pane: &PaneId) -> Option<&FloatingPaneCoordinates> {
+        self.panes.get(pane).map(|minimized| &minimized.geometry)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.panes.is_empty()
+    }
+}
 use zjkit::panes::{focus_by_tab, pane_id_of, ActiveTab};
 
 /// The values `pane_scope` takes.
@@ -115,7 +173,7 @@ impl Entry {
 pub(crate) fn entries_of(
     manifest: &PaneManifest,
     tabs: &[Tab],
-    minimized: &BTreeSet<PaneId>,
+    minimized: &Minimized,
     scope: PaneScope,
     own_pane: Option<PaneId>,
 ) -> Vec<Entry> {
@@ -173,24 +231,34 @@ fn is_listed_floating(pane: &PaneInfo) -> bool {
 /// Whether `pane` is one the bar minimized and is still hidden. A pane the
 /// bar minimized that is back on screen, shown some other way, is listed as
 /// any other floating pane.
-fn is_minimized(pane: &PaneInfo, minimized: &BTreeSet<PaneId>) -> bool {
-    pane.is_suppressed && minimized.contains(&pane_id_of(pane))
+fn is_minimized(pane: &PaneInfo, minimized: &Minimized) -> bool {
+    pane.is_suppressed && minimized.contains_key(&pane_id_of(pane))
 }
 
-/// Forget the minimized panes `manifest` shows are gone for good: closed, or
-/// back on screen as tiled panes, which the bar does not list.
+/// Forget the minimized panes `manifest` shows are no longer minimized:
+/// closed, back on screen as tiled panes, which the bar does not list, or
+/// back on screen as floating panes after a hide that took effect, shown
+/// again some other way than through the bar.
 ///
-/// A pane that is back on screen as a floating pane is kept. The bar adds a
-/// pane here as it hides it, and a pane update Zellij sent before the hide
-/// took effect still shows the pane on screen; forgetting it then would
-/// lose the pane from the bar once the hide arrives.
-pub(crate) fn forget_gone(minimized: &mut BTreeSet<PaneId>, manifest: &PaneManifest) {
-    minimized.retain(|pane_id| {
-        manifest
+/// A pane back on screen as a floating pane is kept while no update has
+/// shown it hidden yet. The bar adds a pane here as it hides it, and a pane
+/// update Zellij sent before the hide took effect still shows the pane on
+/// screen; forgetting it then would lose the pane from the bar once the
+/// hide arrives.
+pub(crate) fn forget_gone(minimized: &mut Minimized, manifest: &PaneManifest) {
+    minimized.panes.retain(|pane_id, minimized_pane| {
+        let Some(pane) = manifest
             .panes
             .values()
             .flatten()
             .find(|pane| pane_id_of(pane) == *pane_id)
-            .is_some_and(|pane| pane.is_suppressed || pane.is_floating)
+        else {
+            return false;
+        };
+        if pane.is_suppressed {
+            minimized_pane.seen_hidden = true;
+            return true;
+        }
+        pane.is_floating && !minimized_pane.seen_hidden
     });
 }

@@ -4,27 +4,30 @@
 //!
 //! The bar lists the session's floating panes as entries, grouped by tab,
 //! with the focused one highlighted and the minimized ones marked. See
-//! `entries` for which panes it lists and in what order, and `draw` for how
-//! it draws them.
+//! `entries` for which panes it lists and in what order, `draw` for how it
+//! draws them, and `mouse` for what clicking them does.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
 //! Zellij. It is a library so that other crates' tests can draw it into the
 //! docs images, through `draw_for_image` behind the `images` feature.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+use std::time::Instant;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
+use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
 mod draw;
 mod entries;
 mod flags;
 mod host;
+mod mouse;
 mod settings;
 mod theme;
 
-use draw::ModeView;
-use entries::{Entry, PaneScope, Tab};
+use draw::{Clickable, ModeView};
+use entries::{Entry, Minimized, PaneScope, Tab};
 use flags::FLAGS;
 use host::*;
 
@@ -48,6 +51,9 @@ const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
 const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
+const CONFIG_MOUSE: &str = "mouse";
+const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
+const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
 
 // Every tab's floating panes, as a desktop taskbar lists the windows of
 // every workspace: a pane left open in another tab is still one click away,
@@ -87,6 +93,15 @@ const DEFAULT_COLLAPSE_WHEN_EMPTY: bool = true;
 // as zjhints and zjtabs, so a shared layout's bars dim in step.
 const DEFAULT_DIM_WHEN_UNFOCUSED: bool = true;
 const DEFAULT_DIM_STRENGTH: f32 = 0.5;
+// On by default, as in zjtabs and unlike zjhints: clicking an entry to bring
+// its pane up is what a taskbar is for, and a desktop taskbar does it.
+const DEFAULT_MOUSE: bool = true;
+// The way zjtabs and Zellij's own tab bar turn the wheel: scrolling up goes
+// to the next one, to the right.
+const DEFAULT_MOUSE_WHEEL_REVERSED: bool = false;
+// Ask first: closing a pane ends what runs in it, and a middle click is easy
+// to make by accident. The same as zjtabs.
+const DEFAULT_MOUSE_CLOSE_CONFIRM: bool = true;
 
 #[derive(Default)]
 pub struct State {
@@ -145,19 +160,34 @@ pub struct State {
     dim_when_unfocused: bool,
     /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
     dim_strength: f32,
+    /// Whether the bar takes clicks and the wheel. See `mouse`.
+    mouse: bool,
+    /// Swap what scrolling up and down step to.
+    mouse_wheel_reversed: bool,
+    /// Ask before closing a pane, from a middle click or the pane menu.
+    mouse_close_confirm: bool,
     /// The panes from the last `PaneUpdate`, which the entries are taken
     /// from.
     panes: PaneManifest,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
     /// The panes the bar hid from the screen and keeps listed, so they can be
-    /// brought back. See `entries` for why the bar keeps them itself.
-    minimized: BTreeSet<PaneId>,
+    /// brought back, each with where it stood. See `entries` for why the bar
+    /// keeps them itself.
+    minimized: Minimized,
     /// What the bar lists, in the order it draws them, from `panes`, `tabs`,
     /// `minimized` and `pane_scope`. See `refresh_entries`.
     entries: Vec<Entry>,
     /// The nested-session state from the last `ModeUpdate`.
     mode_info: ModeInfo,
+    /// What each column of the line last drawn stands for, for the mouse.
+    click_spans: ColumnSpans<Clickable>,
+    /// The pane menu or close confirmation being shown, if any. See
+    /// `mouse::Prompted`.
+    pending_prompt: PendingPrompt<mouse::Prompted>,
+    /// The last left click on the bar, to tell the second click of a double
+    /// click from a click of its own. See `mouse::LeftClick`.
+    last_left_click: Option<mouse::LeftClick>,
 }
 
 impl State {
@@ -215,6 +245,17 @@ impl State {
         // inverts the blend direction below 0.0.
         self.dim_strength =
             config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
+        self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
+        self.mouse_wheel_reversed = config::bool_option(
+            configuration,
+            CONFIG_MOUSE_WHEEL_REVERSED,
+            DEFAULT_MOUSE_WHEEL_REVERSED,
+        );
+        self.mouse_close_confirm = config::bool_option(
+            configuration,
+            CONFIG_MOUSE_CLOSE_CONFIRM,
+            DEFAULT_MOUSE_CLOSE_CONFIRM,
+        );
         // `pane_scope` decides which panes are listed.
         self.refresh_entries();
     }
@@ -222,8 +263,11 @@ impl State {
     /// The features the options as read turn on, whose permissions the bar
     /// asks for beyond what it always does. See `host::Feature`.
     fn features(&self) -> Vec<Feature> {
-        // No option turns a feature on yet.
-        Vec::new()
+        let mut features = Vec::new();
+        if self.mouse {
+            features.push(Feature::Mouse);
+        }
+        features
     }
 
     /// Take the entries again from what the bar knows of the panes and the
@@ -256,9 +300,8 @@ impl BarPlugin for State {
         &self.bar
     }
 
-    /// The bar takes no clicks.
     fn mouse(&self) -> bool {
-        false
+        self.mouse
     }
 
     /// The permissions of the features the options turn on, which `mouse`
@@ -309,6 +352,10 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
             }
+            // What a click does comes back as a `PaneUpdate`, so the mouse
+            // never redraws by itself.
+            Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse, Instant::now()),
+            Event::PromptResult(request_id, result) => self.answer_prompt(request_id, &result),
             _ => {}
         }
         should_render
@@ -330,9 +377,10 @@ impl ZellijPlugin for State {
             self.role.render(rows, cols);
             return;
         }
-        let output = self.draw_bar();
+        let (output, click_spans) = self.draw_bar();
         self.bar
             .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
+        self.click_spans = click_spans;
         print!("{output}");
     }
 }
@@ -363,7 +411,7 @@ pub fn draw_for_image(
     state.panes = manifest;
     // Reads the options and takes the entries from the panes and tabs.
     state.apply_configuration(configuration);
-    state.draw_bar()
+    state.draw_bar().0
 }
 
 #[cfg(test)]

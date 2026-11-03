@@ -131,5 +131,5 @@ fn draw_bar(
             }
         })
         .collect();
-    state.draw_bar()
+    state.draw_bar().0
 }

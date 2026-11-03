@@ -1,8 +1,12 @@
 use super::*;
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use zellij_tile::prelude::actions::Action;
+use zellij_utils::input::layout::PercentOrFixed;
 use zjkit::ansi::{AnsiParser, AnsiSegment};
 use zjkit::bar::Handled;
 use zjkit::host::{Call, Recorder};
+use zjkit::mouse::labeled_menu_request;
 
 fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
@@ -21,25 +25,78 @@ fn loaded(pairs: &[(&str, &str)]) -> State {
 // Permissions.
 
 #[test]
-fn loading_the_bar_asks_for_its_permissions_and_events() {
+fn loading_the_bar_asks_for_its_permissions_and_events_with_the_mouse_on_by_default() {
     let state = loaded(&[]);
     let calls = state.host.calls();
-    assert!(calls.contains(&Call::RequestPermission(BAR_PERMISSIONS.to_vec())));
+    let permissions = bar_permissions(&[Feature::Mouse]);
+    assert!(calls.contains(&Call::RequestPermission(permissions)));
     assert!(calls.contains(&Call::Subscribe(BAR_EVENTS.to_vec())));
-    // No mouse events, as the bar takes no clicks.
-    let subscriptions = calls
+    assert!(calls.contains(&Call::Subscribe(MOUSE_EVENTS.to_vec())));
+}
+
+#[test]
+fn with_the_mouse_off_the_bar_asks_for_no_mouse_events() {
+    let state = loaded(&[("mouse", "false")]);
+    let calls = state.host.calls();
+    assert!(calls.contains(&Call::RequestPermission(BAR_PERMISSIONS.to_vec())));
+    let subscriptions: Vec<_> = calls
         .iter()
         .filter(|call| matches!(call, Call::Subscribe(_)))
-        .count();
-    assert_eq!(subscriptions, 1);
+        .collect();
+    assert_eq!(subscriptions, vec![&Call::Subscribe(BAR_EVENTS.to_vec())]);
 }
 
 #[test]
 fn with_no_feature_on_the_bar_asks_only_for_what_it_always_needs() {
     assert_eq!(bar_permissions(&[]), BAR_PERMISSIONS.to_vec());
     assert_eq!(
-        BarPlugin::permissions(&loaded(&[]), &BAR),
+        BarPlugin::permissions(&loaded(&[("mouse", "false")]), &BAR),
         BAR_PERMISSIONS.to_vec()
+    );
+}
+
+#[test]
+fn the_mouse_asks_to_run_actions_and_show_prompts() {
+    let state = loaded(&[]);
+    assert_eq!(state.features(), vec![Feature::Mouse]);
+    let mut expected = BAR_PERMISSIONS.to_vec();
+    expected.extend([
+        PermissionType::RunActionsAsUser,
+        PermissionType::OpenTerminalsOrPlugins,
+    ]);
+    assert_eq!(BarPlugin::permissions(&state, &BAR), expected);
+    // Asking first or not, and the way round the wheel goes, need nothing
+    // more.
+    for options in [
+        [
+            ("mouse_close_confirm", "false"),
+            ("mouse_wheel_reversed", "true"),
+        ],
+        [
+            ("mouse_close_confirm", "true"),
+            ("mouse_wheel_reversed", "false"),
+        ],
+    ] {
+        assert_eq!(BarPlugin::permissions(&loaded(&options), &BAR), expected);
+    }
+}
+
+#[test]
+fn turning_the_mouse_on_later_asks_for_it_and_its_events() {
+    let mut state = loaded(&[("mouse", "false")]);
+    state.host.clear();
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[("mouse", "true")]))
+    ));
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            Call::SetSelectable(true),
+            Call::RequestPermission(bar_permissions(&[Feature::Mouse])),
+            Call::Subscribe(MOUSE_EVENTS.to_vec()),
+        ]
     );
 }
 
@@ -144,6 +201,9 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.collapse_when_empty, DEFAULT_COLLAPSE_WHEN_EMPTY);
     assert_eq!(state.dim_when_unfocused, DEFAULT_DIM_WHEN_UNFOCUSED);
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
+    assert_eq!(state.mouse, DEFAULT_MOUSE);
+    assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
+    assert_eq!(state.mouse_close_confirm, DEFAULT_MOUSE_CLOSE_CONFIRM);
 }
 
 #[test]
@@ -170,6 +230,9 @@ fn every_option_is_read_from_its_key() {
         ("collapse_when_empty", "false"),
         ("dim_when_unfocused", "false"),
         ("dim_strength", "0.25"),
+        ("mouse", "false"),
+        ("mouse_wheel_reversed", "true"),
+        ("mouse_close_confirm", "false"),
     ]);
     assert_eq!(state.pane_scope, PaneScope::Tab);
     assert_eq!(state.entry_format.as_deref(), Some("{title}"));
@@ -189,6 +252,9 @@ fn every_option_is_read_from_its_key() {
     assert!(!state.collapse_when_empty);
     assert!(!state.dim_when_unfocused);
     assert_eq!(state.dim_strength, 0.25);
+    assert!(!state.mouse);
+    assert!(state.mouse_wheel_reversed);
+    assert!(!state.mouse_close_confirm);
 }
 
 #[test]
@@ -389,7 +455,7 @@ fn strip_ansi(text: &str) -> String {
 
 /// The line the bar draws, as plain text.
 fn shown(state: &State) -> String {
-    strip_ansi(&state.draw_bar())
+    strip_ansi(&state.draw_bar().0)
 }
 
 // Which panes are listed, and in what order.
@@ -544,7 +610,9 @@ fn changing_the_scope_lists_the_panes_again() {
 #[test]
 fn a_pane_the_bar_minimized_stays_listed_while_hidden() {
     let mut state = loaded(&plain_with(&[("minimized_format", "-")]));
-    state.minimized.insert(PaneId::Terminal(2));
+    state
+        .minimized
+        .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(
         80,
@@ -569,19 +637,25 @@ fn a_pane_the_bar_minimized_stays_listed_while_hidden() {
 #[test]
 fn a_minimized_pane_shown_again_some_other_way_is_listed_as_any_other() {
     let mut state = loaded(&PLAIN);
-    state.minimized.insert(PaneId::Terminal(2));
+    state
+        .minimized
+        .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(80, vec![(0, vec![floating(2, "b")])]));
     assert_eq!(shown(&state), "b");
     // It is still kept, as the update may be one sent before the hide.
-    assert!(state.minimized.contains(&PaneId::Terminal(2)));
+    assert!(state.minimized.contains_key(&PaneId::Terminal(2)));
 }
 
 #[test]
 fn a_minimized_pane_is_forgotten_once_closed_or_tiled() {
     let mut state = loaded(&PLAIN);
-    state.minimized.insert(PaneId::Terminal(1));
-    state.minimized.insert(PaneId::Terminal(2));
+    state
+        .minimized
+        .insert(PaneId::Terminal(1), FloatingPaneCoordinates::default());
+    state
+        .minimized
+        .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     let mut tiled = floating(2, "b");
     tiled.is_floating = false;
     state.update(panes(80, vec![(0, vec![tiled])]));
@@ -608,7 +682,9 @@ fn each_flag_shows_in_its_own_default_words() {
     let mut exited = floating(1, "build");
     exited.exited = true;
     let mut state = loaded(&[]);
-    state.minimized.insert(PaneId::Terminal(3));
+    state
+        .minimized
+        .insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(2, 0)));
     state.update(panes(
         200,
@@ -656,7 +732,9 @@ fn a_title_and_a_tab_name_are_drawn_as_text_with_their_control_characters_escape
 #[test]
 fn with_no_formats_the_entries_take_zellij_s_colors() {
     let mut state = loaded(&[]);
-    state.minimized.insert(PaneId::Terminal(3));
+    state
+        .minimized
+        .insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
     state.update(Event::ModeUpdate(mode()));
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(
@@ -683,7 +761,7 @@ fn with_no_formats_the_entries_take_zellij_s_colors() {
         drawn("#[fg=#070809,bg=#1e1e2e] c (MINIMIZED) "),
     ]
     .concat();
-    assert_eq!(state.draw_bar(), expected);
+    assert_eq!(state.draw_bar().0, expected);
 }
 
 #[test]
@@ -691,7 +769,7 @@ fn before_zellij_sends_its_theme_the_entries_are_unstyled() {
     let mut state = loaded(&[]);
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(80, vec![(0, vec![floating(1, "a")])]));
-    assert_eq!(state.draw_bar(), " a ");
+    assert_eq!(state.draw_bar().0, " a ");
 }
 
 #[test]
@@ -711,7 +789,10 @@ fn a_styled_flag_keeps_the_entry_s_background_under_it() {
         config,
         0.0,
     );
-    assert_eq!(state.draw_bar(), ansi_term::ANSIStrings(&parts).to_string());
+    assert_eq!(
+        state.draw_bar().0,
+        ansi_term::ANSIStrings(&parts).to_string()
+    );
 }
 
 // Hiding, dimming and the empty bar.
@@ -719,7 +800,7 @@ fn a_styled_flag_keeps_the_entry_s_background_under_it() {
 #[test]
 fn the_bar_dims_while_its_session_is_not_receiving_input() {
     let by_tab = || vec![(0, vec![floating(1, "a"), floating(2, "b")])];
-    let undimmed = bar(&[], 80, tabs(1, 0), by_tab()).draw_bar();
+    let undimmed = bar(&[], 80, tabs(1, 0), by_tab()).draw_bar().0;
     let dimmed_mode = || {
         let mut mode_info = mode();
         mode_info.session_dimmed = Some(true);
@@ -727,13 +808,13 @@ fn the_bar_dims_while_its_session_is_not_receiving_input() {
     };
     let mut state = bar(&[], 80, tabs(1, 0), by_tab());
     assert!(state.update(dimmed_mode()));
-    let dimmed = state.draw_bar();
+    let dimmed = state.draw_bar().0;
     assert_ne!(dimmed, undimmed);
     assert_eq!(strip_ansi(&dimmed), strip_ansi(&undimmed));
 
     let mut state = bar(&[("dim_when_unfocused", "false")], 80, tabs(1, 0), by_tab());
     state.update(dimmed_mode());
-    assert_eq!(state.draw_bar(), undimmed);
+    assert_eq!(state.draw_bar().0, undimmed);
 }
 
 #[test]
@@ -744,7 +825,7 @@ fn hidden_draws_nothing() {
         tabs(1, 0),
         vec![(0, vec![floating(1, "a")])],
     );
-    assert_eq!(state.draw_bar(), "");
+    assert_eq!(state.draw_bar().0, "");
 }
 
 #[test]
@@ -775,7 +856,7 @@ fn a_nested_session_draws_nothing_unless_its_host_s_bars_are_covered() {
 #[test]
 fn with_no_floating_panes_the_bar_is_blank_or_draws_empty_format() {
     let state = bar(&PLAIN, 80, tabs(1, 0), vec![]);
-    assert_eq!(state.draw_bar(), "");
+    assert_eq!(state.draw_bar().0, "");
     let state = bar(
         &plain_with(&[("empty_format", "no floating panes")]),
         80,
@@ -954,7 +1035,7 @@ fn a_cut_line_keeps_its_styles_closed() {
         tabs(1, 0),
         vec![(0, vec![focused(floating(1, "a long title"))])],
     );
-    let line = state.draw_bar();
+    let line = state.draw_bar().0;
     assert_eq!(strip_ansi(&line), " a ...");
     assert!(line.ends_with(zjkit::ansi::ANSI_RESET));
 }
@@ -963,8 +1044,8 @@ fn a_cut_line_keeps_its_styles_closed() {
 fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
     let mut exited = floating(2, "cargo build");
     exited.exited = true;
-    let mut state_minimized = BTreeSet::new();
-    state_minimized.insert(PaneId::Terminal(3));
+    let mut state_minimized = Minimized::default();
+    state_minimized.insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
     let by_tab = vec![
         (
             0,
@@ -992,7 +1073,7 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
             state.update(Event::ModeUpdate(mode()));
             state.update(Event::TabUpdate(tabs(3, 1)));
             state.update(panes(width, by_tab.clone()));
-            let line = state.draw_bar();
+            let line = state.draw_bar().0;
             assert!(!line.is_empty(), "{combination:?}");
             for raw in ["#[", "$", "{"] {
                 assert!(!line.contains(raw), "{combination:?} {width}: left {raw}");
@@ -1282,6 +1363,1075 @@ fn drawing_for_an_image_draws_what_the_plugin_would() {
     };
     assert_eq!(
         draw_for_image(cfg(&PLAIN), mode(), &infos, manifest, 40),
-        state.draw_bar()
+        state.draw_bar().0
     );
+}
+
+// The mouse.
+
+/// What `mouse` on the bar as last drawn makes it ask of Zellij, through
+/// `update` as Zellij sends it, at the real time. Two left clicks on one
+/// column through this are a double-click's, so a test making both uses
+/// `after_mouse_at`.
+fn after_mouse(state: &mut State, mouse: Mouse) -> Vec<Call> {
+    state.render(1, 80);
+    state.host.clear();
+    assert!(
+        !state.update(Event::Mouse(mouse)),
+        "the mouse redrew the bar"
+    );
+    state.host.calls()
+}
+
+/// What `mouse` at `now` makes the bar ask of Zellij, for the clicks of a
+/// double-click, which the bar tells apart by their times.
+fn after_mouse_at(state: &mut State, mouse: Mouse, now: Instant) -> Vec<Call> {
+    state.render(1, 80);
+    state.host.clear();
+    state.follow_mouse(&mouse, now);
+    state.host.calls()
+}
+
+/// The one prompt `calls` shows, with its id.
+fn the_prompt(calls: &[Call]) -> (u64, PromptRequest) {
+    match calls {
+        [Call::Prompt {
+            request_id,
+            request,
+        }] => (*request_id, request.clone()),
+        other => panic!("expected one prompt, got {other:?}"),
+    }
+}
+
+/// What the answer `result` to the prompt `request_id` makes the bar ask of
+/// Zellij.
+fn after_answer(state: &mut State, request_id: u64, result: PromptResult) -> Vec<Call> {
+    state.host.clear();
+    assert!(!state.update(Event::PromptResult(request_id, result)));
+    state.host.calls()
+}
+
+fn choose(index: usize) -> PromptResult {
+    PromptResult::Answered(PromptValue::Choice(index.to_string()))
+}
+
+fn focus_terminal(id: u32) -> Call {
+    Call::FocusTerminalPane {
+        terminal_pane_id: id,
+        should_float_if_hidden: true,
+        should_be_in_place_if_hidden: false,
+    }
+}
+
+fn rename(pane: PaneId) -> Call {
+    Call::RunAction {
+        action: Action::StartRenamePaneByPaneId { pane_id: pane },
+        context: BTreeMap::new(),
+    }
+}
+
+/// `pane` standing at column `x` and row `y` of the screen, `columns` wide
+/// and `rows` high with its frame, and a frame around its content unless
+/// `borderless`.
+fn placed(
+    mut pane: PaneInfo,
+    (x, y): (usize, usize),
+    (columns, rows): (usize, usize),
+    borderless: bool,
+) -> PaneInfo {
+    let frame = if borderless { 0 } else { 1 };
+    pane.pane_x = x;
+    pane.pane_y = y;
+    pane.pane_columns = columns;
+    pane.pane_rows = rows;
+    pane.pane_content_x = x + frame;
+    pane.pane_content_y = y + frame;
+    pane.pane_content_columns = columns - 2 * frame;
+    pane.pane_content_rows = rows - 2 * frame;
+    pane
+}
+
+fn fixed(
+    (x, y): (usize, usize),
+    (columns, rows): (usize, usize),
+    borderless: Option<bool>,
+) -> FloatingPaneCoordinates {
+    FloatingPaneCoordinates {
+        x: Some(PercentOrFixed::Fixed(x)),
+        y: Some(PercentOrFixed::Fixed(y)),
+        width: Some(PercentOrFixed::Fixed(columns)),
+        height: Some(PercentOrFixed::Fixed(rows)),
+        borderless,
+        ..Default::default()
+    }
+}
+
+/// Three panes of one tab, `htop` focused: `vim|[htop]|logs`, each title
+/// starting at the column after the spacer before it.
+fn three_panes() -> State {
+    bar(
+        &PLAIN,
+        80,
+        tabs(1, 0),
+        vec![(
+            0,
+            vec![
+                floating(1, "vim"),
+                focused(placed(floating(2, "htop"), (10, 5), (40, 12), false)),
+                floating(3, "logs"),
+            ],
+        )],
+    )
+}
+
+#[test]
+fn the_click_spans_cover_the_entries_and_markers_and_nothing_between() {
+    let mut state = bar(&PLAIN, 13, tabs(1, 0), letters(10, 5));
+    state.render(1, 13);
+    assert_eq!(shown(&state), "<4|e|[f]|g|3>");
+    let at = |column| state.click_spans.value_at(column).copied();
+    let terminal = PaneId::Terminal;
+    assert_eq!(at(0), Some(Clickable::Marker(terminal(4))));
+    assert_eq!(at(1), Some(Clickable::Marker(terminal(4))));
+    assert_eq!(at(2), None);
+    assert_eq!(at(3), Some(Clickable::Entry(terminal(5))));
+    for column in 5..8 {
+        assert_eq!(at(column), Some(Clickable::Entry(terminal(6))));
+    }
+    assert_eq!(at(10), None);
+    assert_eq!(at(11), Some(Clickable::Marker(terminal(8))));
+    assert_eq!(at(12), Some(Clickable::Marker(terminal(8))));
+    assert_eq!(at(13), None);
+}
+
+#[test]
+fn the_separator_between_tabs_and_the_cut_of_a_line_stand_for_nothing() {
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(2, 0),
+        vec![(0, vec![floating(1, "a")]), (1, vec![floating(2, "b")])],
+    );
+    state.render(1, 80);
+    assert_eq!(shown(&state), "a/b(two)");
+    assert_eq!(state.click_spans.value_at(1), None);
+    assert_eq!(
+        state.click_spans.value_at(2),
+        Some(&Clickable::Entry(PaneId::Terminal(2)))
+    );
+
+    let mut state = bar(
+        &plain_with(&[("overflow_str", "~")]),
+        4,
+        tabs(1, 0),
+        vec![(0, vec![focused(floating(1, "abcdefgh"))])],
+    );
+    state.render(1, 4);
+    assert_eq!(shown(&state), "[ab~");
+    assert_eq!(
+        state.click_spans.value_at(2),
+        Some(&Clickable::Entry(PaneId::Terminal(1)))
+    );
+    assert_eq!(state.click_spans.value_at(3), None);
+}
+
+#[test]
+fn a_left_click_focuses_a_pane_that_is_not_focused() {
+    let mut state = three_panes();
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![focus_terminal(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![focus_terminal(3)]
+    );
+}
+
+#[test]
+fn a_left_click_focuses_a_plugin_pane_or_one_in_another_tab_the_same_way() {
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(2, 0),
+        vec![
+            (0, vec![plugin(floating(7, "picker"))]),
+            (1, vec![floating(2, "far")]),
+        ],
+    );
+    assert_eq!(shown(&state), "picker*/far(two)");
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::FocusPluginPane {
+            plugin_pane_id: 7,
+            should_float_if_hidden: true,
+            should_be_in_place_if_hidden: false,
+        }]
+    );
+    // Zellij switches to the pane's tab as it focuses it.
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 8)),
+        vec![focus_terminal(2)]
+    );
+}
+
+#[test]
+fn a_left_click_on_the_focused_entry_minimizes_its_pane_recording_where_it_stood() {
+    let mut state = three_panes();
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 5)),
+        vec![Call::HidePaneWithId(PaneId::Terminal(2))]
+    );
+    assert_eq!(
+        state.minimized.get(&PaneId::Terminal(2)),
+        Some(&fixed((10, 5), (40, 12), Some(false)))
+    );
+}
+
+#[test]
+fn a_left_click_on_a_minimized_entry_restores_its_pane_where_it_stood() {
+    let mut state = three_panes();
+    let start = Instant::now();
+    after_mouse_at(&mut state, Mouse::LeftClick(0, 5), start);
+    // Zellij hides the pane, and reports it with its place forgotten.
+    let hidden = suppressed(floating(2, "htop"));
+    state.update(panes(
+        80,
+        vec![(0, vec![floating(1, "vim"), hidden, floating(3, "logs")])],
+    ));
+    assert_eq!(shown(&state), "vim|_htop_|logs");
+    // Long enough after the first not to be its double-click.
+    let later = start + Duration::from_secs(1);
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::LeftClick(0, 5), later),
+        vec![
+            focus_terminal(2),
+            Call::ChangeFloatingPanesCoordinates(vec![(
+                PaneId::Terminal(2),
+                fixed((10, 5), (40, 12), Some(false)),
+            )]),
+        ]
+    );
+    assert!(state.minimized.is_empty());
+    // The entry stays as it was until Zellij reports the pane on screen.
+    assert_eq!(shown(&state), "vim|_htop_|logs");
+}
+
+#[test]
+fn the_round_trip_keeps_a_pane_s_place_size_and_frame_exactly() {
+    for (pane, expected) in [
+        (
+            placed(floating(1, "a"), (0, 0), (3, 3), false),
+            fixed((0, 0), (3, 3), Some(false)),
+        ),
+        (
+            placed(floating(1, "a"), (117, 40), (2, 1), true),
+            fixed((117, 40), (2, 1), Some(true)),
+        ),
+    ] {
+        let mut state = bar(&PLAIN, 80, tabs(1, 0), vec![(0, vec![focused(pane)])]);
+        let start = Instant::now();
+        after_mouse_at(&mut state, Mouse::LeftClick(0, 0), start);
+        state.update(panes(80, vec![(0, vec![suppressed(floating(1, "a"))])]));
+        let later = start + Duration::from_secs(1);
+        let calls = after_mouse_at(&mut state, Mouse::LeftClick(0, 0), later);
+        assert_eq!(
+            calls[1],
+            Call::ChangeFloatingPanesCoordinates(vec![(PaneId::Terminal(1), expected)])
+        );
+    }
+    // A fullscreen pane fills the screen with or without its frame, so the
+    // frame is left as Zellij has it.
+    let mut pane = placed(floating(1, "a"), (0, 0), (80, 24), true);
+    pane.is_fullscreen = true;
+    assert_eq!(mouse::geometry_of(&pane), fixed((0, 0), (80, 24), None));
+}
+
+#[test]
+fn a_left_click_on_a_marker_brings_up_the_nearest_hidden_entry() {
+    let mut state = bar(&PLAIN, 13, tabs(1, 0), letters(10, 5));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![focus_terminal(4)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![focus_terminal(8)]
+    );
+    // A minimized one is restored.
+    let mut by_tab = letters(10, 5);
+    by_tab[0].1[3] = suppressed(floating(4, "d"));
+    let mut state = bar(&PLAIN, 13, tabs(1, 0), by_tab.clone());
+    let geometry = fixed((1, 2), (30, 10), Some(false));
+    state
+        .minimized
+        .insert(PaneId::Terminal(4), geometry.clone());
+    state.update(panes(13, by_tab));
+    assert_eq!(shown(&state), "<4|e|[f]|g|3>");
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![
+            focus_terminal(4),
+            Call::ChangeFloatingPanesCoordinates(vec![(PaneId::Terminal(4), geometry)]),
+        ]
+    );
+}
+
+#[test]
+fn only_a_right_click_does_anything_off_an_entry() {
+    let mut state = bar(&PLAIN, 13, tabs(1, 0), letters(10, 5));
+    // A spacer, and the empty end of the bar.
+    for column in [2, 40] {
+        for mouse in [
+            Mouse::LeftClick(0, column),
+            Mouse::DoubleClick(0, column),
+            Mouse::MiddleClick(0, column),
+        ] {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+    }
+    // A marker stands for several entries, so only a left click picks one.
+    assert_eq!(after_mouse(&mut state, Mouse::MiddleClick(0, 0)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::DoubleClick(0, 0)), vec![]);
+    for column in [0, 2, 40] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }]
+        );
+    }
+}
+
+#[test]
+fn the_second_left_click_of_a_double_click_does_nothing_and_the_double_click_renames() {
+    let start = Instant::now();
+    let after = |millis| start + Duration::from_millis(millis);
+    let pane = PaneId::Terminal(1);
+
+    // An entry not focused is focused once, and renamed.
+    let mut state = three_panes();
+    let left = Mouse::LeftClick(0, 1);
+    assert_eq!(
+        after_mouse_at(&mut state, left, after(0)),
+        vec![focus_terminal(1)]
+    );
+    assert_eq!(after_mouse_at(&mut state, left, after(150)), vec![]);
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::DoubleClick(0, 1), after(150)),
+        vec![focus_terminal(1), rename(pane)]
+    );
+
+    // The focused entry's first click minimizes it, and the double-click
+    // puts it back where it stood before renaming it, whether or not Zellij
+    // has reported it hidden yet.
+    let pane = PaneId::Terminal(2);
+    let restore =
+        Call::ChangeFloatingPanesCoordinates(vec![(pane, fixed((10, 5), (40, 12), Some(false)))]);
+    for reported_hidden in [false, true] {
+        let mut state = three_panes();
+        let left = Mouse::LeftClick(0, 5);
+        assert_eq!(
+            after_mouse_at(&mut state, left, after(0)),
+            vec![Call::HidePaneWithId(pane)]
+        );
+        if reported_hidden {
+            let hidden = suppressed(floating(2, "htop"));
+            state.update(panes(
+                80,
+                vec![(0, vec![floating(1, "vim"), hidden, floating(3, "logs")])],
+            ));
+        }
+        assert_eq!(after_mouse_at(&mut state, left, after(399)), vec![]);
+        assert_eq!(
+            after_mouse_at(&mut state, Mouse::DoubleClick(0, 5), after(399)),
+            vec![focus_terminal(2), restore.clone(), rename(pane)],
+            "reported hidden: {reported_hidden}"
+        );
+        assert!(state.minimized.is_empty());
+    }
+}
+
+#[test]
+fn a_left_click_after_the_double_click_time_or_elsewhere_is_one_of_its_own() {
+    let start = Instant::now();
+    let after = |millis| start + Duration::from_millis(millis);
+    let mut state = three_panes();
+    after_mouse_at(&mut state, Mouse::LeftClick(0, 0), after(0));
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::LeftClick(0, 0), after(400)),
+        vec![focus_terminal(1)]
+    );
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::LeftClick(0, 1), after(450)),
+        vec![focus_terminal(1)]
+    );
+}
+
+#[test]
+fn a_double_click_acts_on_what_its_first_click_landed_on() {
+    let start = Instant::now();
+    let mut state = bar(&PLAIN, 13, tabs(1, 0), letters(10, 5));
+    after_mouse_at(&mut state, Mouse::LeftClick(0, 0), start);
+    // The click focused `d`, and the window moved: an entry is drawn where
+    // the marker was.
+    state.update(panes(13, letters(10, 3)));
+    assert_eq!(shown(&state), "<2|c|[d]|e|5>");
+    state.update(panes(13, letters(10, 1)));
+    assert_eq!(shown(&state), "a|[b]|c|d|6>");
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::DoubleClick(0, 0), start),
+        vec![]
+    );
+}
+
+#[test]
+fn a_double_click_on_a_minimized_entry_restores_and_renames_its_pane() {
+    let mut state = three_panes();
+    let geometry = fixed((1, 1), (20, 8), Some(false));
+    state
+        .minimized
+        .insert(PaneId::Terminal(3), geometry.clone());
+    state.update(panes(
+        80,
+        vec![(
+            0,
+            vec![
+                floating(1, "vim"),
+                focused(floating(2, "htop")),
+                suppressed(floating(3, "logs")),
+            ],
+        )],
+    ));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 12)),
+        vec![
+            focus_terminal(3),
+            Call::ChangeFloatingPanesCoordinates(vec![(PaneId::Terminal(3), geometry)]),
+            rename(PaneId::Terminal(3)),
+        ]
+    );
+    // The focused one is renamed where it is.
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 5)),
+        vec![rename(PaneId::Terminal(2))]
+    );
+}
+
+/// The close confirmation, asking `message`.
+fn close_prompt(message: &str) -> PromptRequest {
+    PromptRequest::confirm(message)
+        .title("Close pane?")
+        .yes("Close pane")
+        .no("Cancel")
+        .default("false")
+}
+
+#[test]
+fn a_middle_click_asks_before_closing_with_cancel_selected() {
+    let mut state = three_panes();
+    let (request_id, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        request,
+        close_prompt("Close pane \"vim\" and end what runs in it?")
+    );
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTerminalPane(1)]
+    );
+    assert!(!state.pending_prompt.is_waiting());
+    // Answered once: the same answer again closes nothing.
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn a_confirmed_close_of_a_plugin_pane_closes_it_as_a_plugin() {
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(1, 0),
+        vec![(0, vec![plugin(floating(7, "picker"))])],
+    );
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::ClosePluginPane(7)]
+    );
+}
+
+#[test]
+fn the_close_prompt_shows_a_title_s_control_characters_escaped() {
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "a\u{1b}b")])],
+    );
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    let escaped = zjkit::ansi::show_controls("a\u{1b}b");
+    assert!(!escaped.contains('\u{1b}'));
+    assert_eq!(
+        request,
+        close_prompt(&format!(
+            "Close pane \"{escaped}\" and end what runs in it?"
+        ))
+    );
+}
+
+#[test]
+fn any_answer_but_a_confirmation_closes_nothing() {
+    for result in [
+        PromptResult::Confirmed(false),
+        PromptResult::Cancelled,
+        PromptResult::TimedOut(None),
+        PromptResult::TimedOut(Some(PromptValue::Bool(true))),
+        PromptResult::Error("no popup".to_string()),
+        PromptResult::Answered(PromptValue::Bool(true)),
+        choose(0),
+    ] {
+        let mut state = three_panes();
+        let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+        assert_eq!(
+            after_answer(&mut state, request_id, result.clone()),
+            vec![],
+            "{result:?}"
+        );
+        assert!(!state.pending_prompt.is_waiting(), "{result:?}");
+    }
+}
+
+#[test]
+fn an_answer_to_another_prompt_closes_nothing_and_keeps_waiting() {
+    let mut state = three_panes();
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    for other in [request_id + 1, request_id.wrapping_sub(1), 0] {
+        assert_eq!(
+            after_answer(&mut state, other, PromptResult::Confirmed(true)),
+            vec![]
+        );
+    }
+    assert!(state.pending_prompt.is_waiting());
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTerminalPane(1)]
+    );
+}
+
+#[test]
+fn an_answer_with_nothing_waiting_does_nothing() {
+    let mut state = three_panes();
+    assert_eq!(
+        after_answer(&mut state, 1, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(after_answer(&mut state, 1, choose(0)), vec![]);
+}
+
+#[test]
+fn a_confirmation_for_a_pane_closed_since_closes_nothing() {
+    let mut state = three_panes();
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    state.update(panes(80, vec![(0, vec![focused(floating(2, "htop"))])]));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn a_newer_prompt_replaces_the_one_waited_for() {
+    let mut state = three_panes();
+    let (first, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    let (second, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 12)));
+    assert_eq!(
+        after_answer(&mut state, first, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(
+        after_answer(&mut state, second, PromptResult::Confirmed(true)),
+        vec![Call::CloseTerminalPane(3)]
+    );
+}
+
+#[test]
+fn with_mouse_close_confirm_off_a_middle_click_closes_at_once() {
+    let mut state = bar(
+        &plain_with(&[("mouse_close_confirm", "false")]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "vim"), plugin(floating(7, "picker"))])],
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 0)),
+        vec![Call::CloseTerminalPane(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 4)),
+        vec![Call::ClosePluginPane(7)]
+    );
+}
+
+/// The labels of the menu `calls` shows, with its id.
+fn the_menu(calls: &[Call]) -> (u64, Vec<&'static str>) {
+    let (request_id, request) = the_prompt(calls);
+    for labels in [
+        &["Focus", "Minimize", "Rename", "Close"][..],
+        &["Minimize", "Rename", "Close"],
+        &["Restore", "Rename", "Close"],
+    ] {
+        if request == labeled_menu_request(labels.iter().map(|label| label.to_string())) {
+            return (request_id, labels.to_vec());
+        }
+    }
+    panic!("not a pane menu: {request:?}");
+}
+
+/// `three_panes` with `logs` minimized, from where it stood at `geometry`.
+fn three_panes_one_minimized(geometry: &FloatingPaneCoordinates) -> State {
+    let mut state = three_panes();
+    state
+        .minimized
+        .insert(PaneId::Terminal(3), geometry.clone());
+    state.update(panes(
+        80,
+        vec![(
+            0,
+            vec![
+                floating(1, "vim"),
+                focused(placed(floating(2, "htop"), (10, 5), (40, 12), false)),
+                suppressed(floating(3, "logs")),
+            ],
+        )],
+    ));
+    state
+}
+
+#[test]
+fn a_right_click_on_an_entry_opens_the_menu_of_what_applies_to_its_pane() {
+    let geometry = fixed((1, 1), (20, 8), Some(true));
+    let mut state = three_panes_one_minimized(&geometry);
+    assert_eq!(shown(&state), "vim|[htop]|_logs_");
+    for (column, labels) in [
+        (0, vec!["Focus", "Minimize", "Rename", "Close"]),
+        (5, vec!["Minimize", "Rename", "Close"]),
+        (12, vec!["Restore", "Rename", "Close"]),
+    ] {
+        let (_, shown_labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, column)));
+        assert_eq!(shown_labels, labels, "column {column}");
+    }
+    // At the mouse, and closed by a click outside it.
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+    assert_eq!(request.placement, Some(PromptPlacement::Mouse));
+    assert_eq!(request.outside_click, Some(OutsideClick::Close));
+}
+
+#[test]
+fn each_item_of_the_pane_menu_does_what_it_says() {
+    let geometry = fixed((1, 1), (20, 8), Some(true));
+    let vim = PaneId::Terminal(1);
+    let htop = PaneId::Terminal(2);
+    let logs = PaneId::Terminal(3);
+    let restore_logs = vec![
+        focus_terminal(3),
+        Call::ChangeFloatingPanesCoordinates(vec![(logs, geometry.clone())]),
+    ];
+    for (column, item, expected) in [
+        (0, 0, vec![focus_terminal(1)]),
+        (0, 1, vec![Call::HidePaneWithId(vim)]),
+        (0, 2, vec![focus_terminal(1), rename(vim)]),
+        (5, 0, vec![Call::HidePaneWithId(htop)]),
+        (5, 1, vec![rename(htop)]),
+        (12, 0, restore_logs.clone()),
+        (12, 1, [restore_logs.clone(), vec![rename(logs)]].concat()),
+    ] {
+        let mut state = three_panes_one_minimized(&geometry);
+        let (request_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, column)));
+        assert_eq!(
+            after_answer(&mut state, request_id, choose(item)),
+            expected,
+            "{} at column {column}",
+            labels[item]
+        );
+    }
+}
+
+/// `three_panes` once a click has minimized `htop`, and a pane update has
+/// shown the hide take effect.
+fn three_panes_htop_hidden() -> State {
+    let mut state = three_panes();
+    after_mouse(&mut state, Mouse::LeftClick(0, 5));
+    let hidden = vec![(
+        0,
+        vec![
+            focused(floating(1, "vim")),
+            suppressed(floating(2, "htop")),
+            floating(3, "logs"),
+        ],
+    )];
+    state.update(panes(80, hidden));
+    assert_eq!(shown(&state), "[vim]|_htop_|logs");
+    state
+}
+
+/// The pane update once Zellij has shown `htop` again some other way than
+/// through the bar, at `(30, 2)`, 20 by 6, with `vim` keeping the focus.
+fn htop_shown_again() -> Event {
+    panes(
+        80,
+        vec![(
+            0,
+            vec![
+                focused(floating(1, "vim")),
+                placed(floating(2, "htop"), (30, 2), (20, 6), false),
+                floating(3, "logs"),
+            ],
+        )],
+    )
+}
+
+#[test]
+fn a_pane_is_kept_minimized_through_an_update_sent_before_its_hide() {
+    let mut state = three_panes();
+    after_mouse(&mut state, Mouse::LeftClick(0, 5));
+    // Sent before the hide took effect: the pane is still on screen in it.
+    state.update(htop_shown_again());
+    assert!(state.minimized.contains_key(&PaneId::Terminal(2)));
+    let hidden = vec![(
+        0,
+        vec![
+            focused(floating(1, "vim")),
+            suppressed(floating(2, "htop")),
+            floating(3, "logs"),
+        ],
+    )];
+    state.update(panes(80, hidden));
+    assert_eq!(shown(&state), "[vim]|_htop_|logs");
+}
+
+#[test]
+fn a_minimized_pane_shown_again_some_other_way_is_forgotten_and_minimizes_again() {
+    let mut state = three_panes_htop_hidden();
+    state.update(htop_shown_again());
+    assert!(!state.minimized.contains_key(&PaneId::Terminal(2)));
+    assert_eq!(shown(&state), "[vim]|htop|logs");
+
+    let (request_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 7)));
+    assert_eq!(labels, ["Focus", "Minimize", "Rename", "Close"]);
+    assert_eq!(
+        after_answer(&mut state, request_id, choose(1)),
+        vec![Call::HidePaneWithId(PaneId::Terminal(2))]
+    );
+    // Where it stands now, not where it stood when first minimized.
+    assert_eq!(
+        state.minimized.get(&PaneId::Terminal(2)),
+        Some(&fixed((30, 2), (20, 6), Some(false)))
+    );
+}
+
+#[test]
+fn focusing_a_minimized_pane_shown_again_some_other_way_leaves_it_where_it_is() {
+    let mut state = three_panes_htop_hidden();
+    state.update(htop_shown_again());
+    let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 7)));
+    assert_eq!(
+        after_answer(&mut state, request_id, choose(0)),
+        vec![focus_terminal(2)]
+    );
+}
+
+#[test]
+fn minimizing_from_the_menu_records_where_the_pane_stood() {
+    let mut state = three_panes();
+    let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 5)));
+    after_answer(&mut state, request_id, choose(0));
+    assert_eq!(
+        state.minimized.get(&PaneId::Terminal(2)),
+        Some(&fixed((10, 5), (40, 12), Some(false)))
+    );
+}
+
+#[test]
+fn closing_from_the_menu_asks_first_as_a_middle_click_does() {
+    let mut state = three_panes();
+    let (menu_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+    assert_eq!(labels[3], "Close");
+    let (close_id, request) = the_prompt(&after_answer(&mut state, menu_id, choose(3)));
+    assert_eq!(request.title.as_deref(), Some("Close pane?"));
+    // The menu has been answered, so its id again does nothing.
+    assert_eq!(after_answer(&mut state, menu_id, choose(3)), vec![]);
+    assert_eq!(
+        after_answer(&mut state, close_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTerminalPane(1)]
+    );
+
+    let mut state = bar(
+        &plain_with(&[("mouse_close_confirm", "false")]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "vim")])],
+    );
+    let (menu_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, menu_id, choose(3)),
+        vec![Call::CloseTerminalPane(1)]
+    );
+}
+
+#[test]
+fn a_menu_dismissed_or_answered_out_of_its_items_does_nothing() {
+    for result in [
+        PromptResult::Cancelled,
+        PromptResult::TimedOut(None),
+        PromptResult::Error("no popup".to_string()),
+        PromptResult::Confirmed(true),
+        choose(4),
+        PromptResult::Answered(PromptValue::Choice("Focus".to_string())),
+    ] {
+        let mut state = three_panes();
+        let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+        assert_eq!(
+            after_answer(&mut state, request_id, result.clone()),
+            vec![],
+            "{result:?}"
+        );
+        assert!(!state.pending_prompt.is_waiting(), "{result:?}");
+    }
+}
+
+#[test]
+fn a_menu_answer_for_another_prompt_or_a_pane_gone_since_does_nothing() {
+    let mut state = three_panes();
+    let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+    assert_eq!(after_answer(&mut state, request_id + 1, choose(0)), vec![]);
+    assert!(state.pending_prompt.is_waiting());
+    state.update(panes(80, vec![(0, vec![focused(floating(2, "htop"))])]));
+    assert_eq!(after_answer(&mut state, request_id, choose(0)), vec![]);
+}
+
+#[test]
+fn a_close_without_asking_leaves_a_pane_the_bar_no_longer_lists_alone() {
+    let without_vim = || panes(80, vec![(0, vec![floating(2, "htop")])]);
+    let mut state = bar(
+        &plain_with(&[("mouse_close_confirm", "false")]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "vim"), floating(2, "htop")])],
+    );
+    let (menu_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 0)));
+    assert_eq!(labels[3], "Close");
+    state.update(without_vim());
+    assert_eq!(after_answer(&mut state, menu_id, choose(3)), vec![]);
+
+    // A middle click on the line as drawn before the pane went.
+    let mut state = bar(
+        &plain_with(&[("mouse_close_confirm", "false")]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "vim"), floating(2, "htop")])],
+    );
+    state.render(1, 80);
+    state.update(without_vim());
+    state.host.clear();
+    state.update(Event::Mouse(Mouse::MiddleClick(0, 0)));
+    assert_eq!(state.host.calls(), vec![]);
+}
+
+#[test]
+fn a_menu_item_acts_on_the_pane_as_it_stands_when_chosen() {
+    // Minimized from somewhere else while the menu was open: Focus restores.
+    let geometry = fixed((1, 1), (20, 8), Some(false));
+    let mut state = three_panes();
+    let (request_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 12)));
+    assert_eq!(labels[0], "Focus");
+    state
+        .minimized
+        .insert(PaneId::Terminal(3), geometry.clone());
+    assert_eq!(
+        after_answer(&mut state, request_id, choose(0)),
+        vec![
+            focus_terminal(3),
+            Call::ChangeFloatingPanesCoordinates(vec![(PaneId::Terminal(3), geometry)]),
+        ]
+    );
+    // Minimizing a pane already minimized does nothing more.
+    let geometry = fixed((1, 1), (20, 8), Some(false));
+    let mut state = three_panes();
+    let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 12)));
+    state.minimized.insert(PaneId::Terminal(3), geometry);
+    assert_eq!(after_answer(&mut state, request_id, choose(1)), vec![]);
+}
+
+#[test]
+fn the_wheel_steps_the_focus_through_the_panes_on_screen() {
+    let geometry = fixed((1, 1), (20, 8), Some(false));
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(1, 0),
+        vec![(
+            0,
+            vec![
+                floating(1, "a"),
+                suppressed(floating(2, "b")),
+                focused(floating(3, "c")),
+                floating(4, "d"),
+            ],
+        )],
+    );
+    state.minimized.insert(PaneId::Terminal(2), geometry);
+    state.refresh_entries();
+    assert_eq!(shown(&state), "a|_b_|[c]|d");
+    // Up for the next, as zjtabs and Zellij's own tab bar go, and down for
+    // the previous, past the minimized pane rather than restoring it.
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![focus_terminal(4)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![focus_terminal(1)]
+    );
+    // At either end, nothing.
+    state.update(panes(
+        80,
+        vec![(
+            0,
+            vec![
+                floating(1, "a"),
+                suppressed(floating(2, "b")),
+                floating(3, "c"),
+                focused(floating(4, "d")),
+            ],
+        )],
+    ));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollUp(1)), vec![]);
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![focus_terminal(3)]
+    );
+}
+
+#[test]
+fn reversed_the_wheel_steps_the_other_way_and_with_none_focused_starts_at_an_end() {
+    let mut state = bar(
+        &plain_with(&[("mouse_wheel_reversed", "true")]),
+        80,
+        tabs(1, 0),
+        vec![(
+            0,
+            vec![
+                floating(1, "a"),
+                focused(floating(2, "b")),
+                floating(3, "c"),
+            ],
+        )],
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![focus_terminal(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![focus_terminal(3)]
+    );
+
+    let mut infos = tabs(1, 0);
+    infos[0].are_floating_panes_visible = false;
+    let mut state = bar(&PLAIN, 80, infos, letters(3, 1));
+    assert_eq!(shown(&state), "a|b|c");
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![focus_terminal(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![focus_terminal(3)]
+    );
+}
+
+#[test]
+fn with_the_mouse_off_nothing_happens() {
+    let mut state = bar(
+        &plain_with(&[("mouse", "false")]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "a")])],
+    );
+    for mouse in [
+        Mouse::LeftClick(0, 0),
+        Mouse::RightClick(0, 0),
+        Mouse::MiddleClick(0, 0),
+        Mouse::DoubleClick(0, 0),
+        Mouse::ScrollUp(1),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+}
+
+#[test]
+fn a_bar_with_a_blank_line_ignores_the_mouse() {
+    let nested = {
+        let mut mode_info = mode();
+        mode_info.session_ancestry = vec!["host".to_string()];
+        Event::ModeUpdate(mode_info)
+    };
+    let by_tab = || vec![(0, vec![focused(floating(1, "a")), floating(2, "b")])];
+    let mut hidden = bar(&plain_with(&[("hidden", "true")]), 80, tabs(1, 0), by_tab());
+    let mut nested_bar = bar(&PLAIN, 80, tabs(1, 0), by_tab());
+    nested_bar.update(nested);
+    let mut empty = bar(&PLAIN, 80, tabs(1, 0), vec![]);
+    for (name, state) in [
+        ("hidden", &mut hidden),
+        ("nested", &mut nested_bar),
+        ("empty", &mut empty),
+    ] {
+        assert_eq!(shown(state), "", "{name}");
+        for mouse in [
+            Mouse::LeftClick(0, 0),
+            Mouse::RightClick(0, 0),
+            Mouse::MiddleClick(0, 0),
+            Mouse::DoubleClick(0, 0),
+            Mouse::ScrollUp(1),
+            Mouse::ScrollDown(1),
+        ] {
+            assert_eq!(after_mouse(state, mouse), vec![], "{name}: {mouse:?}");
+        }
+    }
+    // With `empty_format`, an empty bar draws something, and a right-click
+    // on it opens the bar menu.
+    let mut state = bar(
+        &plain_with(&[("empty_format", "no panes")]),
+        80,
+        tabs(1, 0),
+        vec![],
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::RightClick(0, 3)),
+        vec![Call::OpenContextMenu {
+            target: ContextMenuTarget::Bar,
+            line: 0,
+            column: 3,
+        }]
+    );
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 3)), vec![]);
+}
+
+#[test]
+fn hovering_dragging_or_pressing_below_the_bar_s_line_does_nothing() {
+    let mut state = three_panes();
+    for mouse in [
+        Mouse::Hover(0, 0),
+        Mouse::Hold(0, 0),
+        Mouse::Release(0, 0),
+        Mouse::LeftClick(1, 0),
+        Mouse::RightClick(1, 0),
+        Mouse::MiddleClick(1, 0),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
 }
