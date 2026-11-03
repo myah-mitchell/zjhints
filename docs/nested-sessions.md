@@ -4,6 +4,9 @@ Zellij 0.45 added built-in handling for running one Zellij session inside anothe
 
 This page covers how the two bars cooperate instead, and how to run this plugin in a pane of its own so that cooperation is possible at all.
 
+> [!NOTE]
+> zjtabs reads the same options for hiding, collapsing and dimming, with the same defaults. The sections on a descended nested session's hints and on `show_mode` are about zjhints only.
+
 ## The state this relies on
 
 The plugin picks up two pieces of state Zellij already reports on every `ModeUpdate`:

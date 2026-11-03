@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="168" viewBox="0 0 928 168" role="img">
+<!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
+<title>Ten tabs in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side</title>
+<rect width="928" height="168" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="81" height="18" fill="#313244"/>
+<rect x="90" y="18" width="72" height="18" fill="#313244"/>
+<rect x="171" y="18" width="90" height="18" fill="#313244"/>
+<rect x="270" y="18" width="90" height="18" fill="#313244"/>
+<rect x="369" y="18" width="72" height="18" fill="#cba6f7"/>
+<rect x="450" y="18" width="72" height="18" fill="#313244"/>
+<rect x="531" y="18" width="81" height="18" fill="#313244"/>
+<rect x="621" y="18" width="81" height="18" fill="#313244"/>
+<rect x="711" y="18" width="90" height="18" fill="#313244"/>
+<rect x="810" y="18" width="54" height="18" fill="#313244"/>
+<rect x="0" y="72" width="54" height="18" fill="#313244"/>
+<rect x="63" y="72" width="90" height="18" fill="#313244"/>
+<rect x="162" y="72" width="90" height="18" fill="#313244"/>
+<rect x="261" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="342" y="72" width="72" height="18" fill="#313244"/>
+<rect x="423" y="72" width="81" height="18" fill="#313244"/>
+<rect x="513" y="72" width="54" height="18" fill="#313244"/>
+<rect x="0" y="126" width="54" height="18" fill="#313244"/>
+<rect x="63" y="126" width="90" height="18" fill="#313244"/>
+<rect x="162" y="126" width="72" height="18" fill="#cba6f7"/>
+<rect x="243" y="126" width="72" height="18" fill="#313244"/>
+<rect x="324" y="126" width="54" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90" fill="#878ca4">100columns</tspan></text>
+<text y="31"><tspan x="9 27 36 45 54 63 99 117 126 135 144 180 198 207 216 225 234 243 279 297 306 315 324 333 342" fill="#cdd6f4">1shell2docs3editor4server</tspan><tspan x="378 396 405 414 423" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="459 477 486 495 504 540 558 567 576 585 594 630 648 657 666 675 684 720 738 747 756 765 774 783 819 828 846" fill="#cdd6f4">6mail7notes8build9deploy+1→</tspan></text>
+<text y="67"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">64columns</tspan></text>
+<text y="85"><tspan x="9 27 36 72 90 99 108 117 126 135 171 189 198 207 216 225 234" fill="#cdd6f4">←+23editor4server</tspan><tspan x="270 288 297 306 315" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="351 369 378 387 396 432 450 459 468 477 486 522 531 549" fill="#cdd6f4">6mail7notes+3→</tspan></text>
+<text y="121"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">44columns</tspan></text>
+<text y="139"><tspan x="9 27 36 72 90 99 108 117 126 135" fill="#cdd6f4">←+34server</tspan><tspan x="171 189 198 207 216" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="252 270 279 288 297 333 342 360" fill="#cdd6f4">6mail+4→</tspan></text>
+</g>
+</g>
+</svg>

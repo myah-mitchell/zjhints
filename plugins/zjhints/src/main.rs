@@ -4,16 +4,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
-use zjkit::ansi::{calculate_visible_length, truncate_ansi_string, ANSI_RESET};
+use zjkit::ansi::{calculate_visible_length, cut_line};
+use zjkit::bar::{BarCore, BarPlugin, Role};
+use zjkit::config;
 use zjkit::fit::{Group, Precedence};
 use zjkit::format;
+use zjkit::host::Host;
 use zjkit::mouse;
 use zjkit::nesting;
-use zjkit::panes::{
-    focus_by_tab, own_pane_url, own_visible_pane_width, pane_id_of, terminal_width, ActiveTab,
-    TabFocus,
-};
-use zjkit::visibility::{self, Request, Visibility};
+use zjkit::panes::{focus_by_tab, pane_id_of, terminal_width, ActiveTab, TabFocus};
 
 mod hints;
 mod host;
@@ -26,14 +25,10 @@ mod popup;
 mod settings;
 mod theme;
 
-use settings::live;
-use settings::screen::SettingsScreen;
-
 use mouse::{
     ActionQueue, Choice, ClickMap, Cut, Item, LineSegment, MenuEntry, MouseOutcome, Preview,
     PreviewMemory, PreviewStep, SegmentContent,
 };
-use popup::PreviewPopup;
 
 use hints::*;
 use host::*;
@@ -42,27 +37,16 @@ use mode_prefix::*;
 
 #[derive(Default)]
 struct State {
-    /// Set when this instance runs as the settings screen rather than the bar.
-    /// It then handles every event itself and the bar's fields go unused.
-    settings: Option<SettingsScreen>,
-    /// Set when this instance runs as the popup of a hover preview rather than
-    /// as the bar. It handles every event itself, like the settings screen.
-    preview_popup: Option<PreviewPopup>,
-    /// This instance's plugin id, to find its own pane in `PaneUpdate`.
-    plugin_id: Option<u32>,
-    /// The client this instance draws for, to answer only the settings
-    /// requests made from that client. See `settings_requested_by`.
-    client_id: Option<ClientId>,
-    /// The URL this bar's pane reports, which is the alias name when the bar
-    /// was started from an alias. A bar loaded to feed zjstatus has a hidden
-    /// pane that reports it too. `None` until the first `PaneUpdate`.
-    own_url: Option<String>,
-    /// Hidden by a `zjhints::hide` or `zjhints::toggle` message, or by the
-    /// `hidden` option, and what Zellij was last told about the pane's row.
-    visibility: Visibility,
-    /// Keys whose previews this bar ignores, because its value for them came
-    /// from somewhere other than the alias. See `live::apply`.
-    preview_ignored: BTreeSet<String>,
+    /// What every call into Zellij goes through, so tests can see them. See
+    /// `BarHost`.
+    host: BarHost,
+    /// Whether this instance runs as the bar, the settings screen or the
+    /// popup of a hover preview. Only the bar uses the fields below.
+    role: Role,
+    /// What every bar keeps: its ids, its own URL and pane width, whether it
+    /// is hidden, and its configuration. A bar loaded to feed zjstatus has a
+    /// hidden pane that reports the bar's own URL too.
+    bar: BarCore,
     initialized: bool,
     /// The zjstatus pipe names each render is published on. See
     /// [`pipe_names_from_config`].
@@ -84,10 +68,6 @@ struct State {
     /// Terminal width in columns, learned from `PaneUpdate`. `None` until the
     /// first one arrives, when auto-fitting stays off rather than guessing.
     terminal_width: Option<usize>,
-    /// Content width of this bar's own pane, from `PaneUpdate`. `None` while
-    /// the bar has no visible pane: a bar loaded with `load_plugins` to feed
-    /// zjstatus runs in a suppressed pane that says nothing about the bar.
-    pane_width: Option<usize>,
     overflow_str: String,
     hide_in_base_mode: bool,
     key_format: Option<String>,
@@ -155,17 +135,6 @@ struct State {
     /// How many rows the bar's pane had when it was last drawn, which is
     /// where a hover preview starts below it.
     pane_rows: usize,
-    /// The options as the user wrote them, before a theme is laid under them.
-    /// A preview from the settings screen edits this and layers it again, so
-    /// switching theme replaces the old theme's values instead of keeping
-    /// them as if the user had set them.
-    user_config: BTreeMap<String, String>,
-    /// `user_config` with the selected themes' options laid under it. Every
-    /// option is read from this, `$alias` colors included.
-    config: BTreeMap<String, String>,
-    /// The Zellij theme from the last mode update, which `color_theme zellij`
-    /// takes its aliases from. `None` until the first one arrives.
-    zellij_palette: Option<Styling>,
 }
 
 /// What clicking the descended-into indicator does: press the nested
@@ -269,7 +238,6 @@ const CONFIG_OVERFLOW_STR: &str = "overflow_str";
 const CONFIG_HINT_PRECEDENCE: &str = "hint_precedence";
 const CONFIG_AUTO_WIDTH: &str = "auto_width";
 const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
-const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
 const CONFIG_HIDE_SHARED_HINTS: &str = "hide_shared_hints";
 const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
 const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
@@ -667,7 +635,7 @@ impl State {
     /// nothing else shares, or for a bar feeding zjstatus, the terminal less
     /// `reserve_columns`.
     fn auto_width_limit(&self) -> Option<usize> {
-        self.pane_width.or_else(|| {
+        self.bar.pane_width.or_else(|| {
             self.terminal_width
                 .map(|width| width.saturating_sub(self.reserve_columns))
         })
@@ -810,20 +778,6 @@ impl State {
     }
 }
 
-/// A dimmed copy of `colors`. Only the `Styling` groups this plugin's own
-/// rendering actually reads are touched, so dimming the rest would be dead
-/// work: `ribbon_unselected`/`text_unselected` for hints
-/// (`style_key_with_modifier`/`style_key_text`/`style_description`), and
-/// `ribbon_selected` for the optional mode prefix (`style_mode`).
-fn dim_styling(colors: &Styling, strength: f32) -> Styling {
-    Styling {
-        ribbon_unselected: zjkit::dim::style_declaration(&colors.ribbon_unselected, strength),
-        ribbon_selected: zjkit::dim::style_declaration(&colors.ribbon_selected, strength),
-        text_unselected: zjkit::dim::style_declaration(&colors.text_unselected, strength),
-        ..*colors
-    }
-}
-
 /// Renders the placeholder shown in the host's hint bar while descended
 /// into a nested session, naming the keys that ascend back out. Built
 /// entirely from this session's own `nested_ascend_keys`, not a mirror of
@@ -910,27 +864,14 @@ impl State {
         }
     }
 
-    /// Tell Zellij whether this pane's row is worth keeping, when the answer
-    /// has changed since the last time it was told.
-    ///
-    /// A collapsed pane hands its row to the panes around it but keeps its
-    /// place in the layout, so expanding gives back the exact row the layout
-    /// asked for. Zellij ignores this for a plugin that has no tiled pane, so
-    /// running as a zjstatus pipe source alone costs nothing.
-    ///
-    /// Turning `collapse_when_empty` off expands again on the next render
-    /// rather than waiting for the bar to fill up on its own.
-    fn sync_collapsed(&mut self, output_is_empty: bool) {
-        if let Some(collapsed) = self.next_collapsed(output_is_empty) {
-            set_self_collapsed(collapsed);
-        }
-    }
-
     /// What this render has to say about the pane's row, or `None` when it
     /// says the same thing the last one did and there is no point repeating
-    /// it. Records the answer as the new last word.
+    /// it. Records the answer as the new last word. `BarCore::sync_collapsed`
+    /// asks the same question when the bar renders.
+    #[cfg(test)]
     fn next_collapsed(&mut self, output_is_empty: bool) -> Option<bool> {
-        self.visibility
+        self.bar
+            .visibility
             .next_collapsed(self.collapse_when_empty, output_is_empty)
     }
 
@@ -969,7 +910,7 @@ impl State {
     /// `mouse_nested`, which types their keys into the focused pane, the one
     /// the descended-into session runs in.
     fn draw_bar(&self) -> (String, ClickMap) {
-        if self.visibility.is_hidden() {
+        if self.bar.visibility.is_hidden() {
             return (String::new(), ClickMap::default());
         }
         let mode_info = &self.mode_info;
@@ -1000,7 +941,7 @@ impl State {
             BarSubject::DescendedIndicator => {
                 let dimmed_colors;
                 let colors: &Styling = if dim > 0.0 {
-                    dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+                    dimmed_colors = zjkit::dim::styling(&mode_info.style.colors, dim);
                     &dimmed_colors
                 } else {
                     &mode_info.style.colors
@@ -1026,7 +967,7 @@ impl State {
                     drop_indicator: None,
                     precedence: Precedence::default(),
                     shared: &[],
-                    config: &self.config,
+                    config: &self.bar.configuration,
                     click: ClickBehavior::RunActions,
                 };
                 let styled_indicator = render_descended_indicator(mode_info, &indicator_style);
@@ -1037,14 +978,16 @@ impl State {
                         mode_info.mode,
                         colors,
                         self.mode_format.as_deref(),
-                        &self.config,
+                        &self.bar.configuration,
                         dim,
                     );
                     // Spaced from the prefix as the first hint would be.
                     let spacer = self
                         .hint_spacer
                         .as_deref()
-                        .map(|spacer| format::render_template(spacer, &[], &self.config, dim))
+                        .map(|spacer| {
+                            format::render_template(spacer, &[], &self.bar.configuration, dim)
+                        })
                         .unwrap_or_default();
                     let prefix_width = calculate_visible_length(
                         &ANSIStrings(&mode_prefix).to_string(),
@@ -1062,7 +1005,7 @@ impl State {
                         width: calculate_visible_length(&styled_indicator, self.wide_ambiguous),
                         content: SegmentContent::Item(descended_indicator_target(
                             mode_info,
-                            &self.config,
+                            &self.bar.configuration,
                         )),
                     }]
                 } else {
@@ -1101,7 +1044,8 @@ impl State {
         match outcome {
             MouseOutcome::Nothing => {}
             MouseOutcome::ContextMenu { line, column } => {
-                open_context_menu(ContextMenuTarget::Bar, line, column);
+                self.host
+                    .open_context_menu(ContextMenuTarget::Bar, line, column);
             }
             MouseOutcome::Run(actions) => {
                 let first = self.action_queue.enqueue(actions);
@@ -1109,11 +1053,11 @@ impl State {
             }
             MouseOutcome::Menu(entries) => {
                 if !entries.is_empty() {
-                    let request_id = prompt(mouse::menu_request(&entries));
+                    let request_id = self.host.prompt(mouse::menu_request(&entries));
                     self.pending_menus.insert(request_id, entries);
                 }
             }
-            MouseOutcome::OpenSettings => open_settings(self.own_url.as_deref()),
+            MouseOutcome::OpenSettings => self.bar.open_settings(&self.host, &BAR),
         }
     }
 
@@ -1122,7 +1066,7 @@ impl State {
     fn run_mouse_action(&self, action: Option<Action>) {
         if let Some(action) = action {
             let context = BTreeMap::from([(MOUSE_ACTION_CONTEXT.to_string(), String::new())]);
-            run_action(action, context);
+            self.host.run_action(action, context);
         }
     }
 
@@ -1131,7 +1075,7 @@ impl State {
     fn follow_mouse_with_preview(&mut self, mouse: &Mouse) {
         // The popup is this plugin again, opened by URL, so none can open
         // before the first `PaneUpdate` reports it.
-        if self.own_url.is_none() {
+        if self.bar.own_url.is_none() {
             return;
         }
         let step = match mouse {
@@ -1150,10 +1094,10 @@ impl State {
 
     fn take_preview_step(&self, step: PreviewStep) {
         if let Some(popup) = step.close {
-            close_preview_popup(popup);
+            self.host.close_preview_popup(&popup::NAMES, popup);
         }
         if step.wait {
-            start_hover_delay(mouse::HOVER_DELAY_SECONDS);
+            self.host.set_timeout(mouse::HOVER_DELAY_SECONDS);
         }
         if let Some((generation, preview)) = step.open {
             self.show_preview(generation, &preview);
@@ -1161,41 +1105,39 @@ impl State {
     }
 
     fn show_preview(&self, generation: u64, preview: &Preview) {
-        let Some(url) = &self.own_url else {
+        let Some(url) = &self.bar.own_url else {
             return;
         };
-        let tag = mouse::preview_tag(self.plugin_id.unwrap_or_default(), generation);
-        let labels = preview.labels();
-        let (width, height) = popup::size(&labels);
-        open_preview_popup(
+        let tag = mouse::preview_tag(self.bar.plugin_id.unwrap_or_default(), generation);
+        self.host.open_preview_popup(
+            &popup::NAMES,
             url,
-            popup::configuration(&popup::NAMES, &tag, &labels),
+            &tag,
+            &preview.labels(),
             self.pane_rows.max(1),
             preview.columns.start,
-            width,
-            height,
         );
     }
 
-    /// A popup of this bar saying it opened, closed or had an entry clicked.
-    /// Returns whether the message was one.
-    fn take_popup_message(&mut self, message: &PipeMessage) -> bool {
+    /// Take `message` if it is a popup of this bar saying it opened, closed
+    /// or had an entry clicked.
+    fn take_popup_message(&mut self, message: &PipeMessage) {
         let opened = message.name == popup::NAMES.opened;
         let picked = message.name == popup::NAMES.picked;
         if !opened && !picked && message.name != popup::NAMES.closed {
-            return false;
+            return;
         }
         let PipeSource::Plugin(popup) = message.source else {
-            return true;
+            return;
         };
         let Some(generation) = message
             .payload
             .as_deref()
             .and_then(mouse::parse_preview_tag)
-            .filter(|(owner, _)| Some(*owner) == self.plugin_id)
+            .filter(|(owner, _)| Some(*owner) == self.bar.plugin_id)
             .map(|(_, generation)| generation)
         else {
-            return true;
+            return;
         };
         if picked {
             let index = message
@@ -1212,7 +1154,6 @@ impl State {
         } else {
             self.preview_memory.popup_closed(generation);
         }
-        true
     }
 
     /// The hint line for one session's mode and keybindings, curated, ordered,
@@ -1249,7 +1190,7 @@ impl State {
         let limit = self.length_limit();
         let dimmed_colors;
         let colors: &Styling = if dim > 0.0 {
-            dimmed_colors = dim_styling(&mode_info.style.colors, dim);
+            dimmed_colors = zjkit::dim::styling(&mode_info.style.colors, dim);
             &dimmed_colors
         } else {
             &mode_info.style.colors
@@ -1259,7 +1200,7 @@ impl State {
                 mode_info.mode,
                 colors,
                 self.mode_format.as_deref(),
-                &self.config,
+                &self.bar.configuration,
                 dim,
             )
         } else {
@@ -1296,7 +1237,7 @@ impl State {
             drop_indicator: self.drop_indicator.as_deref(),
             precedence: self.hint_precedence,
             shared: &shared,
-            config: &self.config,
+            config: &self.bar.configuration,
             click,
         };
         let (hint_parts, segments) = lay_out_hints_for_mode(mode_info.mode, &keymap, &ctx);
@@ -1331,42 +1272,31 @@ impl State {
         prefix: Range<usize>,
         dim: f32,
     ) -> (String, ClickMap) {
-        let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
-        match self.length_limit() {
-            Some(limit) if visible_len > limit => {
-                let overflow = render_overflow(&self.overflow_str, &self.config, dim);
-                let truncated = truncate_ansi_string(&line, &overflow, limit, self.wide_ambiguous);
-                // Measured from what was drawn rather than worked out from
-                // `limit`, since the cut keeps whole characters and a wide one
-                // can leave it short of the limit.
-                let shown = calculate_visible_length(&truncated, self.wide_ambiguous);
-                let marker = calculate_visible_length(&overflow, self.wide_ambiguous).min(shown);
+        let shortened = self.length_limit().and_then(|limit| {
+            cut_line(
+                &line,
+                &self.overflow_str,
+                limit,
+                self.wide_ambiguous,
+                &self.bar.configuration,
+                dim,
+            )
+        });
+        match shortened {
+            Some(shortened) => {
                 let cut = Cut {
-                    at: shown - marker,
-                    overflow: shown - marker..shown,
+                    at: shortened.kept,
+                    overflow: shortened.kept..shortened.width,
                 };
                 let prefix = prefix.start..prefix.end.min(cut.at);
                 let map = ClickMap::lay_out(segments, start, Some(cut));
-                (truncated, map.with_settings(prefix))
+                (shortened.line, map.with_settings(prefix))
             }
-            _ => (
+            None => (
                 line,
                 ClickMap::lay_out(segments, start, None).with_settings(prefix),
             ),
         }
-    }
-}
-
-/// `overflow_str` as drawn: a format string like `drop_indicator`, so a theme
-/// can shape it. A styled one opens with a reset, so nothing of the hint the
-/// cut went through, such as its bold, carries into it.
-fn render_overflow(overflow_str: &str, config: &BTreeMap<String, String>, dim: f32) -> String {
-    let rendered =
-        ANSIStrings(&format::render_template(overflow_str, &[], config, dim)).to_string();
-    if rendered.contains('\u{1b}') {
-        format!("{ANSI_RESET}{rendered}")
-    } else {
-        rendered
     }
 }
 
@@ -1379,10 +1309,7 @@ fn drop_indicator_from_config(
     configuration: &BTreeMap<String, String>,
     mouse: bool,
 ) -> Option<String> {
-    configuration
-        .get(CONFIG_DROP_INDICATOR)
-        .filter(|s| !s.is_empty())
-        .cloned()
+    config::non_empty_string_option(configuration, CONFIG_DROP_INDICATOR)
         .or_else(|| mouse.then(|| DEFAULT_MOUSE_DROP_INDICATOR.to_string()))
 }
 
@@ -1393,165 +1320,92 @@ fn drop_indicator_from_config(
 /// both the current default and the pre-rename one go out, so a config
 /// written against either keeps rendering.
 impl State {
-    /// Read every option from `configuration`, as `load` does and as a live
-    /// update from the settings screen does, so a value behaves the same
-    /// whichever way it arrived.
+    /// Read every option from `user_configuration`, with the themes laid
+    /// under it, as `load` does and as a live update from the settings screen
+    /// does, so a value behaves the same whichever way it arrived. See
+    /// `BarCore::configure`.
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
-        let configuration = theme::layer(&user_configuration, self.zellij_palette.as_ref());
-        self.visibility.configure(&configuration, &self.config);
-        self.max_length = configuration
-            .get("max_length")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_MAX_LENGTH);
+        let configuration = self.bar.configure(&BAR, user_configuration);
+        self.max_length = config::usize_option(configuration, "max_length", DEFAULT_MAX_LENGTH);
         self.overflow_str = configuration
             .get(CONFIG_OVERFLOW_STR)
             .cloned()
             .unwrap_or_else(|| DEFAULT_OVERFLOW_STR.to_string());
-        self.pipe_names = pipe_names_from_config(&configuration);
-        self.hide_in_base_mode = configuration
-            .get("hide_in_base_mode")
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(false))
-            .unwrap_or(false);
+        self.pipe_names = pipe_names_from_config(configuration);
+        self.hide_in_base_mode = config::bool_option(configuration, "hide_in_base_mode", false);
         // Render nothing at all when this session is nested (see
         // `is_nested`), so nested sessions get no bottom bar from the same
         // shared config a host session uses.
-        self.hide_when_nested = configuration
-            .get(CONFIG_HIDE_WHEN_NESTED)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_HIDE_WHEN_NESTED)
-            })
-            .unwrap_or(DEFAULT_HIDE_WHEN_NESTED);
+        self.hide_when_nested = config::bool_option(
+            configuration,
+            CONFIG_HIDE_WHEN_NESTED,
+            DEFAULT_HIDE_WHEN_NESTED,
+        );
         // Give the row back to the panes around it while there is nothing on
-        // it, rather than drawing a blank one. See `sync_collapsed`.
-        self.collapse_when_empty = configuration
-            .get(CONFIG_COLLAPSE_WHEN_EMPTY)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY)
-            })
-            .unwrap_or(DEFAULT_COLLAPSE_WHEN_EMPTY);
+        // it, rather than drawing a blank one. See `BarCore::sync_collapsed`.
+        self.collapse_when_empty = config::bool_option(
+            configuration,
+            CONFIG_COLLAPSE_WHEN_EMPTY,
+            DEFAULT_COLLAPSE_WHEN_EMPTY,
+        );
         // Dim hints when this session isn't the one currently receiving
         // input (host descended into a nested child, or a nested session
         // not yet ascended into). See `dim_amount`.
-        self.dim_when_unfocused = configuration
-            .get(CONFIG_DIM_WHEN_UNFOCUSED)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED)
-            })
-            .unwrap_or(DEFAULT_DIM_WHEN_UNFOCUSED);
+        self.dim_when_unfocused = config::bool_option(
+            configuration,
+            CONFIG_DIM_WHEN_UNFOCUSED,
+            DEFAULT_DIM_WHEN_UNFOCUSED,
+        );
         // Clamped: the dim blend overshoots past neutral gray above
         // 1.0, and inverts the blend direction below 0.0.
-        self.dim_strength = configuration
-            .get(CONFIG_DIM_STRENGTH)
-            .and_then(|s| s.parse::<f32>().ok())
-            .unwrap_or(DEFAULT_DIM_STRENGTH)
-            .clamp(0.0, 1.0);
+        self.dim_strength =
+            config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
         // Prefix the hints line with the current mode. Off by default since
         // most setups already get a mode indicator from zjstatus's own
         // {mode} widget on the same line; this exists for standing alone.
-        self.show_mode = configuration
-            .get(CONFIG_SHOW_MODE)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_SHOW_MODE)
-            })
-            .unwrap_or(DEFAULT_SHOW_MODE);
+        self.show_mode = config::bool_option(configuration, CONFIG_SHOW_MODE, DEFAULT_SHOW_MODE);
         // Optional zjstatus-style format string for the mode prefix, with a
         // `{mode}` placeholder. When unset, the theme's ribbon_selected pill
         // style is used (see `style_mode`).
-        self.mode_format = configuration
-            .get(CONFIG_MODE_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.mode_format = config::non_empty_string_option(configuration, CONFIG_MODE_FORMAT);
         // Fit the hints to the terminal, dropping the trailing ones as it
         // narrows instead of overflowing off the edge.
-        self.auto_width = configuration
-            .get(CONFIG_AUTO_WIDTH)
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+        self.auto_width = config::bool_option(configuration, CONFIG_AUTO_WIDTH, true);
         // Columns to leave free for whatever else shares the bar — zjstatus's
         // `format_right`, typically, which the plugin cannot see.
-        self.reserve_columns = configuration
-            .get(CONFIG_RESERVE_COLUMNS)
-            .and_then(|s| s.parse::<usize>().ok())
-            .unwrap_or(0);
+        self.reserve_columns = config::usize_option(configuration, CONFIG_RESERVE_COLUMNS, 0);
         // Nerd Font glyphs are East Asian Ambiguous. A terminal set up to show
         // them draws two columns, so measuring them as one makes the plugin
         // think the line fits when it overflows.
-        self.wide_ambiguous = parse_wide_ambiguous(&configuration);
+        self.wide_ambiguous = config::wide_ambiguous(configuration);
         // Optional zjstatus-style format strings for the key and description
         // parts of each hint. When unset, the theme palette is used (see
         // `style_key_with_modifier` / `style_description`). An empty string is
         // treated as unset so the default styling still applies.
-        self.key_format = configuration
-            .get(CONFIG_KEY_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
-        self.desc_format = configuration
-            .get(CONFIG_DESC_FORMAT)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.key_format = config::non_empty_string_option(configuration, CONFIG_KEY_FORMAT);
+        self.desc_format = config::non_empty_string_option(configuration, CONFIG_DESC_FORMAT);
         // Separator drawn between hints. Also a format string, so it can be a
         // styled glyph (`#[fg=$grey] | `) and not just whitespace.
-        self.hint_spacer = configuration
-            .get(CONFIG_HINT_SPACER)
-            .filter(|s| !s.is_empty())
-            .cloned();
+        self.hint_spacer = config::non_empty_string_option(configuration, CONFIG_HINT_SPACER);
         // Clickable hints, a right-click context menu, and menus of the hints
         // that did not fit. Read before `drop_indicator`, whose default
         // depends on it.
-        self.mouse = configuration
-            .get(CONFIG_MOUSE)
-            .map(|s| s.to_lowercase().parse::<bool>().unwrap_or(DEFAULT_MOUSE))
-            .unwrap_or(DEFAULT_MOUSE);
+        self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
         // Marks where hints were dropped to fit the window. Also a format
         // string, so it can be a styled glyph rather than bare text.
-        self.drop_indicator = drop_indicator_from_config(&configuration, self.mouse);
+        self.drop_indicator = drop_indicator_from_config(configuration, self.mouse);
         // Clicks on a nested session's bar, which need `mouse` for the rest.
         self.mouse_nested = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_NESTED)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_NESTED)
-                })
-                .unwrap_or(DEFAULT_MOUSE_NESTED);
+            && config::bool_option(configuration, CONFIG_MOUSE_NESTED, DEFAULT_MOUSE_NESTED);
         // The preview on hover and the menu on a click, which need `mouse`.
         self.mouse_hover = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_HOVER)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_HOVER)
-                })
-                .unwrap_or(DEFAULT_MOUSE_HOVER);
+            && config::bool_option(configuration, CONFIG_MOUSE_HOVER, DEFAULT_MOUSE_HOVER);
         self.mouse_menus = self.mouse
-            && configuration
-                .get(CONFIG_MOUSE_MENUS)
-                .map(|s| {
-                    s.to_lowercase()
-                        .parse::<bool>()
-                        .unwrap_or(DEFAULT_MOUSE_MENUS)
-                })
-                .unwrap_or(DEFAULT_MOUSE_MENUS);
+            && config::bool_option(configuration, CONFIG_MOUSE_MENUS, DEFAULT_MOUSE_MENUS);
         // When enabled (the default), every enabled keybinding in a mode is
         // shown, not just the curated set. See `add_discovered_hints`.
-        self.discover_hints = configuration
-            .get(CONFIG_DISCOVER_HINTS)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_DISCOVER_HINTS)
-            })
-            .unwrap_or(DEFAULT_DISCOVER_HINTS);
+        self.discover_hints =
+            config::bool_option(configuration, CONFIG_DISCOVER_HINTS, DEFAULT_DISCOVER_HINTS);
         // When a hint is bound to both hjkl and the arrow keys, optionally show
         // only one family (`arrows` / `letters`); defaults to showing both.
         self.direction_keys = configuration
@@ -1577,142 +1431,53 @@ impl State {
             .unwrap_or_default();
         // Suppress bindings every mode inherits from the base mode, so each mode
         // only advertises what is actually new in it.
-        self.hide_shared_hints = configuration
-            .get(CONFIG_HIDE_SHARED_HINTS)
-            .map(|s| {
-                s.to_lowercase()
-                    .parse::<bool>()
-                    .unwrap_or(DEFAULT_HIDE_SHARED_HINTS)
-            })
-            .unwrap_or(DEFAULT_HIDE_SHARED_HINTS);
-        // Retained so `$alias` colors and `label_<action>` overrides can be
-        // resolved from the configuration.
-        self.user_config = user_configuration;
-        self.config = configuration;
+        self.hide_shared_hints = config::bool_option(
+            configuration,
+            CONFIG_HIDE_SHARED_HINTS,
+            DEFAULT_HIDE_SHARED_HINTS,
+        );
     }
 }
 
-impl State {
-    /// Hide or show the bar. See `Visibility::change`. Returns whether
-    /// anything changed.
-    fn change_visibility(&mut self, request: Request, alias: Option<&str>) -> bool {
-        self.visibility
-            .change(request, alias, self.own_url.as_deref())
+impl BarPlugin for State {
+    type Host = BarHost;
+
+    fn host(&self) -> &BarHost {
+        &self.host
     }
 
-    /// The bar to answer, when `source` is another bar asking with `payload`
-    /// whether this one is hidden. See `visibility::asker`.
-    fn visibility_asker(&self, source: &PipeSource, payload: Option<&str>) -> Option<u32> {
-        visibility::asker(source, payload, self.plugin_id, self.own_url.as_deref())
+    fn bar(&self) -> &BarCore {
+        &self.bar
     }
 
-    /// Take the first answer to `ask_visibility`. Returns whether anything
-    /// changed.
-    fn take_visibility_answer(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
-        self.visibility.take_answer(source, payload)
+    fn mouse(&self) -> bool {
+        self.mouse
     }
 
-    /// Whether `source` and `payload` are the end of a `zellij pipe` stream
-    /// already seen. See `Visibility::ends_a_cli_stream`.
-    fn ends_a_cli_stream(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
-        self.visibility.ends_a_cli_stream(source, payload)
+    fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
+        State::apply_configuration(self, user_configuration);
     }
-
-    /// Take a preview from the settings screen, if it is for this bar.
-    /// Returns whether the bar should redraw.
-    fn take_preview(&mut self, args: &BTreeMap<String, String>) -> bool {
-        let Some((alias, changes)) = live::decode(args) else {
-            return false;
-        };
-        if !live::is_for(&alias, self.own_url.as_deref()) {
-            return false;
-        }
-        let mut configuration = self.user_config.clone();
-        if !live::apply(&mut configuration, &mut self.preview_ignored, &changes) {
-            return false;
-        }
-        let had_mouse = self.mouse;
-        log_unknown_themes(&configuration);
-        self.apply_configuration(configuration);
-        if self.mouse && !had_mouse {
-            self.enable_mouse();
-        }
-        true
-    }
-
-    /// Ask for what `mouse` needs after loading without it. The pane is made
-    /// selectable while asking, so the permission prompt in it can be
-    /// answered; the answer makes it unselectable again.
-    #[cfg(not(test))]
-    fn enable_mouse(&self) {
-        set_selectable(true);
-        request_permission(&bar_permissions(true));
-        subscribe(&MOUSE_EVENTS);
-    }
-
-    #[cfg(test)]
-    fn enable_mouse(&self) {}
 }
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
-        if let Some(popup) = PreviewPopup::from_configuration(&popup::NAMES, &configuration) {
-            popup.load(&bar_permissions(true));
-            self.preview_popup = Some(popup);
-            return;
-        }
-        if configuration.get("settings").map(String::as_str) == Some("true") {
-            let mut screen = SettingsScreen::new(&settings::SCHEMA);
-            screen.load(&configuration);
-            self.settings = Some(screen);
+        self.role = Role::load(&BAR, &configuration);
+        if !self.role.is_bar() {
             return;
         }
         self.initialized = false;
-        let ids = get_plugin_ids();
-        self.plugin_id = Some(ids.plugin_id);
-        self.client_id = Some(ids.client_id);
-        log_unknown_themes(&configuration);
         self.apply_configuration(configuration);
-
-        request_permission(&bar_permissions(self.mouse));
-
-        // Deliberately still selectable at this point.
-        //
-        // Zellij draws the permission prompt in the plugin's own pane, and a
-        // pane that is not selectable cannot be focused — so making this
-        // unselectable before the prompt is answered leaves the user unable to
-        // answer it at all. The pane is a one-line status bar, so the prompt
-        // has nowhere to go and no way to be reached.
-        //
-        // `set_selectable(false)` happens once the result arrives instead. That
-        // is safe for an already-granted plugin too: `request_permission`
-        // replies immediately from the permission cache rather than staying
-        // silent, so the event always comes.
-        subscribe(&[
-            EventType::ModeUpdate,
-            // Has Zellij send the keybindings once, and again when they are
-            // reconfigured, rather than attached to every `ModeUpdate`.
-            EventType::InitialKeybinds,
-            EventType::SessionUpdate,
-            EventType::PaneUpdate,
-            EventType::PermissionRequestResult,
-            EventType::TabUpdate,
-            EventType::NestedSessionModeUpdate,
-            EventType::NestedSessionEnded,
-        ]);
-        if self.mouse {
-            subscribe(&MOUSE_EVENTS);
-        }
+        let permissions = BarPlugin::permissions(self, &BAR);
+        self.bar.load(&self.host, &BAR, &permissions, self.mouse);
     }
 
     fn update(&mut self, event: Event) -> bool {
-        if let Some(popup) = &mut self.preview_popup {
-            return popup.update(event);
-        }
-        if let Some(screen) = &mut self.settings {
-            return screen.update(event);
+        if !self.role.is_bar() {
+            return self.role.update(event);
         }
         let mut should_render = !self.initialized;
+        let handled = self.bar.update(&self.host, &BAR, &event);
+        should_render |= BarCore::follow(self, &BAR, handled);
         match event {
             Event::ModeUpdate(mut mode_info) => {
                 // Taken out before comparing, so the comparison is between two
@@ -1728,14 +1493,6 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
-                // `color_theme zellij` follows the Zellij theme, so a new one
-                // means laying the themes again.
-                let palette = self.mode_info.style.colors;
-                if self.zellij_palette != Some(palette) {
-                    self.zellij_palette = Some(palette);
-                    self.apply_configuration(self.user_config.clone());
-                    should_render = true;
-                }
             }
             // Sent once this plugin subscribes, and again whenever the
             // keybindings are reconfigured.
@@ -1749,16 +1506,11 @@ impl ZellijPlugin for State {
             // A bar feeding zjstatus runs in a suppressed pane whose size says
             // nothing about the status bar, so pane geometry is its only view
             // of the terminal's width. A bar in a visible pane of its own
-            // fits that pane instead.
+            // fits that pane instead, which `BarCore` keeps.
             Event::PaneUpdate(manifest) => {
                 let width = terminal_width(&manifest);
                 if width.is_some() && width != self.terminal_width {
                     self.terminal_width = width;
-                    should_render = true;
-                }
-                let pane_width = own_visible_pane_width(&manifest, self.plugin_id);
-                if pane_width != self.pane_width {
-                    self.pane_width = pane_width;
                     should_render = true;
                 }
                 let focus = focus_by_tab(&manifest);
@@ -1767,14 +1519,6 @@ impl ZellijPlugin for State {
                     should_render = true;
                 }
                 self.forget_closed_nested_guests(&manifest);
-                if let Some(url) = own_pane_url(&manifest, self.plugin_id) {
-                    self.own_url = Some(url);
-                }
-                // The first pane update is the earliest this bar knows which
-                // alias it runs as, and that it may message other plugins.
-                if self.visibility.should_ask() {
-                    ask_visibility(self.own_url.as_deref());
-                }
             }
             // Which tab is focused, and whether its floating layer is up.
             // `PaneUpdate` reports focus per tab and per layer, so neither
@@ -1811,15 +1555,6 @@ impl ZellijPlugin for State {
             Event::NestedSessionEnded { pane_id, .. } => {
                 should_render |= self.nested_guests.remove(&pane_id).is_some();
             }
-            // Answered, or granted from the cache. Either way the prompt is
-            // gone and the pane has no further reason to take focus.
-            Event::PermissionRequestResult(status) => {
-                set_selectable(false);
-                if status == PermissionStatus::Granted {
-                    add_settings_entry();
-                }
-                should_render = true;
-            }
             // Still subscribed after `mouse` is turned off by a preview, so
             // checked here as well.
             Event::Mouse(mouse) if self.mouse => {
@@ -1845,53 +1580,20 @@ impl ZellijPlugin for State {
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
-        if let Some(popup) = &self.preview_popup {
-            popup.pipe(&message);
+        if !self.role.is_bar() {
+            self.role.pipe(&self.host, &BAR, &message);
             return false;
         }
-        if self.settings.is_some() {
-            // Clicking the mode prefix again while the screen is hidden.
-            if message.name == OPEN_SETTINGS_MESSAGE {
-                show_self(true);
-            }
-            return false;
+        if let Some(handled) = self.bar.pipe(&self.host, &BAR, &message) {
+            return BarCore::follow(self, &BAR, handled);
         }
-        if message.name == OPEN_PLUGIN_SETTINGS_MESSAGE {
-            if settings_requested_by(&message.args, self.client_id) {
-                open_settings(self.own_url.as_deref());
-            }
-            return false;
-        }
-        let payload = message.payload.as_deref();
-        if message.name == VISIBILITY.ask {
-            if let Some(asker) = self.visibility_asker(&message.source, payload) {
-                answer_visibility(asker, self.visibility.answer());
-            }
-            return false;
-        }
-        if message.name == VISIBILITY.answer {
-            return self.take_visibility_answer(&message.source, payload);
-        }
-        if self.take_popup_message(&message) {
-            return false;
-        }
-        if let Some(request) = Request::from_message(&VISIBILITY, &message.name) {
-            let payload = message.payload.as_deref();
-            if self.ends_a_cli_stream(&message.source, payload) {
-                return false;
-            }
-            return self.change_visibility(request, payload);
-        }
-        message.name == settings::SCHEMA.live_message && self.take_preview(&message.args)
+        self.take_popup_message(&message);
+        false
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
-        if let Some(popup) = &mut self.preview_popup {
-            popup.render(rows, cols);
-            return;
-        }
-        if let Some(screen) = &mut self.settings {
-            screen.render(rows, cols);
+        if !self.role.is_bar() {
+            self.role.render(rows, cols);
             return;
         }
         let (output, click_map) = self.draw_bar();
@@ -1905,12 +1607,13 @@ impl ZellijPlugin for State {
             self.initialized = true;
         }
 
-        self.sync_collapsed(output.is_empty());
+        self.bar
+            .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
 
         for pipe_name in &self.pipe_names {
-            pipe_message_to_plugin(
-                MessageToPlugin::new("pipe")
-                    .with_payload(format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output)),
+            self.host.broadcast(
+                ZJSTATUS_PIPE_MESSAGE,
+                format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output),
             );
         }
         print!("{}", output);

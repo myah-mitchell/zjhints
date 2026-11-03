@@ -2,7 +2,10 @@
 
 The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
-It needs the Zellij build zjhints is compiled against, [fork-v0.46.6](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.6), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
+It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
+
+> [!NOTE]
+> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use `zjtabs` in the launch examples and look for the *zjtabs* entry on Zellij's settings screen. It has no mode prefix to click, and its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
 
 ## Prerequisites
 
@@ -186,13 +189,13 @@ Every change shows on the bars started from the alias as soon as you make it. No
 
 ![The settings screen on the Theme group, over a bar started from the alias. format_theme is set to flat, then powerline, then pills, then color_theme to dracula and alias_theme to unicode. With each change the header counts the unsaved changes, the preview under the theme options redraws, and the bar under the screen restyles to match it, from Zellij's ribbons to purple dracula pills with ^p style keys](img/settings-live.svg)
 
-`r` reverts the selected option, and `Ctrl r` reverts them all after asking. A revert puts the bars back to the file's values too.
+`r` reverts the selected option, and `Ctrl r` reverts them all after asking. The question highlights *Cancel*, so `Enter` keeps your changes. A revert puts the bars back to the file's values too.
 
-If the file changed on disk since Zellij read it, saving stops and asks what to do:
+If the file changed on disk since Zellij read it, saving stops and asks what to do. *Cancel* is highlighted, so `Enter` or `Esc` changes nothing:
 
+- **Cancel** keeps your changes unsaved.
 - **Overwrite** writes your changes over the file.
 - **Reload** takes the file as it is and drops your unsaved changes; the bars go back to the file's values.
-- **Cancel** keeps your changes unsaved.
 
 ### Closing with unsaved changes
 

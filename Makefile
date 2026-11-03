@@ -30,14 +30,15 @@ dev: install
 test:
 	cargo test --all-features
 
-# Redraw the SVGs in docs/img from the code that draws the bar and the
-# settings screen, and remove the ones it no longer draws. SVGs it did not
-# draw are left alone. Plain `make test` compares against them and fails when
-# they are stale, so run this after a change that alters how either looks.
+# Redraw every plugin's SVGs in docs/img from the code that draws them (for
+# zjhints, the bar and the settings screen), and remove the ones a plugin no
+# longer draws. SVGs a plugin did not draw are left alone. Plain `make test`
+# compares against them and fails when they are stale, so run this after a
+# change that alters how a plugin looks.
 # builds.yml runs the same tests, so a stale image
 # blocks a release as well as a pull request.
 images:
-	ZJHINTS_WRITE_IMAGES=1 cargo test --all-features images
+	ZJKIT_WRITE_IMAGES=1 cargo test --all-features images
 
 # What CI runs, so a red build can be reproduced before pushing.
 check: test

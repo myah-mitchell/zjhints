@@ -3,8 +3,10 @@
 //! Everything here counts terminal columns, not characters or bytes, and
 //! skips escape sequences, so styled text measures the way it draws.
 
+use crate::format;
 use ansi_term::{ANSIString, ANSIStrings};
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use unicode_width::UnicodeWidthChar;
 
 /// SGR reset. Terminates a truncated styled run so its colors stop at the cut.
@@ -179,6 +181,63 @@ pub fn truncate_ansi_string(
     result
 }
 
+/// A line `cut_line` cut to fit, and where the cut fell.
+#[derive(Debug, PartialEq)]
+pub struct CutLine {
+    /// The line as cut, ending in the overflow string.
+    pub line: String,
+    /// The columns of `line` before the overflow string: what is left of the
+    /// line as it was.
+    pub kept: usize,
+    /// The columns `line` takes, the overflow string included.
+    pub width: usize,
+}
+
+/// `line` cut to `limit` columns and ended in `overflow_str`, or `None` when
+/// it fits and needs no cut. This is a bar's `overflow_str` option end to
+/// end: drawing it and cutting with it, as `truncate_ansi_string` does.
+///
+/// `overflow_str` is a format string, so a theme can shape it, drawn with
+/// `configuration`'s colors and faded by `dim` as the line it ends is. A
+/// styled one opens with a reset, so nothing of what the cut went through,
+/// such as its bold, carries into it.
+///
+/// `kept` and `width` are measured from what was drawn rather than worked out
+/// from `limit`, since the cut keeps whole characters and a wide one can
+/// leave it short of the limit.
+pub fn cut_line(
+    line: &str,
+    overflow_str: &str,
+    limit: usize,
+    wide_ambiguous: bool,
+    configuration: &BTreeMap<String, String>,
+    dim: f32,
+) -> Option<CutLine> {
+    if calculate_visible_length(line, wide_ambiguous) <= limit {
+        return None;
+    }
+    let drawn = ANSIStrings(&format::render_template(
+        overflow_str,
+        &[],
+        configuration,
+        dim,
+    ))
+    .to_string();
+    let overflow = if drawn.contains('\u{1b}') {
+        format!("{ANSI_RESET}{drawn}")
+    } else {
+        drawn
+    };
+    let cut = truncate_ansi_string(line, &overflow, limit, wide_ambiguous);
+    let width = calculate_visible_length(&cut, wide_ambiguous);
+    let overflow_width = calculate_visible_length(&overflow, wide_ambiguous).min(width);
+    Some(CutLine {
+        line: cut,
+        kept: width - overflow_width,
+        width,
+    })
+}
+
 /// Columns a run of styled segments occupies on screen.
 pub fn visible_width(parts: &[ANSIString<'static>], wide_ambiguous: bool) -> usize {
     calculate_visible_length(&format!("{}", ANSIStrings(parts)), wide_ambiguous)
@@ -187,7 +246,10 @@ pub fn visible_width(parts: &[ANSIString<'static>], wide_ambiguous: bool) -> usi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ansi_term::{Colour::Fixed, Style};
+    use ansi_term::{
+        Colour::{Fixed, RGB},
+        Style,
+    };
 
     #[test]
     fn truncating_closes_the_styled_run_so_colour_stops_at_the_cut() {
@@ -265,6 +327,50 @@ mod tests {
         let truncated = truncate_ansi_string("abcdef", marker, 1, false);
         assert_eq!(truncated, "\u{1b}[0m\u{1b}[38;2;255;0;0m…\u{1b}[0m");
         assert_eq!(calculate_visible_length(&truncated, false), 1);
+    }
+
+    #[test]
+    fn a_line_that_fits_is_not_cut() {
+        let configuration = BTreeMap::new();
+        assert_eq!(cut_line("abcdef", "~", 6, false, &configuration, 0.0), None);
+    }
+
+    #[test]
+    fn a_cut_line_says_how_much_of_it_is_left_and_how_wide_it_is() {
+        let configuration = BTreeMap::new();
+        assert_eq!(
+            cut_line("abcdef", "~", 4, false, &configuration, 0.0),
+            Some(CutLine {
+                line: "abc~".to_string(),
+                kept: 3,
+                width: 4,
+            })
+        );
+        // A wide character that would cross the limit is left out whole, so
+        // the cut falls a column short.
+        assert_eq!(
+            cut_line("a\u{65e5}\u{672c}", "~", 3, false, &configuration, 0.0),
+            Some(CutLine {
+                line: "a~".to_string(),
+                kept: 1,
+                width: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn a_styled_overflow_str_is_drawn_from_its_format_after_a_reset() {
+        let configuration = BTreeMap::from([("color_muted".to_string(), "#010203".to_string())]);
+        let line = Style::new().bold().paint("abcdef").to_string();
+        let cut = cut_line(&line, "#[fg=$muted]~", 4, false, &configuration, 0.0)
+            .expect("the line is too wide");
+        let overflow = Style::new().fg(RGB(1, 2, 3)).paint("~").to_string();
+        assert!(
+            cut.line.ends_with(&format!("{ANSI_RESET}{overflow}")),
+            "{:?}",
+            cut.line
+        );
+        assert_eq!((cut.kept, cut.width), (3, 4));
     }
 
     #[test]

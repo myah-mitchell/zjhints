@@ -14,6 +14,9 @@ format_theme "pills"
 alias_theme "unicode"
 ```
 
+> [!NOTE]
+> Every plugin in this repository shares these themes. The tables on this page describe zjhints; for what each theme sets in zjtabs, see [Themes for tabs](zjtabs/formats.md#themes).
+
 ## Contents
 
 - [Choosing a theme](#choosing-a-theme)

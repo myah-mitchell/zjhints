@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="60" viewBox="0 0 928 60" role="img">
+<!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
+<title>The zjtabs bar in the Zellij theme's colors: five tabs numbered from 1 as ribbons, the editor tab highlighted, the server tab ending in a dot, and the notes tab ending in (FLOATING)</title>
+<rect width="928" height="60" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="81" height="18" fill="#cdd6f4"/>
+<rect x="90" y="18" width="90" height="18" fill="#a6e3a1"/>
+<rect x="189" y="18" width="108" height="18" fill="#cdd6f4"/>
+<rect x="306" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="387" y="18" width="180" height="18" fill="#cdd6f4"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90 108 117 126 135 144 162 171 189 198 207 225 234 243 252 261 270 288 297 306 315 324 333 342 360 369 378 387 396 405" fill="#878ca4">thedefaultlook,intheZellijtheme'scolors</tspan></text>
+<text y="31"><tspan x="9 27 36 45 54 63 99 117 126 135 144 153 162 198 216 225 234 243 252 261 279 315 333 342 351 360 396 414 423 432 441 450 468 477 486 495 504 513 522 531 540 549" fill="#181825" font-weight="bold">1shell2editor3server●4docs5notes(FLOATING)</tspan></text>
+</g>
+</g>
+</svg>

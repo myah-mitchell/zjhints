@@ -2607,7 +2607,7 @@ dependencies = [
 [[package]]
 name = "zellij-tile"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "git+https://github.com/myah-mitchell/zellij?tag=fork-ea-v0.46.7-261103#04903b7daaa6c596839c11988b0e8da6c5bf043a"
 dependencies = [
  "prost",
  "serde",
@@ -2621,7 +2621,7 @@ dependencies = [
 [[package]]
 name = "zellij-tile-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "git+https://github.com/myah-mitchell/zellij?tag=fork-ea-v0.46.7-261103#04903b7daaa6c596839c11988b0e8da6c5bf043a"
 dependencies = [
  "ansi_term",
 ]
@@ -2629,7 +2629,7 @@ dependencies = [
 [[package]]
 name = "zellij-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "git+https://github.com/myah-mitchell/zellij?tag=fork-ea-v0.46.7-261103#04903b7daaa6c596839c11988b0e8da6c5bf043a"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -2778,6 +2778,18 @@ dependencies = [
  "unicode-width 0.2.2",
  "zellij-tile",
  "zellij-utils",
+]
+
+[[package]]
+name = "zjtabs"
+version = "0.1.0"
+dependencies = [
+ "ansi_term",
+ "unicode-width 0.2.2",
+ "zellij-tile",
+ "zellij-tile-utils",
+ "zellij-utils",
+ "zjkit",
 ]
 
 [[package]]
