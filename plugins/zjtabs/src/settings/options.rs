@@ -185,7 +185,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Mouse",
         Kind::Bool,
         Some("true"),
-        "Click a tab to switch to it, scroll to step through tabs, double-click to rename, right-click for the menu",
+        "Click a tab to switch to it, scroll to step through tabs, double-click to rename, middle-click to close, right-click for the menu",
     ),
     option(
         "mouse_wheel_reversed",
@@ -193,6 +193,13 @@ pub const OPTIONS: &[OptionSpec] = &[
         Kind::Bool,
         Some("false"),
         "Scroll up for the previous tab and down for the next, instead of Zellij's own way round",
+    ),
+    option(
+        "mouse_close_confirm",
+        "Mouse",
+        Kind::Bool,
+        Some("true"),
+        "Ask before a middle click closes a tab",
     ),
 ];
 
@@ -215,11 +222,12 @@ mod tests {
     use crate::{
         CONFIG_ACTIVE_TAB_FORMAT, CONFIG_AUTO_WIDTH, CONFIG_COLLAPSE_WHEN_EMPTY,
         CONFIG_DIM_STRENGTH, CONFIG_DIM_WHEN_UNFOCUSED, CONFIG_HIDE_WHEN_NESTED,
-        CONFIG_INDEX_FROM_ZERO, CONFIG_MAX_LENGTH, CONFIG_MOUSE, CONFIG_MOUSE_WHEEL_REVERSED,
-        CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR,
-        CONFIG_RENAME_PLACEHOLDER, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER, DEFAULT_AUTO_WIDTH,
-        DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH, DEFAULT_DIM_WHEN_UNFOCUSED,
-        DEFAULT_HIDE_WHEN_NESTED, DEFAULT_INDEX_FROM_ZERO, DEFAULT_MAX_LENGTH, DEFAULT_MOUSE,
+        CONFIG_INDEX_FROM_ZERO, CONFIG_MAX_LENGTH, CONFIG_MOUSE, CONFIG_MOUSE_CLOSE_CONFIRM,
+        CONFIG_MOUSE_WHEEL_REVERSED, CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT,
+        CONFIG_OVERFLOW_STR, CONFIG_RENAME_PLACEHOLDER, CONFIG_TAB_FORMAT, CONFIG_TAB_SPACER,
+        DEFAULT_AUTO_WIDTH, DEFAULT_COLLAPSE_WHEN_EMPTY, DEFAULT_DIM_STRENGTH,
+        DEFAULT_DIM_WHEN_UNFOCUSED, DEFAULT_HIDE_WHEN_NESTED, DEFAULT_INDEX_FROM_ZERO,
+        DEFAULT_MAX_LENGTH, DEFAULT_MOUSE, DEFAULT_MOUSE_CLOSE_CONFIRM,
         DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR, DEFAULT_RENAME_PLACEHOLDER,
         DEFAULT_TAB_SPACER,
     };
@@ -266,6 +274,10 @@ mod tests {
             (
                 CONFIG_MOUSE_WHEEL_REVERSED,
                 Some(DEFAULT_MOUSE_WHEEL_REVERSED.to_string()),
+            ),
+            (
+                CONFIG_MOUSE_CLOSE_CONFIRM,
+                Some(DEFAULT_MOUSE_CLOSE_CONFIRM.to_string()),
             ),
             // The options zjkit reads for every bar: how wide an ambiguous
             // character is, whether the bar starts hidden, and the themes.

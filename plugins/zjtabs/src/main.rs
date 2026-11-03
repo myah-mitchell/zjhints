@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
-use zjkit::bar::{BarCore, BarPlugin, Role};
+use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
 use zjkit::mouse::ColumnSpans;
 
@@ -41,6 +41,7 @@ const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
+const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
 
 // One space, so neighboring tabs drawn in Zellij's ribbon colors read as
 // separate blocks rather than one long ribbon.
@@ -85,6 +86,10 @@ const DEFAULT_MOUSE: bool = true;
 // down. Turning it on swaps the two for anyone who expects the wheel to
 // follow the tabs' order left to right the other way around.
 const DEFAULT_MOUSE_WHEEL_REVERSED: bool = false;
+// On by default: closing a tab takes every pane in it with it, and the
+// processes running in them, and a middle click is easy to make by accident,
+// such as by pressing the wheel to scroll.
+const DEFAULT_MOUSE_CLOSE_CONFIRM: bool = true;
 
 #[derive(Default)]
 struct State {
@@ -136,11 +141,15 @@ struct State {
     dim_when_unfocused: bool,
     /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
     dim_strength: f32,
-    /// Switch, rename and open the menu of tabs with the mouse.
+    /// Switch, rename, close and open the menu of tabs with the mouse.
     mouse: bool,
     /// Swap the wheel's two directions: scroll up goes to the previous tab
     /// and scroll down to the next, rather than the other way around.
     mouse_wheel_reversed: bool,
+    /// Ask before a middle click closes a tab, rather than closing it at once.
+    mouse_close_confirm: bool,
+    /// The close confirmation being shown, if any. See `mouse::PendingClose`.
+    pending_close: Option<mouse::PendingClose>,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
     /// The input mode and nested-session state from the last `ModeUpdate`.
@@ -213,6 +222,11 @@ impl State {
             CONFIG_MOUSE_WHEEL_REVERSED,
             DEFAULT_MOUSE_WHEEL_REVERSED,
         );
+        self.mouse_close_confirm = config::bool_option(
+            configuration,
+            CONFIG_MOUSE_CLOSE_CONFIRM,
+            DEFAULT_MOUSE_CLOSE_CONFIRM,
+        );
     }
 }
 
@@ -231,6 +245,12 @@ impl BarPlugin for State {
         self.mouse
     }
 
+    /// With `mouse_close_confirm` as well as `mouse`, which `BarSpec` alone
+    /// cannot tell.
+    fn permissions(&self, _spec: &BarSpec) -> Vec<PermissionType> {
+        bar_permissions(self.mouse, self.mouse_close_confirm)
+    }
+
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
         State::apply_configuration(self, user_configuration);
     }
@@ -243,7 +263,8 @@ impl ZellijPlugin for State {
             return;
         }
         self.apply_configuration(configuration);
-        self.bar.load(&self.host, &BAR, self.mouse);
+        let permissions = BarPlugin::permissions(self, &BAR);
+        self.bar.load(&self.host, &BAR, &permissions, self.mouse);
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -273,6 +294,9 @@ impl ZellijPlugin for State {
             // Turning `mouse` off cannot take back the subscription, so the
             // events keep coming and are left alone here.
             Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse),
+            // Taken whatever `mouse` and `mouse_close_confirm` are now: the
+            // user was asked while they were on, and answered.
+            Event::PromptResult(request_id, result) => self.answer_close(request_id, &result),
             _ => {}
         }
         should_render

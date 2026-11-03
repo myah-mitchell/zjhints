@@ -84,8 +84,9 @@ Clicking the bar. See [Mouse](mouse.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `mouse` | `true` | Click a tab to switch to it, scroll to step through tabs, double-click to rename, right-click for Zellij's menus |
+| `mouse` | `true` | Click a tab to switch to it, scroll to step through tabs, double-click to rename, middle-click to close, right-click for Zellij's menus |
 | `mouse_wheel_reversed` | `false` | Scroll up for the previous tab and down for the next, instead of Zellij's own way round |
+| `mouse_close_confirm` | `true` | Ask before a middle click closes a tab |
 
 ## Settings screen
 

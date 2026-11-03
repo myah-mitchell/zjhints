@@ -1,6 +1,6 @@
 # Mouse
 
-With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. This page covers each of those and the permissions they use.
+With `mouse` on, the bar works like Zellij's own tab bar: click a tab to go to it, scroll to step through the tabs, double-click to rename one, and right-click for Zellij's menus. A middle click closes a tab after asking, on a Zellij build that sends plugins middle clicks. This page covers each of those and the permissions they use.
 
 `mouse` is on by default, since a tab bar you cannot click is unusual. Turn it off to leave the bar to the keyboard:
 
@@ -36,6 +36,20 @@ Double-click a tab to rename it. If it is not the active tab, it becomes the act
 
 While the name is empty the tab shows [`rename_placeholder`](formats.md#renaming).
 
+## Closing
+
+Middle-click a tab to close it. A middle click anywhere else on the bar, such as a marker, a spacer or the empty end, does nothing.
+
+Before closing, the bar asks in Zellij's prompt popup, naming the tab by its number and name, because closing a tab closes every pane in it and ends what runs there. *Cancel* is selected when the prompt opens, so `Enter` or `Esc` straight away keeps the tab. Choose **Close tab** to close it. If the tab closes some other way while the prompt is open, choosing **Close tab** does nothing.
+
+To close a tab at once, without asking, set:
+
+```kdl
+mouse_close_confirm false
+```
+
+Closing needs a Zellij build that sends plugins middle clicks. See [Zellij support](#zellij-support).
+
 ## Right-click menus
 
 Right-clicking opens one of Zellij's context menus at the pointer. The items come from the `context_menu` block of Zellij's own config, not from this plugin.
@@ -63,16 +77,19 @@ See [Hiding the bar](../hiding.md) for the messages a bar listens for.
 
 ## Permissions
 
-Turning `mouse` on asks for one permission on top of the ones the bar always needs:
+Turning `mouse` on asks for one permission on top of the ones the bar always needs, and a second while `mouse_close_confirm` is on too:
 
 | Permission | Used for |
 | --- | --- |
 | *Execute actions as the user* | Renaming a tab on a double-click |
+| *Start new terminals and plugins* | Asking before a middle click closes a tab, since the question is a Zellij prompt |
 
-Switching tabs and opening Zellij's menus also need permission to change Zellij state, which the bar always asks for to add its *zjtabs* settings entry. The full list is in [Permissions](overview.md#permissions).
+Switching and closing tabs and opening Zellij's menus also need permission to change Zellij state, which the bar always asks for to add its *zjtabs* settings entry. The full list is in [Permissions](overview.md#permissions).
 
-Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new one.
+Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new ones. So does turning `mouse_close_confirm` on while `mouse` is on. Turning either off asks for nothing.
 
 ## Zellij support
 
 The right-click menus use the context menu APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), which are merged and expected in the next Zellij release. Until then, they need a Zellij build that includes them. See [Zellij support](../../README.md#zellij-support).
+
+Closing a tab with a middle click needs a Zellij that sends plugins middle clicks, which no Zellij release does. The build zjtabs is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), sends them. On any other build a middle click on the bar does nothing.

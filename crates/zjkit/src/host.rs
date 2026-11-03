@@ -79,6 +79,10 @@ pub trait Host {
     /// lists the tabs.
     fn switch_tab_to(&self, position: u32);
 
+    /// Close the tab whose id is `tab_id`, the `TabInfo::tab_id` that stays
+    /// the same as tabs move. Closes nothing when no tab has that id.
+    fn close_tab_with_id(&self, tab_id: u64);
+
     /// Ask every running bar of the plugin `names` belongs to whether it is
     /// hidden, naming this bar's `alias` when it knows it. See
     /// `visibility::Names::ask`.
@@ -197,6 +201,10 @@ impl Host for Zellij {
         switch_tab_to(position);
     }
 
+    fn close_tab_with_id(&self, tab_id: u64) {
+        close_tab_with_id(tab_id);
+    }
+
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
         let mut message = MessageToPlugin::new(names.ask);
         if let Some(alias) = alias {
@@ -289,6 +297,7 @@ pub enum Call {
         column: usize,
     },
     SwitchTabTo(u32),
+    CloseTabWithId(u64),
     /// `message` is the `ask` name of the `visibility::Names` given.
     AskVisibility {
         message: &'static str,
@@ -426,6 +435,10 @@ impl Host for Recorder {
 
     fn switch_tab_to(&self, position: u32) {
         self.record(Call::SwitchTabTo(position));
+    }
+
+    fn close_tab_with_id(&self, tab_id: u64) {
+        self.record(Call::CloseTabWithId(tab_id));
     }
 
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {

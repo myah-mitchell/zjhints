@@ -288,13 +288,16 @@ pub fn click_outcome(map: &ClickMap, mouse: &Mouse) -> MouseOutcome {
     }
 }
 
-/// Which button, or click count, a press on a bar came from. Zellij sends no
-/// middle click to plugins, so there is none here.
+/// Which button, or click count, a press on a bar came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PressKind {
     Left,
     Right,
     Double,
+    /// The middle button. Only a Zellij build that sends plugins middle
+    /// clicks reports one; on any other, the middle button never reaches a
+    /// bar.
+    Middle,
 }
 
 /// Which way the scroll wheel turned. Up and down are only the wheel's own
@@ -312,8 +315,8 @@ pub enum BarMouseEvent {
     Press { kind: PressKind, column: usize },
     /// The wheel turned while the pointer was over the bar.
     Wheel(WheelDirection),
-    /// Anything else: hover, drag, release, horizontal scrolling, or a press
-    /// that is not on the bar's line.
+    /// Anything else: hover, drag (with the middle button too), release,
+    /// horizontal scrolling, or a press that is not on the bar's line.
     Other,
 }
 
@@ -324,8 +327,10 @@ pub enum BarMouseEvent {
 /// wheel without a position, so it is reported wherever the pointer is over
 /// the pane. Horizontal scrolling is `Other`: a bar's items have no use for
 /// it that the vertical wheel does not already cover, and a trackpad swipe
-/// would otherwise jump items by accident. To find the item under a press,
-/// look its `column` up in the bar's `ColumnSpans`.
+/// would otherwise jump items by accident. A middle drag (`MiddleHold`) is
+/// `Other` as a left drag is: it is the button held down while the pointer
+/// moves, not a press of its own. To find the item under a press, look its
+/// `column` up in the bar's `ColumnSpans`.
 pub fn classify_bar_mouse(mouse: &Mouse) -> BarMouseEvent {
     let press = |kind, line: &isize, column: &usize| {
         if *line == 0 {
@@ -341,6 +346,7 @@ pub fn classify_bar_mouse(mouse: &Mouse) -> BarMouseEvent {
         Mouse::LeftClick(line, column) => press(PressKind::Left, line, column),
         Mouse::RightClick(line, column) => press(PressKind::Right, line, column),
         Mouse::DoubleClick(line, column) => press(PressKind::Double, line, column),
+        Mouse::MiddleClick(line, column) => press(PressKind::Middle, line, column),
         Mouse::ScrollUp(_) => BarMouseEvent::Wheel(WheelDirection::Up),
         Mouse::ScrollDown(_) => BarMouseEvent::Wheel(WheelDirection::Down),
         _ => BarMouseEvent::Other,
@@ -748,6 +754,10 @@ mod tests {
             classify_bar_mouse(&Mouse::DoubleClick(0, 11)),
             press(PressKind::Double, 11)
         );
+        assert_eq!(
+            classify_bar_mouse(&Mouse::MiddleClick(0, 4)),
+            press(PressKind::Middle, 4)
+        );
     }
 
     #[test]
@@ -757,6 +767,7 @@ mod tests {
                 Mouse::LeftClick(line, 3),
                 Mouse::RightClick(line, 3),
                 Mouse::DoubleClick(line, 3),
+                Mouse::MiddleClick(line, 3),
             ] {
                 assert_eq!(
                     classify_bar_mouse(&mouse),
@@ -788,8 +799,13 @@ mod tests {
     }
 
     #[test]
-    fn pointer_movement_and_releases_are_other() {
-        for mouse in [Mouse::Hover(0, 3), Mouse::Hold(0, 3), Mouse::Release(0, 3)] {
+    fn pointer_movement_drags_and_releases_are_other() {
+        for mouse in [
+            Mouse::Hover(0, 3),
+            Mouse::Hold(0, 3),
+            Mouse::MiddleHold(0, 3),
+            Mouse::Release(0, 3),
+        ] {
             assert_eq!(
                 classify_bar_mouse(&mouse),
                 BarMouseEvent::Other,
@@ -806,6 +822,7 @@ mod tests {
             _ => None,
         };
         assert_eq!(item_under(&Mouse::DoubleClick(0, 8)), Some(1));
+        assert_eq!(item_under(&Mouse::MiddleClick(0, 2)), Some(0));
         assert_eq!(item_under(&Mouse::RightClick(0, 5)), None);
         assert_eq!(item_under(&Mouse::LeftClick(1, 8)), None);
     }
@@ -833,6 +850,14 @@ mod tests {
         assert_eq!(click_outcome(&map, &left(5)), run(vec![Action::Detach]));
         assert_eq!(click_outcome(&map, &left(8)), run(vec![Action::Detach]));
         assert_eq!(click_outcome(&map, &left(9)), MouseOutcome::Nothing);
+    }
+
+    #[test]
+    fn a_middle_click_on_a_hint_does_nothing() {
+        let map = ClickMap::lay_out(two_hints(), 1, None);
+        for mouse in [Mouse::MiddleClick(0, 1), Mouse::MiddleHold(0, 1)] {
+            assert_eq!(click_outcome(&map, &mouse), MouseOutcome::Nothing);
+        }
     }
 
     #[test]

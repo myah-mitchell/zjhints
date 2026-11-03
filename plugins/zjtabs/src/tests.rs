@@ -20,8 +20,8 @@ fn loaded(pairs: &[(&str, &str)]) -> State {
 fn loading_the_bar_asks_for_its_permissions_and_events() {
     let state = loaded(&[]);
     let calls = state.host.calls();
-    // `mouse` is on by default.
-    assert!(calls.contains(&Call::RequestPermission(bar_permissions(true))));
+    // `mouse` and `mouse_close_confirm` are on by default.
+    assert!(calls.contains(&Call::RequestPermission(bar_permissions(true, true))));
     assert!(calls.contains(&Call::Subscribe(BAR_EVENTS.to_vec())));
     assert!(calls.contains(&Call::Subscribe(MOUSE_EVENTS.to_vec())));
 }
@@ -35,18 +35,41 @@ fn a_bar_without_mouse_asks_for_nothing_the_mouse_needs() {
 }
 
 #[test]
-fn asking_for_mouse_keeps_the_permissions_the_bar_always_needs() {
-    assert_eq!(bar_permissions(false), BAR_PERMISSIONS.to_vec());
-    let permissions = bar_permissions(true);
-    for permission in BAR_PERMISSIONS.iter().chain(MOUSE_PERMISSIONS.iter()) {
-        assert!(permissions.contains(permission), "{permission:?}");
-    }
-    assert!(!bar_permissions(false).contains(&PermissionType::RunActionsAsUser));
+fn a_bar_with_mouse_but_no_close_confirmation_asks_for_no_prompt() {
+    let state = loaded(&[("mouse_close_confirm", "false")]);
+    let calls = state.host.calls();
+    assert!(calls.contains(&Call::RequestPermission(bar_permissions(true, false))));
+    assert!(calls.contains(&Call::Subscribe(MOUSE_EVENTS.to_vec())));
 }
 
 #[test]
-fn the_settings_screen_asks_for_the_permissions_of_a_bar_with_mouse() {
-    assert_eq!((settings::SCHEMA.permissions)(), bar_permissions(true));
+fn the_permission_sets_grow_with_mouse_and_then_the_close_confirmation() {
+    // Without the mouse there is no middle click to confirm, so
+    // `mouse_close_confirm` alone adds nothing.
+    for mouse_close_confirm in [false, true] {
+        assert_eq!(
+            bar_permissions(false, mouse_close_confirm),
+            BAR_PERMISSIONS.to_vec()
+        );
+    }
+    let mut with_mouse = BAR_PERMISSIONS.to_vec();
+    with_mouse.extend(MOUSE_PERMISSIONS);
+    assert_eq!(bar_permissions(true, false), with_mouse);
+    let mut with_confirmation = with_mouse.clone();
+    with_confirmation.extend(CLOSE_CONFIRM_PERMISSIONS);
+    assert_eq!(bar_permissions(true, true), with_confirmation);
+    assert!(!with_mouse.contains(&PermissionType::OpenTerminalsOrPlugins));
+    assert!(with_confirmation.contains(&PermissionType::OpenTerminalsOrPlugins));
+}
+
+#[test]
+fn the_settings_screen_asks_for_the_permissions_of_a_bar_with_every_option_on() {
+    assert_eq!(
+        (settings::SCHEMA.permissions)(),
+        bar_permissions(true, true)
+    );
+    assert_eq!((BAR.permissions)(true), bar_permissions(true, true));
+    assert_eq!((BAR.permissions)(false), bar_permissions(false, false));
 }
 
 #[test]
@@ -60,7 +83,50 @@ fn turning_mouse_on_later_asks_for_what_the_mouse_needs() {
     ));
     let calls = state.host.calls();
     assert!(calls.contains(&Call::Subscribe(MOUSE_EVENTS.to_vec())));
-    assert!(calls.contains(&Call::RequestPermission(bar_permissions(true))));
+    assert!(calls.contains(&Call::RequestPermission(bar_permissions(true, true))));
+}
+
+#[test]
+fn turning_the_close_confirmation_on_later_asks_for_the_larger_set() {
+    let mut state = loaded(&[("mouse_close_confirm", "false")]);
+    state.host.clear();
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[]))
+    ));
+    // The prompt's answer comes with the mouse's events, subscribed already.
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            Call::SetSelectable(true),
+            Call::RequestPermission(bar_permissions(true, true)),
+        ]
+    );
+}
+
+#[test]
+fn turning_the_close_confirmation_off_asks_for_nothing() {
+    let mut state = loaded(&[]);
+    state.host.clear();
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[("mouse_close_confirm", "false")]))
+    ));
+    assert_eq!(state.host.calls(), vec![]);
+}
+
+#[test]
+fn the_close_confirmation_alone_asks_for_nothing_while_mouse_is_off() {
+    let mut state = loaded(&[("mouse", "false"), ("mouse_close_confirm", "false")]);
+    state.host.clear();
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[("mouse", "false")]))
+    ));
+    assert_eq!(state.host.calls(), vec![]);
 }
 
 #[test]
@@ -92,6 +158,7 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
     assert_eq!(state.mouse, DEFAULT_MOUSE);
     assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
+    assert_eq!(state.mouse_close_confirm, DEFAULT_MOUSE_CLOSE_CONFIRM);
 }
 
 #[test]
@@ -118,6 +185,7 @@ fn every_option_is_read_from_its_key() {
         ("dim_strength", "0.25"),
         ("mouse", "false"),
         ("mouse_wheel_reversed", "true"),
+        ("mouse_close_confirm", "false"),
     ]);
     assert_eq!(state.tab_format.as_deref(), Some("{name}"));
     assert_eq!(state.active_tab_format.as_deref(), Some("[{name}]"));
@@ -137,6 +205,7 @@ fn every_option_is_read_from_its_key() {
     assert_eq!(state.dim_strength, 0.25);
     assert!(!state.mouse);
     assert!(state.mouse_wheel_reversed);
+    assert!(!state.mouse_close_confirm);
 }
 
 #[test]
@@ -300,6 +369,15 @@ fn text_at(line: &str, columns: Range<usize>, wide_ambiguous: bool) -> String {
         column += char_width(ch, wide_ambiguous);
     }
     text
+}
+
+/// What the click spans hold for the tab at `position` of `tabs`, whose id
+/// `tab` makes 100 more than its position.
+fn drawn_tab(position: usize) -> Clickable {
+    Clickable::Tab {
+        position,
+        tab_id: 100 + position,
+    }
 }
 
 /// Each clickable stretch of the line the bar draws, as the text drawn on
@@ -609,7 +687,7 @@ fn a_lone_tab_too_wide_for_the_bar_is_cut_with_overflow_str() {
     assert_eq!(shown(&state), "[1:a lo~");
     assert_eq!(
         clickable(&state),
-        vec![("[1:a lo".to_string(), Clickable::Tab(0))]
+        vec![("[1:a lo".to_string(), drawn_tab(0))]
     );
 }
 
@@ -632,7 +710,7 @@ fn an_active_tab_too_wide_with_its_markers_is_cut_alone_with_no_markers() {
             clickable(&state),
             vec![(
                 expected.trim_end_matches('~').to_string(),
-                Clickable::Tab(position)
+                drawn_tab(position)
             )]
         );
     }
@@ -657,9 +735,9 @@ fn the_click_spans_match_the_columns_each_tab_and_marker_was_drawn_on() {
         clickable(&state),
         vec![
             ("<4".to_string(), Clickable::Marker(3)),
-            ("5:e".to_string(), Clickable::Tab(4)),
-            ("[6:f]".to_string(), Clickable::Tab(5)),
-            ("7:g".to_string(), Clickable::Tab(6)),
+            ("5:e".to_string(), drawn_tab(4)),
+            ("[6:f]".to_string(), drawn_tab(5)),
+            ("7:g".to_string(), drawn_tab(6)),
             ("3>".to_string(), Clickable::Marker(7)),
         ]
     );
@@ -673,8 +751,8 @@ fn the_click_spans_count_wide_characters_and_skip_styling() {
     assert_eq!(
         clickable(&state),
         vec![
-            (" 1 \u{65e5}\u{672c} ".to_string(), Clickable::Tab(0)),
-            (" 2 x ".to_string(), Clickable::Tab(1)),
+            (" 1 \u{65e5}\u{672c} ".to_string(), drawn_tab(0)),
+            (" 2 x ".to_string(), drawn_tab(1)),
         ]
     );
     let (line, spans) = state.draw_bar();
@@ -688,9 +766,9 @@ fn the_click_spans_count_wide_characters_and_skip_styling() {
     let wide = bar(&plain_with(&[("ambiguous_width", "2")]), 80, infos);
     let (_, spans) = wide.draw_bar();
     // "[1:" then the two columns of the name, "]", and the spacer at 6.
-    assert_eq!(spans.value_at(5), Some(&Clickable::Tab(0)));
+    assert_eq!(spans.value_at(5), Some(&drawn_tab(0)));
     assert_eq!(spans.value_at(6), None);
-    assert_eq!(spans.value_at(7), Some(&Clickable::Tab(1)));
+    assert_eq!(spans.value_at(7), Some(&drawn_tab(1)));
 }
 
 #[test]
@@ -941,6 +1019,239 @@ fn a_right_click_opens_the_tab_s_context_menu_or_else_the_bar_s() {
     }
 }
 
+/// `PLAIN` with `mouse_close_confirm` off, so a middle click closes at once.
+fn plain_closing_at_once() -> Vec<(&'static str, &'static str)> {
+    plain_with(&[("mouse_close_confirm", "false")])
+}
+
+#[test]
+fn a_middle_click_closes_the_tab_under_it() {
+    // "1:a|[2:b]|3:c", the ids 100, 101 and 102.
+    let mut state = bar(&plain_closing_at_once(), 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 0)),
+        vec![Call::CloseTabWithId(100)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 4)),
+        vec![Call::CloseTabWithId(101)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 12)),
+        vec![Call::CloseTabWithId(102)]
+    );
+}
+
+#[test]
+fn a_middle_click_off_a_tab_or_a_middle_drag_closes_nothing() {
+    // "1:a|[2:b]|3:c": the spacer, past the end, and a line below the bar.
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    for mouse in [
+        Mouse::MiddleClick(0, 3),
+        Mouse::MiddleClick(0, 40),
+        Mouse::MiddleClick(1, 0),
+        Mouse::MiddleHold(0, 0),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+    // "<4|5:e|[6:f]|7:g|3>": neither marker, as each stands for several tabs.
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    for column in [0, 18] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::MiddleClick(0, column)),
+            vec![]
+        );
+    }
+}
+
+#[test]
+fn a_middle_click_closes_the_tab_drawn_under_it_even_after_the_tabs_move() {
+    // "1:a|[2:b]|3:c" is drawn, then a `TabUpdate` puts a new tab first
+    // before the bar draws again.
+    let mut state = bar(&plain_closing_at_once(), 80, tabs(3, 1));
+    state.render(1, 80);
+    let mut moved = vec![tab(0, "new")];
+    moved[0].tab_id = 200;
+    moved.extend(tabs(3, 1).into_iter().map(|mut info| {
+        info.position += 1;
+        info
+    }));
+    assert!(state.update(Event::TabUpdate(moved)));
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(Mouse::MiddleClick(0, 0))));
+    assert_eq!(state.host.calls(), vec![Call::CloseTabWithId(100)]);
+}
+
+/// The one call of `calls`, which has to be a prompt: its id and request.
+fn the_prompt(calls: &[Call]) -> (u64, PromptRequest) {
+    match calls {
+        [Call::Prompt {
+            request_id,
+            request,
+        }] => (*request_id, request.clone()),
+        _ => panic!("expected one prompt, got {calls:?}"),
+    }
+}
+
+/// The calls the bar makes on Zellij's answer `result` to the prompt
+/// `request_id`.
+fn after_answer(state: &mut State, request_id: u64, result: PromptResult) -> Vec<Call> {
+    state.host.clear();
+    assert!(!state.update(Event::PromptResult(request_id, result)));
+    state.host.calls()
+}
+
+#[test]
+fn a_middle_click_asks_before_closing_the_tab_with_cancel_selected() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 12)));
+    let PromptSpec::Confirm { message, yes, no } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    assert_eq!(message.text, "Close tab 3 \"c\" and every pane in it?");
+    assert_eq!((yes.as_str(), no.as_str()), ("Close tab", "Cancel"));
+    assert_eq!(request.title.as_deref(), Some("Close tab?"));
+    // Zellij selects the button the default names, so `Enter` cancels.
+    assert_eq!(request.default.as_deref(), Some("false"));
+}
+
+#[test]
+fn the_close_confirmation_numbers_and_names_the_tab_as_the_bar_draws_it() {
+    let mut infos = tabs(2, 0);
+    infos[1].name = "esc\u{1b}[2J".to_string();
+    let mut state = bar(&plain_with(&[("index_from_zero", "true")]), 80, infos);
+    let line = shown(&state);
+    let column = line.find("1:").unwrap();
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, column)));
+    let PromptSpec::Confirm { message, .. } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    assert_eq!(
+        message.text,
+        "Close tab 1 \"esc\\u{1b}[2J\" and every pane in it?"
+    );
+}
+
+#[test]
+fn confirming_closes_the_tab_that_was_clicked() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+    // Answered once, it is no longer waiting.
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn any_other_answer_to_the_close_confirmation_closes_nothing() {
+    for result in [
+        PromptResult::Confirmed(false),
+        PromptResult::Cancelled,
+        PromptResult::TimedOut(None),
+        PromptResult::TimedOut(Some(PromptValue::Bool(true))),
+        PromptResult::Error("no popup".to_string()),
+        PromptResult::Answered(PromptValue::Bool(true)),
+    ] {
+        let mut state = bar(&PLAIN, 80, tabs(3, 1));
+        let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+        assert_eq!(
+            after_answer(&mut state, request_id, result.clone()),
+            vec![],
+            "{result:?}"
+        );
+        assert_eq!(state.pending_close, None, "{result:?}");
+    }
+}
+
+#[test]
+fn an_answer_to_another_prompt_closes_nothing_and_keeps_waiting() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, request_id + 1, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+}
+
+#[test]
+fn an_answer_with_nothing_waiting_closes_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_answer(&mut state, 1, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn confirming_after_the_tab_is_gone_closes_nothing() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    // Closed some other way while the confirmation was up.
+    let mut remaining = tabs(3, 1);
+    remaining.remove(0);
+    state.update(Event::TabUpdate(remaining));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn a_second_middle_click_replaces_the_close_confirmation_being_shown() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (first, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    let (second, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 12)));
+    assert_ne!(first, second);
+    assert_eq!(
+        after_answer(&mut state, first, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(
+        after_answer(&mut state, second, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(102)]
+    );
+}
+
+#[test]
+fn the_close_confirmation_names_and_closes_the_tab_drawn_under_the_click_after_the_tabs_move() {
+    // "1:a|[2:b]|3:c" is drawn, then a `TabUpdate` puts a new tab first
+    // before the bar draws again.
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    state.render(1, 80);
+    let mut moved = vec![tab(0, "new")];
+    moved[0].tab_id = 200;
+    moved.extend(tabs(3, 1).into_iter().map(|mut info| {
+        info.position += 1;
+        info
+    }));
+    assert!(state.update(Event::TabUpdate(moved)));
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(Mouse::MiddleClick(0, 0))));
+    let (request_id, request) = the_prompt(&state.host.calls());
+    let PromptSpec::Confirm { message, .. } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    // The tab clicked, "a", now stands second.
+    assert_eq!(message.text, "Close tab 2 \"a\" and every pane in it?");
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+}
+
 #[test]
 fn with_mouse_off_the_mouse_does_nothing() {
     let mut state = bar(&plain_with(&[("mouse", "false")]), 80, tabs(3, 1));
@@ -948,6 +1259,7 @@ fn with_mouse_off_the_mouse_does_nothing() {
         Mouse::LeftClick(0, 0),
         Mouse::DoubleClick(0, 0),
         Mouse::RightClick(0, 0),
+        Mouse::MiddleClick(0, 0),
         Mouse::ScrollUp(1),
     ] {
         assert_eq!(after_mouse(&mut state, mouse), vec![]);
@@ -960,6 +1272,7 @@ fn the_mouse_does_nothing_while_the_bar_draws_nothing() {
         Mouse::LeftClick(0, 0),
         Mouse::DoubleClick(0, 0),
         Mouse::RightClick(0, 0),
+        Mouse::MiddleClick(0, 0),
         Mouse::ScrollUp(1),
         Mouse::ScrollDown(1),
     ];

@@ -19,7 +19,7 @@ pub static SCHEMA: Schema = Schema {
     internal_options: &[],
     live_message: "zjtabs::configure",
     preview_group: Some("Theme"),
-    permissions: || crate::host::bar_permissions(true),
+    permissions: || crate::host::bar_permissions(true, true),
     layer: crate::theme::layer,
     sample_values,
     draw_bar,

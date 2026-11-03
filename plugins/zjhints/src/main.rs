@@ -1467,7 +1467,8 @@ impl ZellijPlugin for State {
         }
         self.initialized = false;
         self.apply_configuration(configuration);
-        self.bar.load(&self.host, &BAR, self.mouse);
+        let permissions = BarPlugin::permissions(self, &BAR);
+        self.bar.load(&self.host, &BAR, &permissions, self.mouse);
     }
 
     fn update(&mut self, event: Event) -> bool {

@@ -79,8 +79,10 @@ fn needs_attention(info: &TabInfo) -> bool {
 /// What a stretch of the drawn line stands for, for the mouse.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Clickable {
-    /// The tab at this position.
-    Tab(usize),
+    /// The tab at `position`, whose id was `tab_id` when the line was drawn.
+    /// The id is kept here, not looked up at click time, so a click acts on
+    /// the tab it landed on even if a `TabUpdate` has moved the tabs since.
+    Tab { position: usize, tab_id: usize },
     /// A marker for hidden tabs, with the position of the hidden tab nearest
     /// to it.
     Marker(usize),
@@ -193,7 +195,10 @@ impl State {
                 push(left(window.hidden_before), Some(Clickable::Marker(nearest)));
             }
             for index in window.range.clone() {
-                let tab = Clickable::Tab(self.tabs[index].position);
+                let tab = Clickable::Tab {
+                    position: self.tabs[index].position,
+                    tab_id: self.tabs[index].tab_id,
+                };
                 push(drawn_tabs[index].clone(), Some(tab));
             }
             if with_markers && window.hidden_after > 0 {

@@ -10,7 +10,7 @@ With no options set, zjtabs draws each tab the way Zellij's own tab bar does: a 
 
 - It shows a flag for a tab with a fullscreen pane, synchronized panes, shown floating panes or a bell. See [Flags](formats.md#flags).
 - When the tabs do not fit, it keeps a window of them around the active tab and counts the rest in a marker on each side. See [Overflow](overflow.md).
-- With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar. See [Mouse](mouse.md).
+- With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. See [Mouse](mouse.md).
 
 ## Getting the plugin
 
@@ -23,7 +23,7 @@ install -m 644 target/wasm32-wasip1/release/zjtabs.wasm ~/.local/share/zellij/pl
 
 Zellij caches a plugin for the length of a session, so start a new session to load a new build.
 
-The right-click menus, giving back the row while the bar is hidden, and the settings screen use Zellij APIs that are not in a released Zellij yet. Everything else works on a stock Zellij. See [Zellij support](../../README.md#zellij-support).
+The right-click menus, giving back the row while the bar is hidden, and the settings screen use Zellij APIs that are not in a released Zellij yet. Closing a tab with a middle click needs a Zellij build that sends plugins middle clicks, such as the one zjtabs is compiled against. Everything else works on a stock Zellij. See [Zellij support](../../README.md#zellij-support) and [Mouse](mouse.md#zellij-support).
 
 ## Loading it in a layout
 
@@ -68,11 +68,12 @@ zjtabs asks for these permissions the first time it runs. Zellij shows the promp
 | Permission | Used for |
 | --- | --- |
 | *Access Zellij state (Panes, Tabs and UI)* | Reading the tabs, the input mode and the bar's own pane |
-| *Change Zellij state (Panes, Tabs and UI) and run commands* | Switching tabs, opening Zellij's menus and adding the *zjtabs* settings entry |
+| *Change Zellij state (Panes, Tabs and UI) and run commands* | Switching and closing tabs, opening Zellij's menus and adding the *zjtabs* settings entry |
 | *Send messages to and launch other plugins* | The hide, show and toggle messages between bars, and opening the settings screen |
 | *Execute actions as the user* | Renaming a tab on a double-click, asked for only with `mouse` on |
+| *Start new terminals and plugins* | Asking before a middle click closes a tab, asked for only with `mouse` and `mouse_close_confirm` both on |
 
-With `mouse` off, the bar asks for the first three alone. Turning `mouse` on later asks again, with the fourth added. See [Mouse](mouse.md#permissions).
+With `mouse` off, the bar asks for the first three alone, and with `mouse_close_confirm` off, for the first four. Turning `mouse` on later asks again with the new ones added, as does turning `mouse_close_confirm` on while `mouse` is on. See [Mouse](mouse.md#permissions).
 
 ## Pages
 
@@ -81,7 +82,7 @@ With `mouse` off, the bar asks for the first three alone. Turning `mouse` on lat
 | [Configuration](configuration.md) | Every option zjtabs reads, with its default |
 | [Tab formats and flags](formats.md) | The tab placeholders, the flags, spacing, numbering, renaming and the themes for tabs |
 | [Overflow](overflow.md) | Fitting the tabs to the bar, the markers for hidden tabs, and cutting a tab that is too wide |
-| [Mouse](mouse.md) | Clicking, scrolling, renaming and the right-click menus |
+| [Mouse](mouse.md) | Clicking, scrolling, renaming, closing and the right-click menus |
 | [Themes](../themes.md) | Color, format and alias themes, shared with zjhints |
 | [Settings screen](../settings.md) | Editing the options in a floating pane with a live preview, shared with zjhints |
 | [Hiding the bar](../hiding.md) | Hiding and showing the bar from a keybinding or a shell, shared with zjhints |

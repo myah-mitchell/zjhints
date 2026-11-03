@@ -80,7 +80,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `main.rs` | The plugin state, its options, and the Zellij event loop |
 | `tabs.rs` | The tabs, laying them out on one line and the window around the active tab |
 | `flags.rs` | The four flags a tab can show and their formats |
-| `mouse.rs` | Clicks, the wheel, double-click renaming and the right-click menus |
+| `mouse.rs` | Clicks, the wheel, double-click renaming, middle-click closing and the right-click menus |
 | `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
 | `theme.rs` | The tab options each shared theme sets |
 | `settings/` | zjtabs' option tables and `Schema` |

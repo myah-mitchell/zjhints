@@ -23,8 +23,8 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
     // `ModeUpdate` and `PaneUpdate`.
     PermissionType::ReadApplicationState,
     // Adding the bar's entry to Zellij's settings screen, and with `mouse`,
-    // switching tabs on a click or the wheel and opening Zellij's context
-    // menu.
+    // switching tabs on a click or the wheel, closing a tab on a middle click
+    // and opening Zellij's context menu.
     PermissionType::ChangeApplicationState,
     // The hide, show and toggle messages between bars, and opening the
     // settings screen, which is this plugin again in a floating pane.
@@ -37,15 +37,27 @@ pub(crate) const MOUSE_PERMISSIONS: [PermissionType; 1] = [
     PermissionType::RunActionsAsUser,
 ];
 
-/// Every permission the bar asks for. A grant replaces the plugin's
-/// permissions rather than adding to them, both for the running instance and
-/// in Zellij's cache, so every request has to carry the whole set. The
-/// settings screen asks for the set with `mouse` on, since it shares the
-/// bar's cached grant and is how `mouse` gets turned on.
-pub(crate) fn bar_permissions(mouse: bool) -> Vec<PermissionType> {
+/// What `mouse_close_confirm` needs beyond what `mouse` needs. Asked for
+/// only while both are on, since without the mouse there is no middle click
+/// to confirm.
+pub(crate) const CLOSE_CONFIRM_PERMISSIONS: [PermissionType; 1] = [
+    // Showing the close confirmation, which is a prompt.
+    PermissionType::OpenTerminalsOrPlugins,
+];
+
+/// Every permission the bar asks for, with `mouse` and `mouse_close_confirm`
+/// on or off. A grant replaces the plugin's permissions rather than adding
+/// to them, both for the running instance and in Zellij's cache, so every
+/// request has to carry the whole set. The settings screen asks for the set
+/// with both on, since it shares the bar's cached grant and is how they get
+/// turned on.
+pub(crate) fn bar_permissions(mouse: bool, mouse_close_confirm: bool) -> Vec<PermissionType> {
     let mut permissions = BAR_PERMISSIONS.to_vec();
     if mouse {
         permissions.extend(MOUSE_PERMISSIONS);
+        if mouse_close_confirm {
+            permissions.extend(CLOSE_CONFIRM_PERMISSIONS);
+        }
     }
     permissions
 }
@@ -62,7 +74,13 @@ pub(crate) const BAR_EVENTS: [EventType; 4] = [
 ];
 
 /// The events `mouse` needs beyond what the bar always subscribes to.
-pub(crate) const MOUSE_EVENTS: [EventType; 1] = [EventType::Mouse];
+pub(crate) const MOUSE_EVENTS: [EventType; 2] = [
+    EventType::Mouse,
+    // The answer to the close confirmation of `mouse_close_confirm`.
+    // Subscribed with the mouse even while that option is off, so turning it
+    // on later needs no new subscription.
+    EventType::PromptResult,
+];
 
 /// The pipe message that opens the settings screen, or brings it up.
 pub(crate) const OPEN_SETTINGS_MESSAGE: &str = "zjtabs::open_settings";
@@ -79,7 +97,10 @@ pub(crate) static BAR: BarSpec = BarSpec {
     popup: None,
     open_settings_message: OPEN_SETTINGS_MESSAGE,
     settings_pane_title: SETTINGS_PANE_TITLE,
-    permissions: bar_permissions,
+    // With `mouse_close_confirm` on, so the set is everything the bar may
+    // use. The bar asks for what its options as read need; see
+    // `State::permissions`.
+    permissions: |mouse| bar_permissions(mouse, true),
     events: &BAR_EVENTS,
     mouse_events: &MOUSE_EVENTS,
 };

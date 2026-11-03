@@ -52,6 +52,11 @@ pub struct BarSpec {
     /// Every permission the bar asks for, with `mouse` on or off. A grant
     /// replaces the plugin's permissions rather than adding to them, both for
     /// the running instance and in Zellij's cache, so this is the whole set.
+    ///
+    /// A plugin with another option that needs a permission gives the set
+    /// with that option on here, so `permissions(true)` is everything the bar
+    /// may use, and says what its options as read need in
+    /// `BarPlugin::permissions`.
     pub permissions: fn(bool) -> Vec<PermissionType>,
     /// The events the bar always subscribes to.
     pub events: &'static [EventType],
@@ -161,7 +166,7 @@ impl Handled {
 
 /// What `BarCore::follow` needs of a bar plugin's state beyond the
 /// `BarCore` it keeps: the host it calls Zellij through, its `mouse`
-/// option, and its reader of options.
+/// option, the permissions its options need, and its reader of options.
 ///
 /// Reading the options takes the whole state mutably, so a callback could
 /// not do it while the core or the host were borrowed from the same state;
@@ -179,6 +184,17 @@ pub trait BarPlugin {
 
     /// Whether the plugin's `mouse` option is on, as last read.
     fn mouse(&self) -> bool;
+
+    /// Every permission the bar needs with its options as last read: the
+    /// whole set, since a grant replaces what the plugin had. The plugin
+    /// passes this to `BarCore::load`, and `BarCore::follow` asks for it
+    /// again whenever new options need something the old ones did not.
+    ///
+    /// By default it is `BarSpec::permissions` for the `mouse` option. A
+    /// plugin with another option that needs a permission gives its own.
+    fn permissions(&self, spec: &BarSpec) -> Vec<PermissionType> {
+        (spec.permissions)(self.mouse())
+    }
 
     /// Read every option from `user_configuration`, as on load. The plugin's
     /// reader calls `BarCore::configure` first.
@@ -243,14 +259,21 @@ impl BarCore {
     }
 
     /// Start the bar, once the plugin has read its options: learn its ids,
-    /// report theme names it does not know, ask for its permissions and
-    /// subscribe to its events, with what `mouse` needs when it is on.
-    pub fn load(&mut self, host: &impl Host, spec: &BarSpec, mouse: bool) {
+    /// report theme names it does not know, ask for `permissions`, the
+    /// plugin's `BarPlugin::permissions`, and subscribe to its events, with
+    /// what `mouse` needs when it is on.
+    pub fn load(
+        &mut self,
+        host: &impl Host,
+        spec: &BarSpec,
+        permissions: &[PermissionType],
+        mouse: bool,
+    ) {
         let ids = host.plugin_ids();
         self.plugin_id = Some(ids.plugin_id);
         self.client_id = Some(ids.client_id);
         theme::log_unknown_themes(spec.schema.plugin, &self.user_configuration);
-        host.request_permission(&(spec.permissions)(mouse));
+        host.request_permission(permissions);
 
         // Deliberately still selectable at this point.
         //
@@ -270,12 +293,19 @@ impl BarCore {
         }
     }
 
-    /// Ask for what `mouse` needs after loading without it. The pane is made
-    /// selectable while asking, so the permission prompt in it can be
-    /// answered; the answer makes it unselectable again.
-    pub fn enable_mouse(&self, host: &impl Host, spec: &BarSpec) {
+    /// Ask for `permissions`, the whole set the bar's options now need,
+    /// after loading with a smaller one. The pane is made selectable while
+    /// asking, so the permission prompt in it can be answered; the answer
+    /// makes it unselectable again.
+    pub fn ask_for_permissions(&self, host: &impl Host, permissions: &[PermissionType]) {
         host.set_selectable(true);
-        host.request_permission(&(spec.permissions)(true));
+        host.request_permission(permissions);
+    }
+
+    /// Ask for what `mouse` needs after loading without it: `permissions`,
+    /// as `ask_for_permissions` does, and the mouse's events.
+    pub fn enable_mouse(&self, host: &impl Host, spec: &BarSpec, permissions: &[PermissionType]) {
+        self.ask_for_permissions(host, permissions);
         host.subscribe(spec.mouse_events);
     }
 
@@ -284,16 +314,28 @@ impl BarCore {
     ///
     /// A `Reconfigure` is read with the plugin's `apply_configuration`. When
     /// that turns `mouse` on, the bar asks for what the mouse needs with
-    /// `enable_mouse`, since it did not when it loaded.
+    /// `enable_mouse`, since it did not when it loaded. When it turns on
+    /// another option that needs a permission the old options did not, the
+    /// bar asks for the larger set. Turning an option off asks for nothing:
+    /// the grant it had covers less too.
     pub fn follow<P: BarPlugin>(plugin: &mut P, spec: &BarSpec, handled: Handled) -> bool {
         match handled {
             Handled::Nothing => false,
             Handled::Redraw => true,
             Handled::Reconfigure(configuration) => {
                 let had_mouse = plugin.mouse();
+                let had_permissions = plugin.permissions(spec);
                 plugin.apply_configuration(configuration);
+                let permissions = plugin.permissions(spec);
                 if plugin.mouse() && !had_mouse {
-                    plugin.bar().enable_mouse(plugin.host(), spec);
+                    plugin.bar().enable_mouse(plugin.host(), spec, &permissions);
+                } else if permissions
+                    .iter()
+                    .any(|permission| !had_permissions.contains(permission))
+                {
+                    plugin
+                        .bar()
+                        .ask_for_permissions(plugin.host(), &permissions);
                 }
                 true
             }
@@ -579,7 +621,7 @@ mod tests {
     fn loading_asks_for_permissions_and_events_and_leaves_the_pane_selectable() {
         let host = Recorder::default();
         let mut bar = BarCore::default();
-        bar.load(&host, &SPEC, false);
+        bar.load(&host, &SPEC, &permissions(false), false);
         assert_eq!(bar.plugin_id, Some(Recorder::PLUGIN_ID));
         assert_eq!(bar.client_id, Some(Recorder::CLIENT_ID));
         // The pane stays selectable until the answer, so the prompt in it can
@@ -597,7 +639,7 @@ mod tests {
     #[test]
     fn loading_with_mouse_asks_for_what_mouse_needs_too() {
         let host = Recorder::default();
-        BarCore::default().load(&host, &SPEC, true);
+        BarCore::default().load(&host, &SPEC, &permissions(true), true);
         assert_eq!(
             host.calls(),
             vec![
@@ -612,7 +654,7 @@ mod tests {
     #[test]
     fn turning_mouse_on_later_asks_for_it_from_a_selectable_pane() {
         let host = Recorder::default();
-        BarCore::default().enable_mouse(&host, &SPEC);
+        BarCore::default().enable_mouse(&host, &SPEC, &permissions(true));
         assert_eq!(
             host.calls(),
             vec![
@@ -623,12 +665,15 @@ mod tests {
         );
     }
 
-    /// A plugin with one option of its own, `mouse`.
+    /// A plugin with two options of its own: `mouse`, and `confirm`, which
+    /// with `mouse` on needs one more permission, as a plugin that asks
+    /// before acting on a click would.
     #[derive(Default)]
     struct Plugin {
         host: Recorder,
         bar: BarCore,
         mouse: bool,
+        confirm: bool,
         /// Every configuration read, in order.
         read: Vec<Configuration>,
     }
@@ -648,12 +693,25 @@ mod tests {
             self.mouse
         }
 
+        fn permissions(&self, spec: &BarSpec) -> Vec<PermissionType> {
+            let mut permissions = (spec.permissions)(self.mouse);
+            if self.mouse && self.confirm {
+                permissions.push(CONFIRM_PERMISSION);
+            }
+            permissions
+        }
+
         fn apply_configuration(&mut self, user_configuration: Configuration) {
             let configuration = self.bar.configure(&SPEC, user_configuration);
-            self.mouse = configuration.get("mouse").map(String::as_str) == Some("true");
+            let on = |key: &str| configuration.get(key).map(String::as_str) == Some("true");
+            self.mouse = on("mouse");
+            self.confirm = on("confirm");
             self.read.push(self.bar.user_configuration.clone());
         }
     }
+
+    /// What the test plugin's `confirm` needs.
+    const CONFIRM_PERMISSION: PermissionType = PermissionType::OpenTerminalsOrPlugins;
 
     #[test]
     fn following_says_whether_to_redraw_and_reads_a_new_configuration() {
@@ -690,6 +748,53 @@ mod tests {
             assert!(BarCore::follow(&mut plugin, &SPEC, mouse(value)));
             assert_eq!(plugin.host.calls(), Vec::new(), "{value}");
         }
+    }
+
+    #[test]
+    fn following_a_configuration_that_needs_another_permission_asks_for_the_larger_set() {
+        let mut plugin = Plugin::default();
+        let options = |pairs: &[(&str, &str)]| Handled::Reconfigure(configuration(pairs));
+        assert!(BarCore::follow(
+            &mut plugin,
+            &SPEC,
+            options(&[("mouse", "true")])
+        ));
+        plugin.host.clear();
+        let confirm_on = options(&[("mouse", "true"), ("confirm", "true")]);
+        assert!(BarCore::follow(&mut plugin, &SPEC, confirm_on));
+        let mut larger = permissions(true);
+        larger.push(CONFIRM_PERMISSION);
+        // The mouse's events are subscribed already.
+        assert_eq!(
+            plugin.host.calls(),
+            vec![Call::SetSelectable(true), Call::RequestPermission(larger)]
+        );
+        // Turning it off again keeps a grant that covers more, and asks
+        // nothing.
+        plugin.host.clear();
+        assert!(BarCore::follow(
+            &mut plugin,
+            &SPEC,
+            options(&[("mouse", "true")])
+        ));
+        assert_eq!(plugin.host.calls(), Vec::new());
+    }
+
+    #[test]
+    fn turning_mouse_on_with_another_permission_s_option_asks_for_both_at_once() {
+        let mut plugin = Plugin::default();
+        let both = Handled::Reconfigure(configuration(&[("mouse", "true"), ("confirm", "true")]));
+        assert!(BarCore::follow(&mut plugin, &SPEC, both));
+        let mut larger = permissions(true);
+        larger.push(CONFIRM_PERMISSION);
+        assert_eq!(
+            plugin.host.calls(),
+            vec![
+                Call::SetSelectable(true),
+                Call::RequestPermission(larger),
+                Call::Subscribe(SPEC.mouse_events.to_vec()),
+            ]
+        );
     }
 
     #[test]
