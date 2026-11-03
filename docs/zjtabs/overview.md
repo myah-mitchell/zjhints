@@ -10,7 +10,7 @@ With no options set, zjtabs draws the current input mode, then each tab the way 
 
 - It shows a flag for a tab with a fullscreen pane, synchronized panes, shown floating panes or a bell. See [Flags](formats.md#flags).
 - It draws the current input mode before the tabs, unless `show_mode` is off. See [Mode prefix](formats.md#mode-prefix).
-- It draws the session's name at the right end of the bar, unless `show_session` is off. See [Session name](formats.md#session-name).
+- It draws the session's name at the right end of the bar, unless `show_session` is off or Zellij's own `hide_session_name` is on. See [Session name](formats.md#session-name).
 - When the tabs do not fit, it keeps a window of them around the active tab and counts the rest in a marker on each side. See [Overflow](overflow.md).
 - With the mouse, you click, scroll, double-click and right-click the tabs as in Zellij's own bar, and middle-click a tab to close it after confirming. See [Mouse](mouse.md).
 

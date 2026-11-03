@@ -1,7 +1,7 @@
 //! Drawing the tabs: the mode prefix before them when `show_mode` is on,
-//! the session name after them when `show_session` is on, each tab from its
-//! format, the run of them that fits around the active one, the markers for
-//! the rest, and which columns of the line stand for which tab.
+//! the session name after them when it is shown (see `session_shown`), each
+//! tab from its format, the run of them that fits around the active one, the
+//! markers for the rest, and which columns of the line stand for which tab.
 
 use crate::flags::FLAGS;
 use crate::State;
@@ -106,8 +106,9 @@ pub(crate) struct ModeView {
     /// The input mode, or `None` while `show_mode` is off, so that a change
     /// between two modes that look the same to the tabs draws nothing new.
     mode: Option<InputMode>,
-    /// The session's name, or `None` while `show_session` is off, so that
-    /// renaming a session whose name is not shown draws nothing new.
+    /// The session's name, or `None` while it is not shown, so that renaming
+    /// a session whose name is not shown draws nothing new. See
+    /// `session_shown`.
     session_name: Option<String>,
     renaming: bool,
     nested: bool,
@@ -118,11 +119,13 @@ pub(crate) struct ModeView {
 
 impl ModeView {
     /// What the bar shows of `mode_info`, with the mode itself only when
-    /// `show_mode` is on and the session's name only when `show_session` is.
-    pub(crate) fn of(mode_info: &ModeInfo, show_mode: bool, show_session: bool) -> Self {
+    /// `show_mode` is on and the session's name only when `session_shown`
+    /// says so for `show_session`, the option as the user set it.
+    pub(crate) fn of(mode_info: &ModeInfo, show_mode: bool, show_session: Option<bool>) -> Self {
+        let session_shown = session_shown(show_session, mode_info);
         ModeView {
             mode: show_mode.then_some(mode_info.mode),
-            session_name: mode_info.session_name.clone().filter(|_| show_session),
+            session_name: mode_info.session_name.clone().filter(|_| session_shown),
             renaming: mode_info.mode == InputMode::RenameTab,
             nested: nesting::is_nested(mode_info),
             host_ui_is_covered: nesting::host_ui_is_covered(mode_info),
@@ -130,6 +133,28 @@ impl ModeView {
             ascended_out_of: nesting::is_ascended_out_of(mode_info),
         }
     }
+}
+
+/// Whether the bar draws the session's name in `mode_info`, with
+/// `show_session` as the user set it, or `None` while it is unset.
+///
+/// A `show_session` the user set decides alone, so `true` shows the name on
+/// this bar even when Zellij hides it from its own. Left unset, the name
+/// follows Zellij's `pane_frames { hide_session_name }`, as Zellij's own tab
+/// bar does, so turning that on hides the name from both: see
+/// `zellij_hides_session_name`. Otherwise it is shown, by
+/// `DEFAULT_SHOW_SESSION`.
+pub(crate) fn session_shown(show_session: Option<bool>, mode_info: &ModeInfo) -> bool {
+    show_session
+        .unwrap_or_else(|| crate::DEFAULT_SHOW_SESSION && !zellij_hides_session_name(mode_info))
+}
+
+/// Whether Zellij's own tab bar leaves the session's name off in
+/// `mode_info`: while its `hide_session_name` is on, except while the
+/// session is being renamed, when the bar shows the name as it is typed.
+/// The same test as `session_name_hidden` in Zellij's `bars` plugin.
+fn zellij_hides_session_name(mode_info: &ModeInfo) -> bool {
+    mode_info.style.hide_session_name && mode_info.mode != InputMode::RenameSession
 }
 
 impl State {
@@ -287,14 +312,14 @@ impl State {
 
     /// The session's name, drawn from `session_format`, or as a block in the
     /// colors of Zellij's selected ribbon while that is unset. Nothing while
-    /// `show_session` is off, or while Zellij has not sent the session's
-    /// name.
+    /// it is not shown (see `session_shown`), or while Zellij has not sent
+    /// the session's name.
     ///
     /// The name is filled in after the format is read and its control
     /// characters are escaped, as a tab's name is, so a session named with a
     /// `{` or a `#[` in it is drawn as typed. Dimmed the way the tabs are.
     fn draw_session(&self, dim: f32) -> String {
-        if !self.show_session {
+        if !session_shown(self.show_session, &self.mode_info) {
             return String::new();
         }
         let Some(name) = self.mode_info.session_name.as_deref() else {

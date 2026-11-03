@@ -158,7 +158,8 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.dim_strength, DEFAULT_DIM_STRENGTH);
     assert_eq!(state.show_mode, DEFAULT_SHOW_MODE);
     assert_eq!(state.mode_format, None);
-    assert_eq!(state.show_session, DEFAULT_SHOW_SESSION);
+    // Unset rather than its default, so Zellij's own setting can decide.
+    assert_eq!(state.show_session, None);
     assert_eq!(state.session_format, None);
     assert_eq!(state.mouse, DEFAULT_MOUSE);
     assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
@@ -213,7 +214,7 @@ fn every_option_is_read_from_its_key() {
     assert_eq!(state.dim_strength, 0.25);
     assert!(!state.show_mode);
     assert_eq!(state.mode_format.as_deref(), Some("<{mode}>"));
-    assert!(!state.show_session);
+    assert_eq!(state.show_session, Some(false));
     assert_eq!(state.session_format.as_deref(), Some("[{session}]"));
     assert!(!state.mouse);
     assert!(state.mouse_wheel_reversed);
@@ -1280,6 +1281,64 @@ fn the_session_name_stands_for_nothing_and_the_tabs_and_markers_still_hit() {
     }
 }
 
+/// A mode update in `input_mode` for the session named `work`, with Zellij's own
+/// `hide_session_name` set to `hidden`.
+fn in_session_hiding_its_name(input_mode: InputMode, hidden: bool) -> Event {
+    let mut mode_info = mode(input_mode);
+    mode_info.session_name = Some("work".to_string());
+    mode_info.style.hide_session_name = hidden;
+    Event::ModeUpdate(mode_info)
+}
+
+/// `plain_with_session` with `show_session` left unset, and `pairs` added.
+fn plain_with_session_unset(
+    pairs: &[(&'static str, &'static str)],
+) -> Vec<(&'static str, &'static str)> {
+    let mut all: Vec<_> = plain_with_session(&[])
+        .into_iter()
+        .filter(|(key, _)| *key != "show_session")
+        .collect();
+    all.extend_from_slice(pairs);
+    all
+}
+
+#[test]
+fn zellij_s_hide_session_name_hides_the_name_only_while_show_session_is_unset() {
+    let ending = format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10));
+    let without = "1:a|[2:b]|3:c".to_string();
+    for (options, while_hidden, while_shown) in [
+        (plain_with_session_unset(&[]), &without, &ending),
+        (plain_with_session(&[]), &ending, &ending),
+        (
+            plain_with_session(&[("show_session", "false")]),
+            &without,
+            &without,
+        ),
+    ] {
+        let mut state = bar(&options, 30, tabs(3, 1));
+        state.update(in_session_hiding_its_name(InputMode::Normal, true));
+        assert_eq!(&shown(&state), while_hidden, "{options:?}");
+        state.update(in_session_hiding_its_name(InputMode::Normal, false));
+        assert_eq!(&shown(&state), while_shown, "{options:?}");
+    }
+}
+
+#[test]
+fn a_name_zellij_hides_still_shows_while_the_session_is_being_renamed() {
+    // As in Zellij's own tab bar, so the user sees the name as it is typed.
+    let mut state = bar(&plain_with_session_unset(&[]), 30, tabs(3, 1));
+    state.update(in_session_hiding_its_name(InputMode::RenameSession, true));
+    assert!(shown(&state).ends_with("|(work)"), "{:?}", shown(&state));
+    // Unless the user turned it off.
+    let mut state = bar(
+        &plain_with_session(&[("show_session", "false")]),
+        30,
+        tabs(3, 1),
+    );
+    state.update(in_session_hiding_its_name(InputMode::RenameSession, false));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c");
+}
+
 // Redrawing only when something shown changed.
 
 #[test]
@@ -1351,6 +1410,23 @@ fn renaming_the_session_redraws_only_while_its_name_is_shown() {
 
     let mut state = bar_in_session(&PLAIN, 80, tabs(1, 0));
     assert!(!state.update(in_session("renamed")));
+}
+
+#[test]
+fn zellij_hiding_the_session_name_redraws_only_while_show_session_is_unset() {
+    let hiding = |hidden| in_session_hiding_its_name(InputMode::Normal, hidden);
+    let mut state = bar_in_session(&plain_with_session_unset(&[]), 80, tabs(1, 0));
+    assert!(state.update(hiding(true)));
+    assert!(!state.update(hiding(true)));
+    assert!(state.update(hiding(false)));
+    for options in [
+        plain_with_session(&[]),
+        plain_with_session(&[("show_session", "false")]),
+    ] {
+        let mut state = bar_in_session(&options, 80, tabs(1, 0));
+        assert!(!state.update(hiding(true)), "{options:?}");
+        assert!(!state.update(hiding(false)), "{options:?}");
+    }
 }
 
 #[test]

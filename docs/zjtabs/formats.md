@@ -114,6 +114,18 @@ The bar draws the session's name at its right end, after the tabs, as Zellij's o
 show_session false
 ```
 
+While `show_session` is unset, the bar follows `hide_session_name`, the Zellij setting that takes the name off Zellij's own tab bar. With it on, zjtabs leaves the name off too, so the name you hid from Zellij's bar stays hidden when zjtabs takes its place. The setting goes in Zellij's own config, outside any plugin's block:
+
+```kdl
+ui {
+    pane_frames {
+        hide_session_name true
+    }
+}
+```
+
+A `show_session` you set decides on its own, so `show_session true` keeps the name on zjtabs while Zellij hides it elsewhere. As on Zellij's tab bar, a name Zellij hides still shows while you rename the session, so you can see what you type.
+
 `session_format` sets its look, with `{session}` for the name:
 
 ```kdl

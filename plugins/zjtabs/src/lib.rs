@@ -92,6 +92,9 @@ const DEFAULT_DIM_STRENGTH: f32 = 0.5;
 const DEFAULT_SHOW_MODE: bool = true;
 // On by default: Zellij's own tab bar shows the session's name, and zjtabs is
 // the tab bar that takes its place, so leaving the name off would lose it.
+// Only while `show_session` is unset and Zellij's own `hide_session_name` is
+// off, as that hides the name from Zellij's bar too; see
+// `tabs::session_shown`.
 const DEFAULT_SHOW_SESSION: bool = true;
 // On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
 // is expected to do, and Zellij's own tab bar does it.
@@ -165,8 +168,10 @@ pub struct State {
     /// selected ribbon.
     mode_format: Option<String>,
     /// Draw the session's name at the end of the line, after the tabs, as
-    /// Zellij's own tab bar shows it. See `draw_session` in `tabs.rs`.
-    show_session: bool,
+    /// Zellij's own tab bar shows it, or `None` while the option is unset,
+    /// when Zellij's own `hide_session_name` decides. See
+    /// `tabs::session_shown` and `draw_session` in `tabs.rs`.
+    show_session: Option<bool>,
     /// The session name's format string, with `{session}` for the name, or
     /// `None` for a block in the colors of Zellij's selected ribbon.
     session_format: Option<String>,
@@ -247,8 +252,9 @@ impl State {
             config::fraction_option(configuration, CONFIG_DIM_STRENGTH, DEFAULT_DIM_STRENGTH);
         self.show_mode = config::bool_option(configuration, CONFIG_SHOW_MODE, DEFAULT_SHOW_MODE);
         self.mode_format = config::non_empty_string_option(configuration, CONFIG_MODE_FORMAT);
-        self.show_session =
-            config::bool_option(configuration, CONFIG_SHOW_SESSION, DEFAULT_SHOW_SESSION);
+        // Kept unset rather than set to its default, so that Zellij's own
+        // setting can decide while the user has not.
+        self.show_session = config::explicit_bool_option(configuration, CONFIG_SHOW_SESSION);
         self.session_format = config::non_empty_string_option(configuration, CONFIG_SESSION_FORMAT);
         self.mouse = config::bool_option(configuration, CONFIG_MOUSE, DEFAULT_MOUSE);
         self.mouse_wheel_reversed = config::bool_option(
@@ -318,9 +324,10 @@ impl ZellijPlugin for State {
             // A mode update arrives on every mode change and more, but the
             // bar shows only whether a tab is being renamed, how nesting
             // hides or dims it, the mode itself while `show_mode` is on, and
-            // the session's name while `show_session` is on, which changes
-            // when the session is renamed. The Zellij theme it also carries
-            // is `BarCore`'s to follow.
+            // the session's name while it is shown, which changes when the
+            // session is renamed. Whether it is shown can change too, with
+            // Zellij's own `hide_session_name`. The Zellij theme it also
+            // carries is `BarCore`'s to follow.
             Event::ModeUpdate(mode_info) => {
                 let view = |mode_info: &ModeInfo| {
                     ModeView::of(mode_info, self.show_mode, self.show_session)

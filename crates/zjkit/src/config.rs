@@ -19,10 +19,20 @@ use std::collections::BTreeMap;
 /// config is as likely to say `True`. Anything else, including `yes`, `1` and
 /// the empty string, is not a boolean and gives `default`.
 pub fn bool_option(configuration: &BTreeMap<String, String>, key: &str, default: bool) -> bool {
+    explicit_bool_option(configuration, key).unwrap_or(default)
+}
+
+/// The boolean option `key` as the user set it, or `None` when it is unset
+/// or not a boolean, read as `bool_option` reads it.
+///
+/// For an option whose default is not fixed but follows something else,
+/// such as a setting of Zellij's own, so the plugin can tell a value the
+/// user chose from one it would have fallen back on. `bool_option` cannot:
+/// an option set to its default reads the same as one left unset.
+pub fn explicit_bool_option(configuration: &BTreeMap<String, String>, key: &str) -> Option<bool> {
     configuration
         .get(key)
         .and_then(|value| value.to_lowercase().parse::<bool>().ok())
-        .unwrap_or(default)
 }
 
 /// The whole-number option `key`, or `default` when it is unset or not a
@@ -122,6 +132,25 @@ mod tests {
             let configuration = configuration("flag", value);
             assert!(bool_option(&configuration, "flag", true), "{value:?}");
             assert!(!bool_option(&configuration, "flag", false), "{value:?}");
+        }
+    }
+
+    #[test]
+    fn an_explicit_bool_is_read_only_when_it_is_set_and_a_bool() {
+        assert_eq!(explicit_bool_option(&BTreeMap::new(), "flag"), None);
+        for (value, expected) in [
+            ("true", Some(true)),
+            ("False", Some(false)),
+            ("yes", None),
+            ("", None),
+            (" true", None),
+        ] {
+            let configuration = configuration("flag", value);
+            assert_eq!(
+                explicit_bool_option(&configuration, "flag"),
+                expected,
+                "{value:?}"
+            );
         }
     }
 

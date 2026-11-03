@@ -109,7 +109,7 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Session name",
         Kind::Bool,
         Some("true"),
-        "Draw the session's name at the end of the bar, after the tabs",
+        "Draw the session's name at the end of the bar, after the tabs; while unset, Zellij's hide_session_name hides it",
     ),
     option(
         "session_format",

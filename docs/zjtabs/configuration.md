@@ -52,7 +52,7 @@ The session's name, drawn at the right end of the bar, after the tabs. See [Sess
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `show_session` | `true` | Draw the session's name at the end of the bar, after the tabs |
+| `show_session` | `true` | Draw the session's name at the end of the bar, after the tabs; while unset, Zellij's `hide_session_name` hides it |
 | `session_format` | unset | Format string for the session name, with a `{session}` placeholder; a block in the selected ribbon's colors when unset |
 
 ## Overflow
