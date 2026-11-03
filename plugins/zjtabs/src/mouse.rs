@@ -11,9 +11,9 @@ use crate::State;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
-use zellij_utils::input::layout::{PluginAlias, RunPluginOrAlias};
 use zjkit::ansi::show_controls;
 use zjkit::host::Host;
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
 use zjkit::mouse::{classify_bar_mouse, BarMouseEvent, PressKind, WheelDirection};
 
 impl State {
@@ -67,10 +67,13 @@ impl State {
     }
 
     /// Open Zellij's session manager, floating and focused, or focus the
-    /// one already open, as `Ctrl o w` does. See `session_manager_action`.
+    /// one already open, as `Ctrl o w` does. See
+    /// `zjkit::launch::launch_or_focus_floating`.
     fn open_session_manager(&self) {
-        self.host
-            .run_action(session_manager_action(), BTreeMap::new());
+        self.host.run_action(
+            launch_or_focus_floating(SESSION_MANAGER_ALIAS),
+            BTreeMap::new(),
+        );
     }
 
     /// Start renaming the tab at `position`. Zellij renames a tab by id
@@ -164,37 +167,6 @@ impl State {
         if let Some(tab) = next.and_then(|index| self.tabs.get(index)) {
             self.host.switch_tab_to(one_based(tab.position));
         }
-    }
-}
-
-/// The alias Zellij's default config gives its session manager, in its
-/// `plugins` block, as `location="zellij:session-manager"`.
-pub(crate) const SESSION_MANAGER_ALIAS: &str = "session-manager";
-
-/// What Zellij's default `Ctrl o w` binding runs:
-/// `LaunchOrFocusPlugin "session-manager" { floating true; move_to_focused_tab true; }`.
-///
-/// Zellij focuses the session manager if it is open, bringing it to the
-/// tab the user is on from any other, and otherwise opens it there in a
-/// floating pane, focused. It is named by its alias, as the binding names
-/// it, so a user whose config points `session-manager` at another plugin
-/// gets that one here too. Run as an action, which needs
-/// `PermissionType::RunActionsAsUser`, asked for with `mouse` on.
-pub(crate) fn session_manager_action() -> Action {
-    Action::LaunchOrFocusPlugin {
-        // An empty configuration, as the binding's block holds only options
-        // of the action itself.
-        plugin: RunPluginOrAlias::Alias(PluginAlias::new(
-            SESSION_MANAGER_ALIAS,
-            &Some(BTreeMap::new()),
-            None,
-        )),
-        should_float: true,
-        move_to_focused_tab: true,
-        should_open_in_place: false,
-        close_replaced_pane: false,
-        skip_cache: false,
-        tab_id: None,
     }
 }
 

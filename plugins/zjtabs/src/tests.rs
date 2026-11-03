@@ -1,6 +1,7 @@
 use super::*;
 use zjkit::bar::Handled;
 use zjkit::host::Call;
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
 
 fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
@@ -1236,7 +1237,7 @@ fn the_session_name_dims_with_the_tabs() {
 /// What the bar asks of Zellij for a left click on the session name.
 fn opening_the_session_manager() -> Vec<Call> {
     vec![Call::RunAction {
-        action: mouse::session_manager_action(),
+        action: launch_or_focus_floating(SESSION_MANAGER_ALIAS),
         context: BTreeMap::new(),
     }]
 }
@@ -1322,21 +1323,6 @@ fn with_mouse_off_a_click_on_the_session_name_does_nothing() {
     for mouse in [Mouse::LeftClick(0, 24), Mouse::RightClick(0, 24)] {
         assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
     }
-}
-
-#[test]
-fn the_session_manager_opens_as_zellij_s_own_ctrl_o_w_opens_it() {
-    let config = zellij_utils::input::config::Config::from_default_assets()
-        .expect("Zellij ships a default config");
-    let key = KeyWithModifier::new(BareKey::Char('w'));
-    let actions = config
-        .keybinds
-        .get_actions_for_key_in_mode(&InputMode::Session, &key)
-        .expect("Zellij binds w in session mode");
-    assert_eq!(actions.first(), Some(&mouse::session_manager_action()));
-    // The alias it names is Zellij's own session manager.
-    let session_manager = &config.plugins.aliases[mouse::SESSION_MANAGER_ALIAS];
-    assert_eq!(session_manager.location.display(), "zellij:session-manager");
 }
 
 /// A mode update in `input_mode` for the session named `work`, with Zellij's own
