@@ -23,6 +23,7 @@ use crate::{popup, visibility};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
 
@@ -58,6 +59,13 @@ pub trait Host {
     /// Have Zellij send `Event::Timer` after `seconds`.
     fn set_timeout(&self, seconds: f64);
 
+    /// The current time of day, as the system clock has it.
+    ///
+    /// Not a `Call`: asking the time changes nothing, and a bar asks it on
+    /// every draw that shows a clock. A test sets the time a `Recorder`
+    /// reports with `Recorder::set_system_time`.
+    fn system_time(&self) -> SystemTime;
+
     /// The location plugin `plugin_id` of this session runs from, written
     /// the way a `PaneUpdate` writes the URL of a pane started from a
     /// location: `file:/path/to/plugin.wasm`, say. For a plugin started from
@@ -68,6 +76,13 @@ pub trait Host {
     /// Not a `Call`: asking changes nothing. A test sets what a `Recorder`
     /// reports with `Recorder::set_plugin_location`.
     fn plugin_location(&self, plugin_id: u32) -> Option<String>;
+
+    /// Run `command`, its program then its arguments, on the machine Zellij
+    /// runs on, in the plugin's working directory. Needs the `RunCommands`
+    /// permission. Zellij sends `Event::RunCommandResult` once it ends, with
+    /// its exit code, output and `context`, so the plugin can tell which of
+    /// its commands answered.
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>);
 
     /// Send a pipe message called `name` with `payload` to every running
     /// plugin, launching none.
@@ -255,6 +270,10 @@ impl Host for Zellij {
         set_timeout(seconds);
     }
 
+    fn system_time(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
     /// Read from the plugins Zellij lists for this session, which it keeps
     /// by plugin id with the alias already resolved to its location.
     fn plugin_location(&self, plugin_id: u32) -> Option<String> {
@@ -267,6 +286,10 @@ impl Host for Zellij {
             .plugins
             .remove(&plugin_id)
             .map(|plugin| plugin.location)
+    }
+
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
+        run_command(command, context);
     }
 
     fn broadcast(&self, name: &str, payload: String) {
@@ -430,6 +453,10 @@ pub enum Call {
     SetCollapsed(bool),
     ShowSelf,
     SetTimeout(f64),
+    RunCommand {
+        command: Vec<String>,
+        context: BTreeMap<String, String>,
+    },
     Broadcast {
         name: String,
         payload: String,
@@ -521,6 +548,8 @@ pub struct Recorder {
     calls: RefCell<Vec<Call>>,
     /// How many prompts this recorder has been asked to show.
     prompts: Cell<u64>,
+    /// What `system_time` reports: the Unix epoch until a test sets it.
+    system_time: Cell<Option<SystemTime>>,
     /// What `plugin_location` reports, by plugin id: nothing until a test
     /// sets it.
     plugin_locations: RefCell<BTreeMap<u32, String>>,
@@ -542,6 +571,11 @@ impl Recorder {
     /// does without the steps before it.
     pub fn clear(&self) {
         self.calls.borrow_mut().clear();
+    }
+
+    /// Have `system_time` report `time` from now on.
+    pub fn set_system_time(&self, time: SystemTime) {
+        self.system_time.set(Some(time));
     }
 
     /// Have `plugin_location` report `location` for plugin `plugin_id` from
@@ -594,9 +628,21 @@ impl Host for Recorder {
         self.record(Call::SetTimeout(seconds));
     }
 
+    /// The time `set_system_time` set, or the Unix epoch until it is set.
+    fn system_time(&self) -> SystemTime {
+        self.system_time.get().unwrap_or(SystemTime::UNIX_EPOCH)
+    }
+
     /// The location `set_plugin_location` set for `plugin_id`, if any.
     fn plugin_location(&self, plugin_id: u32) -> Option<String> {
         self.plugin_locations.borrow().get(&plugin_id).cloned()
+    }
+
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
+        self.record(Call::RunCommand {
+            command: command.iter().map(|part| part.to_string()).collect(),
+            context,
+        });
     }
 
     fn broadcast(&self, name: &str, payload: String) {
