@@ -784,15 +784,7 @@ impl SettingsScreen {
             self.notice = Some("Nothing to revert".to_string());
             return;
         }
-        let message = format!(
-            "Put the {} back to the config file's values?",
-            view::unsaved_text(unsaved)
-        );
-        let request = PromptRequest::confirm(message)
-            .title("Revert all?")
-            .yes("Revert all")
-            .no("Cancel");
-        self.question = Some((prompt(request), Question::RevertAll));
+        self.question = Some((prompt(revert_all_request(unsaved)), Question::RevertAll));
     }
 
     fn ask_changed_outside(&mut self) {
@@ -1413,11 +1405,33 @@ fn is_shift_tab(key: &KeyWithModifier) -> bool {
     key.bare_key == BareKey::Tab && key.has_modifiers(&[KeyModifier::Shift])
 }
 
+/// The question asked before putting `unsaved` edits back to the config
+/// file's values. Zellij's prompt highlights the first button unless the
+/// default says otherwise, and Enter picks the highlighted one, so the default
+/// is Cancel: Enter never throws away edits by accident.
+fn revert_all_request(unsaved: usize) -> PromptRequest {
+    let message = format!(
+        "Put the {} back to the config file's values?",
+        view::unsaved_text(unsaved)
+    );
+    PromptRequest::confirm(message)
+        .title("Revert all?")
+        .yes("Revert all")
+        .no("Cancel")
+        .default("false")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::TEST_SCHEMA;
     use zellij_tile::prelude::{PluginAliasEntry, PluginEntry};
+
+    #[test]
+    fn revert_all_asks_with_cancel_as_the_default() {
+        let request = revert_all_request(2);
+        assert_eq!(request.default.as_deref(), Some("false"));
+    }
 
     /// A screen searching the options of an alias with no configuration.
     fn searching() -> SettingsScreen {
