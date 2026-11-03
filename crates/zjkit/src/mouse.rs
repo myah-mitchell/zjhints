@@ -378,14 +378,18 @@ fn hidden_items_menu(items: &[Item]) -> MouseOutcome {
 /// What the answer to a menu should lead to. Anything but a choice of one of
 /// its entries does nothing, as does a menu this plugin has no record of.
 pub fn menu_answer_outcome(entries: Option<Vec<MenuEntry>>, result: &PromptResult) -> MouseOutcome {
-    let PromptResult::Answered(PromptValue::Choice(value)) = result else {
-        return MouseOutcome::Nothing;
-    };
-    let entry = entries.and_then(|entries| {
-        let index = value.parse::<usize>().ok()?;
-        entries.into_iter().nth(index)
-    });
+    let entry = menu_choice(result).and_then(|index| entries?.into_iter().nth(index));
     entry.map_or(MouseOutcome::Nothing, MenuEntry::chosen)
+}
+
+/// The index of the entry chosen in a menu from `labeled_menu_request`, or
+/// `None` when `result` is anything but a choice: a dismissal, a timeout, an
+/// error, or an answer of another kind.
+pub fn menu_choice(result: &PromptResult) -> Option<usize> {
+    let PromptResult::Answered(PromptValue::Choice(value)) = result else {
+        return None;
+    };
+    value.parse().ok()
 }
 
 impl MenuEntry {
@@ -439,11 +443,18 @@ impl ActionQueue {
 /// is its index, which is how `menu_answer_outcome` finds it again. A click
 /// outside it closes it, as it does Zellij's own context menu.
 pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
+    labeled_menu_request(entries.iter().map(|entry| entry.label.clone()))
+}
+
+/// The prompt that shows `labels` as a menu at the mouse, as `menu_request`
+/// does, for a bar that keeps what each entry does itself. Each entry's
+/// value is its index, which `menu_choice` reads back from the answer.
+pub fn labeled_menu_request(labels: impl IntoIterator<Item = String>) -> PromptRequest {
     PromptRequest::menu(
-        entries
-            .iter()
+        labels
+            .into_iter()
             .enumerate()
-            .map(|(index, entry)| ChoiceItem::labeled(index.to_string(), entry.label.clone())),
+            .map(|(index, label)| ChoiceItem::labeled(index.to_string(), label)),
     )
     .placement(PromptPlacement::Mouse)
     .outside_click(OutsideClick::Close)
@@ -1529,5 +1540,30 @@ mod tests {
         pending.wait_for(2, "second");
         assert_eq!(pending.answer(1), None);
         assert_eq!(pending.answer(2), Some("second"));
+    }
+
+    #[test]
+    fn a_labeled_menu_reads_back_the_index_of_the_label_chosen() {
+        let labels = ["Focus", "Close"].map(str::to_string);
+        assert_eq!(
+            labeled_menu_request(labels.clone()),
+            menu_request(&labels.map(|label| MenuEntry {
+                label,
+                pick: MenuPick::Run(vec![]),
+            }))
+        );
+        let choice = |value: &str| PromptResult::Answered(PromptValue::Choice(value.to_string()));
+        assert_eq!(menu_choice(&choice("1")), Some(1));
+        for other in [
+            choice("-1"),
+            choice("x"),
+            PromptResult::Answered(PromptValue::Bool(true)),
+            PromptResult::Confirmed(true),
+            PromptResult::Cancelled,
+            PromptResult::TimedOut(Some(PromptValue::Choice("0".to_string()))),
+            PromptResult::Error("x".to_string()),
+        ] {
+            assert_eq!(menu_choice(&other), None, "{other:?}");
+        }
     }
 }
