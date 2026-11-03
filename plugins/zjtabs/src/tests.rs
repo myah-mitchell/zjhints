@@ -1847,7 +1847,7 @@ fn any_other_answer_to_the_close_confirmation_closes_nothing() {
             vec![],
             "{result:?}"
         );
-        assert_eq!(state.pending_close, None, "{result:?}");
+        assert!(!state.pending_close.is_waiting(), "{result:?}");
     }
 }
 

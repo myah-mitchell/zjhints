@@ -16,17 +16,6 @@ use zjkit::ansi::show_controls;
 use zjkit::host::Host;
 use zjkit::mouse::{classify_bar_mouse, BarMouseEvent, PressKind, WheelDirection};
 
-/// A middle click waiting on the user's answer to the close confirmation.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct PendingClose {
-    /// The id `Host::prompt` returned, which the answer comes back with in
-    /// `Event::PromptResult`.
-    pub request_id: u64,
-    /// The tab the click landed on, as the click map had it, so the answer
-    /// closes that tab even if the tabs have moved since.
-    pub tab_id: usize,
-}
-
 impl State {
     /// Act on a mouse event on the bar. Nothing here changes what the bar
     /// draws by itself: a tab switch, rename or close comes back as a
@@ -108,9 +97,7 @@ impl State {
     ///
     /// A middle click while a confirmation is already showing replaces it:
     /// the answer to the newer one is the one acted on, and the older one's
-    /// is ignored. Keeping the older one instead would leave the bar unable
-    /// to close anything if its answer never came, as when Zellij closes the
-    /// popup without sending one.
+    /// is ignored. See `PendingPrompt`.
     fn close_tab(&mut self, tab_id: usize) {
         if !self.mouse_close_confirm {
             self.host.close_tab_with_id(tab_id as u64);
@@ -139,7 +126,7 @@ impl State {
             .no("Cancel")
             .default("false");
         let request_id = self.host.prompt(request);
-        self.pending_close = Some(PendingClose { request_id, tab_id });
+        self.pending_close.wait_for(request_id, tab_id);
     }
 
     /// Act on Zellij's answer `result` to the prompt `request_id`. Closes the
@@ -148,16 +135,12 @@ impl State {
     /// last `TabUpdate`. Any other answer, including a dismissal, closes
     /// nothing, and an answer to another prompt is left alone.
     pub(crate) fn answer_close(&mut self, request_id: u64, result: &PromptResult) {
-        let Some(pending) = self.pending_close else {
+        let Some(tab_id) = self.pending_close.answer(request_id) else {
             return;
         };
-        if pending.request_id != request_id {
-            return;
-        }
-        self.pending_close = None;
-        let still_there = self.tabs.iter().any(|tab| tab.tab_id == pending.tab_id);
+        let still_there = self.tabs.iter().any(|tab| tab.tab_id == tab_id);
         if *result == PromptResult::Confirmed(true) && still_there {
-            self.host.close_tab_with_id(pending.tab_id as u64);
+            self.host.close_tab_with_id(tab_id as u64);
         }
     }
 

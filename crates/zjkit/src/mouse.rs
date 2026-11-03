@@ -449,6 +449,55 @@ pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
     .outside_click(OutsideClick::Close)
 }
 
+/// The one prompt a bar is waiting on an answer to, with what it asked
+/// about, such as the tab a close confirmation would close.
+///
+/// `Host::prompt` returns an id, and Zellij sends the answer back with it in
+/// `Event::PromptResult`. Every plugin's prompts share that event, and so do
+/// a plugin's own older prompts, so an answer is acted on only when its id is
+/// the one waited for.
+///
+/// Only the newest prompt is kept: waiting for another replaces the one
+/// before, whose answer is then ignored. Keeping the older one instead would
+/// leave the bar stuck if its answer never came, as when Zellij closes the
+/// popup without sending one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingPrompt<T> {
+    waiting: Option<(u64, T)>,
+}
+
+impl<T> Default for PendingPrompt<T> {
+    fn default() -> Self {
+        Self { waiting: None }
+    }
+}
+
+impl<T> PendingPrompt<T> {
+    /// Wait for the answer to the prompt `request_id`, which asked about
+    /// `subject`, in place of any prompt waited for before.
+    pub fn wait_for(&mut self, request_id: u64, subject: T) {
+        self.waiting = Some((request_id, subject));
+    }
+
+    /// Take what the prompt `request_id` asked about, when it is the one
+    /// waited for, and stop waiting. Returns `None`, and keeps waiting, for an
+    /// answer to any other prompt.
+    pub fn answer(&mut self, request_id: u64) -> Option<T> {
+        match self.waiting.take() {
+            Some((waited_for, subject)) if waited_for == request_id => Some(subject),
+            other => {
+                self.waiting = other;
+                None
+            }
+        }
+    }
+
+    /// Whether a prompt is waiting on its answer.
+    pub fn is_waiting(&self) -> bool {
+        self.waiting.is_some()
+    }
+}
+
 /// What hovering a stretch of the bar shows: the entries of the menu a click
 /// there would open.
 #[derive(Clone, Debug, PartialEq)]
@@ -1449,5 +1498,36 @@ mod tests {
         for stray in ["", "7", "7-", "-2", "a-2", "7-b"] {
             assert_eq!(parse_preview_tag(stray), None, "{stray:?}");
         }
+    }
+
+    #[test]
+    fn a_pending_prompt_hands_over_its_subject_once_to_its_own_answer() {
+        let mut pending = PendingPrompt::default();
+        assert!(!pending.is_waiting());
+        assert_eq!(pending.answer(1), None);
+        pending.wait_for(1, "tab");
+        assert!(pending.is_waiting());
+        assert_eq!(pending.answer(1), Some("tab"));
+        assert!(!pending.is_waiting());
+        assert_eq!(pending.answer(1), None);
+    }
+
+    #[test]
+    fn a_pending_prompt_ignores_and_keeps_waiting_through_other_answers() {
+        let mut pending = PendingPrompt::default();
+        pending.wait_for(2, "tab");
+        assert_eq!(pending.answer(1), None);
+        assert_eq!(pending.answer(3), None);
+        assert!(pending.is_waiting());
+        assert_eq!(pending.answer(2), Some("tab"));
+    }
+
+    #[test]
+    fn a_newer_prompt_replaces_the_one_waited_for() {
+        let mut pending = PendingPrompt::default();
+        pending.wait_for(1, "first");
+        pending.wait_for(2, "second");
+        assert_eq!(pending.answer(1), None);
+        assert_eq!(pending.answer(2), Some("second"));
     }
 }
