@@ -2961,8 +2961,6 @@ fn visibility_messages_keep_their_names() {
             hide: "zjhints::hide",
             show: "zjhints::show",
             toggle: "zjhints::toggle",
-            ask: "zjhints::ask_visibility",
-            answer: "zjhints::visibility",
         }
     );
 }
@@ -3141,49 +3139,6 @@ fn a_preview_that_turns_mouse_on_asks_for_what_mouse_needs() {
         preview_args("zjhints", &[("max_length", None, Some("9"))])
     ));
     assert_eq!(state.host.calls(), Vec::new());
-}
-
-#[test]
-fn the_first_pane_update_asks_the_running_bars_whether_they_are_hidden() {
-    let mut state = State {
-        bar: BarCore {
-            plugin_id: Some(7),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let own_pane = PaneInfo {
-        id: 7,
-        is_plugin: true,
-        plugin_url: Some("zjhints-alt".to_string()),
-        ..Default::default()
-    };
-    state.update(Event::PaneUpdate(manifest(vec![own_pane.clone()])));
-    state.update(Event::PaneUpdate(manifest(vec![own_pane])));
-    assert_eq!(
-        state.host.calls(),
-        vec![Call::AskVisibility {
-            message: VISIBILITY.ask,
-            alias: Some("zjhints-alt".to_string()),
-        }]
-    );
-}
-
-#[test]
-fn a_bar_asked_whether_it_is_hidden_answers_the_asker_alone() {
-    let mut state = drawing_bar();
-    state.bar.plugin_id = Some(3);
-    state.bar.change_visibility(Request::Hide, None);
-    let ask = message_from(PipeSource::Plugin(5), VISIBILITY.ask, "zjhints");
-    assert!(!state.pipe(ask));
-    assert_eq!(
-        state.host.calls(),
-        vec![Call::AnswerVisibility {
-            message: VISIBILITY.answer,
-            plugin_id: 5,
-            answer: visibility::HIDDEN.to_string(),
-        }]
-    );
 }
 
 #[test]

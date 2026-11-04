@@ -5,12 +5,13 @@
 //! or by its `hidden` option, and shown again by `<plugin>::show` or another
 //! toggle. A message's payload may name an alias, and then only bars started
 //! from that alias take it. A bar that starts while the others are hidden
-//! asks them (`<plugin>::ask_visibility`) and takes the first answer
-//! (`<plugin>::visibility`), unless the user has already hidden or shown it.
+//! takes their state from a bar of the same alias in the same instance (see
+//! `Visibility::adopt` and `shared`), unless the user has already hidden or
+//! shown it.
 //!
-//! Everything here is pure logic; sending the messages and collapsing the
-//! pane are host calls the plugin makes. It collapses the pane as it draws,
-//! and `shared` does so for it as it is hidden or shown.
+//! Everything here is pure logic; collapsing the pane is a host call the
+//! plugin makes as it draws, and `shared` makes for it as it is hidden or
+//! shown.
 
 use crate::settings::live;
 use std::collections::BTreeMap;
@@ -18,9 +19,6 @@ use zellij_tile::prelude::PipeSource;
 
 /// The option that hides the bar.
 pub const OPTION: &str = "hidden";
-/// The payloads of an answer.
-pub const HIDDEN: &str = "hidden";
-pub const SHOWN: &str = "shown";
 
 /// The pipe messages of one plugin's bars. Build them with
 /// `visibility_names!`, so every plugin follows the same scheme and a bar
@@ -30,12 +28,6 @@ pub struct Names {
     pub hide: &'static str,
     pub show: &'static str,
     pub toggle: &'static str,
-    /// Asked by a bar when it starts, so a bar in a new tab joins the others
-    /// in being hidden or shown; the payload is its alias, if it knows it.
-    pub ask: &'static str,
-    /// The answer, sent to the asking bar alone, with a payload of `HIDDEN`
-    /// or `SHOWN`.
-    pub answer: &'static str,
 }
 
 /// The visibility message names of the plugin named `$plugin`.
@@ -46,8 +38,6 @@ macro_rules! visibility_names {
             hide: concat!($plugin, "::hide"),
             show: concat!($plugin, "::show"),
             toggle: concat!($plugin, "::toggle"),
-            ask: concat!($plugin, "::ask_visibility"),
-            answer: concat!($plugin, "::visibility"),
         }
     };
 }
@@ -82,36 +72,14 @@ pub fn parse_hidden(configuration: &BTreeMap<String, String>) -> bool {
         .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
 }
 
-/// The bar to answer, when `source` is another bar asking with `payload`
-/// whether this one is hidden. Bars of other aliases stay out of it, by the
-/// same rule as previews (`live::is_for`). `plugin_id` and `own_url` are this
-/// bar's own.
-pub fn asker(
-    source: &PipeSource,
-    payload: Option<&str>,
-    plugin_id: Option<u32>,
-    own_url: Option<&str>,
-) -> Option<u32> {
-    let PipeSource::Plugin(asker) = *source else {
-        return None;
-    };
-    if Some(asker) == plugin_id {
-        return None;
-    }
-    payload
-        .is_none_or(|alias| live::is_for(alias, own_url))
-        .then_some(asker)
-}
-
 /// Whether a bar is hidden, and what it has told Zellij about its row.
 #[derive(Debug, Default)]
 pub struct Visibility {
     /// Hidden by a message or by the `hidden` option: the bar draws nothing
     /// and gives its row back.
     hidden: bool,
-    /// Whether this bar has asked the running bars if they are hidden.
-    asked: bool,
-    /// Whether it has its answer, or no longer needs one.
+    /// Whether the state is the bar's own to keep: the user has hidden or
+    /// shown it, or it has taken another bar's already.
     settled: bool,
     /// The last `zellij pipe` command a hide or show message came from. See
     /// `ends_a_cli_stream`.
@@ -125,16 +93,6 @@ pub struct Visibility {
 impl Visibility {
     pub fn is_hidden(&self) -> bool {
         self.hidden
-    }
-
-    /// The payload that answers another bar asking whether this one is
-    /// hidden.
-    pub fn answer(&self) -> &'static str {
-        if self.hidden {
-            HIDDEN
-        } else {
-            SHOWN
-        }
     }
 
     /// Follow the `hidden` option from `previous` to `configuration`. The
@@ -151,11 +109,6 @@ impl Visibility {
         }
     }
 
-    /// Whether it is time to ask the running bars, which is only ever once.
-    pub fn should_ask(&mut self) -> bool {
-        !std::mem::replace(&mut self.asked, true)
-    }
-
     /// Hide or show the bar, when `alias` (a message's payload) is empty or
     /// names the alias this bar was started from (`own_url`). A bar that does
     /// not know its alias yet takes every message, as it does previews.
@@ -165,7 +118,7 @@ impl Visibility {
         if alias.is_some_and(|alias| !live::is_for(alias, own_url)) {
             return false;
         }
-        // What the user asks for outranks what another bar said.
+        // What the user asks for outranks another bar's state.
         self.settled = true;
         let hidden = match request {
             Request::Hide => true,
@@ -184,23 +137,6 @@ impl Visibility {
         if self.settled {
             return false;
         }
-        self.settled = true;
-        let changed = hidden != self.hidden;
-        self.hidden = hidden;
-        changed
-    }
-
-    /// Take the first answer to the bar's question. Returns whether anything
-    /// changed.
-    pub fn take_answer(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
-        if !matches!(source, PipeSource::Plugin(_)) || self.settled {
-            return false;
-        }
-        let hidden = match payload {
-            Some(HIDDEN) => true,
-            Some(SHOWN) => false,
-            _ => return false,
-        };
         self.settled = true;
         let changed = hidden != self.hidden;
         self.hidden = hidden;
@@ -297,17 +233,16 @@ mod tests {
     }
 
     #[test]
-    fn the_answer_names_the_state() {
+    fn a_bar_takes_another_bar_s_state_once_and_never_over_the_user_s() {
         let mut visibility = Visibility::default();
-        assert_eq!(visibility.answer(), SHOWN);
-        visibility.change(Request::Hide, None, None);
-        assert_eq!(visibility.answer(), HIDDEN);
-    }
+        assert!(visibility.adopt(true));
+        assert!(visibility.is_hidden());
+        assert!(!visibility.adopt(false));
+        assert!(visibility.is_hidden());
 
-    #[test]
-    fn a_bar_asks_only_once() {
-        let mut visibility = Visibility::default();
-        assert!(visibility.should_ask());
-        assert!(!visibility.should_ask());
+        let mut shown = Visibility::default();
+        shown.change(Request::Show, None, None);
+        assert!(!shown.adopt(true));
+        assert!(!shown.is_hidden());
     }
 }
