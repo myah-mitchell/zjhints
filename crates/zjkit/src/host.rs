@@ -15,10 +15,18 @@
 //! `ask_visibility`, so each plugin passes only its own names. Everything
 //! else is one method per Zellij call.
 //!
+//! A plugin runs as a shared instance, one `P` per slot (see `shared`). The
+//! calls about the plugin's own pane, its timers and its permissions are
+//! made for the acting slot: `Zellij` hands them to `shared`, which makes
+//! them for that slot, and `Recorder` hands them over too, so tests of
+//! `shared` see them. With no slot acting, `Zellij` makes them itself.
+//!
 //! The popup of a hover preview and the settings screen are whole plugins of
-//! their own (see `popup` and `settings::screen`), and call Zellij
-//! directly. Their tests drive the parts that make no calls.
+//! their own (see `popup` and `settings::screen`). They make their calls
+//! about their own pane through `Zellij`, and the rest directly. Their tests
+//! drive the parts that make no calls.
 
+use crate::shared::{self, Command, PopupRequest};
 use crate::{popup, visibility};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -34,8 +42,14 @@ const ALIAS_KEY: &str = "alias";
 
 /// Everything a bar asks of Zellij.
 pub trait Host {
-    /// This instance's plugin id and the client it draws for.
+    /// The plugin's ids: the acting slot's id as its plugin id, which is its
+    /// pane's, and the client the slot acts for when Zellij named one. With
+    /// no slot acting, the instance's own.
     fn plugin_ids(&self) -> PluginIds;
+
+    /// The id of the shared instance every slot runs in. A pipe message
+    /// from any of its slots names this id as its source.
+    fn instance_id(&self) -> u32;
 
     /// Ask for `permissions`. A grant replaces what the plugin had rather than
     /// adding to it, so this has to be the whole set the plugin needs.
@@ -55,6 +69,9 @@ pub trait Host {
 
     /// Bring the plugin's pane up, floating it if it was hidden.
     fn show_self(&self);
+
+    /// Close the plugin's pane.
+    fn close_self(&self);
 
     /// Have Zellij send `Event::Timer` after `seconds`.
     fn set_timeout(&self, seconds: f64);
@@ -265,17 +282,52 @@ pub fn settings_requested_by(args: &BTreeMap<String, String>, client_id: Option<
         .is_some_and(|id| Some(id) == client_id)
 }
 
-/// The real host: each method calls the matching `zellij_tile` function.
+/// The popup `Host::open_preview_popup` opens.
+fn preview_popup_request(
+    names: &popup::Names,
+    url: &str,
+    tag: &str,
+    entries: &[String],
+    line: usize,
+    column: usize,
+) -> PopupRequest {
+    let (width, height) = popup::size(entries);
+    PopupRequest {
+        url: url.to_string(),
+        configuration: popup::configuration(names, tag, entries),
+        line,
+        column,
+        width,
+        height,
+        options: PopupOptions::default().focused(false),
+    }
+}
+
+/// The real host: each method calls the matching `zellij_tile` function,
+/// or hands the call to `shared` for the acting slot.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Zellij;
 
 impl Host for Zellij {
     fn plugin_ids(&self) -> PluginIds {
-        get_plugin_ids()
+        let mut ids = get_plugin_ids();
+        if let Some(acting) = shared::acting() {
+            ids.plugin_id = acting.slot;
+            if let Some(client_id) = acting.client {
+                ids.client_id = client_id;
+            }
+        }
+        ids
+    }
+
+    fn instance_id(&self) -> u32 {
+        get_plugin_ids().plugin_id
     }
 
     fn request_permission(&self, permissions: &[PermissionType]) {
-        request_permission(permissions);
+        if !shared::submit(Command::RequestPermission(permissions.to_vec())) {
+            request_permission(permissions);
+        }
     }
 
     fn subscribe(&self, events: &[EventType]) {
@@ -283,19 +335,33 @@ impl Host for Zellij {
     }
 
     fn set_selectable(&self, selectable: bool) {
-        set_selectable(selectable);
+        if !shared::submit(Command::SetSelectable(selectable)) {
+            set_selectable(selectable);
+        }
     }
 
     fn set_collapsed(&self, collapsed: bool) {
-        set_self_collapsed(collapsed);
+        if !shared::submit(Command::SetCollapsed(collapsed)) {
+            set_self_collapsed(collapsed);
+        }
     }
 
     fn show_self(&self) {
-        show_self(true);
+        if !shared::submit(Command::ShowSelf) {
+            show_self(true);
+        }
+    }
+
+    fn close_self(&self) {
+        if !shared::submit(Command::CloseSelf) {
+            close_self();
+        }
     }
 
     fn set_timeout(&self, seconds: f64) {
-        set_timeout(seconds);
+        if !shared::submit(Command::SetTimeout(seconds)) {
+            set_timeout(seconds);
+        }
     }
 
     fn system_time(&self) -> SystemTime {
@@ -317,7 +383,7 @@ impl Host for Zellij {
     }
 
     fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
-        run_command(command, context);
+        run_command(command, shared::tag_context(context));
     }
 
     fn broadcast(&self, name: &str, payload: String) {
@@ -325,15 +391,24 @@ impl Host for Zellij {
     }
 
     fn run_action(&self, action: Action, context: BTreeMap<String, String>) {
-        run_action(action, context);
+        run_action(action, shared::tag_context(context));
     }
 
     fn prompt(&self, request: PromptRequest) -> u64 {
-        prompt(request)
+        let request_id = prompt(request);
+        shared::submit(Command::Prompted(request_id));
+        request_id
     }
 
     fn open_context_menu(&self, target: ContextMenuTarget, line: usize, column: usize) {
-        open_context_menu(target, line, column);
+        let command = Command::OpenContextMenu {
+            target,
+            line,
+            column,
+        };
+        if !shared::submit(command) {
+            open_context_menu(target, line, column);
+        }
     }
 
     fn switch_tab_to(&self, position: u32) {
@@ -393,7 +468,9 @@ impl Host for Zellij {
     }
 
     fn set_pane_frame_items(&self, pane_id: PaneId, items: Vec<FrameItem>) {
-        set_pane_frame_items(pane_id, items);
+        if !shared::submit(Command::SetPaneFrameItems(pane_id, items.clone())) {
+            set_pane_frame_items(pane_id, items);
+        }
     }
 
     fn change_floating_panes_coordinates(
@@ -470,16 +547,10 @@ impl Host for Zellij {
         line: usize,
         column: usize,
     ) {
-        let (width, height) = popup::size(entries);
-        open_plugin_popup_with_options(
-            url,
-            popup::configuration(names, tag, entries),
-            line,
-            column,
-            width,
-            height,
-            PopupOptions::default().focused(false),
-        );
+        let request = preview_popup_request(names, url, tag, entries, line, column);
+        if !shared::submit(Command::OpenPopup(request.clone())) {
+            shared::Effect::OpenPopup(request).perform(None);
+        }
     }
 
     fn close_preview_popup(&self, names: &popup::Names, popup: u32) {
@@ -502,6 +573,7 @@ pub enum Call {
     SetSelectable(bool),
     SetCollapsed(bool),
     ShowSelf,
+    CloseSelf,
     SetTimeout(f64),
     RunCommand {
         command: Vec<String>,
@@ -601,9 +673,16 @@ pub enum Call {
 ///
 /// `Host` methods take `&self`, as a plugin makes calls from methods that
 /// only read its state, so the calls are kept in a `RefCell`.
+///
+/// While a slot is acting (see `shared`), each call is also kept with that
+/// slot's id, which `slot_calls` reports, and the calls about the plugin's
+/// own pane, its timers and its permissions are handed to `shared` as
+/// `Zellij` hands them.
 #[derive(Debug, Default)]
 pub struct Recorder {
     calls: RefCell<Vec<Call>>,
+    /// Each call with the slot acting when it was made.
+    slot_calls: RefCell<Vec<(Option<SlotId>, Call)>>,
     /// How many prompts this recorder has been asked to show.
     prompts: Cell<u64>,
     /// What `system_time` reports: the Unix epoch until a test sets it.
@@ -618,6 +697,8 @@ impl Recorder {
     pub const PLUGIN_ID: u32 = 1;
     /// The client id `plugin_ids` reports.
     pub const CLIENT_ID: ClientId = 1;
+    /// The instance id `instance_id` reports.
+    pub const INSTANCE_ID: u32 = 100;
 
     /// Every call made since this recorder was created or last cleared, in
     /// the order they were made.
@@ -625,10 +706,17 @@ impl Recorder {
         self.calls.borrow().clone()
     }
 
+    /// Every call made since this recorder was created or last cleared, each
+    /// with the slot that was acting when it was made, if any.
+    pub fn slot_calls(&self) -> Vec<(Option<SlotId>, Call)> {
+        self.slot_calls.borrow().clone()
+    }
+
     /// Forget the calls made so far, so a test can assert on what one step
     /// does without the steps before it.
     pub fn clear(&self) {
         self.calls.borrow_mut().clear();
+        self.slot_calls.borrow_mut().clear();
     }
 
     /// Have `system_time` report `time` from now on.
@@ -645,25 +733,45 @@ impl Recorder {
     }
 
     fn record(&self, call: Call) {
+        let slot = shared::acting().map(|acting| acting.slot);
+        self.slot_calls.borrow_mut().push((slot, call.clone()));
         self.calls.borrow_mut().push(call);
+    }
+
+    /// Keep `call`, and hand `command` to `shared` when a slot is acting.
+    fn route(&self, call: Call, command: Command) {
+        self.record(call);
+        shared::submit(command);
     }
 }
 
 impl Host for Recorder {
     /// Reports `PLUGIN_ID` and `CLIENT_ID`, a Zellij process id of 0 and an
-    /// empty working directory.
+    /// empty working directory. While a slot is acting, the slot's id is the
+    /// plugin id, and the client it acts for, if any, the client id.
     fn plugin_ids(&self) -> PluginIds {
         self.record(Call::PluginIds);
+        let acting = shared::acting();
         PluginIds {
-            plugin_id: Self::PLUGIN_ID,
+            plugin_id: acting.map_or(Self::PLUGIN_ID, |acting| acting.slot),
             zellij_pid: 0,
             initial_cwd: PathBuf::new(),
-            client_id: Self::CLIENT_ID,
+            client_id: acting
+                .and_then(|acting| acting.client)
+                .unwrap_or(Self::CLIENT_ID),
         }
     }
 
+    /// Reports `INSTANCE_ID`. Not a `Call`: asking changes nothing.
+    fn instance_id(&self) -> u32 {
+        Self::INSTANCE_ID
+    }
+
     fn request_permission(&self, permissions: &[PermissionType]) {
-        self.record(Call::RequestPermission(permissions.to_vec()));
+        self.route(
+            Call::RequestPermission(permissions.to_vec()),
+            Command::RequestPermission(permissions.to_vec()),
+        );
     }
 
     fn subscribe(&self, events: &[EventType]) {
@@ -671,19 +779,29 @@ impl Host for Recorder {
     }
 
     fn set_selectable(&self, selectable: bool) {
-        self.record(Call::SetSelectable(selectable));
+        self.route(
+            Call::SetSelectable(selectable),
+            Command::SetSelectable(selectable),
+        );
     }
 
     fn set_collapsed(&self, collapsed: bool) {
-        self.record(Call::SetCollapsed(collapsed));
+        self.route(
+            Call::SetCollapsed(collapsed),
+            Command::SetCollapsed(collapsed),
+        );
     }
 
     fn show_self(&self) {
-        self.record(Call::ShowSelf);
+        self.route(Call::ShowSelf, Command::ShowSelf);
+    }
+
+    fn close_self(&self) {
+        self.route(Call::CloseSelf, Command::CloseSelf);
     }
 
     fn set_timeout(&self, seconds: f64) {
-        self.record(Call::SetTimeout(seconds));
+        self.route(Call::SetTimeout(seconds), Command::SetTimeout(seconds));
     }
 
     /// The time `set_system_time` set, or the Unix epoch until it is set.
@@ -699,7 +817,7 @@ impl Host for Recorder {
     fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
         self.record(Call::RunCommand {
             command: command.iter().map(|part| part.to_string()).collect(),
-            context,
+            context: shared::tag_context(context),
         });
     }
 
@@ -711,7 +829,10 @@ impl Host for Recorder {
     }
 
     fn run_action(&self, action: Action, context: BTreeMap<String, String>) {
-        self.record(Call::RunAction { action, context });
+        self.record(Call::RunAction {
+            action,
+            context: shared::tag_context(context),
+        });
     }
 
     /// Numbers prompts 1, 2, 3 and so on in the order they are shown, as
@@ -720,19 +841,29 @@ impl Host for Recorder {
     fn prompt(&self, request: PromptRequest) -> u64 {
         let request_id = self.prompts.get() + 1;
         self.prompts.set(request_id);
-        self.record(Call::Prompt {
-            request_id,
-            request,
-        });
+        self.route(
+            Call::Prompt {
+                request_id,
+                request,
+            },
+            Command::Prompted(request_id),
+        );
         request_id
     }
 
     fn open_context_menu(&self, target: ContextMenuTarget, line: usize, column: usize) {
-        self.record(Call::OpenContextMenu {
-            target,
-            line,
-            column,
-        });
+        self.route(
+            Call::OpenContextMenu {
+                target,
+                line,
+                column,
+            },
+            Command::OpenContextMenu {
+                target,
+                line,
+                column,
+            },
+        );
     }
 
     fn switch_tab_to(&self, position: u32) {
@@ -797,7 +928,10 @@ impl Host for Recorder {
     }
 
     fn set_pane_frame_items(&self, pane_id: PaneId, items: Vec<FrameItem>) {
-        self.record(Call::SetPaneFrameItems(pane_id, items));
+        self.route(
+            Call::SetPaneFrameItems(pane_id, items.clone()),
+            Command::SetPaneFrameItems(pane_id, items),
+        );
     }
 
     fn change_floating_panes_coordinates(
@@ -876,20 +1010,25 @@ impl Host for Recorder {
 
     fn open_preview_popup(
         &self,
-        _names: &popup::Names,
+        names: &popup::Names,
         url: &str,
         tag: &str,
         entries: &[String],
         line: usize,
         column: usize,
     ) {
-        self.record(Call::OpenPreviewPopup {
-            url: url.to_string(),
-            tag: tag.to_string(),
-            entries: entries.to_vec(),
-            line,
-            column,
-        });
+        self.route(
+            Call::OpenPreviewPopup {
+                url: url.to_string(),
+                tag: tag.to_string(),
+                entries: entries.to_vec(),
+                line,
+                column,
+            },
+            Command::OpenPopup(preview_popup_request(
+                names, url, tag, entries, line, column,
+            )),
+        );
     }
 
     fn close_preview_popup(&self, names: &popup::Names, popup: u32) {
