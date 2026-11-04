@@ -223,7 +223,9 @@ If the file changed on disk since Zellij read it, saving stops and asks what to 
 
 ### Closing with unsaved changes
 
-Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the session: the bars keep them, and bars started later in the session load them too. A notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the bars running in the session, and a notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+
+A bar started later in the session, such as one in a new tab, starts from the alias as the session loaded it, without the unsaved changes. It joins the instance with its own options and doesn't take the previews the other bars are showing.
 
 ### What a preview reaches
 
