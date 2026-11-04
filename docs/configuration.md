@@ -1,6 +1,6 @@
 # Configuration
 
-Every option the plugin reads, with its default. The plugin works with none of them set, so this page is only for changing something.
+Every option the plugin reads, with its default. The plugin works with none of them set, so this page is only for changing something. The options of zjtabs, the tab bar from the same repository, are in the [zjtabs configuration reference](zjtabs/configuration.md).
 
 Options are grouped by topic, and each group names the page carrying the detail behind it. An option written with a placeholder in it is a family rather than a single key: you append your own value.
 

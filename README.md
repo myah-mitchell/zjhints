@@ -2,6 +2,8 @@
 
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
+This repository is a family of Zellij bars that share one library, `zjkit`: zjhints, described on this page, and [zjtabs](#zjtabs), a tab bar. They take the same themes, format strings and settings screen.
+
 > [!IMPORTANT]
 > Six of this release's features need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
 
@@ -10,9 +12,9 @@ A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aw
 > [!NOTE]
 > zjhints began as a fork of [b0o/zjstatus-hints](https://github.com/b0o/zjstatus-hints) by Maddison Cohodas, and was itself named zjstatus-hints until 0.5.0. It has gone its own way since, so everything below describes zjhints as it stands rather than how it differs.
 
-Here it is at the bottom of a Zellij session: the mode first, then each key beside what it does. The narration under the dashed line names each key pressed; it is not part of the session.
+Here it is at the bottom of a Zellij session, with [zjtabs](#zjtabs) as the tab bar at the top: the mode first, then each key beside what it does. The narration under the dashed line names each key pressed; it is not part of the session.
 
-![A Zellij session with the zjhints bar at the bottom, in the catppuccin-mocha colors with pill-shaped hints. The bar shows the normal mode hints, then the pane mode hints after Ctrl p. After r splits the terminal and returns to normal mode, it shows tab mode after Ctrl t, resize mode after Ctrl n, and in locked mode after Ctrl g only the key that unlocks it, before Ctrl g returns to normal mode.](docs/img/session-modes.svg)
+![A Zellij session with the zjtabs tab bar at the top and the zjhints bar at the bottom, in the catppuccin-mocha colors with pill-shaped hints. Both bars start with the current mode, and the tab bar ends in the session's name, demo. The zjhints bar shows the normal mode hints, then the pane mode hints after Ctrl p. After r splits the terminal and returns to normal mode, it shows tab mode after Ctrl t, resize mode after Ctrl n, and in locked mode after Ctrl g only the key that unlocks it, before Ctrl g returns to normal mode.](docs/img/session-modes.svg)
 
 [Themes](docs/themes.md) restyle it in one line, and the [settings screen](docs/settings.md) edits every option while you watch the bar change.
 
@@ -29,7 +31,7 @@ Six features in this release need plugin APIs that are not in a released Zellij 
 | [#5778](https://github.com/zellij-org/zellij/pull/5778) | A popup can choose whether a click outside it closes it, which is how the [menus of hints](docs/mouse.md) close when you click away                                                                                                                                    |
 | [#5779](https://github.com/zellij-org/zellij/pull/5779) | A plugin can add an entry to Zellij's own settings screen, which is how the zjhints entry there opens the [settings screen](docs/settings.md#from-zellijs-settings-screen)                                                                                             |
 
-Until that release, a Zellij build of upstream `main` with all six is published as [fork-v0.46.6](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.6). It carries no changes of its own on top of upstream. That is the build zjhints is compiled against, so it is the way to see these features working today.
+Until that release, zjhints is compiled against [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), an early-access Zellij build. It is upstream `main`, which has all six, plus the fork's own plugin API work that is not merged upstream yet. A plugin built against it still runs on a Zellij without those additions as long as it only uses calls that Zellij has, and zjhints uses none of them. This build is the way to see these features working today.
 
 Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
 
@@ -45,25 +47,25 @@ Each of these is a Zellij session like the one above, showing one feature.
 
 As the terminal narrows, the bar [drops whole hints to fit](docs/fitting.md), and the drop indicator offers the ones that did not.
 
-![A Zellij session with two panes narrowing step by step. The zjhints bar drops whole hints from its end to fit, keeping the mode and the first hints, and ends in an ellipsis. Hovering the ellipsis opens a popup listing every hint that did not fit. The terminal then widens back to full width and the hints return.](docs/img/session-fitting.svg)
+![A Zellij session with two panes narrowing step by step under the zjtabs tab bar, whose end keeps the session's name, demo, at the right edge. The zjhints bar drops whole hints from its end to fit, keeping the mode and the first hints, and ends in an ellipsis. Hovering the ellipsis opens a popup listing every hint that did not fit. The terminal then widens back to full width and the hints return.](docs/img/session-fitting.svg)
 
 ### Settings screen
 
 The [settings screen](docs/settings.md) edits the options in a floating pane, and the bar previews each change before it is saved.
 
-![A Zellij session where Alt comma opens the zjhints settings screen in a floating pane on its Theme group. Setting format_theme to powerline turns the bar's pills into arrows, and setting color_theme to tokyo-night recolors it, both marked unsaved. Ctrl a saves them, and Esc closes the screen, leaving the bar in the new look.](docs/img/session-settings.svg)
+![A Zellij session named demo, under the zjtabs tab bar that ends in that name, where Alt comma opens the zjhints settings screen in a floating pane on its Theme group. Setting format_theme to powerline turns the zjhints bar's pills into arrows, and setting color_theme to tokyo-night recolors it, both marked unsaved. Ctrl a saves them, and Esc closes the screen, leaving the bar in the new look.](docs/img/session-settings.svg)
 
 ### Mouse
 
 With [mouse](docs/mouse.md) on, resting the pointer on a hint opens a menu of what its keys do, and the menus follow the mode.
 
-![A Zellij session with the pointer under the zjhints bar. Moving across the hints opens nothing; resting on the focus hint opens a menu of its four keys. Ctrl p switches to pane mode and the menu closes with the bar it came from. Resting on the float hint opens its menu, and resting on the ellipsis opens the pane mode hints that did not fit, before Esc returns to normal mode.](docs/img/session-mouse.svg)
+![A Zellij session named demo, under the zjtabs tab bar that ends in that name, with the pointer under the zjhints bar. Moving across the hints opens nothing; resting on the focus hint opens a menu of its four keys. Ctrl p switches to pane mode and the menu closes with the bar it came from. Resting on the float hint opens its menu, and resting on the ellipsis opens the pane mode hints that did not fit, before Esc returns to normal mode.](docs/img/session-mouse.svg)
 
 ### Themes
 
 [Themes](docs/themes.md) set the colors, the shape of each hint and the symbols for keys, each on its own.
 
-![A Zellij session whose zjhints bar changes look every 1.6 seconds, through fifteen combinations of color, format and alias themes, each named in the narration: catppuccin-mocha with pills and unicode, dracula with powerline and ascii, nord flat, gruvbox-dark pills, tokyo-night plain, catppuccin-latte powerline, Zellij's own look, and more.](docs/img/session-themes.svg)
+![A Zellij session named demo, under the zjtabs tab bar that ends in that name, whose zjhints bar changes look every 1.6 seconds, through fifteen combinations of color, format and alias themes, each named in the narration: catppuccin-mocha with pills and unicode, dracula with powerline and ascii, nord flat, gruvbox-dark pills, tokyo-night plain, catppuccin-latte powerline, Zellij's own look, and more.](docs/img/session-themes.svg)
 
 ![Five rows, each a zjhints bar in normal mode under the name of its format theme: zellij, flat, plain, powerline and pills. The zellij row uses the Zellij palette; flat shows square blocks; plain shows colored text without blocks; powerline joins the blocks with arrows; pills rounds both ends of each hint](docs/img/format-themes.svg)
 
@@ -71,7 +73,7 @@ With [mouse](docs/mouse.md) on, resting the pointer on a hint opens a menu of wh
 
 In a [nested session](docs/nested-sessions.md), the bar shows the keys of the session that has the keyboard.
 
-![A Zellij session that starts a nested session, named work, in its right pane. Descended into it, the host's frames fade and the zjhints bar shows the nested session's normal mode keys, then its pane mode keys after Ctrl p. Back in the host, the bar shows the host's own keys again.](docs/img/session-nested.svg)
+![A Zellij session named demo, its name at the right end of its zjtabs tab bar, that starts a nested session, named work, in its right pane. Descended into it, the host's frames and its zjtabs tab bar fade, and the zjhints bar shows the nested session's normal mode keys, then its pane mode keys after Ctrl p. Back in the host, the bar shows the host's own keys again. The nested session draws neither bar of its own, as both hide by default in a nested session.](docs/img/session-nested.svg)
 
 ## What it does
 
@@ -95,6 +97,12 @@ Each part of it has its own page:
 | [Nested sessions](docs/nested-sessions.md)               | Showing the nested session's hints while you are in it, and hiding or dimming the host's own                       |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles. Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
+
+## zjtabs
+
+zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, shows the current input mode before the tabs and the session's name after them, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename, a middle click to close and Zellij's right-click menus.
+
+[zjtabs overview](docs/zjtabs/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtabs configuration reference](docs/zjtabs/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to both plugins.
 
 ## Known issues
 
