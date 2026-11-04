@@ -133,6 +133,34 @@ pub trait Host {
     /// it. Zellij reports it as suppressed until it is shown or focused again.
     fn hide_pane_with_id(&self, pane_id: PaneId);
 
+    /// Show the pane `pane_id` and focus it, as a floating pane if it is
+    /// hidden and `should_float_if_hidden`. With a `tab_id`, the
+    /// `TabInfo::tab_id` of a tab, a pane hidden with `hide_pane_with_id` is
+    /// moved to that tab first and shown there; any other pane is shown in
+    /// its own tab, switching to it. Returns an error, showing nothing, when
+    /// no tab has that id.
+    fn show_pane_with_id(
+        &self,
+        pane_id: PaneId,
+        should_float_if_hidden: bool,
+        tab_id: Option<usize>,
+    ) -> Result<(), String>;
+
+    /// Toggle the pane `pane_id` between filling its tab and its own size.
+    fn toggle_pane_id_fullscreen(&self, pane_id: PaneId);
+
+    /// Float the tiled pane `pane_id`, or tile the floating one. Zellij
+    /// places a pane it floats as it would a new one, and leaves the last
+    /// tiled pane of a tab tiled.
+    fn toggle_pane_embed_or_eject_for_pane_id(&self, pane_id: PaneId);
+
+    /// Place `items` at the right of the top row of the pane `pane_id`'s
+    /// frame, in place of the ones this plugin placed there before. No items
+    /// takes them off. They stay until the pane closes or the plugin
+    /// unloads, and a click on a clickable one comes back as
+    /// `Event::FrameItemClicked`.
+    fn set_pane_frame_items(&self, pane_id: PaneId, items: Vec<FrameItem>);
+
     /// Move and resize each floating pane named in
     /// `pane_ids_and_coordinates` to its coordinates. A coordinate left
     /// `None` keeps its value.
@@ -346,6 +374,28 @@ impl Host for Zellij {
         hide_pane_with_id(pane_id);
     }
 
+    fn show_pane_with_id(
+        &self,
+        pane_id: PaneId,
+        should_float_if_hidden: bool,
+        tab_id: Option<usize>,
+    ) -> Result<(), String> {
+        let should_focus_pane = true;
+        show_pane_with_id(pane_id, should_float_if_hidden, should_focus_pane, tab_id)
+    }
+
+    fn toggle_pane_id_fullscreen(&self, pane_id: PaneId) {
+        toggle_pane_id_fullscreen(pane_id);
+    }
+
+    fn toggle_pane_embed_or_eject_for_pane_id(&self, pane_id: PaneId) {
+        toggle_pane_embed_or_eject_for_pane_id(pane_id);
+    }
+
+    fn set_pane_frame_items(&self, pane_id: PaneId, items: Vec<FrameItem>) {
+        set_pane_frame_items(pane_id, items);
+    }
+
     fn change_floating_panes_coordinates(
         &self,
         pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
@@ -488,6 +538,14 @@ pub enum Call {
         should_be_in_place_if_hidden: bool,
     },
     HidePaneWithId(PaneId),
+    ShowPaneWithId {
+        pane_id: PaneId,
+        should_float_if_hidden: bool,
+        tab_id: Option<usize>,
+    },
+    TogglePaneIdFullscreen(PaneId),
+    TogglePaneEmbedOrEjectForPaneId(PaneId),
+    SetPaneFrameItems(PaneId, Vec<FrameItem>),
     ChangeFloatingPanesCoordinates(Vec<(PaneId, FloatingPaneCoordinates)>),
     CloseTerminalPane(u32),
     ClosePluginPane(u32),
@@ -713,6 +771,33 @@ impl Host for Recorder {
 
     fn hide_pane_with_id(&self, pane_id: PaneId) {
         self.record(Call::HidePaneWithId(pane_id));
+    }
+
+    /// Shows the pane every time, as Zellij does for a tab that exists.
+    fn show_pane_with_id(
+        &self,
+        pane_id: PaneId,
+        should_float_if_hidden: bool,
+        tab_id: Option<usize>,
+    ) -> Result<(), String> {
+        self.record(Call::ShowPaneWithId {
+            pane_id,
+            should_float_if_hidden,
+            tab_id,
+        });
+        Ok(())
+    }
+
+    fn toggle_pane_id_fullscreen(&self, pane_id: PaneId) {
+        self.record(Call::TogglePaneIdFullscreen(pane_id));
+    }
+
+    fn toggle_pane_embed_or_eject_for_pane_id(&self, pane_id: PaneId) {
+        self.record(Call::TogglePaneEmbedOrEjectForPaneId(pane_id));
+    }
+
+    fn set_pane_frame_items(&self, pane_id: PaneId, items: Vec<FrameItem>) {
+        self.record(Call::SetPaneFrameItems(pane_id, items));
     }
 
     fn change_floating_panes_coordinates(
