@@ -80,7 +80,7 @@ Several commands and tag names below take a value you supply, written in angle b
 | `<name>` | The name of a `[build.<name>]` table in `builds.toml`, such as `release` or `ea-nested-sessions` |
 | `<date>` | The build date as `yymmdd` in UTC, such as `261101`, with `.2`, `.3` added for a second build the same day |
 | `<worktree>` | The directory `tooling/builds.py assemble` prints when a stack does not merge |
-| `<asset>` | A plugin published on a release: `zjhints.wasm`, or `zjtabs.wasm` when the build has it |
+| `<asset>` | A plugin published on a release: `zjhints.wasm`, or `zjtabs.wasm` or `zjtaskbar.wasm` when the build has it |
 | `<you>` | The GitHub account owning the fork you are patching against |
 | `<tag-or-branch>` | The ref in that fork to build from |
 | `<owner>` | The GitHub account owning an action you are pinning |
@@ -156,6 +156,7 @@ A release carries every plugin its build compiles, each as a `.wasm` file. What 
 | `main`, a single crate | `zjhints.wasm` |
 | `main-dev`, the zjkit workspace | `zjhints.wasm` |
 | `main-dev` with `feat/zjtabs` stacked | `zjhints.wasm` and `zjtabs.wasm` |
+| `main-dev` with `feat/zjtabs` and `feat/zjtaskbar` stacked | `zjhints.wasm`, `zjtabs.wasm` and `zjtaskbar.wasm` |
 
 `zjhints.wasm` is required: a build that does not make it fails, and nothing is published. Any other plugin ships when the tree has it, and only then do the release notes name it.
 
@@ -226,7 +227,7 @@ A stack may not change anything under `.github/workflows/`; such a build is refu
 
 To rebuild with whatever the branches have gained since, run the workflow by hand naming the table with publish ticked, or set `on = "nightly"` so it rebuilds each night that its inputs moved. Pick a new label to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
 
-The base can be another branch when the work builds on it. `ea-zjtabs` stacks `feat/zjtabs` onto `main-dev`, because the zjtabs plugin needs the zjkit workspace that only `main-dev` has so far. Its releases carry `zjtabs.wasm` next to `zjhints.wasm` (see [Plugins in a release](#plugins-in-a-release)). Remove it once `feat/zjtabs` is merged into `main-dev`, since `ea-main-dev` ships zjtabs from then on.
+The base can be another branch when the work builds on it. `ea-release` stacks `feat/zjtabs` and `feat/zjtaskbar` onto `main-dev`, because those plugins need the zjkit workspace that only `main-dev` has so far. Its releases carry `zjtabs.wasm` and `zjtaskbar.wasm` next to `zjhints.wasm` (see [Plugins in a release](#plugins-in-a-release)). Take each branch out of its stack once it is merged into `main-dev`.
 
 Install one with `make ea LABEL=<label>`. See [Installing what is published](#installing-what-is-published).
 
@@ -383,7 +384,7 @@ make zellij VERSION=0.44 # newest release built for that Zellij line
 make ea LABEL=<label>    # newest build of an EA table in builds.toml
 ```
 
-All of these fetch `zjhints.wasm` straight into the Zellij plugin directory, `~/.local/share/zellij/plugins/`, and `zjtabs.wasm` next to it when the release has it. A release without zjtabs skips it and leaves any `zjtabs.wasm` already there as it is. Every file is downloaded before any is replaced, so a failed fetch never mixes plugins from two releases.
+All of these fetch `zjhints.wasm` straight into the Zellij plugin directory, `~/.local/share/zellij/plugins/`, and `zjtabs.wasm` and `zjtaskbar.wasm` next to it when the release has them. A release without one of them skips it and leaves any copy already there as it is. Every file is downloaded before any is replaced, so a failed fetch never mixes plugins from two releases.
 
 Start a new session to load what was fetched: Zellij caches plugins per session, and detaching does not reload.
 
@@ -428,7 +429,7 @@ Pull requests labeled `needs-zellij-upgrade` accumulate rather than merge, and t
 | `zellij-<line>` did not move after a release | Check `Cargo.toml`'s `zellij-tile` requirement in the tagged commit; the alias follows whatever line was pinned there, not the newest one available |
 | An EA build fails to resolve a Zellij crate | The stack has no `[patch.crates-io]` override for a requirement crates.io cannot satisfy yet; see [Depending on an unreleased upstream fix](#depending-on-an-unreleased-upstream-fix) |
 | `make ea` finds no build | The table's `tag` is not of the form `ea-<label>-{date}`, or the table has not been built yet |
-| A make target says the release has no `zjtabs.wasm` | Expected for a build of a tree without the zjtabs plugin, such as `main`; `make ea LABEL=zjtabs` installs one that has it |
+| A make target says the release has no `zjtabs.wasm` or `zjtaskbar.wasm` | Expected for a build of a tree without that plugin, such as `main` |
 | A build fails at *Check the plugins built* | A plugin the tree declares did not compile, or the tree makes no `zjhints.wasm`; the step names the missing file |
 
 The stale-nightly row above is worth knowing in full: GitHub disables scheduled workflows in repositories with no activity for 60 days, and emails you when it does. Any push re-enables them.

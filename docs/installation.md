@@ -206,7 +206,7 @@ make nightly   # or: make latest
 make ea LABEL=<label>   # the newest build of an EA table
 ```
 
-These targets install `zjhints.wasm` into `~/.local/share/zellij/plugins/`. A release that also carries the tab bar plugin, `zjtabs.wasm`, has it installed next to `zjhints.wasm`; for now only `make ea LABEL=zjtabs` fetches one. On a release without it, the targets skip it and leave any `zjtabs.wasm` you already have in place.
+These targets install `zjhints.wasm` into `~/.local/share/zellij/plugins/`. A release that also carries the tab bar plugin, `zjtabs.wasm`, or the taskbar plugin, `zjtaskbar.wasm`, has it installed next to `zjhints.wasm`; for now only early-access builds carry them. On a release without one, the targets skip it and leave any copy you already have in place.
 
 ### Matching your Zellij version
 

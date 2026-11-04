@@ -6,9 +6,10 @@ PLUGIN  := $(PLUGINS)/$(ASSET)
 REPO    := myah-mitchell/zjhints
 
 # The other plugins a release may carry next to zjhints.wasm. A release built
-# from main has none yet; one built from the zjkit workspace with zjtabs in it
-# has zjtabs.wasm. The download targets install each one a release has.
-EXTRA_ASSETS := zjtabs.wasm
+# from main has none yet; one built from the zjkit workspace with zjtabs or
+# zjtaskbar in it has that plugin's .wasm. The download targets install each
+# one a release has.
+EXTRA_ASSETS := zjtabs.wasm zjtaskbar.wasm
 
 # The asset name every release before 0.5.0 was published under. `latest` and
 # `zellij` try the current name and fall back to this one, so the older

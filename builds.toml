@@ -3,7 +3,7 @@
 # tooling/builds.py. See docs/automation.md.
 #
 # A release carries every plugin its build makes: zjhints.wasm always, and
-# zjtabs.wasm when the build's tree has the zjtabs plugin.
+# zjtabs.wasm or zjtaskbar.wasm when the build's tree has that plugin.
 #
 # A table builds when:
 #   - a push to main changes it
@@ -78,12 +78,14 @@ keep = 7
 # prerelease = true
 # keep = 3
 
-# main-dev, where the zjkit workspace work lands until it is proven and merged
-# into main. To rebuild after main-dev moves, run the workflow by hand naming
-# ea-main-dev with publish ticked. `make ea LABEL=main-dev` installs it.
+# The 0.6.0 early-access release: main-dev, where the zjkit workspace work
+# lands until it is proven and merged into main, with the zjtabs and zjtaskbar
+# branches stacked on it. To rebuild after any of them moves, run the workflow
+# by hand naming ea-release with publish ticked. Its tag carries the version,
+# so `make ea` does not find it; download the plugins from the release page.
 [build.ea-release]
 tag = "ea-v0.6.0-{date}"
 base = "main-dev"
-stack = ["feat/zjtabs"]
+stack = ["feat/zjtabs", "feat/zjtaskbar"]
 prerelease = true
 keep = 3
