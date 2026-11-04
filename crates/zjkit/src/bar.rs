@@ -40,8 +40,7 @@ pub struct BarSpec {
     /// lines, its `live_message` is the preview the bar follows, and its
     /// `layer` lays the selected themes under the user's options.
     pub schema: &'static Schema,
-    /// The bar's hide, show and toggle messages, and the question a new bar
-    /// asks the running ones.
+    /// The bar's hide, show and toggle messages.
     pub visibility: &'static visibility::Names,
     /// The names a bar and its hover-preview popups know each other by, for
     /// a plugin whose bar opens them.
@@ -454,11 +453,6 @@ impl BarCore {
                     self.own_url = Some(url);
                 }
                 self.plugin_pane_urls = plugin_pane_urls(manifest);
-                // The first pane update is the earliest this bar knows which
-                // alias it runs as, and that it may message other plugins.
-                if self.visibility.should_ask() {
-                    host.ask_visibility(spec.visibility, self.own_url.as_deref());
-                }
                 Handled::redraw_if(changed)
             }
             // Answered, or granted from the cache. Either way the prompt is
@@ -479,8 +473,8 @@ impl BarCore {
     }
 
     /// Take `message` if it means the same to every bar: a request from
-    /// Zellij's settings screen, a question or answer about visibility, a
-    /// hide, show or toggle, or a preview from the settings screen. `None`
+    /// Zellij's settings screen, a hide, show or toggle, or a preview from
+    /// the settings screen. `None`
     /// when it is none of these, and so the plugin's own to handle.
     pub fn pipe(
         &mut self,
@@ -494,22 +488,6 @@ impl BarCore {
                 self.open_settings(host, spec);
             }
             return Some(Handled::Nothing);
-        }
-        if message.name == spec.visibility.ask {
-            let asker = visibility::asker(
-                &message.source,
-                payload,
-                self.plugin_id,
-                self.own_url.as_deref(),
-            );
-            if let Some(asker) = asker {
-                host.answer_visibility(spec.visibility, asker, self.visibility.answer());
-            }
-            return Some(Handled::Nothing);
-        }
-        if message.name == spec.visibility.answer {
-            let changed = self.visibility.take_answer(&message.source, payload);
-            return Some(Handled::redraw_if(changed));
         }
         if let Some(request) = Request::from_message(spec.visibility, &message.name) {
             if self.visibility.ends_a_cli_stream(&message.source, payload) {
@@ -1009,7 +987,7 @@ mod tests {
     }
 
     #[test]
-    fn the_first_pane_update_learns_the_alias_and_asks_once_whether_the_bars_are_hidden() {
+    fn a_pane_update_tells_the_bar_its_alias_and_width() {
         let host = Recorder::default();
         let mut bar = BarCore {
             plugin_id: Some(7),
@@ -1026,15 +1004,9 @@ mod tests {
         assert_eq!(bar.update(&host, &SPEC, &update), Handled::Redraw);
         assert_eq!(bar.own_url.as_deref(), Some("zjtest-alt"));
         assert_eq!(bar.pane_width, Some(80));
-        // The same report again changes nothing and asks nothing.
+        // The same report again changes nothing.
         assert_eq!(bar.update(&host, &SPEC, &update), Handled::Nothing);
-        assert_eq!(
-            host.calls(),
-            vec![Call::AskVisibility {
-                message: "zjtest::ask_visibility",
-                alias: Some("zjtest-alt".to_string()),
-            }]
-        );
+        assert_eq!(host.calls(), Vec::new());
     }
 
     #[test]
@@ -1132,71 +1104,6 @@ mod tests {
                 own_url: Some("zjtest".to_string()),
             }]
         );
-    }
-
-    #[test]
-    fn a_bar_answers_another_bar_of_its_alias_asking_whether_it_is_hidden() {
-        let host = Recorder::default();
-        let mut bar = bar_of_alias();
-        bar.change_visibility(Request::Hide, None);
-        let ask = |source: PipeSource, alias: Option<&str>| {
-            message(source, "zjtest::ask_visibility", alias)
-        };
-        let mut answered = |source, alias| {
-            host.clear();
-            assert_eq!(
-                bar.pipe(&host, &SPEC, &ask(source, alias)),
-                Some(Handled::Nothing)
-            );
-            host.calls()
-        };
-        let answer = vec![Call::AnswerVisibility {
-            message: "zjtest::visibility",
-            plugin_id: 5,
-            answer: visibility::HIDDEN.to_string(),
-        }];
-        assert_eq!(answered(PipeSource::Plugin(5), Some("zjtest")), answer);
-        // An asker that does not know its alias yet cannot name it.
-        assert_eq!(answered(PipeSource::Plugin(5), None), answer);
-        assert_eq!(
-            answered(PipeSource::Plugin(5), Some("zjtest-nested")),
-            Vec::new()
-        );
-        // The question is broadcast, so the asker hears it too.
-        assert_eq!(answered(PipeSource::Plugin(3), None), Vec::new());
-        assert_eq!(answered(PipeSource::Keybind, None), Vec::new());
-    }
-
-    #[test]
-    fn a_new_bar_takes_the_first_answer_only() {
-        let host = Recorder::default();
-        let mut bar = bar_of_alias();
-        let answer = |source, payload| message(source, "zjtest::visibility", Some(payload));
-        assert_eq!(
-            bar.pipe(&host, &SPEC, &answer(PipeSource::Keybind, "hidden")),
-            Some(Handled::Nothing)
-        );
-        assert_eq!(
-            bar.pipe(&host, &SPEC, &answer(PipeSource::Plugin(5), "hidden")),
-            Some(Handled::Redraw)
-        );
-        assert!(bar.visibility.is_hidden());
-        assert_eq!(
-            bar.pipe(&host, &SPEC, &answer(PipeSource::Plugin(6), "shown")),
-            Some(Handled::Nothing)
-        );
-        assert!(bar.visibility.is_hidden());
-    }
-
-    #[test]
-    fn a_hide_or_show_before_the_answer_wins_over_it() {
-        let host = Recorder::default();
-        let mut bar = bar_of_alias();
-        let show = from_plugin(5, "zjtest::show", None);
-        assert_eq!(bar.pipe(&host, &SPEC, &show), Some(Handled::Nothing));
-        let answer = from_plugin(5, "zjtest::visibility", Some("hidden"));
-        assert_eq!(bar.pipe(&host, &SPEC, &answer), Some(Handled::Nothing));
-        assert!(!bar.visibility.is_hidden());
     }
 
     #[test]

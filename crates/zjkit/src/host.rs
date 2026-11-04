@@ -12,7 +12,7 @@
 //!
 //! Where several plugins make the same call in the same way, the trait has
 //! one method for the whole of it, such as `open_settings` or
-//! `ask_visibility`, so each plugin passes only its own names. Everything
+//! `open_preview_popup`, so each plugin passes only its own names. Everything
 //! else is one method per Zellij call.
 //!
 //! A plugin runs as a shared instance, one `P` per slot (see `shared`). The
@@ -26,8 +26,8 @@
 //! about their own pane through `Zellij`, and the rest directly. Their tests
 //! drive the parts that make no calls.
 
+use crate::popup;
 use crate::shared::{self, Command, PopupRequest};
-use crate::{popup, visibility};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -216,15 +216,6 @@ pub trait Host {
         coordinates: Option<FloatingPaneCoordinates>,
         context: BTreeMap<String, String>,
     );
-
-    /// Ask every running bar of the plugin `names` belongs to whether it is
-    /// hidden, naming this bar's `alias` when it knows it. See
-    /// `visibility::Names::ask`.
-    fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>);
-
-    /// Tell the bar `plugin_id`, which asked, whether this one is hidden.
-    /// `answer` is `visibility::Visibility::answer`.
-    fn answer_visibility(&self, names: &visibility::Names, plugin_id: u32, answer: &str);
 
     /// Open the plugin's settings screen as a floating pane titled
     /// `pane_title`, or reach the one already open, with the pipe message
@@ -507,22 +498,6 @@ impl Host for Zellij {
         open_plugin_pane_floating(url, configuration, coordinates, context);
     }
 
-    fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
-        let mut message = MessageToPlugin::new(names.ask);
-        if let Some(alias) = alias {
-            message = message.with_payload(alias);
-        }
-        pipe_message_to_plugin(message);
-    }
-
-    fn answer_visibility(&self, names: &visibility::Names, plugin_id: u32, answer: &str) {
-        pipe_message_to_plugin(
-            MessageToPlugin::new(names.answer)
-                .with_destination_plugin_id(plugin_id)
-                .with_payload(answer),
-        );
-    }
-
     fn open_settings(&self, message: &str, pane_title: &str, own_url: Option<&str>) {
         pipe_message_to_plugin(
             MessageToPlugin::new(message)
@@ -636,17 +611,6 @@ pub enum Call {
         configuration: BTreeMap<String, String>,
         coordinates: Option<FloatingPaneCoordinates>,
         context: BTreeMap<String, String>,
-    },
-    /// `message` is the `ask` name of the `visibility::Names` given.
-    AskVisibility {
-        message: &'static str,
-        alias: Option<String>,
-    },
-    /// `message` is the `answer` name of the `visibility::Names` given.
-    AnswerVisibility {
-        message: &'static str,
-        plugin_id: u32,
-        answer: String,
     },
     OpenSettings {
         message: String,
@@ -978,21 +942,6 @@ impl Host for Recorder {
             configuration,
             coordinates,
             context,
-        });
-    }
-
-    fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
-        self.record(Call::AskVisibility {
-            message: names.ask,
-            alias: alias.map(str::to_string),
-        });
-    }
-
-    fn answer_visibility(&self, names: &visibility::Names, plugin_id: u32, answer: &str) {
-        self.record(Call::AnswerVisibility {
-            message: names.answer,
-            plugin_id,
-            answer: answer.to_string(),
         });
     }
 
