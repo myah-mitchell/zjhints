@@ -127,15 +127,25 @@ mouse_wheel_reversed true
 
 ## Frame buttons
 
-Every pane that takes focus, tiled or floating, gets three buttons at the right of its frame's top row: minimize, maximize and close. They work with `mouse` off too, since the clicks land on the frame and not the bar.
+Every pane that takes focus gets three buttons at the right of its frame's top row: minimize, maximize and close. They work with `mouse` off too, since the clicks land on the frame and not the bar.
+
+The buttons need a frame to sit on. Floating panes always have one. Tiled panes have one only with full frames, so set this in your Zellij config to give them buttons:
+
+```kdl
+pane_frame_style "full"
+```
+
+With Zellij's default frame style, `titles`, a tiled pane shows a title line with no room for buttons. With `pane_frame_style "none"` or `pane_frames false`, it has no frame at all.
 
 | Button | Left click |
 | --- | --- |
 | Minimize, `[─]` | Minimizes the pane, as a left click on its focused entry does; a tiled pane is floated first |
-| Maximize, `[□]` | Fills the tab with the pane, the button turning to `[❐]`; click again for its own size |
+| Maximize, `[□]` | Makes the pane fullscreen, filling the tab |
 | Close, `[✕]` | Closes the pane, asking first while any bar of the instance with frame buttons has `mouse_close_confirm` on |
 
 Other mouse buttons on them do nothing. A minimized pane keeps its buttons for when it comes back.
+
+A fullscreen pane has no frame, so the button that would give it back its own size, `[❐]` from `frame_restore_text`, is never drawn and can't be clicked. Leave fullscreen with Zellij's own key instead, `Ctrl p` then `f` by default.
 
 A minimized tiled pane joins the bar as a floating pane, and from then on is one like any other. It comes back where Zellij places a new floating pane, since it never stood anywhere as one. The last tiled pane of a tab has no minimize button, because Zellij keeps a tab's last tiled pane tiled.
 
