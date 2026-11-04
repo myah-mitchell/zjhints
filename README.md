@@ -2,7 +2,7 @@
 
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
-This repository is a family of Zellij bars that share one library, `zjkit`: zjhints, described on this page, and [zjtabs](#zjtabs), a tab bar. They take the same themes, format strings and settings screen.
+This repository is a family of Zellij bars that share one library, `zjkit`: zjhints, described on this page, [zjtabs](#zjtabs), a tab bar, and [zjtaskbar](#zjtaskbar), a taskbar for floating panes. They take the same themes, format strings and settings screen.
 
 > [!IMPORTANT]
 > Six of this release's features need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
@@ -103,6 +103,12 @@ For a config in daily use rather than one written for the docs, see the [Zellij 
 zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, shows the current input mode before the tabs and the session's name after them, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename, a middle click to close and Zellij's right-click menus.
 
 [zjtabs overview](docs/zjtabs/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtabs configuration reference](docs/zjtabs/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to both plugins.
+
+## zjtaskbar
+
+zjtaskbar is a taskbar for floating panes in the same family. It lists each floating pane as an entry in Zellij's own colors until you pick a theme or write a format, flags panes that are minimized, whose command has exited, that run a plugin or that are in another tab, keeps a window of entries around the focused one with a count of the rest on each side, and takes clicks to focus, minimize and restore panes, the wheel, a double-click to rename, a middle click to close and a right-click menu for each pane. A launcher button at its left end opens a menu of new floating panes, and a tray at its right end can show the clock, the session's name and the input mode once you list them.
+
+[zjtaskbar overview](docs/zjtaskbar/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtaskbar configuration reference](docs/zjtaskbar/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to every plugin.
 
 ## Known issues
 

@@ -9,7 +9,7 @@ mouse true
 It is off by default, because it needs permissions a bar that only shows hints has no reason to ask for (see [Permissions](#permissions)).
 
 > [!NOTE]
-> This page describes the mouse in zjhints. zjtabs has its own, on by default: see [Mouse in zjtabs](zjtabs/mouse.md).
+> This page describes the mouse in zjhints. zjtabs and zjtaskbar have their own, on by default: see [Mouse in zjtabs](zjtabs/mouse.md) and [Mouse in zjtaskbar](zjtaskbar/mouse.md).
 
 Mouse support needs the plugin in [a pane of its own](installation.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
 
