@@ -601,19 +601,27 @@ mod tests {
             assert_eq!(pattern_of(key), Some(pattern), "{key}");
             assert_eq!(SCHEMA.group_of(key), Some("Launcher"), "{key}");
         }
-        // Keys the launcher reads no entry from, so the screen lists them
-        // under "Other" rather than as a field.
+        // Keys the launcher reads no entry from. Each starts like a field's
+        // key, so the screen lists it under Launcher, warning that it fits
+        // no field.
         for key in [
             "launch_1_bogus",
             "launch_name",
-            "launcher_bogus",
             "launch_01_name",
             "launch_one_name",
             "launch_1_2_command",
             "launch_18446744073709551616_name",
+            "launch_1",
         ] {
             assert_eq!(pattern_of(key), None, "{key}");
+            assert!(SCHEMA.misfit_family(key).is_some(), "{key}");
+            assert_eq!(SCHEMA.group_of(key), Some("Launcher"), "{key}");
         }
+        assert_eq!(SCHEMA.patterns_with_prefix("launch_"), "launch_<n>_*");
+        // A key that does not start with `launch_` is no field's at all.
+        assert_eq!(pattern_of("launcher_bogus"), None);
+        assert!(SCHEMA.misfit_family("launcher_bogus").is_none());
+        assert_eq!(SCHEMA.group_of("launcher_bogus"), None);
     }
 
     #[test]
@@ -626,7 +634,16 @@ mod tests {
             assert_eq!(SCHEMA.group_of(key), Some("Mode"), "{key}");
             assert_eq!(SCHEMA.kind_of(key), kind, "{key}");
         }
-        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+        // A word that is no mode of Zellij's fits none, but is listed with
+        // the family it starts like, which the screen warns about.
+        assert!(SCHEMA.family_of("mode_format_bogus").is_none());
+        assert_eq!(SCHEMA.group_of("mode_format_bogus"), Some("Mode"));
+        assert_eq!(
+            SCHEMA
+                .misfit_family("mode_label_bogus")
+                .map(|family| family.pattern),
+            Some("mode_label_<mode>")
+        );
     }
 
     #[test]

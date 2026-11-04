@@ -1307,6 +1307,7 @@ fn draw_row(
         let text = Text::from(marker);
         let text = match row.marker {
             Marker::Unsaved => text.color_all(1),
+            Marker::Ignored => text.error_color_all(),
             _ => text.dim_all(),
         };
         print_text_with_coordinates(text, marker_x, y, None, None);

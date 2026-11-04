@@ -243,6 +243,78 @@ impl Schema {
             .map(|(family, _)| family)
     }
 
+    /// The family a key that fits none was most likely meant for: the one
+    /// whose prefix the key starts with, the longest prefix when several
+    /// do, and the first declared of those sharing it. `launch_1_nmae`,
+    /// `launch_x_name` and `launch_1` all start with `launch_`, the prefix
+    /// of every field of a launcher entry. The bar reads no such key, so the
+    /// screen lists it in the family's group with a warning, next to the
+    /// keys it was meant to be one of.
+    ///
+    /// `None` for a key the plugin reads, a fixed option, a key fitting a
+    /// family, or an option of the screen or the plugin itself, and for a
+    /// key starting with no family's prefix, which the screen lists under
+    /// "Other".
+    pub fn misfit_family(&self, key: &str) -> Option<&'static FamilySpec> {
+        let read = self.find(key).is_some()
+            || self.family_of(key).is_some()
+            || self.screen_options.contains(&key)
+            || self.internal_options.contains(&key);
+        if read {
+            return None;
+        }
+        self.families
+            .iter()
+            .filter(|family| !family.prefix().is_empty() && key.starts_with(family.prefix()))
+            .fold(
+                None,
+                |longest: Option<&'static FamilySpec>, family| match longest {
+                    Some(longest) if longest.prefix().len() >= family.prefix().len() => {
+                        Some(longest)
+                    }
+                    _ => Some(family),
+                },
+            )
+    }
+
+    /// Every family with `prefix` named at once, as a warning about a key
+    /// fitting none of them names them: the family's own pattern when no
+    /// other has the prefix, or what the patterns spell out in common
+    /// followed by `*`. The six fields of a launcher entry are
+    /// `launch_<n>_*`. A placeholder the patterns share only part of is left
+    /// out, so `label_<id>` and `label_<mode>_<id>` are `label_*`.
+    pub fn patterns_with_prefix(&self, prefix: &str) -> String {
+        let mut patterns = self
+            .families
+            .iter()
+            .filter(|family| family.prefix() == prefix)
+            .map(|family| family.pattern);
+        let Some(first) = patterns.next() else {
+            return format!("{prefix}*");
+        };
+        let mut common = first;
+        let mut several = false;
+        for pattern in patterns {
+            several = true;
+            let shared = common
+                .char_indices()
+                .zip(pattern.chars())
+                .find(|((_, character), other)| character != other)
+                .map_or(common.len().min(pattern.len()), |((index, _), _)| index);
+            common = &common[..shared];
+        }
+        if !several {
+            return first.to_string();
+        }
+        // Cut a placeholder the patterns share only the start of.
+        let opened = common.rfind('<');
+        let closed = common.rfind('>');
+        if opened > closed {
+            common = &common[..opened.unwrap_or(0)];
+        }
+        format!("{common}*")
+    }
+
     /// The number of the entry `key` is a field of: what the `<n>` of its
     /// family stands for, when that family is numbered and has `prefix`.
     /// `Some(12)` for `launch_12_name` and `launch_`.
@@ -254,12 +326,15 @@ impl Schema {
         key[prefix.len()..prefix.len() + length].parse().ok()
     }
 
-    /// The group a key is listed under: its option's, or its family's. `None`
-    /// for a key that is neither, which the screen lists under "Other".
+    /// The group a key is listed under: its option's, its family's, or that
+    /// of the family it was likely meant for (see `misfit_family`). `None`
+    /// for a key that is none of these, which the screen lists under
+    /// "Other".
     pub fn group_of(&self, key: &str) -> Option<&'static str> {
         self.find(key)
             .map(|option| option.group)
             .or_else(|| self.family_of(key).map(|family| family.group))
+            .or_else(|| self.misfit_family(key).map(|family| family.group))
     }
 
     /// The kind of value a key takes: its option's, or its family's, or text.
@@ -481,7 +556,54 @@ mod tests {
         assert_eq!(description("launch_1_other"), None);
         assert_eq!(description("launch_01_name"), None);
         assert_eq!(description("launch_a_config_name"), None);
-        assert_eq!(FAMILY_SCHEMA.group_of("launch_1_other"), None);
+    }
+
+    #[test]
+    fn a_key_starting_like_a_family_s_but_fitting_none_is_listed_with_it() {
+        let misfit = |key: &str| FAMILY_SCHEMA.misfit_family(key).map(|f| f.description);
+        // Each starts with `launch_`, the prefix of both launcher families,
+        // and the first declared is taken.
+        for key in ["launch_1_other", "launch_x_name", "launch_1", "launch_"] {
+            assert_eq!(misfit(key), Some("name"), "{key}");
+            assert_eq!(FAMILY_SCHEMA.group_of(key), Some("Launcher"), "{key}");
+        }
+        assert_eq!(misfit("label_"), Some("label"));
+        // A key fitting a family, or starting with no family's prefix, is
+        // no misfit.
+        assert_eq!(misfit("launch_1_name"), None);
+        assert_eq!(misfit("launcher"), None);
+        assert_eq!(misfit("other"), None);
+        assert_eq!(FAMILY_SCHEMA.group_of("other"), None);
+    }
+
+    static NESTED_PREFIXES: [FamilySpec; 2] = [
+        family("item_<n>", "Items", Kind::Text, "item"),
+        family("item_extra_<id>", "Items", Kind::Text, "extra"),
+    ];
+
+    #[test]
+    fn a_misfit_is_taken_for_the_family_with_the_longest_prefix_it_starts_with() {
+        let schema = schema_of(&NESTED_PREFIXES);
+        let misfit = |key: &str| schema.misfit_family(key).map(|f| f.description);
+        assert_eq!(misfit("item_extra_"), Some("extra"));
+        assert_eq!(misfit("item_extra"), Some("item"));
+        assert_eq!(misfit("item_x"), Some("item"));
+        assert_eq!(misfit("item_1"), None);
+        assert_eq!(misfit("item_extra_x"), None);
+    }
+
+    #[test]
+    fn the_families_sharing_a_prefix_are_named_by_what_their_patterns_share() {
+        assert_eq!(
+            FAMILY_SCHEMA.patterns_with_prefix("launch_"),
+            "launch_<n>_*"
+        );
+        assert_eq!(FAMILY_SCHEMA.patterns_with_prefix("label_"), "label_*");
+        let schema = schema_of(&NESTED_PREFIXES);
+        assert_eq!(
+            schema.patterns_with_prefix("item_extra_"),
+            "item_extra_<id>"
+        );
     }
 
     #[test]

@@ -157,6 +157,10 @@ pub enum Marker {
     Default,
     /// Not set, so the selected theme's value applies.
     Theme,
+    /// A key starting like a family's that fits none, so the bar ignores
+    /// it (see `Schema::misfit_family`). It is shown even when the key is
+    /// unsaved, since the header and the menu still count the change.
+    Ignored,
 }
 
 impl Marker {
@@ -166,6 +170,7 @@ impl Marker {
             Marker::Unsaved => "● unsaved",
             Marker::Default => "○ default",
             Marker::Theme => "○ theme",
+            Marker::Ignored => "✗ ignored",
         }
     }
 }
@@ -266,7 +271,9 @@ impl<'a> Rows<'a> {
             .map(String::as_str)
             .filter(|_| set.is_none());
         let shown = set.or(themed).or(default);
-        let marker = if editor.is_edited(key) {
+        let marker = if editor.schema().misfit_family(key).is_some() {
+            Marker::Ignored
+        } else if editor.is_edited(key) {
             Marker::Unsaved
         } else if set.is_some() {
             Marker::None
@@ -516,19 +523,25 @@ pub fn describe(editor: &Editor) -> Option<String> {
             option.description,
             option.default.unwrap_or("unset")
         ),
-        Row::Key(key) => match editor.schema().family_of(&key) {
-            Some(family) => format!(
-                "{}: {} ({}). Del removes it.",
-                crate::ansi::show_controls(&key),
-                family.description,
-                family.pattern
-            ),
-            None => format!(
-                "{}: not an option {} reads. Del removes it.",
-                crate::ansi::show_controls(&key),
-                editor.schema().plugin
-            ),
-        },
+        Row::Key(key) => {
+            let schema = editor.schema();
+            let shown = crate::ansi::show_controls(&key);
+            match (schema.family_of(&key), schema.misfit_family(&key)) {
+                (Some(family), _) => format!(
+                    "{shown}: {} ({}). Del removes it.",
+                    family.description, family.pattern
+                ),
+                (None, Some(family)) => format!(
+                    "{shown}: fits no {} option, so {} ignores it. Del removes it.",
+                    schema.patterns_with_prefix(family.prefix()),
+                    schema.plugin
+                ),
+                (None, None) => format!(
+                    "{shown}: not an option {} reads. Del removes it.",
+                    schema.plugin
+                ),
+            }
+        }
         Row::Add("") => format!(
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
