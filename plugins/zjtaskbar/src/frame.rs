@@ -15,6 +15,11 @@
 //! The buttons are sent only when they change, as a frame keeps them until
 //! the pane closes or the bar unloads. Placing them needs
 //! `ChangeApplicationState`, so none are sent before it is granted.
+//!
+//! Zellij tells only the plugins of the tab on screen about the panes, so a
+//! bar in another tab cannot see a pane leave it. A bar that pulls a pane
+//! into the tab on screen says so in a `PULLED_MESSAGE` to the others, and
+//! the one that framed it where it was takes its buttons off.
 
 use crate::entries::{is_minimized, Minimized, PaneScope};
 use crate::State;
@@ -22,6 +27,36 @@ use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zjkit::host::Host;
 use zjkit::panes::pane_id_of;
+
+/// The message a bar sends every other bar once it has pulled a pane into
+/// the tab on screen. Its payload is `pulled_payload`'s.
+pub(crate) const PULLED_MESSAGE: &str = "zjtaskbar::pulled";
+
+/// The payload of a `PULLED_MESSAGE` for `pane`, pulled into the tab at
+/// `position`: the position, then `terminal` or `plugin` and the pane's id.
+pub(crate) fn pulled_payload(pane: PaneId, position: usize) -> String {
+    match pane {
+        PaneId::Terminal(id) => format!("{position} terminal {id}"),
+        PaneId::Plugin(id) => format!("{position} plugin {id}"),
+    }
+}
+
+/// The pane and tab position of a `PULLED_MESSAGE`'s payload, if it is one.
+fn parse_pulled(payload: &str) -> Option<(PaneId, usize)> {
+    let mut words = payload.split(' ');
+    let position = words.next()?.parse().ok()?;
+    let kind = words.next()?;
+    let id = words.next()?.parse().ok()?;
+    if words.next().is_some() {
+        return None;
+    }
+    let pane = match kind {
+        "terminal" => PaneId::Terminal(id),
+        "plugin" => PaneId::Plugin(id),
+        _ => return None,
+    };
+    Some((pane, position))
+}
 
 /// One button of a pane's frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -236,6 +271,43 @@ impl State {
             }
         }
         self.frame_items_sent = wanted;
+    }
+
+    /// Tell the other bars that `pane` was pulled into the tab on screen.
+    /// See the module's docs.
+    pub(crate) fn announce_pull(&self, pane: PaneId) {
+        if let Some(tab) = self.tabs.iter().find(|tab| tab.active) {
+            self.host
+                .broadcast(PULLED_MESSAGE, pulled_payload(pane, tab.position));
+        }
+    }
+
+    /// A `PULLED_MESSAGE` from a bar, this one included: take the buttons
+    /// off the pane it names unless this bar frames the tab it went to.
+    ///
+    /// The bar may not have seen the pane leave, so it goes by the tab the
+    /// message names. The next `PaneUpdate` it gets puts them back if they
+    /// belong there after all.
+    pub(crate) fn pane_pulled(&mut self, payload: Option<&str>) {
+        let Some((pane, position)) = payload.and_then(parse_pulled) else {
+            return;
+        };
+        if !self.frame_items_sent.contains_key(&pane) {
+            return;
+        }
+        let frames_destination = self.bar.plugin_id.is_some_and(|id| {
+            owned_tabs(
+                &self.panes,
+                PaneId::Plugin(id),
+                self.bar.own_url.as_deref(),
+                self.pane_scope,
+            )
+            .contains_key(&position)
+        });
+        if !frames_destination {
+            self.frame_items_sent.remove(&pane);
+            self.host.set_pane_frame_items(pane, vec![]);
+        }
     }
 
     /// A click on one of the bar's frame buttons, `item_id`, on `pane`.

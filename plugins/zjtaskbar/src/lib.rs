@@ -561,6 +561,10 @@ impl ZellijPlugin for State {
                 self.sync_frame_buttons();
                 should_render
             }
+            None if message.name == frame::PULLED_MESSAGE => {
+                self.pane_pulled(message.payload.as_deref());
+                false
+            }
             None => false,
         }
     }

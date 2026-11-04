@@ -319,6 +319,9 @@ impl State {
             self.host
                 .change_floating_panes_coordinates(vec![(pane, geometry)]);
         }
+        if shown_here {
+            self.announce_pull(pane);
+        }
     }
 
     /// Focus `pane`, pulling it into the tab on screen if it is in another;
@@ -336,7 +339,8 @@ impl State {
     /// Zellij moves a pane between tabs only as it shows it from hidden, so
     /// the pane is hidden first and shown in the tab on screen. As with
     /// `restore`, showing it places it as if it were new, so where it stood
-    /// is read before it is hidden and put back after.
+    /// is read before it is hidden and put back after. The other bars are
+    /// told, as the one framing the tab it left may not see it go.
     fn pull(&mut self, pane: PaneId) -> bool {
         let Some(tab_id) = self.tab_to_pull_into(pane) else {
             return false;
@@ -355,6 +359,7 @@ impl State {
         }
         self.host
             .change_floating_panes_coordinates(vec![(pane, geometry)]);
+        self.announce_pull(pane);
         true
     }
 

@@ -1739,6 +1739,7 @@ fn a_left_click_focuses_a_plugin_pane_and_pulls_one_from_another_tab() {
                 far,
                 mouse::geometry_of(&floating(2, "far"))
             )]),
+            pulled(far, 0),
         ]
     );
 }
@@ -4145,8 +4146,73 @@ fn restoring_a_minimized_pane_of_another_tab_shows_it_in_this_one_where_it_stood
                 tab_id: Some(100),
             },
             Call::ChangeFloatingPanesCoordinates(vec![(far, mouse::geometry_of(&stood))]),
+            pulled(far, 0),
         ]
     );
+}
+
+/// The message a bar sends the others once it pulled `pane` into the tab
+/// at `position`.
+fn pulled(pane: PaneId, position: usize) -> Call {
+    Call::Broadcast {
+        name: "zjtaskbar::pulled".to_string(),
+        payload: frame::pulled_payload(pane, position),
+    }
+}
+
+/// The `zjtaskbar::pulled` message `payload`, as another bar sends it.
+fn pulled_message(payload: &str) -> PipeMessage {
+    PipeMessage::new(
+        PipeSource::Plugin(50),
+        "zjtaskbar::pulled",
+        &Some(payload.to_string()),
+        &None,
+        false,
+    )
+}
+
+#[test]
+fn a_pulled_message_names_the_tab_and_the_pane() {
+    assert_eq!(
+        frame::pulled_payload(PaneId::Terminal(2), 1),
+        "1 terminal 2"
+    );
+    assert_eq!(frame::pulled_payload(PaneId::Plugin(7), 0), "0 plugin 7");
+}
+
+#[test]
+fn a_bar_takes_its_buttons_off_a_pane_pulled_into_a_tab_it_does_not_frame() {
+    // This bar has not seen the pane leave its tab, as Zellij tells only the
+    // plugins of the tab on screen.
+    let mut state = framed_bar(&PLAIN);
+    state.host.clear();
+    assert!(!state.pipe(pulled_message("1 terminal 1")));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::SetPaneFrameItems(PaneId::Terminal(1), vec![])]
+    );
+    // An update with the pane still in this tab puts them back.
+    let unchanged = Event::PaneUpdate(state.panes.clone());
+    assert_eq!(
+        frame_items(&after_event(&mut state, unchanged)),
+        vec![(PaneId::Terminal(1), default_frame_items(false))]
+    );
+}
+
+#[test]
+fn a_bar_keeps_its_buttons_on_a_pane_pulled_into_a_tab_it_frames() {
+    let mut state = framed_bar(&PLAIN);
+    state.host.clear();
+    for payload in [
+        "0 terminal 1",
+        "1 terminal 3",
+        "1 plugin 1",
+        "1 terminal",
+        "x terminal 1",
+    ] {
+        assert!(!state.pipe(pulled_message(payload)));
+    }
+    assert_eq!(state.host.calls(), vec![]);
 }
 
 #[test]
