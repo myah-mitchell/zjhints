@@ -157,7 +157,7 @@ Press `↓` to move from the search box to the results, and `↑` on the first r
 
 ## Format strings
 
-Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. In a hint's format, `{key}` shows `Ctrl p`, spelled with your modifier aliases, and `{desc}` shows `Pane`. In a mode format, `{mode}` shows the mode's name, such as `NORMAL`, and `{desc}` and `{key}` show that mode's `mode_label_<mode>` and `mode_key_<mode>` as the bar draws them. A format string that draws nothing visible is shown as written instead.
 
 The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, an unsaved edit to `desc_format` that makes its description italic, and `hint_spacer` on the selected row:
 

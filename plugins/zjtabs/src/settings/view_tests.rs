@@ -183,6 +183,21 @@ fn a_mode_format_is_sampled_with_the_mode_it_is_for() {
 }
 
 #[test]
+fn a_mode_format_s_description_and_symbol_are_sampled_as_the_bar_draws_them() {
+    // Unset, the description is the mode's name and the symbol draws
+    // nothing, rather than either showing as written.
+    assert_eq!(
+        sampled("mode_format", "[{key}]{desc}", &[]).as_deref(),
+        Some("[]NORMAL")
+    );
+    let per_mode = [("mode_label_locked", "Lock"), ("mode_key_locked", "L")];
+    assert_eq!(
+        sampled("mode_format_locked", "{key} {desc}", &per_mode).as_deref(),
+        Some("L Lock")
+    );
+}
+
+#[test]
 fn the_preview_shows_the_mode_prefix_unless_show_mode_is_off() {
     let line = plain(&draw_bar(BTreeMap::new(), &mode_info(), 200));
     assert!(line.starts_with(" NORMAL "), "{line:?}");

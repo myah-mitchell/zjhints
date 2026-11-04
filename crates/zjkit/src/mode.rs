@@ -94,22 +94,52 @@ pub fn render_mode_prefix(
     config: &BTreeMap<String, String>,
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
-    let mode_name = format!("{:?}", mode).to_uppercase();
     let suffix = mode_config_suffix(mode);
-    let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).map(String::as_str);
-    let label = per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or(&mode_name);
-    let symbol = per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default();
-    let format_str = per_mode(CONFIG_MODE_FORMAT_PREFIX).or(mode_format);
+    let format_str = config
+        .get(&format!("{CONFIG_MODE_FORMAT_PREFIX}{suffix}"))
+        .map(String::as_str)
+        .or(mode_format);
+    let words = ModeWords::of(mode, config);
 
     match format_str {
         Some(fmt) => format::render_template(
             fmt,
-            &[("mode", &mode_name), ("desc", label), ("key", symbol)],
+            &[
+                ("mode", &words.name),
+                ("desc", &words.label),
+                ("key", &words.symbol),
+            ],
             config,
             dim,
         ),
-        None if symbol.is_empty() => style_mode(label, colors),
-        None => style_mode(&format!("{symbol} {label}"), colors),
+        None if words.symbol.is_empty() => style_mode(&words.label, colors),
+        None => style_mode(&format!("{} {}", words.symbol, words.label), colors),
+    }
+}
+
+/// What a mode's format string draws for its placeholders.
+struct ModeWords {
+    /// The bare name of the mode's variant in capitals, as `ENTERSEARCH`,
+    /// drawn for `{mode}`.
+    name: String,
+    /// `mode_label_<mode>`, or the bare name while it is unset, drawn for
+    /// `{desc}`.
+    label: String,
+    /// `mode_key_<mode>`, or nothing while it is unset, drawn for `{key}`.
+    symbol: String,
+}
+
+impl ModeWords {
+    /// The words for `mode`, from the per-mode options in `config`.
+    fn of(mode: InputMode, config: &BTreeMap<String, String>) -> Self {
+        let name = format!("{:?}", mode).to_uppercase();
+        let suffix = mode_config_suffix(mode);
+        let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).cloned();
+        ModeWords {
+            label: per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or_else(|| name.clone()),
+            symbol: per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default(),
+            name,
+        }
     }
 }
 
@@ -320,15 +350,30 @@ fn zellij_hides_session_name(mode_info: &ModeInfo) -> bool {
 /// The placeholders a bar fills in the mode prefix's format string under
 /// `key`, with the sample value each gets in the settings screen's list, or
 /// `None` when `key` is not one of the mode prefix's formats.
-pub fn sample_values(key: &str) -> Option<Vec<(&'static str, String)>> {
-    if key == CONFIG_MODE_FORMAT {
-        Some(vec![("mode", "NORMAL".to_string())])
+///
+/// The sample is the mode `key` is for, or normal mode for `mode_format`,
+/// which every mode without a format of its own draws. Each placeholder gets
+/// what the bar draws for it in that mode, with `config`'s
+/// `mode_label_<mode>` and `mode_key_<mode>`, so `{desc}` and `{key}` show
+/// as the bar would show them rather than as written.
+pub fn sample_values(
+    key: &str,
+    config: &BTreeMap<String, String>,
+) -> Option<Vec<(&'static str, String)>> {
+    let mode = if key == CONFIG_MODE_FORMAT {
+        InputMode::Normal
     } else {
-        // The bar names a mode by its variant, which is the suffix without
-        // underscores: enter_search is ENTERSEARCH.
-        key.strip_prefix(CONFIG_MODE_FORMAT_PREFIX)
-            .map(|mode| vec![("mode", mode.replace('_', "").to_uppercase())])
-    }
+        let suffix = key.strip_prefix(CONFIG_MODE_FORMAT_PREFIX)?;
+        INPUT_MODES
+            .into_iter()
+            .find(|mode| mode_config_suffix(*mode) == suffix)?
+    };
+    let words = ModeWords::of(mode, config);
+    Some(vec![
+        ("mode", words.name),
+        ("desc", words.label),
+        ("key", words.symbol),
+    ])
 }
 
 #[cfg(test)]
@@ -349,6 +394,43 @@ mod tests {
         let mut layered = configuration.clone();
         layer_theme(&configuration, &mut layered);
         layered
+    }
+
+    #[test]
+    fn a_mode_format_is_sampled_with_what_the_bar_draws_for_its_mode() {
+        let values = |key: &str, pairs: &[(&str, &str)]| sample_values(key, &cfg(pairs));
+        let samples = |mode: &str, desc: &str, key: &str| {
+            Some(vec![
+                ("mode", mode.to_string()),
+                ("desc", desc.to_string()),
+                ("key", key.to_string()),
+            ])
+        };
+        // Unset, the description is the mode's name and the symbol nothing.
+        assert_eq!(values("mode_format", &[]), samples("NORMAL", "NORMAL", ""));
+        assert_eq!(
+            values("mode_format_enter_search", &[]),
+            samples("ENTERSEARCH", "ENTERSEARCH", "")
+        );
+        // Set, they are the mode's own label and symbol, and normal mode's
+        // for the format every mode draws.
+        let per_mode = [
+            ("mode_label_normal", "Go"),
+            ("mode_key_normal", "N"),
+            ("mode_label_locked", "Lock"),
+            ("mode_key_locked", "L"),
+        ];
+        assert_eq!(
+            values("mode_format", &per_mode),
+            samples("NORMAL", "Go", "N")
+        );
+        assert_eq!(
+            values("mode_format_locked", &per_mode),
+            samples("LOCKED", "Lock", "L")
+        );
+        for key in ["mode_format_bogus", "mode_label_locked", "session_format"] {
+            assert_eq!(values(key, &per_mode), None, "{key}");
+        }
     }
 
     #[test]

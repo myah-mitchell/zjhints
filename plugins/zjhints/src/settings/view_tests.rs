@@ -222,6 +222,23 @@ fn formats_are_rendered_unless_raw_is_asked_for() {
 }
 
 #[test]
+fn a_mode_format_draws_the_mode_s_label_and_symbol_being_edited() {
+    let editor = editor(&[
+        ("mode_format", "{key}{desc}"),
+        ("mode_format_locked", "{key} {desc}"),
+        ("mode_label_locked", "Lock"),
+        ("mode_key_locked", "L"),
+    ]);
+    let shown = |row: &Row| match row_view(&editor, row, FormatView::Rendered).control {
+        Control::Text { text, .. } => text,
+        other => panic!("{other:?}"),
+    };
+    // Normal mode has no label or symbol set, so its name and nothing.
+    assert_eq!(shown(&option_row("mode_format")), "NORMAL");
+    assert_eq!(shown(&key_row("mode_format_locked")), "L Lock");
+}
+
+#[test]
 fn a_rendered_key_uses_the_modifier_aliases_being_edited() {
     let editor = editor(&[("mod_alias_ctrl", "^"), ("key_format", "{key}")]);
     let view = row_view(&editor, &option_row("key_format"), FormatView::Rendered);
