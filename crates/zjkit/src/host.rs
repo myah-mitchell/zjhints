@@ -58,6 +58,17 @@ pub trait Host {
     /// Have Zellij send `Event::Timer` after `seconds`.
     fn set_timeout(&self, seconds: f64);
 
+    /// The location plugin `plugin_id` of this session runs from, written
+    /// the way a `PaneUpdate` writes the URL of a pane started from a
+    /// location: `file:/path/to/plugin.wasm`, say. For a plugin started from
+    /// an alias, this is the location the alias stands for, where its own
+    /// pane reports the alias name. `None` when Zellij cannot say. Needs the
+    /// `ReadApplicationState` permission.
+    ///
+    /// Not a `Call`: asking changes nothing. A test sets what a `Recorder`
+    /// reports with `Recorder::set_plugin_location`.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String>;
+
     /// Send a pipe message called `name` with `payload` to every running
     /// plugin, launching none.
     fn broadcast(&self, name: &str, payload: String);
@@ -179,6 +190,20 @@ impl Host for Zellij {
 
     fn set_timeout(&self, seconds: f64) {
         set_timeout(seconds);
+    }
+
+    /// Read from the plugins Zellij lists for this session, which it keeps
+    /// by plugin id with the alias already resolved to its location.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
+        let snapshot = get_session_list().ok()?;
+        let mut session = snapshot
+            .live_sessions
+            .into_iter()
+            .find(|session| session.is_current_session)?;
+        session
+            .plugins
+            .remove(&plugin_id)
+            .map(|plugin| plugin.location)
     }
 
     fn broadcast(&self, name: &str, payload: String) {
@@ -339,6 +364,9 @@ pub struct Recorder {
     calls: RefCell<Vec<Call>>,
     /// How many prompts this recorder has been asked to show.
     prompts: Cell<u64>,
+    /// What `plugin_location` reports, by plugin id: nothing until a test
+    /// sets it.
+    plugin_locations: RefCell<BTreeMap<u32, String>>,
 }
 
 impl Recorder {
@@ -357,6 +385,14 @@ impl Recorder {
     /// does without the steps before it.
     pub fn clear(&self) {
         self.calls.borrow_mut().clear();
+    }
+
+    /// Have `plugin_location` report `location` for plugin `plugin_id` from
+    /// now on.
+    pub fn set_plugin_location(&self, plugin_id: u32, location: &str) {
+        self.plugin_locations
+            .borrow_mut()
+            .insert(plugin_id, location.to_string());
     }
 
     fn record(&self, call: Call) {
@@ -399,6 +435,11 @@ impl Host for Recorder {
 
     fn set_timeout(&self, seconds: f64) {
         self.record(Call::SetTimeout(seconds));
+    }
+
+    /// The location `set_plugin_location` set for `plugin_id`, if any.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
+        self.plugin_locations.borrow().get(&plugin_id).cloned()
     }
 
     fn broadcast(&self, name: &str, payload: String) {

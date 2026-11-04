@@ -28,7 +28,7 @@ use crate::settings::schema::{Configuration, Schema};
 use crate::settings::screen::SettingsScreen;
 use crate::theme;
 use crate::visibility::{self, Request, Visibility};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use zellij_tile::prelude::*;
 
 /// What zjkit needs to know about a plugin to run its bar. Each plugin has
@@ -215,6 +215,14 @@ pub struct BarCore {
     /// `load_plugins`, has a hidden pane that reports it too. `None` until
     /// the first `PaneUpdate`.
     pub own_url: Option<String>,
+    /// The location this bar runs from, as `Host::plugin_location` reports
+    /// it, once a preview has needed it. For a bar started from an alias,
+    /// this is where the alias leads, while `own_url` is the alias name.
+    pub own_location: Option<String>,
+    /// The URL each plugin pane of the session reports, by plugin id, from
+    /// the last `PaneUpdate`. A preview is taken only from a plugin whose
+    /// pane runs this bar's own plugin. See `BarCore::sent_by_own_plugin`.
+    pub plugin_pane_urls: BTreeMap<u32, String>,
     /// Hidden by a hide or toggle message, or by the `hidden` option, and
     /// what Zellij was last told about the pane's row.
     pub visibility: Visibility,
@@ -406,6 +414,7 @@ impl BarCore {
                 if let Some(url) = own_pane_url(manifest, self.plugin_id) {
                     self.own_url = Some(url);
                 }
+                self.plugin_pane_urls = plugin_pane_urls(manifest);
                 // The first pane update is the earliest this bar knows which
                 // alias it runs as, and that it may message other plugins.
                 if self.visibility.should_ask() {
@@ -466,14 +475,22 @@ impl BarCore {
             return Some(Handled::redraw_if(self.change_visibility(request, payload)));
         }
         if message.name == spec.schema.live_message {
-            return Some(self.take_preview(spec, message));
+            return Some(self.take_preview(host, spec, message));
         }
         None
     }
 
     /// A preview from the settings screen, when it is for this bar and
     /// changes an option this bar follows the alias in.
-    fn take_preview(&mut self, spec: &BarSpec, message: &PipeMessage) -> Handled {
+    ///
+    /// A preview can add launcher entries and change what the bar runs, so
+    /// it is taken only when `sent_by_own_plugin` says the settings screen
+    /// could have sent it. A preview from another plugin, from `zellij pipe`
+    /// or from a keybinding changes nothing.
+    fn take_preview(&mut self, host: &impl Host, spec: &BarSpec, message: &PipeMessage) -> Handled {
+        if !self.sent_by_own_plugin(host, &message.source) {
+            return Handled::Nothing;
+        }
         let Some((alias, changes)) = live::decode(&message.args) else {
             return Handled::Nothing;
         };
@@ -487,6 +504,46 @@ impl BarCore {
         theme::log_unknown_themes(spec.schema.plugin, &configuration);
         Handled::Reconfigure(configuration)
     }
+
+    /// Whether `source` is a plugin whose pane runs this bar's own plugin,
+    /// as the settings screen's does.
+    ///
+    /// A bar opens the screen from the location its alias stands for, so
+    /// the screen's pane reports that location as its URL, where the bar's
+    /// own pane reports the alias name. The bar learns the location from
+    /// `Host::plugin_location` the first time a preview needs it.
+    ///
+    /// A pane reporting the bar's own URL runs the same plugin too, as a
+    /// screen started from the alias would, so it counts as well. A plugin
+    /// with no pane in the last `PaneUpdate` counts as another plugin.
+    fn sent_by_own_plugin(&mut self, host: &impl Host, source: &PipeSource) -> bool {
+        let PipeSource::Plugin(sender) = source else {
+            return false;
+        };
+        let Some(sender_url) = self.plugin_pane_urls.get(sender) else {
+            return false;
+        };
+        if self.own_url.as_ref() == Some(sender_url) {
+            return true;
+        }
+        if self.own_location.is_none() {
+            self.own_location = self
+                .plugin_id
+                .and_then(|plugin_id| host.plugin_location(plugin_id));
+        }
+        self.own_location.as_ref() == Some(sender_url)
+    }
+}
+
+/// The URL each plugin pane in `manifest` reports, by plugin id.
+fn plugin_pane_urls(manifest: &PaneManifest) -> BTreeMap<u32, String> {
+    manifest
+        .panes
+        .values()
+        .flatten()
+        .filter(|pane| pane.is_plugin)
+        .filter_map(|pane| Some((pane.id, pane.plugin_url.clone()?)))
+        .collect()
 }
 
 #[cfg(test)]
@@ -557,11 +614,38 @@ mod tests {
             .collect()
     }
 
-    /// A bar that knows it runs as the alias `zjtest`, with plugin id 3.
+    /// Where the plugin of the alias `zjtest` is, which the settings screen
+    /// is opened from.
+    const LOCATION: &str = "file:/plugins/zjtest.wasm";
+
+    /// A bar that knows it runs as the alias `zjtest`, with plugin id 3, and
+    /// the settings screen, plugin 5, open beside it.
     fn bar_of_alias() -> BarCore {
         BarCore {
             plugin_id: Some(3),
             own_url: Some("zjtest".to_string()),
+            plugin_pane_urls: BTreeMap::from([
+                (3, "zjtest".to_string()),
+                (5, LOCATION.to_string()),
+            ]),
+            ..Default::default()
+        }
+    }
+
+    /// A host that reports plugin 3, the bar of `bar_of_alias`, as running
+    /// from `LOCATION`.
+    fn host_of_alias() -> Recorder {
+        let host = Recorder::default();
+        host.set_plugin_location(3, LOCATION);
+        host
+    }
+
+    /// A plugin pane reporting `url`, as a `PaneUpdate` lists it.
+    fn plugin_pane(id: u32, url: &str) -> PaneInfo {
+        PaneInfo {
+            id,
+            is_plugin: true,
+            plugin_url: Some(url.to_string()),
             ..Default::default()
         }
     }
@@ -574,9 +658,18 @@ mod tests {
         message(PipeSource::Plugin(id), name, payload)
     }
 
-    /// A preview from the settings screen of the alias `alias`, changing
-    /// each key from its `was` to its `now`.
+    /// A preview from the settings screen of the alias `alias`, plugin 5,
+    /// changing each key from its `was` to its `now`.
     fn preview(alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> PipeMessage {
+        preview_from(PipeSource::Plugin(5), alias, changes)
+    }
+
+    /// A preview as `preview` makes it, but sent from `source`.
+    fn preview_from(
+        source: PipeSource,
+        alias: &str,
+        changes: &[(&str, Option<&str>, Option<&str>)],
+    ) -> PipeMessage {
         let changes: Vec<live::Change> = changes
             .iter()
             .map(|(key, was, now)| live::Change {
@@ -586,7 +679,7 @@ mod tests {
             })
             .collect();
         PipeMessage::new(
-            PipeSource::Plugin(5),
+            source,
             SCHEMA.live_message,
             &None,
             &Some(live::encode(alias, &changes)),
@@ -1077,7 +1170,7 @@ mod tests {
 
     #[test]
     fn a_preview_for_this_bar_hands_back_the_changed_options() {
-        let host = Recorder::default();
+        let host = host_of_alias();
         let mut bar = bar_of_alias();
         let _ = bar.configure(&SPEC, configuration(&[("max_length", "10")]));
         let changes = [("max_length", Some("10"), Some("30"))];
@@ -1091,11 +1184,99 @@ mod tests {
             configuration(&[("max_length", "10")])
         );
         assert_eq!(host.calls(), Vec::new());
+        // The location the alias stands for is kept for the next preview.
+        assert_eq!(bar.own_location.as_deref(), Some(LOCATION));
+    }
+
+    #[test]
+    fn a_preview_is_taken_from_the_screen_a_pane_update_lists() {
+        let host = host_of_alias();
+        let mut bar = BarCore {
+            plugin_id: Some(3),
+            ..Default::default()
+        };
+        let panes = vec![plugin_pane(3, "zjtest"), plugin_pane(5, LOCATION)];
+        let _ = bar.update(&host, &SPEC, &Event::PaneUpdate(manifest(panes)));
+        let changes = [("max_length", None, Some("30"))];
+        assert_eq!(
+            bar.pipe(&host, &SPEC, &preview("zjtest", &changes)),
+            Some(Handled::Reconfigure(configuration(&[("max_length", "30")])))
+        );
+
+        // Once the screen's pane is closed, a plugin given its id later is
+        // not taken for it.
+        let panes = vec![plugin_pane(3, "zjtest")];
+        let _ = bar.update(&host, &SPEC, &Event::PaneUpdate(manifest(panes)));
+        assert_eq!(
+            bar.pipe(&host, &SPEC, &preview("zjtest", &changes)),
+            Some(Handled::Nothing)
+        );
+    }
+
+    #[test]
+    fn a_preview_from_a_pane_of_the_bar_s_own_alias_is_taken_as_it_is() {
+        // A screen started from the alias reports the alias name, as the bar
+        // does, so the bar need not ask where the alias leads.
+        let host = Recorder::default();
+        let mut bar = bar_of_alias();
+        bar.plugin_pane_urls.insert(5, "zjtest".to_string());
+        let changes = [("max_length", None, Some("30"))];
+        assert_eq!(
+            bar.pipe(&host, &SPEC, &preview("zjtest", &changes)),
+            Some(Handled::Reconfigure(configuration(&[("max_length", "30")])))
+        );
+        assert_eq!(bar.own_location, None);
+    }
+
+    #[test]
+    fn a_preview_from_another_plugin_is_refused() {
+        let host = host_of_alias();
+        let mut bar = bar_of_alias();
+        bar.plugin_pane_urls
+            .insert(6, "file:/plugins/other.wasm".to_string());
+        let changes = [("max_length", None, Some("30"))];
+        for sender in [6, 9] {
+            // Plugin 9 has no pane at all.
+            let message = preview_from(PipeSource::Plugin(sender), "zjtest", &changes);
+            assert_eq!(
+                bar.pipe(&host, &SPEC, &message),
+                Some(Handled::Nothing),
+                "plugin {sender}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_preview_from_zellij_pipe_or_a_keybinding_is_refused() {
+        let host = host_of_alias();
+        let mut bar = bar_of_alias();
+        let changes = [("max_length", None, Some("30"))];
+        for source in [PipeSource::Cli("pipe-1".to_string()), PipeSource::Keybind] {
+            let message = preview_from(source.clone(), "zjtest", &changes);
+            assert_eq!(
+                bar.pipe(&host, &SPEC, &message),
+                Some(Handled::Nothing),
+                "{source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_bar_whose_location_is_unknown_refuses_a_preview_from_another_location() {
+        // Zellij could not say where the alias bar runs from, so a pane
+        // reporting a location is not known to be the screen.
+        let host = Recorder::default();
+        let mut bar = bar_of_alias();
+        let changes = [("max_length", None, Some("30"))];
+        assert_eq!(
+            bar.pipe(&host, &SPEC, &preview("zjtest", &changes)),
+            Some(Handled::Nothing)
+        );
     }
 
     #[test]
     fn a_preview_for_another_alias_is_ignored() {
-        let host = Recorder::default();
+        let host = host_of_alias();
         let mut bar = bar_of_alias();
         let changes = [("max_length", None, Some("30"))];
         assert_eq!(
@@ -1106,7 +1287,7 @@ mod tests {
 
     #[test]
     fn a_preview_leaves_a_key_the_bar_got_elsewhere_alone() {
-        let host = Recorder::default();
+        let host = host_of_alias();
         // The layout gave this bar max_length 5; the alias does not set it.
         let mut bar = bar_of_alias();
         let _ = bar.configure(&SPEC, configuration(&[("max_length", "5")]));

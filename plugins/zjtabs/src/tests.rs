@@ -2057,8 +2057,13 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
 }
 
 /// A preview from the settings screen of `alias`, as `pipe` gets it, with
-/// each change as `(key, value before, value now)`.
+/// each change as `(key, value before, value now)`. The screen is plugin 5,
+/// whose pane runs from the bar's own URL, as a bar only takes a preview
+/// from its own plugin.
 fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
+    if let Some(url) = state.bar.own_url.clone() {
+        state.bar.plugin_pane_urls.insert(5, url);
+    }
     let changes: Vec<live::Change> = changes
         .iter()
         .map(|(key, was, now)| live::Change {

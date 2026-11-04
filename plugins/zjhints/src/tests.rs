@@ -2726,8 +2726,17 @@ fn preview_args(
 }
 
 /// Send `bar` a preview from the settings screen, as `pipe` gets it.
-/// Returns whether the bar should redraw.
+/// Returns whether the bar should redraw. The screen is plugin 5, whose pane
+/// runs from the bar's own URL, as a bar only takes a preview from its own
+/// plugin. A bar that has had no `PaneUpdate` yet is first given the alias
+/// `zjhints` for its URL, as its first one would give it.
 fn preview(bar: &mut State, args: BTreeMap<String, String>) -> bool {
+    let url = bar
+        .bar
+        .own_url
+        .get_or_insert_with(|| "zjhints".to_string())
+        .clone();
+    bar.bar.plugin_pane_urls.insert(5, url);
     bar.pipe(PipeMessage::new(
         PipeSource::Plugin(5),
         settings::SCHEMA.live_message,
