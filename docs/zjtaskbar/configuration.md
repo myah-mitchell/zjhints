@@ -136,10 +136,10 @@ Buttons on the frames of every pane, as a desktop window has: minimize, maximize
 | Option | Default | What it does |
 | --- | --- | --- |
 | `frame_buttons` | `true` | Put minimize, maximize and close buttons on the frames of every pane, minimize floating a tiled pane |
-| `frame_minimize_text` | ` ─` | Text of the minimize button, which an empty value leaves off |
-| `frame_maximize_text` | ` □` | Text of the maximize button, which an empty value leaves off |
-| `frame_restore_text` | ` ❐` | Text of the maximize button while its pane fills the tab, a click giving it back its own size |
-| `frame_close_text` | ` ✕ ` | Text of the close button, which an empty value leaves off |
+| `frame_minimize_text` | ` [─]` | Text of the minimize button, which an empty value leaves off |
+| `frame_maximize_text` | ` [□]` | Text of the maximize button, which an empty value leaves off |
+| `frame_restore_text` | ` [❐]` | Text of the maximize button while its pane fills the tab, a click giving it back its own size |
+| `frame_close_text` | ` [✕] ` | Text of the close button, which an empty value leaves off |
 
 Zellij draws a plugin's buttons side by side with nothing between them, so each default starts with a space. The close button asks first while `mouse_close_confirm` is on, which takes the *Start new terminals and plugins* permission even with `mouse` off.
 

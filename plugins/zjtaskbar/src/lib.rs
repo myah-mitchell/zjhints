@@ -137,10 +137,10 @@ const DEFAULT_FRAME_BUTTONS: bool = true;
 // fonts that draw Zellij's frames have, rather than Nerd Font glyphs. Each
 // starts with a space, as Zellij puts nothing between a plugin's items; the
 // last ends with one too, before the frame's own indications.
-const DEFAULT_FRAME_MINIMIZE_TEXT: &str = " \u{2500}";
-const DEFAULT_FRAME_MAXIMIZE_TEXT: &str = " \u{25a1}";
-const DEFAULT_FRAME_RESTORE_TEXT: &str = " \u{2750}";
-const DEFAULT_FRAME_CLOSE_TEXT: &str = " \u{2715} ";
+const DEFAULT_FRAME_MINIMIZE_TEXT: &str = " [\u{2500}]";
+const DEFAULT_FRAME_MAXIMIZE_TEXT: &str = " [\u{25a1}]";
+const DEFAULT_FRAME_RESTORE_TEXT: &str = " [\u{2750}]";
+const DEFAULT_FRAME_CLOSE_TEXT: &str = " [\u{2715}] ";
 // On by default, as a desktop taskbar has its start button: opening a new
 // terminal or one of Zellij's own screens is a click away with nothing to
 // set up. It needs the mouse, which is on by default too.

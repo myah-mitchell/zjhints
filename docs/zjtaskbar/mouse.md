@@ -129,9 +129,9 @@ Every pane that takes focus, tiled or floating, gets three buttons at the right 
 
 | Button | Left click |
 | --- | --- |
-| Minimize, `─` | Minimizes the pane, as a left click on its focused entry does; a tiled pane is floated first |
-| Maximize, `□` | Fills the tab with the pane, the button turning to `❐`; click again for its own size |
-| Close, `✕` | Closes the pane, asking first while `mouse_close_confirm` is on |
+| Minimize, `[─]` | Minimizes the pane, as a left click on its focused entry does; a tiled pane is floated first |
+| Maximize, `[□]` | Fills the tab with the pane, the button turning to `[❐]`; click again for its own size |
+| Close, `[✕]` | Closes the pane, asking first while `mouse_close_confirm` is on |
 
 Other mouse buttons on them do nothing. A minimized pane keeps its buttons for when it comes back.
 
