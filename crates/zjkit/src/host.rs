@@ -23,6 +23,7 @@ use crate::{popup, visibility};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use zellij_tile::prelude::actions::Action;
 use zellij_tile::prelude::*;
 
@@ -58,6 +59,31 @@ pub trait Host {
     /// Have Zellij send `Event::Timer` after `seconds`.
     fn set_timeout(&self, seconds: f64);
 
+    /// The current time of day, as the system clock has it.
+    ///
+    /// Not a `Call`: asking the time changes nothing, and a bar asks it on
+    /// every draw that shows a clock. A test sets the time a `Recorder`
+    /// reports with `Recorder::set_system_time`.
+    fn system_time(&self) -> SystemTime;
+
+    /// The location plugin `plugin_id` of this session runs from, written
+    /// the way a `PaneUpdate` writes the URL of a pane started from a
+    /// location: `file:/path/to/plugin.wasm`, say. For a plugin started from
+    /// an alias, this is the location the alias stands for, where its own
+    /// pane reports the alias name. `None` when Zellij cannot say. Needs the
+    /// `ReadApplicationState` permission.
+    ///
+    /// Not a `Call`: asking changes nothing. A test sets what a `Recorder`
+    /// reports with `Recorder::set_plugin_location`.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String>;
+
+    /// Run `command`, its program then its arguments, on the machine Zellij
+    /// runs on, in the plugin's working directory. Needs the `RunCommands`
+    /// permission. Zellij sends `Event::RunCommandResult` once it ends, with
+    /// its exit code, output and `context`, so the plugin can tell which of
+    /// its commands answered.
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>);
+
     /// Send a pipe message called `name` with `payload` to every running
     /// plugin, launching none.
     fn broadcast(&self, name: &str, payload: String);
@@ -82,6 +108,69 @@ pub trait Host {
     /// Close the tab whose id is `tab_id`, the `TabInfo::tab_id` that stays
     /// the same as tabs move. Closes nothing when no tab has that id.
     fn close_tab_with_id(&self, tab_id: u64);
+
+    /// Focus the terminal pane `terminal_pane_id`, switching to its tab if it
+    /// is in another. A pane hidden with `hide_pane_with_id` is shown again:
+    /// as a floating pane with `should_float_if_hidden`, otherwise tiled, and
+    /// in place of the focused pane with `should_be_in_place_if_hidden`.
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    );
+
+    /// Focus the plugin pane `plugin_pane_id`, as `focus_terminal_pane` does
+    /// for a terminal.
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    );
+
+    /// Hide the pane `pane_id` from the screen, keeping it and what runs in
+    /// it. Zellij reports it as suppressed until it is shown or focused again.
+    fn hide_pane_with_id(&self, pane_id: PaneId);
+
+    /// Move and resize each floating pane named in
+    /// `pane_ids_and_coordinates` to its coordinates. A coordinate left
+    /// `None` keeps its value.
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    );
+
+    /// Close the terminal pane `terminal_pane_id`, ending what runs in it.
+    fn close_terminal_pane(&self, terminal_pane_id: u32);
+
+    /// Close the plugin pane `plugin_pane_id`.
+    fn close_plugin_pane(&self, plugin_pane_id: u32);
+
+    /// Open a new floating pane running `command`, at `coordinates` or
+    /// wherever Zellij finds room. `context` comes back with the events
+    /// about the pane. A command with no `cwd` runs in the working directory
+    /// of the pane focused when it opens, as a pane Zellij's own keys open
+    /// does. A relative `cwd` is taken from this plugin's own working
+    /// directory, and Zellij maps a `cwd` under `/host`, `/data`, `/cache` or
+    /// `/tmp` to the plugin's own folders, as it maps every path a plugin
+    /// gives it.
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    );
+
+    /// Open the plugin at `url`, a URL or an alias, in a new floating pane
+    /// with `configuration`, at `coordinates` or wherever Zellij finds room.
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    );
 
     /// Ask every running bar of the plugin `names` belongs to whether it is
     /// hidden, naming this bar's `alias` when it knows it. See
@@ -181,6 +270,28 @@ impl Host for Zellij {
         set_timeout(seconds);
     }
 
+    fn system_time(&self) -> SystemTime {
+        SystemTime::now()
+    }
+
+    /// Read from the plugins Zellij lists for this session, which it keeps
+    /// by plugin id with the alias already resolved to its location.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
+        let snapshot = get_session_list().ok()?;
+        let mut session = snapshot
+            .live_sessions
+            .into_iter()
+            .find(|session| session.is_current_session)?;
+        session
+            .plugins
+            .remove(&plugin_id)
+            .map(|plugin| plugin.location)
+    }
+
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
+        run_command(command, context);
+    }
+
     fn broadcast(&self, name: &str, payload: String) {
         pipe_message_to_plugin(MessageToPlugin::new(name).with_payload(payload));
     }
@@ -203,6 +314,70 @@ impl Host for Zellij {
 
     fn close_tab_with_id(&self, tab_id: u64) {
         close_tab_with_id(tab_id);
+    }
+
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        focus_terminal_pane(
+            terminal_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        );
+    }
+
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        focus_plugin_pane(
+            plugin_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        );
+    }
+
+    fn hide_pane_with_id(&self, pane_id: PaneId) {
+        hide_pane_with_id(pane_id);
+    }
+
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    ) {
+        change_floating_panes_coordinates(pane_ids_and_coordinates);
+    }
+
+    fn close_terminal_pane(&self, terminal_pane_id: u32) {
+        close_terminal_pane(terminal_pane_id);
+    }
+
+    fn close_plugin_pane(&self, plugin_pane_id: u32) {
+        close_plugin_pane(plugin_pane_id);
+    }
+
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        open_command_pane_floating(command, coordinates, context);
+    }
+
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        open_plugin_pane_floating(url, configuration, coordinates, context);
     }
 
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {
@@ -278,6 +453,10 @@ pub enum Call {
     SetCollapsed(bool),
     ShowSelf,
     SetTimeout(f64),
+    RunCommand {
+        command: Vec<String>,
+        context: BTreeMap<String, String>,
+    },
     Broadcast {
         name: String,
         payload: String,
@@ -298,6 +477,36 @@ pub enum Call {
     },
     SwitchTabTo(u32),
     CloseTabWithId(u64),
+    FocusTerminalPane {
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    },
+    FocusPluginPane {
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    },
+    HidePaneWithId(PaneId),
+    ChangeFloatingPanesCoordinates(Vec<(PaneId, FloatingPaneCoordinates)>),
+    CloseTerminalPane(u32),
+    ClosePluginPane(u32),
+    /// The fields of the `CommandToRun` given, which has no `PartialEq` of
+    /// its own to compare by. Its border style is left out, as no plugin
+    /// sets one.
+    OpenCommandPaneFloating {
+        path: PathBuf,
+        args: Vec<String>,
+        cwd: Option<PathBuf>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    },
+    OpenPluginPaneFloating {
+        url: String,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    },
     /// `message` is the `ask` name of the `visibility::Names` given.
     AskVisibility {
         message: &'static str,
@@ -339,6 +548,11 @@ pub struct Recorder {
     calls: RefCell<Vec<Call>>,
     /// How many prompts this recorder has been asked to show.
     prompts: Cell<u64>,
+    /// What `system_time` reports: the Unix epoch until a test sets it.
+    system_time: Cell<Option<SystemTime>>,
+    /// What `plugin_location` reports, by plugin id: nothing until a test
+    /// sets it.
+    plugin_locations: RefCell<BTreeMap<u32, String>>,
 }
 
 impl Recorder {
@@ -357,6 +571,19 @@ impl Recorder {
     /// does without the steps before it.
     pub fn clear(&self) {
         self.calls.borrow_mut().clear();
+    }
+
+    /// Have `system_time` report `time` from now on.
+    pub fn set_system_time(&self, time: SystemTime) {
+        self.system_time.set(Some(time));
+    }
+
+    /// Have `plugin_location` report `location` for plugin `plugin_id` from
+    /// now on.
+    pub fn set_plugin_location(&self, plugin_id: u32, location: &str) {
+        self.plugin_locations
+            .borrow_mut()
+            .insert(plugin_id, location.to_string());
     }
 
     fn record(&self, call: Call) {
@@ -401,6 +628,23 @@ impl Host for Recorder {
         self.record(Call::SetTimeout(seconds));
     }
 
+    /// The time `set_system_time` set, or the Unix epoch until it is set.
+    fn system_time(&self) -> SystemTime {
+        self.system_time.get().unwrap_or(SystemTime::UNIX_EPOCH)
+    }
+
+    /// The location `set_plugin_location` set for `plugin_id`, if any.
+    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
+        self.plugin_locations.borrow().get(&plugin_id).cloned()
+    }
+
+    fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
+        self.record(Call::RunCommand {
+            command: command.iter().map(|part| part.to_string()).collect(),
+            context,
+        });
+    }
+
     fn broadcast(&self, name: &str, payload: String) {
         self.record(Call::Broadcast {
             name: name.to_string(),
@@ -439,6 +683,83 @@ impl Host for Recorder {
 
     fn close_tab_with_id(&self, tab_id: u64) {
         self.record(Call::CloseTabWithId(tab_id));
+    }
+
+    fn focus_terminal_pane(
+        &self,
+        terminal_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        self.record(Call::FocusTerminalPane {
+            terminal_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        });
+    }
+
+    fn focus_plugin_pane(
+        &self,
+        plugin_pane_id: u32,
+        should_float_if_hidden: bool,
+        should_be_in_place_if_hidden: bool,
+    ) {
+        self.record(Call::FocusPluginPane {
+            plugin_pane_id,
+            should_float_if_hidden,
+            should_be_in_place_if_hidden,
+        });
+    }
+
+    fn hide_pane_with_id(&self, pane_id: PaneId) {
+        self.record(Call::HidePaneWithId(pane_id));
+    }
+
+    fn change_floating_panes_coordinates(
+        &self,
+        pane_ids_and_coordinates: Vec<(PaneId, FloatingPaneCoordinates)>,
+    ) {
+        self.record(Call::ChangeFloatingPanesCoordinates(
+            pane_ids_and_coordinates,
+        ));
+    }
+
+    fn close_terminal_pane(&self, terminal_pane_id: u32) {
+        self.record(Call::CloseTerminalPane(terminal_pane_id));
+    }
+
+    fn close_plugin_pane(&self, plugin_pane_id: u32) {
+        self.record(Call::ClosePluginPane(plugin_pane_id));
+    }
+
+    fn open_command_pane_floating(
+        &self,
+        command: CommandToRun,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        self.record(Call::OpenCommandPaneFloating {
+            path: command.path,
+            args: command.args,
+            cwd: command.cwd,
+            coordinates,
+            context,
+        });
+    }
+
+    fn open_plugin_pane_floating(
+        &self,
+        url: &str,
+        configuration: BTreeMap<String, String>,
+        coordinates: Option<FloatingPaneCoordinates>,
+        context: BTreeMap<String, String>,
+    ) {
+        self.record(Call::OpenPluginPaneFloating {
+            url: url.to_string(),
+            configuration,
+            coordinates,
+            context,
+        });
     }
 
     fn ask_visibility(&self, names: &visibility::Names, alias: Option<&str>) {

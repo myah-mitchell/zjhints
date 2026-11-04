@@ -37,7 +37,7 @@ fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static 
     } else if key == "desc_format" || key.starts_with("desc_format_") {
         vec![("desc", "Pane".to_string())]
     } else {
-        zjkit::mode::sample_values(key).unwrap_or_default()
+        zjkit::mode::sample_values(key, config).unwrap_or_default()
     }
 }
 

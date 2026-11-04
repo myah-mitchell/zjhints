@@ -12,7 +12,7 @@ use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
 use zjkit::mode::CONFIG_MODE_FORMAT;
-use zjkit::mouse::ColumnSpans;
+use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
 mod flags;
 mod host;
@@ -183,8 +183,10 @@ pub struct State {
     mouse_wheel_reversed: bool,
     /// Ask before a middle click closes a tab, rather than closing it at once.
     mouse_close_confirm: bool,
-    /// The close confirmation being shown, if any. See `mouse::PendingClose`.
-    pending_close: Option<mouse::PendingClose>,
+    /// The close confirmation being shown, if any, with the id of the tab the
+    /// middle click landed on, as the click map had it, so the answer closes
+    /// that tab even if the tabs have moved since.
+    pending_close: PendingPrompt<usize>,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
     /// The input mode, the session's name and the nested-session state from

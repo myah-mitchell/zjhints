@@ -452,7 +452,16 @@ mod tests {
             assert_eq!(SCHEMA.group_of(key), Some("Mode prefix"), "{key}");
             assert_eq!(SCHEMA.kind_of(key), kind, "{key}");
         }
-        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+        // A word that is no mode of Zellij's fits none, but is listed with
+        // the family it starts like, which the screen warns about.
+        assert!(SCHEMA.family_of("mode_format_bogus").is_none());
+        assert_eq!(SCHEMA.group_of("mode_format_bogus"), Some("Mode prefix"));
+        assert_eq!(
+            SCHEMA
+                .misfit_family("mode_label_bogus")
+                .map(|family| family.pattern),
+            Some("mode_label_<mode>")
+        );
     }
 
     #[test]

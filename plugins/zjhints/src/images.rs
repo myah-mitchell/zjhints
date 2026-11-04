@@ -232,6 +232,9 @@ struct WidgetPens {
     /// The menu's border.
     frame: Pen,
     emphasis: [Pen; 4],
+    /// Text in the error color, such as a key's warning that the bar
+    /// ignores it.
+    error: Pen,
 }
 
 impl WidgetPens {
@@ -263,6 +266,7 @@ impl WidgetPens {
                 colors.emphasis_3,
             ]
             .map(|color| Pen::colored(rgb_of(color))),
+            error: Pen::colored(rgb_of(styling.exit_code_error.base)),
         }
     }
 }
@@ -421,6 +425,7 @@ fn print_row(
     }
     let marker_pen = match row.marker {
         Marker::Unsaved => pens.emphasis[1],
+        Marker::Ignored => pens.error,
         _ => pens.dim,
     };
     screen.print_with(y, marker_x, row.marker.text(), |_| marker_pen);

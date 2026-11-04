@@ -17,6 +17,7 @@ The pages in this directory, and what each one is for. Start with the [configura
 | [Hiding the bar](hiding.md) | Hiding and showing the bar from a keybinding, the right-click menu or a shell |
 | [Nested sessions](nested-sessions.md) | Running one Zellij session inside another, and running this plugin in its own pane |
 | [zjtabs](zjtabs/overview.md) | The tab bar from the same repository: loading it, its [configuration](zjtabs/configuration.md), [tab formats and flags](zjtabs/formats.md), [overflow](zjtabs/overflow.md) and [mouse](zjtabs/mouse.md) |
+| [zjtaskbar](zjtaskbar/overview.md) | The taskbar for floating panes from the same repository: loading it, its [configuration](zjtaskbar/configuration.md), [entry formats and flags](zjtaskbar/formats.md), [overflow](zjtaskbar/overflow.md), [mouse](zjtaskbar/mouse.md), [launcher](zjtaskbar/launcher.md) and [tray](zjtaskbar/tray.md) |
 | [Automation](automation.md) | How the repository builds, tests, updates itself and publishes, and the setup GitHub needs |
 
-Automation is for anyone maintaining a copy of the repository. The rest are for anyone configuring a plugin. The pages on themes, the settings screen, hiding and nested sessions apply to zjtabs too, and the zjtabs pages say where it differs.
+Automation is for anyone maintaining a copy of the repository. The rest are for anyone configuring a plugin. The pages on themes, the settings screen, hiding and nested sessions apply to zjtabs and zjtaskbar too, and each plugin's pages say where it differs.

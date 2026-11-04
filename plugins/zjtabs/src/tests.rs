@@ -1,6 +1,7 @@
 use super::*;
 use zjkit::bar::Handled;
 use zjkit::host::Call;
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
 
 fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
@@ -1205,6 +1206,21 @@ fn the_session_name_ends_at_max_length_and_follows_the_tabs_with_no_limit() {
 }
 
 #[test]
+fn a_huge_max_length_pads_the_session_name_only_to_the_pane_s_edge() {
+    let options = plain_with_session(&[("auto_width", "false"), ("max_length", "4000000000")]);
+    assert_eq!(
+        shown(&bar_in_session(&options, 30, tabs(3, 1))),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
+    );
+    // With no pane seen there is no edge to stand against.
+    let mut state = loaded(&options);
+    state.update(Event::ModeUpdate(mode(InputMode::Normal)));
+    state.update(Event::TabUpdate(tabs(3, 1)));
+    state.update(in_session("work"));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c|(work)");
+}
+
+#[test]
 fn the_session_name_dims_with_the_tabs() {
     let dimmed_session = || {
         let mut mode_info = mode(InputMode::Normal);
@@ -1236,7 +1252,7 @@ fn the_session_name_dims_with_the_tabs() {
 /// What the bar asks of Zellij for a left click on the session name.
 fn opening_the_session_manager() -> Vec<Call> {
     vec![Call::RunAction {
-        action: mouse::session_manager_action(),
+        action: launch_or_focus_floating(SESSION_MANAGER_ALIAS),
         context: BTreeMap::new(),
     }]
 }
@@ -1322,21 +1338,6 @@ fn with_mouse_off_a_click_on_the_session_name_does_nothing() {
     for mouse in [Mouse::LeftClick(0, 24), Mouse::RightClick(0, 24)] {
         assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
     }
-}
-
-#[test]
-fn the_session_manager_opens_as_zellij_s_own_ctrl_o_w_opens_it() {
-    let config = zellij_utils::input::config::Config::from_default_assets()
-        .expect("Zellij ships a default config");
-    let key = KeyWithModifier::new(BareKey::Char('w'));
-    let actions = config
-        .keybinds
-        .get_actions_for_key_in_mode(&InputMode::Session, &key)
-        .expect("Zellij binds w in session mode");
-    assert_eq!(actions.first(), Some(&mouse::session_manager_action()));
-    // The alias it names is Zellij's own session manager.
-    let session_manager = &config.plugins.aliases[mouse::SESSION_MANAGER_ALIAS];
-    assert_eq!(session_manager.location.display(), "zellij:session-manager");
 }
 
 /// A mode update in `input_mode` for the session named `work`, with Zellij's own
@@ -1847,7 +1848,7 @@ fn any_other_answer_to_the_close_confirmation_closes_nothing() {
             vec![],
             "{result:?}"
         );
-        assert_eq!(state.pending_close, None, "{result:?}");
+        assert!(!state.pending_close.is_waiting(), "{result:?}");
     }
 }
 
@@ -2057,8 +2058,13 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
 }
 
 /// A preview from the settings screen of `alias`, as `pipe` gets it, with
-/// each change as `(key, value before, value now)`.
+/// each change as `(key, value before, value now)`. The screen is plugin 5,
+/// whose pane runs from the bar's own URL, as a bar only takes a preview
+/// from its own plugin.
 fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
+    if let Some(url) = state.bar.own_url.clone() {
+        state.bar.plugin_pane_urls.insert(5, url);
+    }
     let changes: Vec<live::Change> = changes
         .iter()
         .map(|(key, was, now)| live::Change {
