@@ -150,6 +150,7 @@ The name sits on the line like this:
 - `tab_spacer` separates it from the last tab or the right [overflow marker](overflow.md#markers). The columns between are left blank, in the bar's own background.
 - It is the first to go when the bar runs short. It is drawn only while the mode prefix, the active tab drawn whole and a marker for each side with tabs hidden behind it all fit beside it, and the other tabs give way to it.
 - With `auto_width` and `max_length` both off, or before Zellij has reported the bar's width, the line has no end to set the name against, so it follows the tabs after a `tab_spacer`. See [Fitting the bar](overflow.md#fitting-the-bar).
+- With `auto_width` off and a `max_length` wider than the bar's pane, the name stands at the pane's right edge, where you can see it, rather than at `max_length`.
 - It dims with the tabs under `dim_when_unfocused`.
 - With `mouse` on, a click on it opens Zellij's session manager, and a right-click opens Zellij's menu for the bar. See [Opening the session manager](mouse.md#opening-the-session-manager).
 

@@ -1206,6 +1206,21 @@ fn the_session_name_ends_at_max_length_and_follows_the_tabs_with_no_limit() {
 }
 
 #[test]
+fn a_huge_max_length_pads_the_session_name_only_to_the_pane_s_edge() {
+    let options = plain_with_session(&[("auto_width", "false"), ("max_length", "4000000000")]);
+    assert_eq!(
+        shown(&bar_in_session(&options, 30, tabs(3, 1))),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
+    );
+    // With no pane seen there is no edge to stand against.
+    let mut state = loaded(&options);
+    state.update(Event::ModeUpdate(mode(InputMode::Normal)));
+    state.update(Event::TabUpdate(tabs(3, 1)));
+    state.update(in_session("work"));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c|(work)");
+}
+
+#[test]
 fn the_session_name_dims_with_the_tabs() {
     let dimmed_session = || {
         let mut mode_info = mode(InputMode::Normal);

@@ -297,9 +297,42 @@ pub fn once_per_count(measure: impl Fn(usize) -> usize) -> impl Fn(usize) -> usi
     }
 }
 
+/// How many blank columns to draw after `drawn` columns so that `ending`
+/// columns after them end the line flush with its right end: the line's
+/// `limit`, or the right edge of the bar's visible pane, `pane_width`, when
+/// that is nearer. Zero when either is unknown, or there is no room.
+///
+/// The pane keeps the blank no wider than what can be seen, so a huge
+/// `max_length` with the pane's width not followed draws no more than a
+/// pane's width of it. A bar with no visible pane shows nothing, so it pads
+/// nothing.
+pub fn flush_right_blank(
+    limit: Option<usize>,
+    pane_width: Option<usize>,
+    drawn: usize,
+    ending: usize,
+) -> usize {
+    match (limit, pane_width) {
+        (Some(limit), Some(pane_width)) => limit.min(pane_width).saturating_sub(drawn + ending),
+        _ => 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_blank_before_the_line_s_end_stays_within_the_pane() {
+        // The line's own end, nearer than the pane's edge.
+        assert_eq!(flush_right_blank(Some(40), Some(80), 10, 5), 25);
+        // The pane's edge, nearer than a huge limit.
+        assert_eq!(flush_right_blank(Some(usize::MAX), Some(80), 10, 5), 65);
+        // No room left, no limit, or no pane seen.
+        assert_eq!(flush_right_blank(Some(12), Some(80), 10, 5), 0);
+        assert_eq!(flush_right_blank(None, Some(80), 10, 5), 0);
+        assert_eq!(flush_right_blank(Some(usize::MAX), None, 10, 5), 0);
+    }
 
     #[test]
     fn a_width_is_measured_once_for_each_count() {

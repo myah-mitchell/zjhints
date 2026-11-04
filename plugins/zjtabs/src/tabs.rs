@@ -190,9 +190,11 @@ impl State {
     /// the two leave. The columns between the last tab or marker and the
     /// spacer before the session name are left blank, in the bar's own
     /// background, as the rest of the line is when there is no session name
-    /// at its end. Without a limit on the line's width, as with `auto_width`
-    /// and `max_length` both off, there is no end to set the session name
-    /// against, so it follows the tabs straight after its spacer.
+    /// at its end. That end is the pane's right edge when it is nearer than
+    /// the line's. Without a limit on the line's width, as with `auto_width`
+    /// and `max_length` both off, or without a visible pane, there is no end
+    /// to set the session name against, so it follows the tabs straight
+    /// after its spacer. See `fit::flush_right_blank`.
     ///
     /// The prefix's columns stand for `Clickable::ModePrefix` and the session
     /// name's for `Clickable::SessionName`; the spacers and the blank stand
@@ -249,11 +251,15 @@ impl State {
         if prefix_width > 0 {
             spans.push(0..prefix_width, Clickable::ModePrefix);
         }
-        let blank = match limit {
-            Some(limit) if ending_width > 0 => {
-                limit.saturating_sub(start + width(&tabs) + ending_width)
-            }
-            _ => 0,
+        let blank = if ending_width > 0 {
+            fit::flush_right_blank(
+                limit,
+                self.bar.pane_width,
+                start + width(&tabs),
+                ending_width,
+            )
+        } else {
+            0
         };
         if ending_width > 0 {
             // After the tabs, the blank and the spacer before the name.
