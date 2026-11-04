@@ -26,6 +26,11 @@
 //!   standard output. A call made after the `P` has printed what it draws
 //!   would take that text for part of the call, so nothing runs after the
 //!   `P` draws, and what it printed is flushed before `render` returns.
+//! - Zellij keeps each slot's frame items on a pane apart and shows them
+//!   side by side, and sends a click on one to the instance with no slot.
+//!   So the slot whose items are on a pane is kept, and a click on that
+//!   pane goes to it; `frame_owner` tells a slot which one that is, so the
+//!   slots can agree to leave a pane to one of them.
 //! - Permissions are the instance's, so a slot asks Zellij only for what no
 //!   slot has asked for yet, and every slot waiting on the answer gets it.
 //!   Zellij shows the prompt in the pane of the slot it draws, and loses a
@@ -129,6 +134,22 @@ pub(crate) fn tag_context(mut context: BTreeMap<String, String>) -> BTreeMap<Str
         context.insert(SLOT_CONTEXT_KEY.to_string(), acting.slot.to_string());
     }
     context
+}
+
+/// The slot that may place frame items on `pane`: the one whose items are
+/// on it, or wait in its queue for its next render to go there. `None` when
+/// no slot's are, and while no slot is acting, as outside `Shared`.
+///
+/// A slot's items stay on a pane until the slot takes them off, which takes
+/// effect only in its own render, so a pane is the slot's until then. A
+/// slot that takes off items it never placed gives the pane up at once.
+pub fn frame_owner(pane: PaneId) -> Option<SlotId> {
+    ACTIVE.with(|active| {
+        active
+            .borrow()
+            .as_ref()
+            .and_then(|active| active.router.frame_owner(pane))
+    })
 }
 
 /// Note that the acting slot has a timer coming that it did not set through
@@ -1355,6 +1376,21 @@ impl Router {
         self.perform(id, Effect::RequestPermission(all), drawing);
     }
 
+    /// See `frame_owner`.
+    fn frame_owner(&self, pane: PaneId) -> Option<SlotId> {
+        self.frame_owners.get(&pane).copied().or_else(|| {
+            self.deferred.iter().find_map(|(id, effects)| {
+                effects
+                    .iter()
+                    .any(|effect| {
+                        matches!(effect, Effect::SetPaneFrameItems(placed, items)
+                            if *placed == pane && !items.is_empty())
+                    })
+                    .then_some(*id)
+            })
+        })
+    }
+
     /// Make a call for slot `id`, noting which slot placed frame items.
     /// `drawing` is the slot Zellij draws or adds, if any.
     fn perform(&mut self, id: SlotId, effect: Effect, drawing: Option<SlotId>) {
@@ -1449,6 +1485,8 @@ mod tests {
         Popup,
         Prompt,
         RunCommand,
+        /// Note `frame_owner` of the pane in `owners`.
+        Owner(PaneId),
         /// Say what the bar's row should be, as a bar with
         /// `collapse_when_empty` on does as it draws, with nothing to draw
         /// when true.
@@ -1469,6 +1507,8 @@ mod tests {
         messages: Vec<String>,
         renders: usize,
         backgrounds: usize,
+        /// What `frame_owner` said, for each `Act::Owner`.
+        owners: Vec<Option<SlotId>>,
         next: Vec<Act>,
     }
 
@@ -1497,6 +1537,7 @@ mod tests {
                         host.prompt(PromptRequest::menu([ChoiceItem::labeled("0", "Sure")]));
                     }
                     Act::RunCommand => host.run_command(&["true"], BTreeMap::new()),
+                    Act::Owner(pane) => self.owners.push(frame_owner(pane)),
                     Act::Row(empty) => {
                         if let Some(bar) = self.bar.as_mut() {
                             bar.sync_collapsed(host, true, empty);
@@ -1925,6 +1966,46 @@ mod tests {
         shared.render_slot(1, 80, 11, 1);
         shared.take_event(click(pane), context(None, Some(1)));
         assert_eq!(shared.plugin(11).unwrap().events.len(), 1);
+    }
+
+    #[test]
+    fn a_pane_s_frame_owner_is_the_slot_whose_items_are_on_it_or_wait_to_go_there() {
+        let mut shared = with_panes(&[10, 11]);
+        let pane = PaneId::Terminal(3);
+        let owners = |shared: &mut Shared<Fake>, id: SlotId| {
+            act(shared, id, &[Act::Owner(pane)]);
+            shared.take_event(Event::Visible(true), context(Some(id), None));
+            shared.plugin_mut(id).unwrap().owners.pop().unwrap()
+        };
+        assert_eq!(owners(&mut shared, 10), None);
+        // Waiting for the slot's render, the items already make it the
+        // owner, so no other slot places its own beside them.
+        act(&mut shared, 11, &[Act::FrameItems(pane, frame_items())]);
+        shared.take_event(Event::Visible(true), context(Some(11), None));
+        assert_eq!(owners(&mut shared, 10), Some(11));
+        // Taken off before they were placed, the pane is given up at once.
+        act(&mut shared, 11, &[Act::FrameItems(pane, vec![])]);
+        shared.take_event(Event::Visible(true), context(Some(11), None));
+        assert_eq!(owners(&mut shared, 10), None);
+
+        act(&mut shared, 11, &[Act::FrameItems(pane, frame_items())]);
+        shared.render_slot(1, 80, 11, 1);
+        assert_eq!(owners(&mut shared, 10), Some(11));
+        // Once placed, the items stay until the slot's render takes them
+        // off.
+        act(&mut shared, 11, &[Act::FrameItems(pane, vec![])]);
+        shared.take_event(Event::Visible(true), context(Some(11), None));
+        assert_eq!(owners(&mut shared, 10), Some(11));
+        shared.render_slot(1, 80, 11, 1);
+        assert_eq!(owners(&mut shared, 10), None);
+
+        // Zellij drops a removed slot's items, so its panes are free.
+        act(&mut shared, 11, &[Act::FrameItems(pane, frame_items())]);
+        shared.render_slot(1, 80, 11, 1);
+        shared.remove_slot(11);
+        assert_eq!(owners(&mut shared, 10), None);
+        // Outside `Shared`, no slot owns anything.
+        assert_eq!(frame_owner(pane), None);
     }
 
     #[test]
