@@ -1,9 +1,11 @@
 //! What the mouse does on the bar, the way a desktop taskbar works.
 //!
-//! A left click on an entry brings its pane up: it focuses the pane,
-//! switching to its tab, and restores a minimized pane to where it stood. A
-//! left click on the entry already focused minimizes its pane instead. A
-//! left click on a marker acts on the hidden entry nearest to it.
+//! A left click on an entry brings its pane up: it focuses the pane, and
+//! restores a minimized pane to where it stood. A pane in another tab is
+//! pulled into the one on screen, rather than the bar switching tabs to it;
+//! see `State::pull`. A left click on the entry already focused minimizes
+//! its pane instead. A left click on a marker acts on the hidden entry
+//! nearest to it.
 //!
 //! A double-click renames a pane, and a middle click closes one, asking
 //! first while `mouse_close_confirm` is on. A right-click on an entry opens a
@@ -250,7 +252,7 @@ impl State {
         } else if entry.focused {
             self.minimize(pane);
         } else {
-            self.focus(pane);
+            self.focus_here(pane);
         }
     }
 
@@ -300,13 +302,73 @@ impl State {
     /// it is until that `PaneUpdate` arrives. Taking the entries again now,
     /// while the last update still has the pane hidden, would drop it from
     /// the bar until then.
+    ///
+    /// A pane in another tab is shown in the one on screen instead, as
+    /// `pull` does.
     fn restore(&mut self, pane: PaneId) {
         let geometry = self.minimized.remove(&pane);
-        self.focus(pane);
+        let shown_here = self.tab_to_pull_into(pane).is_some_and(|tab_id| {
+            self.host
+                .show_pane_with_id(pane, true, Some(tab_id))
+                .is_ok()
+        });
+        if !shown_here {
+            self.focus(pane);
+        }
         if let Some(geometry) = geometry.filter(|geometry| *geometry != Default::default()) {
             self.host
                 .change_floating_panes_coordinates(vec![(pane, geometry)]);
         }
+    }
+
+    /// Focus `pane`, pulling it into the tab on screen if it is in another;
+    /// see `pull`.
+    fn focus_here(&mut self, pane: PaneId) {
+        if !self.pull(pane) {
+            self.focus(pane);
+        }
+    }
+
+    /// Move `pane`, on screen in another tab, into the tab on screen, where
+    /// it stood, and focus it. Returns whether it did: a pane in this tab, or
+    /// one Zellij could not move, is left for `focus` to bring up.
+    ///
+    /// Zellij moves a pane between tabs only as it shows it from hidden, so
+    /// the pane is hidden first and shown in the tab on screen. As with
+    /// `restore`, showing it places it as if it were new, so where it stood
+    /// is read before it is hidden and put back after.
+    fn pull(&mut self, pane: PaneId) -> bool {
+        let Some(tab_id) = self.tab_to_pull_into(pane) else {
+            return false;
+        };
+        let Some(info) = self.pane_info(pane) else {
+            return false;
+        };
+        let geometry = geometry_of(info);
+        self.host.hide_pane_with_id(pane);
+        if self
+            .host
+            .show_pane_with_id(pane, true, Some(tab_id))
+            .is_err()
+        {
+            return false;
+        }
+        self.host
+            .change_floating_panes_coordinates(vec![(pane, geometry)]);
+        true
+    }
+
+    /// The `TabInfo::tab_id` of the tab on screen, when `pane` is listed in
+    /// another and so would be pulled into it.
+    fn tab_to_pull_into(&self, pane: PaneId) -> Option<usize> {
+        let other_tab = self
+            .entries
+            .iter()
+            .any(|entry| entry.pane == pane && entry.other_tab);
+        if !other_tab {
+            return None;
+        }
+        self.tabs.iter().find(|tab| tab.active).map(|tab| tab.id)
     }
 
     /// Hide `pane` from the screen and keep it on the bar as minimized, with
@@ -345,7 +407,7 @@ impl State {
             .iter()
             .any(|entry| entry.pane == pane && entry.focused)
         {
-            self.focus(pane);
+            self.focus_here(pane);
         }
     }
 

@@ -389,8 +389,11 @@ fn plain_with(pairs: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'st
     all
 }
 
+/// The tab at `position`, named `name`. Its id is `100 + position`, so a
+/// test can tell the two apart.
 fn tab(position: usize, name: &str) -> TabInfo {
     TabInfo {
+        tab_id: 100 + position,
         position,
         name: name.to_string(),
         ..Default::default()
@@ -1700,7 +1703,7 @@ fn a_left_click_focuses_a_pane_that_is_not_focused() {
 }
 
 #[test]
-fn a_left_click_focuses_a_plugin_pane_or_one_in_another_tab_the_same_way() {
+fn a_left_click_focuses_a_plugin_pane_and_pulls_one_from_another_tab() {
     let mut state = bar(
         &PLAIN,
         80,
@@ -1719,10 +1722,24 @@ fn a_left_click_focuses_a_plugin_pane_or_one_in_another_tab_the_same_way() {
             should_be_in_place_if_hidden: false,
         }]
     );
-    // Zellij switches to the pane's tab as it focuses it.
+    // Zellij moves a pane between tabs only as it shows it from hidden, and
+    // places it as new, so it is hidden, shown in the active tab and put
+    // back where it stood.
+    let far = PaneId::Terminal(2);
     assert_eq!(
         after_mouse(&mut state, Mouse::LeftClick(0, 8)),
-        vec![focus_terminal(2)]
+        vec![
+            Call::HidePaneWithId(far),
+            Call::ShowPaneWithId {
+                pane_id: far,
+                should_float_if_hidden: true,
+                tab_id: Some(100),
+            },
+            Call::ChangeFloatingPanesCoordinates(vec![(
+                far,
+                mouse::geometry_of(&floating(2, "far"))
+            )]),
+        ]
     );
 }
 
@@ -4101,4 +4118,53 @@ fn the_close_button_s_confirmation_asks_for_its_prompt_with_the_mouse_off() {
     assert_eq!(state.features(), vec![Feature::FrameCloseConfirm]);
     let state = loaded(&[("mouse", "false"), ("mouse_close_confirm", "false")]);
     assert_eq!(state.features(), vec![]);
+}
+
+// Pulling a pane from another tab.
+
+#[test]
+fn restoring_a_minimized_pane_of_another_tab_shows_it_in_this_one_where_it_stood() {
+    let stood = placed(floating(2, "far"), (10, 5), (40, 12), false);
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(2, 0),
+        vec![(1, vec![focused(stood.clone())])],
+    );
+    state.render(1, 80);
+    state.minimize(PaneId::Terminal(2));
+    state.update(panes(80, vec![(1, vec![suppressed(stood.clone())])]));
+    assert_eq!(shown(&state), "_far(two)_");
+    let far = PaneId::Terminal(2);
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![
+            Call::ShowPaneWithId {
+                pane_id: far,
+                should_float_if_hidden: true,
+                tab_id: Some(100),
+            },
+            Call::ChangeFloatingPanesCoordinates(vec![(far, mouse::geometry_of(&stood))]),
+        ]
+    );
+}
+
+#[test]
+fn the_wheel_steps_to_a_pane_in_another_tab_without_pulling_it() {
+    let mut state = bar(
+        &PLAIN,
+        80,
+        tabs(2, 0),
+        vec![
+            (0, vec![focused(floating(1, "vim"))]),
+            (1, vec![floating(2, "far")]),
+        ],
+    );
+    let calls = after_mouse(&mut state, Mouse::ScrollDown(0));
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::ShowPaneWithId { .. } | Call::HidePaneWithId(_))),
+        "{calls:?}"
+    );
 }

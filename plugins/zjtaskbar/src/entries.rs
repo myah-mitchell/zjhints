@@ -106,6 +106,9 @@ impl PaneScope {
 /// what the bar never shows.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Tab {
+    /// The tab's `TabInfo::tab_id`, which stays the same as tabs move. A
+    /// pane is pulled into a tab by this; see `State::pull`.
+    pub id: usize,
     /// Where the tab stands among the others, counted from 0. A pane
     /// manifest lists its panes under this.
     pub position: usize,
@@ -120,6 +123,7 @@ pub(crate) fn tabs_of(infos: &[TabInfo]) -> Vec<Tab> {
     let mut tabs: Vec<Tab> = infos
         .iter()
         .map(|info| Tab {
+            id: info.tab_id,
             position: info.position,
             name: info.name.clone(),
             active: info.active,

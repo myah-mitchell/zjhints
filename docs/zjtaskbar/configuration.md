@@ -177,7 +177,7 @@ Whether the bar shows at all, and how it behaves beside other sessions. See [Hid
 
 ## Mouse
 
-Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, switching to its tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it. See [Mouse](mouse.md) for every click.
+Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus its pane, pulling it into the tab on screen from another tab, or to restore a minimized pane where it stood. Left-click the focused entry to minimize its pane, and a marker to act on the hidden entry nearest to it. See [Mouse](mouse.md) for every click.
 
 | Option | Default | What it does |
 | --- | --- | --- |

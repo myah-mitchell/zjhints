@@ -26,9 +26,11 @@ A double-click renames the pane of the entry it lands on, and does nothing anywh
 
 ## Focusing and restoring
 
-Left-click an entry to focus its pane. A click anywhere on the entry counts, its flags included. If the pane is in another tab, the bar switches to that tab, and if the tab's floating panes are hidden, it shows them.
+Left-click an entry to focus its pane. A click anywhere on the entry counts, its flags included. If the tab's floating panes are hidden, the bar shows them.
 
-Left-click a minimized entry to restore its pane where it stood, focused. See [Minimizing](#minimizing).
+If the pane is in another tab, which happens with `pane_scope "all"`, the bar pulls it into the tab on screen rather than switching tabs. The pane keeps its position and size, and leaves the other tab. *Focus* in the pane menu and a marker's click pull it the same way. If Zellij refuses to move it, the bar switches to the pane's tab instead.
+
+Left-click a minimized entry to restore its pane where it stood, focused. A minimized pane from another tab is restored into the tab on screen. See [Minimizing](#minimizing).
 
 ### Markers
 
@@ -113,7 +115,7 @@ Left-click the tray's `session` item to open Zellij's session manager, the same 
 
 The wheel steps the focus through the panes on screen, over any part of the bar. Scroll up goes to the next pane, to the right, and scroll down to the previous one, as in Zellij's own tab bar. With no listed pane focused, scroll up goes to the first and scroll down to the last.
 
-Minimized panes are skipped, so looking along the bar never brings back a pane you put away. With `pane_scope "all"`, the wheel crosses into other tabs, since focusing a pane there switches to its tab. At the first or last pane the wheel does nothing. Wrapping around would make a fast scroll spin through every pane.
+Minimized panes are skipped, so looking along the bar never brings back a pane you put away. With `pane_scope "all"`, the wheel crosses into other tabs and switches to the pane's tab, rather than pulling it in as a click does, so scrolling past a pane leaves it where it is. At the first or last pane the wheel does nothing. Wrapping around would make a fast scroll spin through every pane.
 
 To swap the two directions, so that scroll up goes to the previous pane, set:
 
@@ -165,4 +167,4 @@ The pane menu, the launcher's menu, the close prompt and the bar menu use the pr
 
 Closing a pane with a middle click needs a Zellij that sends plugins middle clicks, which no Zellij release does. The build zjtaskbar is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), sends them. On any other build a middle click on the bar does nothing.
 
-The frame buttons need the plugin frame items, which are also only in that build.
+The frame buttons and pulling a pane into the tab on screen need the plugin frame items and the tab argument of `show_pane_with_id`, which are also only in that build.

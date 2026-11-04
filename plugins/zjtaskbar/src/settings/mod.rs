@@ -203,6 +203,7 @@ fn preview_state(
             .iter()
             .enumerate()
             .map(|(position, name)| Tab {
+                id: position,
                 position,
                 name: name.to_string(),
                 active: position == 0,
