@@ -2113,3 +2113,12 @@ fn a_preview_of_another_alias_changes_nothing() {
     assert!(!preview(&mut state, "another", &changes));
     assert_eq!(shown(&state), "1:a|[2:b]|3:c");
 }
+
+// Anyone who can launch a plugin can add a pane with any options to a
+// running instance, and a panic in one slot takes every bar down. See
+// `zjkit::junk`.
+
+#[test]
+fn no_options_at_all_make_an_instance_panic() {
+    zjkit::junk::shake::<State>(&BAR, 0x79c637b8, 400, || {});
+}

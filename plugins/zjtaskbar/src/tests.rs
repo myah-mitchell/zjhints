@@ -4573,3 +4573,12 @@ fn each_bar_s_clock_ticks_on_its_own_timer() {
     shared.take_event(Event::Timer(60.0), context(None, None));
     assert_eq!((armed(&shared, 10), armed(&shared, 11)), (1, 1));
 }
+
+// Anyone who can launch a plugin can add a pane with any options to a
+// running instance, and a panic in one slot takes every bar down. See
+// `zjkit::junk`.
+
+#[test]
+fn no_options_at_all_make_an_instance_panic() {
+    zjkit::junk::shake::<State>(&BAR, 0x60d20a5b, 400, instance::reset);
+}

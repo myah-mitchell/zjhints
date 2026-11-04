@@ -38,7 +38,7 @@ use zellij_tile::prelude::*;
 /// The configuration key that marks an instance as the settings screen.
 pub(crate) const SETTINGS_KEY: &str = "settings";
 /// The configuration key that pins the settings screen to one alias.
-const ALIAS_KEY: &str = "alias";
+pub(crate) const ALIAS_KEY: &str = "alias";
 /// The configuration key Zellij tells shared instances of one location apart
 /// by: panes that load the location with the same value, or none, are slots
 /// of one instance.

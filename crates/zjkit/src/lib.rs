@@ -12,6 +12,8 @@ pub mod format;
 pub mod host;
 #[cfg(feature = "images")]
 pub mod images;
+#[cfg(any(test, feature = "testing"))]
+pub mod junk;
 pub mod launch;
 pub mod mode;
 pub mod mouse;
