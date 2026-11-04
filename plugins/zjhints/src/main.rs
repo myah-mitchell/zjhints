@@ -189,7 +189,7 @@ impl Default for KeybindsFetcher {
     }
 }
 
-register_plugin!(State);
+register_shared_plugin!(zjkit::shared::Shared<State>);
 
 const TO_NORMAL: Action = Action::SwitchToMode {
     input_mode: InputMode::Normal,
@@ -1461,6 +1461,18 @@ impl BarPlugin for State {
 
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
         State::apply_configuration(self, user_configuration);
+    }
+}
+
+/// Each slot of the shared instance is a `State` of its own; only a bar has
+/// the bar's state for `zjkit::shared` to read.
+impl zjkit::shared::SlotPlugin for State {
+    fn bar(&self) -> Option<&BarCore> {
+        self.role.is_bar().then_some(&self.bar)
+    }
+
+    fn bar_mut(&mut self) -> Option<&mut BarCore> {
+        self.role.is_bar().then_some(&mut self.bar)
     }
 }
 

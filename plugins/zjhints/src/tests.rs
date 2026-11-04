@@ -6,6 +6,7 @@ use zjkit::host::{Call, Recorder};
 use zjkit::popup::PreviewPopup;
 use zjkit::settings::live;
 use zjkit::settings::screen::SettingsScreen;
+use zjkit::shared::{Effect, Shared};
 use zjkit::visibility::{self, Request};
 
 /// Sort a string of characters as if they were the keys of one hint, so an
@@ -3366,11 +3367,93 @@ fn rendering_a_hidden_bar_gives_its_row_back_once() {
     assert_eq!(state.host.calls(), vec![Call::SetCollapsed(true)]);
 }
 
+/// A slot to add to a shared instance.
+fn slot(id: SlotId, kind: SlotKind, pairs: &[(&str, &str)]) -> Slot {
+    Slot {
+        id,
+        kind,
+        configuration: label_config(pairs),
+    }
+}
+
+/// What a client's events carry.
+fn from_client(slot: Option<SlotId>) -> EventContext {
+    EventContext {
+        slot_id: slot,
+        client_id: Some(Recorder::CLIENT_ID),
+    }
+}
+
+/// The options of a bar that overflows with the four hints, so it has a drop
+/// marker to rest the pointer on, and publishes on one zjstatus pipe.
+const OVERFLOWING: &[(&str, &str)] = &[
+    ("mouse", "true"),
+    ("max_length", "23"),
+    ("key_format", "{key} "),
+    ("desc_format", "{desc}"),
+    ("hint_spacer", "|"),
+    ("pipe_name", "hints"),
+];
+
+/// The events that tell bars in `ids` where they are and what mode the
+/// session is in.
+fn introduce(shared: &mut Shared<State>, ids: &[SlotId], mode: InputMode) {
+    let panes = ids
+        .iter()
+        .map(|id| PaneInfo {
+            id: *id,
+            is_plugin: true,
+            plugin_url: Some("zjhints".to_string()),
+            pane_content_columns: 80,
+            pane_columns: 80,
+            ..Default::default()
+        })
+        .collect();
+    let manifest = PaneManifest {
+        panes: HashMap::from([(0, panes)]),
+    };
+    shared.take_event(Event::PaneUpdate(manifest), EventContext::default());
+    shared.take_event(Event::ModeUpdate(pane_mode(mode)), from_client(None));
+}
+
+fn pane_mode(mode: InputMode) -> ModeInfo {
+    // Pane mode binds all four hints, and every other mode two of them.
+    let count = if mode == InputMode::Pane { 4 } else { 2 };
+    let hints = four_hints().into_iter().take(count).collect();
+    ModeInfo {
+        mode,
+        base_mode: Some(InputMode::Normal),
+        keybinds: vec![(mode, hints)],
+        ..Default::default()
+    }
+}
+
+/// The calls the bar in slot `id` made, in order.
+fn calls_of(shared: &Shared<State>, id: SlotId) -> Vec<Call> {
+    shared.plugin(id).expect("a slot").host.calls()
+}
+
 fn published(line: &str) -> Call {
     Call::Broadcast {
         name: "pipe".to_string(),
         payload: format!("zjstatus::pipe::pipe_hints::{line}"),
     }
+}
+
+#[test]
+fn a_pane_slot_publishes_when_it_draws_and_not_when_it_hears_an_event() {
+    let mut shared = Shared::<State>::default();
+    shared.add_slot(slot(8, SlotKind::Pane, OVERFLOWING));
+    introduce(&mut shared, &[8], InputMode::Pane);
+    let broadcasts = |shared: &Shared<State>| {
+        calls_of(shared, 8)
+            .into_iter()
+            .filter(|call| matches!(call, Call::Broadcast { .. }))
+            .count()
+    };
+    assert_eq!(broadcasts(&shared), 0);
+    shared.render_slot(1, 23, 8, Recorder::CLIENT_ID);
+    assert_eq!(broadcasts(&shared), 1);
 }
 
 #[test]
@@ -3395,5 +3478,103 @@ fn drawing_makes_every_call_before_the_text_is_printed() {
                 popup: 30,
             },
         ]
+    );
+}
+
+#[test]
+fn each_hover_timer_opens_the_preview_of_the_slot_that_waited() {
+    let mut shared = Shared::<State>::default();
+    for id in [3, 4] {
+        shared.add_slot(slot(id, SlotKind::Pane, OVERFLOWING));
+    }
+    introduce(&mut shared, &[3, 4], InputMode::Pane);
+    for id in [3, 4] {
+        shared.render_slot(1, 23, id, Recorder::CLIENT_ID);
+    }
+    let marker = column_of(shared.plugin(3).unwrap(), "…");
+    // Both rest the pointer on the marker, 3 first.
+    for id in [3, 4] {
+        shared.take_event(Event::Mouse(Mouse::Hover(0, marker)), from_client(Some(id)));
+    }
+    let opens = |shared: &Shared<State>, id: SlotId| {
+        calls_of(shared, id)
+            .into_iter()
+            .filter(|call| matches!(call, Call::OpenPreviewPopup { .. }))
+            .count()
+    };
+    // Zellij sends a timer to the instance, with no slot. The first is 3's.
+    let first = shared.take_event(
+        Event::Timer(mouse::HOVER_DELAY_SECONDS),
+        EventContext::default(),
+    );
+    assert_eq!((opens(&shared, 3), opens(&shared, 4)), (1, 0));
+    // The popup anchors to the slot it opens from, so it waits for 3's next
+    // draw, which is asked for, and opens as 3's.
+    assert_eq!(first.render, RenderResponse::Slots(vec![3]));
+    assert!(first.effects.is_empty());
+    let drawn = shared.render_slot(1, 23, 3, Recorder::CLIENT_ID);
+    let [Effect::OpenPopup(popup)] = drawn.effects.as_slice() else {
+        panic!("expected the popup, got {:?}", drawn.effects);
+    };
+    assert_eq!(popup.url, "zjhints");
+    assert_eq!(
+        popup.configuration.get("zjhints_internal_preview_tag"),
+        Some(&"3-1".to_string())
+    );
+    // The second is 4's.
+    shared.take_event(
+        Event::Timer(mouse::HOVER_DELAY_SECONDS),
+        EventContext::default(),
+    );
+    assert_eq!((opens(&shared, 3), opens(&shared, 4)), (1, 1));
+    let drawn = shared.render_slot(1, 23, 4, Recorder::CLIENT_ID);
+    let [Effect::OpenPopup(popup)] = drawn.effects.as_slice() else {
+        panic!("expected the popup, got {:?}", drawn.effects);
+    };
+    assert_eq!(
+        popup.configuration.get("zjhints_internal_preview_tag"),
+        Some(&"4-1".to_string())
+    );
+}
+
+#[test]
+fn a_popup_slot_and_its_bar_slot_find_each_other_by_slot() {
+    let mut shared = Shared::<State>::default();
+    shared.add_slot(slot(3, SlotKind::Pane, OVERFLOWING));
+    introduce(&mut shared, &[3], InputMode::Pane);
+    shared.render_slot(1, 23, 3, Recorder::CLIENT_ID);
+    let marker = column_of(shared.plugin(3).unwrap(), "…");
+    shared.take_event(Event::Mouse(Mouse::Hover(0, marker)), from_client(Some(3)));
+    shared.take_event(
+        Event::Timer(mouse::HOVER_DELAY_SECONDS),
+        EventContext::default(),
+    );
+    let drawn = shared.render_slot(1, 23, 3, Recorder::CLIENT_ID);
+    let Some(Effect::OpenPopup(request)) = drawn.effects.into_iter().next() else {
+        panic!("expected the popup");
+    };
+    // Zellij adds the popup as a slot of the same instance, with the
+    // configuration it was opened with.
+    shared.add_slot(Slot {
+        id: 40,
+        kind: SlotKind::Pane,
+        configuration: request.configuration,
+    });
+    assert!(matches!(
+        shared.plugin(40).map(|state| &state.role),
+        Some(Role::Popup(_))
+    ));
+    // It says it opened with its slot id, reaching the bar's slot, which
+    // closes it by that id when the pointer clicks the bar.
+    let opened = from_popup(40, popup::NAMES.opened, "3-1");
+    shared.take_message(opened, from_client(Some(3)));
+    shared.plugin_mut(3).unwrap().host.clear();
+    shared.take_event(Event::Mouse(Mouse::LeftClick(0, 0)), from_client(Some(3)));
+    assert_eq!(
+        calls_of(&shared, 3),
+        vec![Call::ClosePreviewPopup {
+            message: popup::NAMES.close,
+            popup: 40,
+        }]
     );
 }

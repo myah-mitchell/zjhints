@@ -479,6 +479,18 @@ impl BarPlugin for State {
     }
 }
 
+/// Each slot of the shared instance is a `State` of its own; only a bar has
+/// the bar's state for `zjkit::shared` to read.
+impl zjkit::shared::SlotPlugin for State {
+    fn bar(&self) -> Option<&BarCore> {
+        self.role.is_bar().then_some(&self.bar)
+    }
+
+    fn bar_mut(&mut self) -> Option<&mut BarCore> {
+        self.role.is_bar().then_some(&mut self.bar)
+    }
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.role = Role::load(&BAR, &configuration);
