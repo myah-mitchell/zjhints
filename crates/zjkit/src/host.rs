@@ -39,6 +39,10 @@ use zellij_tile::prelude::*;
 pub(crate) const SETTINGS_KEY: &str = "settings";
 /// The configuration key that pins the settings screen to one alias.
 const ALIAS_KEY: &str = "alias";
+/// The configuration key Zellij tells shared instances of one location apart
+/// by: panes that load the location with the same value, or none, are slots
+/// of one instance.
+pub const INSTANCE_KEY: &str = "instance";
 
 /// Everything a bar asks of Zellij.
 pub trait Host {
@@ -82,17 +86,6 @@ pub trait Host {
     /// every draw that shows a clock. A test sets the time a `Recorder`
     /// reports with `Recorder::set_system_time`.
     fn system_time(&self) -> SystemTime;
-
-    /// The location plugin `plugin_id` of this session runs from, written
-    /// the way a `PaneUpdate` writes the URL of a pane started from a
-    /// location: `file:/path/to/plugin.wasm`, say. For a plugin started from
-    /// an alias, this is the location the alias stands for, where its own
-    /// pane reports the alias name. `None` when Zellij cannot say. Needs the
-    /// `ReadApplicationState` permission.
-    ///
-    /// Not a `Call`: asking changes nothing. A test sets what a `Recorder`
-    /// reports with `Recorder::set_plugin_location`.
-    fn plugin_location(&self, plugin_id: u32) -> Option<String>;
 
     /// Run `command`, its program then its arguments, on the machine Zellij
     /// runs on, in the plugin's working directory. Needs the `RunCommands`
@@ -220,13 +213,21 @@ pub trait Host {
     /// Open the plugin's settings screen as a floating pane titled
     /// `pane_title`, or reach the one already open, with the pipe message
     /// `message`. `own_url` is the URL of the bar asking: when it is an alias
-    /// name, the screen edits that alias. See `settings_configuration`.
+    /// name, the screen edits that alias. `instance` is the bar's own
+    /// `instance` option, so the screen runs as a slot of the bar's shared
+    /// instance. See `settings_configuration`.
     ///
     /// The message is addressed to `zellij:OWN_URL`, which stands for this
     /// plugin's own location. A message addressed by URL goes to a running
-    /// instance whose configuration matches exactly, and launches one only
-    /// when there is none, so a second request finds the screen already open.
-    fn open_settings(&self, message: &str, pane_title: &str, own_url: Option<&str>);
+    /// slot whose configuration matches exactly, and launches one only when
+    /// there is none, so a second request finds the screen already open.
+    fn open_settings(
+        &self,
+        message: &str,
+        pane_title: &str,
+        own_url: Option<&str>,
+        instance: Option<&str>,
+    );
 
     /// Add the bar's entry, titled `plugin`, to Zellij's settings screen.
     /// Bars started the same way share one entry, and choosing it reaches all
@@ -253,13 +254,20 @@ pub trait Host {
 }
 
 /// The configuration the settings screen is opened with from a bar running
-/// as `own_url`: marked as the screen, and pinned to the bar's alias when
+/// as `own_url`: marked as the screen, pinned to the bar's alias when
 /// `own_url` is an alias name rather than a location (a location always has
-/// a scheme, as in `file:`).
-pub fn settings_configuration(own_url: Option<&str>) -> BTreeMap<String, String> {
+/// a scheme, as in `file:`), and given the bar's `instance` option, if it has
+/// one, so the screen joins the bar's shared instance.
+pub fn settings_configuration(
+    own_url: Option<&str>,
+    instance: Option<&str>,
+) -> BTreeMap<String, String> {
     let mut configuration = BTreeMap::from([(SETTINGS_KEY.to_string(), "true".to_string())]);
     if let Some(alias) = own_url.filter(|url| !url.contains(':')) {
         configuration.insert(ALIAS_KEY.to_string(), alias.to_string());
+    }
+    if let Some(instance) = instance {
+        configuration.insert(INSTANCE_KEY.to_string(), instance.to_string());
     }
     configuration
 }
@@ -357,20 +365,6 @@ impl Host for Zellij {
 
     fn system_time(&self) -> SystemTime {
         SystemTime::now()
-    }
-
-    /// Read from the plugins Zellij lists for this session, which it keeps
-    /// by plugin id with the alias already resolved to its location.
-    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
-        let snapshot = get_session_list().ok()?;
-        let mut session = snapshot
-            .live_sessions
-            .into_iter()
-            .find(|session| session.is_current_session)?;
-        session
-            .plugins
-            .remove(&plugin_id)
-            .map(|plugin| plugin.location)
     }
 
     fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
@@ -498,11 +492,17 @@ impl Host for Zellij {
         open_plugin_pane_floating(url, configuration, coordinates, context);
     }
 
-    fn open_settings(&self, message: &str, pane_title: &str, own_url: Option<&str>) {
+    fn open_settings(
+        &self,
+        message: &str,
+        pane_title: &str,
+        own_url: Option<&str>,
+        instance: Option<&str>,
+    ) {
         pipe_message_to_plugin(
             MessageToPlugin::new(message)
                 .with_plugin_url("zellij:OWN_URL")
-                .with_plugin_config(settings_configuration(own_url))
+                .with_plugin_config(settings_configuration(own_url, instance))
                 .new_plugin_instance_should_float(true)
                 .new_plugin_instance_should_be_focused()
                 .new_plugin_instance_should_have_pane_title(pane_title),
@@ -616,6 +616,7 @@ pub enum Call {
         message: String,
         pane_title: String,
         own_url: Option<String>,
+        instance: Option<String>,
     },
     AddSettingsEntry(String),
     OpenPreviewPopup {
@@ -651,9 +652,6 @@ pub struct Recorder {
     prompts: Cell<u64>,
     /// What `system_time` reports: the Unix epoch until a test sets it.
     system_time: Cell<Option<SystemTime>>,
-    /// What `plugin_location` reports, by plugin id: nothing until a test
-    /// sets it.
-    plugin_locations: RefCell<BTreeMap<u32, String>>,
 }
 
 impl Recorder {
@@ -686,14 +684,6 @@ impl Recorder {
     /// Have `system_time` report `time` from now on.
     pub fn set_system_time(&self, time: SystemTime) {
         self.system_time.set(Some(time));
-    }
-
-    /// Have `plugin_location` report `location` for plugin `plugin_id` from
-    /// now on.
-    pub fn set_plugin_location(&self, plugin_id: u32, location: &str) {
-        self.plugin_locations
-            .borrow_mut()
-            .insert(plugin_id, location.to_string());
     }
 
     fn record(&self, call: Call) {
@@ -771,11 +761,6 @@ impl Host for Recorder {
     /// The time `set_system_time` set, or the Unix epoch until it is set.
     fn system_time(&self) -> SystemTime {
         self.system_time.get().unwrap_or(SystemTime::UNIX_EPOCH)
-    }
-
-    /// The location `set_plugin_location` set for `plugin_id`, if any.
-    fn plugin_location(&self, plugin_id: u32) -> Option<String> {
-        self.plugin_locations.borrow().get(&plugin_id).cloned()
     }
 
     fn run_command(&self, command: &[&str], context: BTreeMap<String, String>) {
@@ -945,11 +930,18 @@ impl Host for Recorder {
         });
     }
 
-    fn open_settings(&self, message: &str, pane_title: &str, own_url: Option<&str>) {
+    fn open_settings(
+        &self,
+        message: &str,
+        pane_title: &str,
+        own_url: Option<&str>,
+        instance: Option<&str>,
+    ) {
         self.record(Call::OpenSettings {
             message: message.to_string(),
             pane_title: pane_title.to_string(),
             own_url: own_url.map(str::to_string),
+            instance: instance.map(str::to_string),
         });
     }
 
@@ -994,7 +986,7 @@ mod tests {
 
     #[test]
     fn settings_opened_from_an_alias_bar_edit_that_alias() {
-        let configuration = settings_configuration(Some("zjtest-alt"));
+        let configuration = settings_configuration(Some("zjtest-alt"), None);
         assert_eq!(
             configuration.get("alias").map(String::as_str),
             Some("zjtest-alt")
@@ -1004,9 +996,22 @@ mod tests {
             Some("true")
         );
         // A bar started from a location rather than an alias pins nothing.
-        let configuration = settings_configuration(Some("file:/x/zjtest.wasm"));
+        let configuration = settings_configuration(Some("file:/x/zjtest.wasm"), None);
         assert_eq!(configuration.get("alias"), None);
-        assert_eq!(settings_configuration(None).get("alias"), None);
+        assert_eq!(settings_configuration(None, None).get("alias"), None);
+    }
+
+    #[test]
+    fn settings_open_in_the_shared_instance_of_the_bar_that_opened_them() {
+        let configuration = settings_configuration(Some("zjtest"), Some("work"));
+        assert_eq!(
+            configuration.get("instance").map(String::as_str),
+            Some("work")
+        );
+        assert_eq!(
+            settings_configuration(Some("zjtest"), None).get("instance"),
+            None
+        );
     }
 
     #[test]
