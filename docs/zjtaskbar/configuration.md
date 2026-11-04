@@ -4,6 +4,8 @@ Every option zjtaskbar reads, with its default. The plugin works with none of th
 
 Options are grouped by topic, and a group with more to it links the page carrying the detail. An option written with a placeholder in it is a family rather than a single key: you append your own value.
 
+Zellij also reads an `instance` key from a plugin's options, to decide which panes share a running copy of the plugin. It is not an option of the plugin, so it has no row here. See [Shared instances](../shared-instances.md#keeping-bars-apart).
+
 | Placeholder | You replace it with |
 | --- | --- |
 | `<name>` | An alias name you choose, giving `color_blue` |
@@ -189,9 +191,9 @@ Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the
 
 ## Settings screen
 
-Options of the settings screen itself. They are read only by the instance that runs the screen, not by the bar. See [Settings screen](../settings.md).
+Options of the settings screen itself. They are read only by the pane that runs the screen, not by the bars. See [Settings screen](../settings.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `settings` | `false` | Run this instance as the settings screen instead of the bar |
+| `settings` | `false` | Run this pane as the settings screen instead of the bar |
 | `alias` | unset | The `plugins {}` alias to edit, when more than one loads zjtaskbar |

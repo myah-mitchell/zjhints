@@ -877,9 +877,10 @@ impl SettingsScreen {
         self.previewed = editor.working().clone();
     }
 
-    /// Put the pending values in the session's alias, so bars started from
-    /// now on load them, as Zellij keeps settings edits applied to the
-    /// session until they are saved or reverted.
+    /// Put the pending values in the session's alias, as Zellij keeps
+    /// settings edits applied to the session until they are saved or
+    /// reverted. Running bars already show them through the previews; a bar
+    /// started later still loads the alias as the session started with it.
     fn keep_in_session(&mut self) {
         let Some(editor) = self.editor_mut() else {
             return;

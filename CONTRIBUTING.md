@@ -39,6 +39,8 @@ The repository is a Cargo workspace. Run every command from its root: `make`, `c
 
 zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. The plugin describes itself to the shared bar code in a static `BarSpec` and keeps a `Role` and a `BarCore` in its state. See the docs of `zjkit::bar`.
 
+Every plugin runs as a Zellij shared instance, registered in its `main.rs` with `register_shared_plugin!(zjkit::shared::Shared<State>)`. Zellij runs one instance for all the panes that load the plugin, and `Shared` keeps a separate `State` for each pane, its slot, so a `State` is still written for one pane. Three rules follow from that. Print nothing outside `render`, and make every Zellij call before `render` prints. Make a call about the plugin's own pane through `Host`, which hands it to `Shared` to make for the acting slot. Keep what the slots must share in one place every slot reaches, as zjtaskbar does in `instance.rs`. See the docs of `zjkit::shared`, and [Shared instances](docs/shared-instances.md) for how the instance looks to a user.
+
 Every Zellij call a bar makes goes through the `Host` trait. In the plugin that is `Zellij`, and in tests it is `Recorder`, which makes no calls and keeps a `Call` for each one, so a test can assert what the bar asked Zellij to do. `cfg(test)` is set per crate, so zjkit cannot choose between them. Each plugin makes the choice once, as a `BarHost` alias in its `host.rs`. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
 
 | Module | What it does |
@@ -66,7 +68,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 
 | File | What it holds |
 | --- | --- |
-| `main.rs` | The plugin state, its options, and the Zellij event loop |
+| `main.rs` | The plugin state, its options, the Zellij event loop, and the plugin's registration as a shared plugin |
 | `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
 | `keys.rs` | Key grouping, key and modifier aliases, and key order |
 | `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
@@ -78,12 +80,12 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 
 ### The zjtabs plugin
 
-zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij, so that zjhints' tests can depend on the library and draw zjtabs in its images (see [Images](#images)).
+zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij as a shared plugin, so that zjhints' tests can depend on the library and draw zjtabs in its images (see [Images](#images)).
 
 | File | What it holds |
 | --- | --- |
 | `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
-| `main.rs` | The plugin's registration with Zellij |
+| `main.rs` | The plugin's registration with Zellij as a shared plugin |
 | `tabs.rs` | The tabs, the mode prefix before them and the session name after them, laying them out on one line and the window around the active tab |
 | `flags.rs` | The four flags a tab can show and their formats |
 | `mouse.rs` | Clicks, the wheel, double-click renaming, middle-click closing, the right-click menus and opening the settings screen from the mode prefix |
@@ -99,10 +101,12 @@ zjtaskbar is a library with a binary on top, as zjtabs is, so that its `draw_for
 | File | What it holds |
 | --- | --- |
 | `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
-| `main.rs` | The plugin's registration with Zellij |
+| `main.rs` | The plugin's registration with Zellij as a shared plugin |
 | `entries.rs` | Which floating panes the bar lists, in what order, and what it shows of each |
 | `draw.rs` | Laying out the line: the launcher's button, the window of entries around the focused one with its markers, and the tray |
 | `flags.rs` | The four flags an entry can show and their formats |
+| `frame.rs` | The minimize, maximize and close buttons on pane frames, and which bar puts them on which pane |
+| `instance.rs` | What the bars of the instance share: the minimized panes, which panes have a bar, and which bars ask before a frame close |
 | `launcher.rs` | The launcher's button, its menu, and the user's own `launch_<n>_*` entries |
 | `tray.rs` | The tray's items, and fitting them by dropping items from the left |
 | `clock.rs` | The tray's clock: its `strftime` subset, its offset from UTC, and when it ticks |
