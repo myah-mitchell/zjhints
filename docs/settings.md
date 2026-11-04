@@ -103,7 +103,7 @@ After each value comes a marker of where it comes from:
 | *✗ ignored* | A key the bar does not read: it starts like a family's keys but fits none, as in [Keys that fit no family](#keys-that-fit-no-family) |
 | None | Set in the config file and unchanged |
 
-Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal.
+Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal. So is a character that reorders text, such as `\u{202e}`.
 
 The screen needs a pane of at least 50 columns by 12 rows. A smaller one shows how much it needs instead.
 

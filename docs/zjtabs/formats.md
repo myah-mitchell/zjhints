@@ -26,7 +26,7 @@ A format that leaves a placeholder out leaves that part off the tab. A format se
 
 The name is put into the format after the format has been read, so nothing in a name is taken for styling. A tab named `#[fg=red]build` shows exactly that, and a `$` or a `{` in a name is drawn as typed.
 
-A control character in a name is drawn as an escape, such as `\u{1b}` for ESC, rather than sent to the terminal.
+A control character in a name is drawn as an escape, such as `\u{1b}` for ESC, rather than sent to the terminal. So is a character that reorders text, such as `\u{202e}`, the right-to-left override, so a name cannot draw itself backwards.
 
 ## Numbering
 
