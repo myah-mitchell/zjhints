@@ -28,6 +28,7 @@ use crate::settings::schema::{Configuration, Schema};
 use crate::settings::screen::SettingsScreen;
 use crate::theme;
 use crate::visibility::{self, Request, Visibility};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use zellij_tile::prelude::*;
 
@@ -243,6 +244,20 @@ pub struct BarCore {
     /// Content width of this bar's own pane, from `PaneUpdate`. `None` while
     /// the bar has no visible pane, as when it is loaded in the background.
     pub pane_width: Option<usize>,
+    /// The permissions the bar last asked for, whole, which a grant gives it.
+    ///
+    /// Asking happens through a shared `BarCore` in `follow`, as the plugin's
+    /// host is borrowed from the same state, so the set is kept in a
+    /// `RefCell`.
+    pub asked_permissions: RefCell<Vec<PermissionType>>,
+    /// The permissions the bar holds, from Zellij's last answer: everything
+    /// it last asked for after a grant, since a grant replaces what the
+    /// plugin had, and nothing after a denial or before the first answer.
+    ///
+    /// Zellij shows one permission prompt at a time, a later request
+    /// replacing an earlier one still unanswered, so an answer is taken as
+    /// being for the last request.
+    pub granted_permissions: Vec<PermissionType>,
 }
 
 impl BarCore {
@@ -281,7 +296,7 @@ impl BarCore {
         self.plugin_id = Some(ids.plugin_id);
         self.client_id = Some(ids.client_id);
         theme::log_unknown_themes(spec.schema.plugin, &self.user_configuration);
-        host.request_permission(permissions);
+        self.request_permission(host, permissions);
 
         // Deliberately still selectable at this point.
         //
@@ -307,6 +322,12 @@ impl BarCore {
     /// makes it unselectable again.
     pub fn ask_for_permissions(&self, host: &impl Host, permissions: &[PermissionType]) {
         host.set_selectable(true);
+        self.request_permission(host, permissions);
+    }
+
+    /// Ask Zellij for `permissions`, keeping them as the set a grant gives.
+    fn request_permission(&self, host: &impl Host, permissions: &[PermissionType]) {
+        self.asked_permissions.replace(permissions.to_vec());
         host.request_permission(permissions);
     }
 
@@ -426,6 +447,10 @@ impl BarCore {
             // gone and the pane has no further reason to take focus.
             Event::PermissionRequestResult(status) => {
                 host.set_selectable(false);
+                self.granted_permissions = match status {
+                    PermissionStatus::Granted => self.asked_permissions.borrow().clone(),
+                    PermissionStatus::Denied => Vec::new(),
+                };
                 if *status == PermissionStatus::Granted {
                     host.add_settings_entry(spec.schema.plugin);
                 }
@@ -727,6 +752,27 @@ mod tests {
                 Call::Subscribe(SPEC.events.to_vec()),
             ]
         );
+    }
+
+    #[test]
+    fn a_grant_gives_the_bar_what_it_last_asked_for_and_a_denial_nothing() {
+        let host = Recorder::default();
+        let mut bar = BarCore::default();
+        bar.load(&host, &SPEC, &permissions(false), false);
+        assert_eq!(bar.granted_permissions, Vec::new());
+        let granted = Event::PermissionRequestResult(PermissionStatus::Granted);
+        let _ = bar.update(&host, &SPEC, &granted);
+        assert_eq!(bar.granted_permissions, permissions(false));
+
+        // Asking for more holds only the old grant until the answer.
+        bar.enable_mouse(&host, &SPEC, &permissions(true));
+        assert_eq!(bar.granted_permissions, permissions(false));
+        let _ = bar.update(&host, &SPEC, &granted);
+        assert_eq!(bar.granted_permissions, permissions(true));
+
+        let denied = Event::PermissionRequestResult(PermissionStatus::Denied);
+        let _ = bar.update(&host, &SPEC, &denied);
+        assert_eq!(bar.granted_permissions, Vec::new());
     }
 
     #[test]
