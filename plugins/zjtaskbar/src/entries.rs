@@ -224,14 +224,14 @@ pub(crate) fn entries_of(
 }
 
 /// Whether `pane` is a floating pane on screen that the user can select.
-fn is_listed_floating(pane: &PaneInfo) -> bool {
+pub(crate) fn is_listed_floating(pane: &PaneInfo) -> bool {
     pane.is_floating && pane.is_selectable && !pane.is_suppressed
 }
 
 /// Whether `pane` is one the bar minimized and is still hidden. A pane the
 /// bar minimized that is back on screen, shown some other way, is listed as
 /// any other floating pane.
-fn is_minimized(pane: &PaneInfo, minimized: &Minimized) -> bool {
+pub(crate) fn is_minimized(pane: &PaneInfo, minimized: &Minimized) -> bool {
     pane.is_suppressed && minimized.contains_key(&pane_id_of(pane))
 }
 

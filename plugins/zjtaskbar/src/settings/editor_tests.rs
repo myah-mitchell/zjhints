@@ -126,7 +126,7 @@ fn the_groups_are_listed_in_order_starting_with_the_entries() {
         groups,
         [
             "Entries", "Flags", "Overflow", "Launcher", "Tray", "Clock", "Session", "Mode",
-            "Theme", "Colors", "Behavior", "Mouse",
+            "Frame", "Theme", "Colors", "Behavior", "Mouse",
         ]
     );
     assert!(is_previewed(&SCHEMA, Section::Group("Theme")));

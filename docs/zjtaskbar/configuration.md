@@ -129,6 +129,20 @@ The current input mode, drawn while `mode` is in `tray`. The options are named a
 | `mode_label_<mode>` | unset | The mode's name for `{desc}`, as in `mode_label_locked "LOCK"`, the uppercase mode name when unset |
 | `mode_key_<mode>` | unset | A symbol for the mode, drawn by `{key}`, as in `mode_key_locked "L"` |
 
+## Frame
+
+Buttons on the frames of every pane, as a desktop window has: minimize, maximize and close, at the right of the frame's top row. They need the Zellij build with plugin frame items; see [Frame buttons](mouse.md#frame-buttons).
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `frame_buttons` | `true` | Put minimize, maximize and close buttons on the frames of every pane, minimize floating a tiled pane |
+| `frame_minimize_text` | ` ─` | Text of the minimize button, which an empty value leaves off |
+| `frame_maximize_text` | ` □` | Text of the maximize button, which an empty value leaves off |
+| `frame_restore_text` | ` ❐` | Text of the maximize button while its pane fills the tab, a click giving it back its own size |
+| `frame_close_text` | ` ✕ ` | Text of the close button, which an empty value leaves off |
+
+Zellij draws a plugin's buttons side by side with nothing between them, so each default starts with a space. The close button asks first while `mouse_close_confirm` is on, which takes the *Start new terminals and plugins* permission even with `mouse` off.
+
 ## Theme
 
 Built-in colors, shapes and symbols for the whole bar, laid under your own options. See [Themes](../themes.md).
@@ -169,7 +183,7 @@ Clicking the bar, the way a desktop taskbar works. Left-click an entry to focus 
 | --- | --- | --- |
 | `mouse` | `true` | Click an entry to focus, minimize or restore its pane, scroll to step through the panes on screen, double-click to rename, middle-click to close, right-click for the pane's menu or Zellij's bar menu |
 | `mouse_wheel_reversed` | `false` | Scroll up for the previous pane and down for the next, the reverse of Zellij's own tab bar |
-| `mouse_close_confirm` | `true` | Ask before a middle click or the pane menu closes a pane, with *Cancel* selected |
+| `mouse_close_confirm` | `true` | Ask before a middle click, the pane menu or a frame's close button closes a pane, with *Cancel* selected |
 
 Turning `mouse` on asks Zellij for two more permissions: *Execute actions as the user*, to rename a pane, and *Start new terminals and plugins*, for the pane menu and the close prompt, which are Zellij prompts. See [Permissions](mouse.md#permissions).
 

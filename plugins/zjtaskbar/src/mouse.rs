@@ -303,7 +303,7 @@ impl State {
     fn restore(&mut self, pane: PaneId) {
         let geometry = self.minimized.remove(&pane);
         self.focus(pane);
-        if let Some(geometry) = geometry {
+        if let Some(geometry) = geometry.filter(|geometry| *geometry != Default::default()) {
             self.host
                 .change_floating_panes_coordinates(vec![(pane, geometry)]);
         }
@@ -311,11 +311,21 @@ impl State {
 
     /// Hide `pane` from the screen and keep it on the bar as minimized, with
     /// where it stood, so that `restore` can put it back there.
-    fn minimize(&mut self, pane: PaneId) {
+    ///
+    /// A tiled pane is floated first, so it comes back floating, as every
+    /// pane on the bar is. It has stood nowhere as a floating pane, so it
+    /// comes back where Zellij places it, which the empty coordinates
+    /// recorded for it leave alone.
+    pub(crate) fn minimize(&mut self, pane: PaneId) {
         let Some(info) = self.pane_info(pane) else {
             return;
         };
-        let geometry = geometry_of(info);
+        let geometry = if info.is_floating {
+            geometry_of(info)
+        } else {
+            self.host.toggle_pane_embed_or_eject_for_pane_id(pane);
+            FloatingPaneCoordinates::default()
+        };
         self.minimized.insert(pane, geometry);
         self.host.hide_pane_with_id(pane);
     }
@@ -356,8 +366,10 @@ impl State {
     ///
     /// A pane the bar no longer lists, gone since the line was drawn or the
     /// menu opened, is left alone either way.
-    fn close_pane(&mut self, pane: PaneId) {
-        let Some(entry) = self.entries.iter().find(|entry| entry.pane == pane) else {
+    /// Close `pane`, a pane on the bar or, from its frame's button, any
+    /// other, asking first while `mouse_close_confirm` is on.
+    pub(crate) fn close_pane(&mut self, pane: PaneId) {
+        let Some(info) = self.pane_info(pane) else {
             return;
         };
         if !self.mouse_close_confirm {
@@ -366,7 +378,7 @@ impl State {
         }
         let message = format!(
             "Close pane \"{}\" and end what runs in it?",
-            show_controls(&entry.title)
+            show_controls(&info.title)
         );
         // Cancel is the button selected at first, so `Enter` or `Space`
         // straight away keeps the pane, as `Esc` does. Without a default,
@@ -417,7 +429,7 @@ impl State {
         };
         match prompted {
             Prompted::Close(pane) => {
-                if *result == PromptResult::Confirmed(true) && self.lists(pane) {
+                if *result == PromptResult::Confirmed(true) && self.pane_info(pane).is_some() {
                     self.close_now(pane);
                 }
             }

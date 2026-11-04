@@ -22,9 +22,10 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
     // The panes, the tabs and the input mode, from `PaneUpdate`, `TabUpdate`
     // and `ModeUpdate`.
     PermissionType::ReadApplicationState,
-    // Adding the bar's entry to Zellij's settings screen. With `mouse` on,
-    // also focusing, minimizing, moving and closing the listed panes, and
-    // opening Zellij's bar menu. Handing the bar's row back while it is empty
+    // Adding the bar's entry to Zellij's settings screen, and the buttons on
+    // the listed panes' frames. With `mouse` on or from those buttons, also
+    // focusing, minimizing, moving and closing the listed panes, and opening
+    // Zellij's bar menu. Handing the bar's row back while it is empty
     // needs no permission, as it changes only the bar's own pane.
     PermissionType::ChangeApplicationState,
     // The hide, show and toggle messages between bars, and opening the
@@ -51,17 +52,20 @@ pub(crate) enum Feature {
     /// The tray's clock, while it has no `clock_utc_offset` to go by and asks
     /// the system for the local time's offset instead.
     ClockCommand,
+    /// The close button on a pane's frame, while it asks before closing.
+    FrameCloseConfirm,
 }
 
 impl Feature {
     /// Every feature, for the settings screen, which asks for what a bar with
     /// every feature on needs.
-    pub(crate) const ALL: [Feature; 5] = [
+    pub(crate) const ALL: [Feature; 6] = [
         Feature::Mouse,
         Feature::Launcher,
         Feature::LauncherZellijAction,
         Feature::LauncherCommand,
         Feature::ClockCommand,
+        Feature::FrameCloseConfirm,
     ];
 
     /// What the feature needs beyond what the bar always asks for.
@@ -93,6 +97,10 @@ impl Feature {
                 // a plugin cannot read from its sandbox.
                 PermissionType::RunCommands,
             ],
+            Feature::FrameCloseConfirm => &[
+                // The close confirmation, which is a prompt.
+                PermissionType::OpenTerminalsOrPlugins,
+            ],
         }
     }
 }
@@ -112,7 +120,7 @@ pub(crate) fn bar_permissions(features: &[Feature]) -> Vec<PermissionType> {
 }
 
 /// The events the bar always subscribes to.
-pub(crate) const BAR_EVENTS: [EventType; 6] = [
+pub(crate) const BAR_EVENTS: [EventType; 8] = [
     // The nested-session state that hides or dims the bar, and the Zellij
     // theme the default look is drawn in.
     EventType::ModeUpdate,
@@ -128,15 +136,18 @@ pub(crate) const BAR_EVENTS: [EventType; 6] = [
     // neither arrives unless the clock asks for it.
     EventType::Timer,
     EventType::RunCommandResult,
+    // Clicks on the buttons on the listed panes' frames, which go only to
+    // the plugin that placed them, and arrive only while it has.
+    EventType::FrameItemClicked,
+    // The answers to the pane menu, the close confirmation and the
+    // launcher's menu. The close button asks with the mouse off too.
+    EventType::PromptResult,
 ];
 
 /// The events the bar subscribes to while `mouse` is on.
-pub(crate) const MOUSE_EVENTS: [EventType; 2] = [
+pub(crate) const MOUSE_EVENTS: [EventType; 1] = [
     // Clicks and the wheel over the bar.
     EventType::Mouse,
-    // The answers to the pane menu, the close confirmation and the
-    // launcher's menu.
-    EventType::PromptResult,
 ];
 
 /// The pipe message that opens the settings screen, or brings it up.

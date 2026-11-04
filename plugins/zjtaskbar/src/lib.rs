@@ -25,6 +25,7 @@ mod clock;
 mod draw;
 mod entries;
 mod flags;
+mod frame;
 mod host;
 #[cfg(test)]
 mod images;
@@ -63,6 +64,11 @@ const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
 const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
+const CONFIG_FRAME_BUTTONS: &str = "frame_buttons";
+const CONFIG_FRAME_MINIMIZE_TEXT: &str = "frame_minimize_text";
+const CONFIG_FRAME_MAXIMIZE_TEXT: &str = "frame_maximize_text";
+const CONFIG_FRAME_RESTORE_TEXT: &str = "frame_restore_text";
+const CONFIG_FRAME_CLOSE_TEXT: &str = "frame_close_text";
 const CONFIG_SHOW_LAUNCHER: &str = "show_launcher";
 const CONFIG_LAUNCHER_FORMAT: &str = "launcher_format";
 const CONFIG_LAUNCHER_SYMBOL: &str = "launcher_symbol";
@@ -123,6 +129,18 @@ const DEFAULT_MOUSE_WHEEL_REVERSED: bool = false;
 // Ask first: closing a pane ends what runs in it, and a middle click is easy
 // to make by accident. The same as zjtabs.
 const DEFAULT_MOUSE_CLOSE_CONFIRM: bool = true;
+// On by default, as a desktop window has them: a pane the bar lists can be
+// put away, filled out or closed from its own frame. They need no mouse
+// option, as the clicks land on the frame rather than the bar.
+const DEFAULT_FRAME_BUTTONS: bool = true;
+// Shapes from the box drawing, geometric and dingbat blocks, which the
+// fonts that draw Zellij's frames have, rather than Nerd Font glyphs. Each
+// starts with a space, as Zellij puts nothing between a plugin's items; the
+// last ends with one too, before the frame's own indications.
+const DEFAULT_FRAME_MINIMIZE_TEXT: &str = " \u{2500}";
+const DEFAULT_FRAME_MAXIMIZE_TEXT: &str = " \u{25a1}";
+const DEFAULT_FRAME_RESTORE_TEXT: &str = " \u{2750}";
+const DEFAULT_FRAME_CLOSE_TEXT: &str = " \u{2715} ";
 // On by default, as a desktop taskbar has its start button: opening a new
 // terminal or one of Zellij's own screens is a click away with nothing to
 // set up. It needs the mouse, which is on by default too.
@@ -217,6 +235,12 @@ pub struct State {
     mouse_wheel_reversed: bool,
     /// Ask before closing a pane, from a middle click or the pane menu.
     mouse_close_confirm: bool,
+    /// What the buttons on the listed panes' frames show, or `None` while
+    /// `frame_buttons` is off. See `frame`.
+    frame_buttons: Option<frame::FrameButtonTexts>,
+    /// The buttons last placed on each pane's frame, so they are sent again
+    /// only when they change.
+    frame_items_sent: BTreeMap<PaneId, Vec<FrameItem>>,
     /// Draw the launcher's button, while the mouse is on. See
     /// `State::launcher_shown`.
     show_launcher: bool,
@@ -343,6 +367,15 @@ impl State {
             CONFIG_MOUSE_CLOSE_CONFIRM,
             DEFAULT_MOUSE_CLOSE_CONFIRM,
         );
+        self.frame_buttons =
+            config::bool_option(configuration, CONFIG_FRAME_BUTTONS, DEFAULT_FRAME_BUTTONS).then(
+                || frame::FrameButtonTexts {
+                    minimize: text(CONFIG_FRAME_MINIMIZE_TEXT, DEFAULT_FRAME_MINIMIZE_TEXT),
+                    maximize: text(CONFIG_FRAME_MAXIMIZE_TEXT, DEFAULT_FRAME_MAXIMIZE_TEXT),
+                    restore: text(CONFIG_FRAME_RESTORE_TEXT, DEFAULT_FRAME_RESTORE_TEXT),
+                    close: text(CONFIG_FRAME_CLOSE_TEXT, DEFAULT_FRAME_CLOSE_TEXT),
+                },
+            );
         self.show_launcher =
             config::bool_option(configuration, CONFIG_SHOW_LAUNCHER, DEFAULT_SHOW_LAUNCHER);
         self.launcher_format =
@@ -394,6 +427,9 @@ impl State {
         }
         if self.clock_runs_command() {
             features.push(Feature::ClockCommand);
+        }
+        if self.frame_buttons.is_some() && self.mouse_close_confirm {
+            features.push(Feature::FrameCloseConfirm);
         }
         features
     }
@@ -463,6 +499,14 @@ impl ZellijPlugin for State {
         }
         let handled = self.bar.update(&self.host, &BAR, &event);
         let mut should_render = BarCore::follow(self, &BAR, handled);
+        // Which frames carry the bar's buttons follows the panes, the tabs
+        // and the permissions. Not a click: one that restores a pane leaves
+        // it hidden and no longer minimized until Zellij reports it shown,
+        // which would take its buttons off in between.
+        let frames_may_change = matches!(
+            event,
+            Event::PaneUpdate(_) | Event::TabUpdate(_) | Event::PermissionRequestResult(_)
+        );
         match event {
             Event::PaneUpdate(manifest) => {
                 entries::forget_gone(&mut self.minimized, &manifest);
@@ -494,7 +538,11 @@ impl ZellijPlugin for State {
             // never redraws by itself.
             Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse, Instant::now()),
             Event::PromptResult(request_id, result) => self.answer_prompt(request_id, &result),
+            Event::FrameItemClicked(click) => self.frame_button_clicked(&click),
             _ => {}
+        }
+        if frames_may_change {
+            self.sync_frame_buttons();
         }
         // Whatever came, the clock may have a new option, offset or tick.
         should_render |= self.follow_clock();
@@ -508,7 +556,11 @@ impl ZellijPlugin for State {
         }
         match self.bar.pipe(&self.host, &BAR, &message) {
             // A preview from the settings screen may change the tray.
-            Some(handled) => BarCore::follow(self, &BAR, handled) | self.follow_clock(),
+            Some(handled) => {
+                let should_render = BarCore::follow(self, &BAR, handled) | self.follow_clock();
+                self.sync_frame_buttons();
+                should_render
+            }
             None => false,
         }
     }
