@@ -236,20 +236,23 @@ pub trait Host {
     fn add_settings_entry(&self, plugin: &str);
 
     /// Open a hover preview listing `entries`: the plugin at `url` again, as
-    /// a popup tagged `tag`, at `line` and `column` of the bar's pane and
+    /// a popup tagged `tag`, at `(line, column)` of the bar's pane and
     /// sized to fit the entries. It does not take the focus, and Zellij keeps
-    /// it on screen, above a bar at the bottom. See `popup`.
+    /// it on screen, above a bar at the bottom. `instance` is the bar's own
+    /// `instance` option, so the popup runs as a slot of the bar's shared
+    /// instance, as the settings screen does. See `popup`.
     fn open_preview_popup(
         &self,
         names: &popup::Names,
         url: &str,
         tag: &str,
         entries: &[String],
-        line: usize,
-        column: usize,
+        at: (usize, usize),
+        instance: Option<&str>,
     );
 
-    /// Close the hover preview whose plugin id is `popup`.
+    /// Close the hover preview whose slot id is `popup`, which it told the
+    /// bar when it opened (see `popup::POPUP_SLOT_ARG`).
     fn close_preview_popup(&self, names: &popup::Names, popup: u32);
 }
 
@@ -287,13 +290,17 @@ fn preview_popup_request(
     url: &str,
     tag: &str,
     entries: &[String],
-    line: usize,
-    column: usize,
+    (line, column): (usize, usize),
+    instance: Option<&str>,
 ) -> PopupRequest {
     let (width, height) = popup::size(entries);
+    let mut configuration = popup::configuration(names, tag, entries);
+    if let Some(instance) = instance {
+        configuration.insert(INSTANCE_KEY.to_string(), instance.to_string());
+    }
     PopupRequest {
         url: url.to_string(),
-        configuration: popup::configuration(names, tag, entries),
+        configuration,
         line,
         column,
         width,
@@ -519,10 +526,10 @@ impl Host for Zellij {
         url: &str,
         tag: &str,
         entries: &[String],
-        line: usize,
-        column: usize,
+        at: (usize, usize),
+        instance: Option<&str>,
     ) {
-        let request = preview_popup_request(names, url, tag, entries, line, column);
+        let request = preview_popup_request(names, url, tag, entries, at, instance);
         if !shared::submit(Command::OpenPopup(request.clone())) {
             shared::Effect::OpenPopup(request).perform(None);
         }
@@ -625,6 +632,7 @@ pub enum Call {
         entries: Vec<String>,
         line: usize,
         column: usize,
+        instance: Option<String>,
     },
     /// `message` is the `close` name of the `popup::Names` given.
     ClosePreviewPopup {
@@ -955,8 +963,8 @@ impl Host for Recorder {
         url: &str,
         tag: &str,
         entries: &[String],
-        line: usize,
-        column: usize,
+        (line, column): (usize, usize),
+        instance: Option<&str>,
     ) {
         self.route(
             Call::OpenPreviewPopup {
@@ -965,9 +973,15 @@ impl Host for Recorder {
                 entries: entries.to_vec(),
                 line,
                 column,
+                instance: instance.map(str::to_string),
             },
             Command::OpenPopup(preview_popup_request(
-                names, url, tag, entries, line, column,
+                names,
+                url,
+                tag,
+                entries,
+                (line, column),
+                instance,
             )),
         );
     }
@@ -1012,6 +1026,25 @@ mod tests {
             settings_configuration(Some("zjtest"), None).get("instance"),
             None
         );
+    }
+
+    #[test]
+    fn a_preview_popup_opens_in_the_shared_instance_of_the_bar_that_opened_it() {
+        static NAMES: popup::Names = crate::popup_names!("zjtest");
+        let entries = vec!["a".to_string()];
+        let request =
+            |instance| preview_popup_request(&NAMES, "zjtest", "7-1", &entries, (1, 3), instance);
+        assert_eq!(
+            request(Some("work")).configuration.get("instance"),
+            Some(&"work".to_string())
+        );
+        // The popup keeps what marks it as one.
+        assert_eq!(request(Some("work")).configuration, {
+            let mut expected = popup::configuration(&NAMES, "7-1", &entries);
+            expected.insert("instance".to_string(), "work".to_string());
+            expected
+        });
+        assert_eq!(request(None).configuration.get("instance"), None);
     }
 
     #[test]

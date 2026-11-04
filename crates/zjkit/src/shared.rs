@@ -1490,8 +1490,8 @@ mod tests {
                         "zjtest",
                         "tag",
                         &["entry".to_string()],
-                        0,
-                        1,
+                        (0, 1),
+                        None,
                     ),
                     Act::Prompt => {
                         host.prompt(PromptRequest::menu([ChoiceItem::labeled("0", "Sure")]));

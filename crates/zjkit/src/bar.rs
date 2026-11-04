@@ -396,10 +396,16 @@ impl BarCore {
             spec.open_settings_message,
             spec.settings_pane_title,
             self.own_url.as_deref(),
-            self.user_configuration
-                .get(INSTANCE_KEY)
-                .map(String::as_str),
+            self.instance(),
         );
+    }
+
+    /// The bar's own `instance` option, which the settings screen and the
+    /// popups it opens are given so they join the bar's shared instance.
+    pub fn instance(&self) -> Option<&str> {
+        self.user_configuration
+            .get(INSTANCE_KEY)
+            .map(String::as_str)
     }
 
     /// Hide or show the bar, as a message with `alias` for its payload asks.

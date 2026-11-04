@@ -2354,6 +2354,22 @@ fn message_from(source: PipeSource, name: &str, payload: &str) -> PipeMessage {
     PipeMessage::new(source, name, &Some(payload.to_string()), &None, false)
 }
 
+/// What the popup in slot `slot` sends its bar as `name`, tagged `tag`. The
+/// popup is a slot of the bar's shared instance, so the sender is the
+/// instance, and the popup names its slot in an argument.
+fn from_popup(slot: u32, name: &str, tag: &str) -> PipeMessage {
+    PipeMessage::new(
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
+        name,
+        &Some(tag.to_string()),
+        &Some(BTreeMap::from([(
+            zjkit::popup::POPUP_SLOT_ARG.to_string(),
+            slot.to_string(),
+        )])),
+        false,
+    )
+}
+
 #[test]
 fn resting_on_a_picker_opens_its_preview_after_the_delay() {
     let (mut state, marker) = previewing_bar();
@@ -2376,10 +2392,11 @@ fn resting_on_a_picker_opens_its_preview_after_the_delay() {
             entries: vec!["c  frames".to_string(), "d  pin".to_string()],
             line: 1,
             column: marker,
+            instance: None,
         }]
     );
     // Preview 1 of bar 7 says where it is, and is the one closed.
-    let opened = message_from(PipeSource::Plugin(30), popup::NAMES.opened, "7-1");
+    let opened = from_popup(30, popup::NAMES.opened, "7-1");
     assert!(!state.pipe(opened));
     state.host.clear();
     state.update(Event::Mouse(Mouse::LeftClick(0, 0)));
@@ -2404,7 +2421,7 @@ fn with_mouse_hover_off_resting_on_a_picker_opens_no_preview() {
 fn turning_mouse_hover_off_closes_a_preview_on_the_next_hover() {
     let (mut state, marker) = previewing_bar();
     rest_on(&mut state, marker);
-    let opened = message_from(PipeSource::Plugin(30), popup::NAMES.opened, "7-1");
+    let opened = from_popup(30, popup::NAMES.opened, "7-1");
     state.pipe(opened);
     state.mouse_hover = false;
     state.update(Event::Mouse(Mouse::Hover(0, marker)));
@@ -2484,16 +2501,87 @@ fn only_the_bar_s_own_popups_are_heard() {
     let (mut state, marker) = previewing_bar();
     rest_on(&mut state, marker);
     let closed = popup::NAMES.closed;
+    let no_slot = PipeMessage::new(
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
+        closed,
+        &Some("7-1".to_string()),
+        &None,
+        false,
+    );
     for message in [
-        message_from(PipeSource::Plugin(30), closed, "8-1"),
-        message_from(PipeSource::Plugin(30), closed, "stray"),
+        // Another bar's popup.
+        from_popup(30, closed, "8-1"),
+        from_popup(30, closed, "stray"),
+        // Not from the bar's own shared instance: another plugin, the id of a
+        // slot rather than the instance, or a command line.
+        PipeMessage::new(
+            PipeSource::Plugin(30),
+            closed,
+            &Some("7-1".to_string()),
+            &from_popup(30, closed, "7-1").args.into(),
+            false,
+        ),
         message_from(PipeSource::Cli("pipe".to_string()), closed, "7-1"),
+        // A popup that does not say which slot it is.
+        no_slot,
     ] {
         assert!(!state.pipe(message));
     }
     assert!(!state.preview_memory.is_idle());
-    state.pipe(message_from(PipeSource::Plugin(30), closed, "7-1"));
+    state.pipe(from_popup(30, closed, "7-1"));
     assert!(state.preview_memory.is_idle());
+}
+
+#[test]
+fn a_popup_is_closed_by_its_slot_and_picked_by_the_slot_it_named() {
+    let (mut state, marker) = previewing_bar();
+    rest_on(&mut state, marker);
+    state.pipe(from_popup(30, popup::NAMES.opened, "7-1"));
+    // A pick from a slot other than the one that opened is no pick.
+    let pick = |slot| {
+        let mut message = from_popup(slot, popup::NAMES.picked, "7-1");
+        message
+            .args
+            .insert(mouse::HOVER_PICKED_ENTRY_ARG.to_string(), "0".to_string());
+        message
+    };
+    state.host.clear();
+    state.pipe(pick(31));
+    assert_eq!(state.host.calls(), vec![]);
+    state.pipe(pick(30));
+    assert!(matches!(
+        state.host.calls().as_slice(),
+        [Call::RunAction {
+            action: Action::TogglePaneFrames,
+            ..
+        }]
+    ));
+    // Closing the preview closes the slot the popup named.
+    state.host.clear();
+    state.update(Event::Mouse(Mouse::LeftClick(0, 0)));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::ClosePreviewPopup {
+            message: popup::NAMES.close,
+            popup: 30,
+        }]
+    );
+}
+
+#[test]
+fn the_preview_popup_joins_the_bar_s_shared_instance() {
+    let (mut state, marker) = previewing_bar();
+    state
+        .bar
+        .user_configuration
+        .insert("instance".to_string(), "work".to_string());
+    state.host.clear();
+    rest_on(&mut state, marker);
+    let opened = state.host.calls().into_iter().find_map(|call| match call {
+        Call::OpenPreviewPopup { instance, .. } => Some(instance),
+        _ => None,
+    });
+    assert_eq!(opened, Some(Some("work".to_string())));
 }
 
 #[test]
