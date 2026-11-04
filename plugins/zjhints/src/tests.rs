@@ -3365,3 +3365,35 @@ fn rendering_a_hidden_bar_gives_its_row_back_once() {
     state.render(1, 40);
     assert_eq!(state.host.calls(), vec![Call::SetCollapsed(true)]);
 }
+
+fn published(line: &str) -> Call {
+    Call::Broadcast {
+        name: "pipe".to_string(),
+        payload: format!("zjstatus::pipe::pipe_hints::{line}"),
+    }
+}
+
+#[test]
+fn drawing_makes_every_call_before_the_text_is_printed() {
+    let (mut state, marker) = previewing_bar();
+    state.pipe_names = vec!["hints".to_string()];
+    rest_on(&mut state, marker);
+    state.pipe(from_popup(30, popup::NAMES.opened, "7-1"));
+    // Every hint fits now, so the marker the preview hung from is gone.
+    state.max_length = 40;
+    state.host.clear();
+    let text = state.prepare_render(1);
+    assert_eq!(text, state.draw_bar().0);
+    // Closing the stale preview is the last call, and `render` makes no more
+    // after printing `text`.
+    assert_eq!(
+        state.host.calls(),
+        vec![
+            published(&text),
+            Call::ClosePreviewPopup {
+                message: popup::NAMES.close,
+                popup: 30,
+            },
+        ]
+    );
+}
