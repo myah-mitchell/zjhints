@@ -49,6 +49,11 @@ struct State {
     /// hidden pane that reports the bar's own URL too.
     bar: BarCore,
     initialized: bool,
+    /// Whether what the bar draws may have changed since a background slot
+    /// last drew it. See `ZellijPlugin::background`.
+    stale: bool,
+    /// The line a background slot last published, if it has.
+    published: Option<String>,
     /// The zjstatus pipe names each render is published on. See
     /// [`pipe_names_from_config`].
     pipe_names: Vec<String>,
@@ -1474,6 +1479,25 @@ impl zjkit::shared::SlotPlugin for State {
     fn bar_mut(&mut self) -> Option<&mut BarCore> {
         self.role.is_bar().then_some(&mut self.bar)
     }
+
+    /// Zellij never draws a slot loaded in the background, with
+    /// `load_plugins`, so it has no render to publish its line from. It
+    /// publishes it here instead, when the line has changed, and prints
+    /// nothing.
+    fn background(&mut self) {
+        if !self.role.is_bar() || !self.stale {
+            return;
+        }
+        self.stale = false;
+        let (output, _) = self.draw_bar();
+        self.note_initialized(&output);
+        // Until zjstatus has answered a mode change it may not have been
+        // ready to hear the line, so the line goes again with every event.
+        if !self.initialized || self.published.as_deref() != Some(&output) {
+            self.publish(&output);
+            self.published = Some(output);
+        }
+    }
 }
 
 impl ZellijPlugin for State {
@@ -1593,6 +1617,7 @@ impl ZellijPlugin for State {
             }
             _ => {}
         };
+        self.stale |= should_render;
         should_render
     }
 
@@ -1602,7 +1627,9 @@ impl ZellijPlugin for State {
             return false;
         }
         if let Some(handled) = self.bar.pipe(&self.host, &BAR, &message) {
-            return BarCore::follow(self, &BAR, handled);
+            let redraw = BarCore::follow(self, &BAR, handled);
+            self.stale |= redraw;
+            return redraw;
         }
         self.take_popup_message(&message);
         false

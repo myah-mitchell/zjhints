@@ -3441,6 +3441,79 @@ fn published(line: &str) -> Call {
 }
 
 #[test]
+fn a_background_slot_publishes_its_line_when_it_changes_and_prints_nothing() {
+    let mut shared = Shared::<State>::default();
+    shared.add_slot(slot(5, SlotKind::Background, OVERFLOWING));
+    shared.take_event(
+        Event::ModeUpdate(pane_mode(InputMode::Pane)),
+        from_client(None),
+    );
+    let line = shared.plugin(5).unwrap().draw_bar().0;
+    assert!(!line.is_empty());
+    let sent = |shared: &Shared<State>| {
+        calls_of(shared, 5)
+            .into_iter()
+            .filter(|call| matches!(call, Call::Broadcast { .. }))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(sent(&shared), vec![published(&line)]);
+
+    // The same line again says nothing new, once the mode has changed from
+    // the base mode and zjstatus can be taken to have it.
+    shared.take_event(
+        Event::PaneUpdate(PaneManifest::default()),
+        from_client(None),
+    );
+    shared.take_event(
+        Event::ModeUpdate(pane_mode(InputMode::Pane)),
+        from_client(None),
+    );
+    assert_eq!(sent(&shared), vec![published(&line)]);
+
+    // Another mode, another line.
+    shared.take_event(
+        Event::ModeUpdate(pane_mode(InputMode::Tab)),
+        from_client(None),
+    );
+    let tab_line = shared.plugin(5).unwrap().draw_bar().0;
+    assert_ne!(tab_line, line);
+    assert_eq!(sent(&shared), vec![published(&line), published(&tab_line)]);
+}
+
+#[test]
+fn a_background_slot_asks_for_no_redraw() {
+    let mut shared = Shared::<State>::default();
+    shared.add_slot(slot(5, SlotKind::Background, OVERFLOWING));
+    let outcome = shared.take_event(
+        Event::ModeUpdate(pane_mode(InputMode::Pane)),
+        from_client(None),
+    );
+    assert_eq!(outcome.render, RenderResponse::Nothing);
+}
+
+#[test]
+fn until_the_mode_changes_a_background_slot_sends_its_line_with_every_event() {
+    let mut shared = Shared::<State>::default();
+    shared.add_slot(slot(5, SlotKind::Background, OVERFLOWING));
+    // The base mode: zjstatus may not have been ready to hear the line yet.
+    shared.take_event(
+        Event::ModeUpdate(pane_mode(InputMode::Normal)),
+        from_client(None),
+    );
+    let line = shared.plugin(5).unwrap().draw_bar().0;
+    assert!(!line.is_empty());
+    shared.take_event(
+        Event::PaneUpdate(PaneManifest::default()),
+        from_client(None),
+    );
+    let sent = calls_of(&shared, 5)
+        .into_iter()
+        .filter(|call| *call == published(&line))
+        .count();
+    assert_eq!(sent, 2);
+}
+
+#[test]
 fn a_pane_slot_publishes_when_it_draws_and_not_when_it_hears_an_event() {
     let mut shared = Shared::<State>::default();
     shared.add_slot(slot(8, SlotKind::Pane, OVERFLOWING));
