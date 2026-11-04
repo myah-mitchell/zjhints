@@ -15,3 +15,11 @@ unicode-width.workspace = true
 zellij-tile.workspace = true
 zellij-tile-utils.workspace = true
 zellij-utils.workspace = true
+
+[dev-dependencies]
+# The tests draw the images in docs/img. A dev-dependency's features stay out
+# of the release build, so the wasm plugin does not compile the engine.
+zjkit = { workspace = true, features = ["images"] }
+# The same tests draw zjtabs as the tab bar of the images showing a whole
+# Zellij session. As a dev-dependency, zjtabs stays out of the release build.
+zjtabs = { workspace = true, features = ["images"] }

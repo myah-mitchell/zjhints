@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/zjkit", "plugins/zjhints"]
+members = ["crates/zjkit", "plugins/zjhints", "plugins/zjtabs"]
 resolver = "2"
 
 [workspace.package]
@@ -18,13 +18,19 @@ zellij-tile-utils = "0.46.0"
 # saves through; zellij-tile already builds it, so it adds nothing to compile.
 zellij-utils = "0.46.0"
 zjkit = { path = "crates/zjkit" }
+# For zjhints' tests only, which draw it as the tab bar of the docs images.
+zjtabs = { path = "plugins/zjtabs" }
 
-# Override: myah-mitchell/zellij's fork-v0.46.6 is upstream main with the
-# nested-session, plugin-collapse, context menu/prompt, config-save, popup
-# outside-click and settings-entry APIs, all merged upstream but not yet
-# published to crates.io. Remove this block once zellij-tile/zellij-tile-utils
-# ship them upstream (see docs/automation.md#depending-on-an-unreleased-upstream-fix).
+# Override: myah-mitchell/zellij's fork-ea-v0.46.7-261103 is its early-access
+# build. It is upstream main, which has the nested-session, plugin-collapse,
+# context menu/prompt, config-save, popup outside-click and settings-entry APIs
+# (all merged upstream but not yet published to crates.io), plus the fork's own
+# plugin API work that is not merged upstream, such as middle clicks for
+# plugins. A plugin built against it still runs on a Zellij without that work
+# as long as it only uses calls that Zellij has. Remove this block once a
+# zellij-tile/zellij-tile-utils release on crates.io has everything the plugins
+# use (see docs/automation.md#depending-on-an-unreleased-upstream-fix).
 [patch.crates-io]
-zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }
-zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }
-zellij-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }
+zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-ea-v0.46.7-261103" }
+zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-ea-v0.46.7-261103" }
+zellij-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-ea-v0.46.7-261103" }

@@ -3,7 +3,7 @@
 //! fades colors a format string names, so both dim by the same amount.
 
 use crate::format;
-use zellij_tile::prelude::{PaletteColor, StyleDeclaration};
+use zellij_tile::prelude::{PaletteColor, StyleDeclaration, Styling};
 
 /// Fades a `PaletteColor` toward a dark, desaturated gray by `strength`
 /// (`0.0` is unchanged, `1.0` fully dimmed), mirroring the zjstatus fork's
@@ -33,6 +33,19 @@ pub fn style_declaration(decl: &StyleDeclaration, strength: f32) -> StyleDeclara
     }
 }
 
+/// A dimmed copy of `colors`, faded by `strength`. Only the groups a bar's
+/// hints, tabs and mode prefix draw with are faded (`ribbon_unselected`,
+/// `ribbon_selected` and `text_unselected`); the rest are copied as they are,
+/// since fading groups nothing reads would be wasted work.
+pub fn styling(colors: &Styling, strength: f32) -> Styling {
+    Styling {
+        ribbon_unselected: style_declaration(&colors.ribbon_unselected, strength),
+        ribbon_selected: style_declaration(&colors.ribbon_selected, strength),
+        text_unselected: style_declaration(&colors.text_unselected, strength),
+        ..*colors
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,5 +72,35 @@ mod tests {
     fn color_passes_through_indexed_colors() {
         let indexed = PaletteColor::EightBit(200);
         assert_eq!(color(indexed, 0.8), indexed);
+    }
+
+    #[test]
+    fn styling_fades_the_groups_a_bar_draws_with_and_copies_the_rest() {
+        let red = PaletteColor::Rgb((255, 0, 0));
+        let declaration = StyleDeclaration {
+            base: red,
+            background: red,
+            emphasis_0: red,
+            emphasis_1: red,
+            emphasis_2: red,
+            emphasis_3: red,
+        };
+        let colors = Styling {
+            ribbon_unselected: declaration,
+            ribbon_selected: declaration,
+            text_unselected: declaration,
+            text_selected: declaration,
+            ..Styling::default()
+        };
+
+        let dimmed = styling(&colors, 1.0);
+        let faded = style_declaration(&declaration, 1.0);
+        assert_ne!(faded, declaration);
+        assert_eq!(dimmed.ribbon_unselected, faded);
+        assert_eq!(dimmed.ribbon_selected, faded);
+        assert_eq!(dimmed.text_unselected, faded);
+        assert_eq!(dimmed.text_selected, declaration);
+
+        assert_eq!(styling(&colors, 0.0), colors);
     }
 }

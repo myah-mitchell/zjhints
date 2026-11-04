@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="276" viewBox="0 0 928 276" role="img">
+<!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
+<title>Five zjtabs bars ending in the session's name, work, at the right edge. In the Zellij theme's colors it is a block like the NORMAL one at the start; with the pills theme a half-pill opens toward the tabs; with the powerline theme an arrow points back at them; with a session_format of its own it reads session: work in bold. In 40 columns the name is left off, so the bar keeps the editor tab and a marker counting the tabs hidden after it</title>
+<rect width="928" height="276" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="81" height="18" fill="#cdd6f4"/>
+<rect x="171" y="18" width="90" height="18" fill="#a6e3a1"/>
+<rect x="270" y="18" width="108" height="18" fill="#cdd6f4"/>
+<rect x="387" y="18" width="72" height="18" fill="#cdd6f4"/>
+<rect x="468" y="18" width="180" height="18" fill="#cdd6f4"/>
+<rect x="846" y="18" width="54" height="18" fill="#a6e3a1"/>
+<rect x="0" y="72" width="72" height="18" fill="#313244"/>
+<rect x="99" y="72" width="63" height="18" fill="#313244"/>
+<rect x="189" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="288" y="72" width="90" height="18" fill="#313244"/>
+<rect x="405" y="72" width="54" height="18" fill="#313244"/>
+<rect x="486" y="72" width="162" height="18" fill="#313244"/>
+<rect x="846" y="72" width="54" height="18" fill="#313244"/>
+<rect x="0" y="126" width="72" height="18" fill="#a6e3a1"/>
+<rect x="90" y="126" width="81" height="18" fill="#313244"/>
+<rect x="189" y="126" width="90" height="18" fill="#cba6f7"/>
+<rect x="297" y="126" width="108" height="18" fill="#313244"/>
+<rect x="423" y="126" width="72" height="18" fill="#313244"/>
+<rect x="513" y="126" width="180" height="18" fill="#313244"/>
+<rect x="846" y="126" width="54" height="18" fill="#cba6f7"/>
+<rect x="0" y="180" width="72" height="18" fill="#313244"/>
+<rect x="99" y="180" width="63" height="18" fill="#313244"/>
+<rect x="189" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="288" y="180" width="90" height="18" fill="#313244"/>
+<rect x="405" y="180" width="54" height="18" fill="#313244"/>
+<rect x="486" y="180" width="162" height="18" fill="#313244"/>
+<rect x="0" y="234" width="72" height="18" fill="#313244"/>
+<rect x="99" y="234" width="63" height="18" fill="#313244"/>
+<rect x="189" y="234" width="72" height="18" fill="#cba6f7"/>
+<rect x="288" y="234" width="36" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90 99 117 126 144 153 162 180 189 198 207 216 225 243 252 261 270 279 288 297 315 324 333 342 351 360" fill="#878ca4">thedefault,intheZellijtheme'scolors</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54 90 108 117 126 135 144 180 198 207 216 225 234 243 279 297 306 315 324 333 342 360 396 414 423 432 441 477 495 504 513 522 531 549 558 567 576 585 594 603 612 621 630 855 864 873 882" fill="#181825" font-weight="bold">NORMAL1shell2editor3server●4docs5notes(FLOATING)work</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171" fill="#878ca4">format_theme"pills"</tspan></text>
+<path d="M72 72A9 9 0 0 1 72 90Z" fill="#313244"/>
+<path d="M99 72A9 9 0 0 0 99 90Z" fill="#313244"/>
+<path d="M162 72A9 9 0 0 1 162 90Z" fill="#313244"/>
+<path d="M189 72A9 9 0 0 0 189 90Z" fill="#cba6f7"/>
+<path d="M261 72A9 9 0 0 1 261 90Z" fill="#cba6f7"/>
+<path d="M288 72A9 9 0 0 0 288 90Z" fill="#313244"/>
+<path d="M378 72A9 9 0 0 1 378 90Z" fill="#313244"/>
+<path d="M405 72A9 9 0 0 0 405 90Z" fill="#313244"/>
+<path d="M459 72A9 9 0 0 1 459 90Z" fill="#313244"/>
+<path d="M486 72A9 9 0 0 0 486 90Z" fill="#313244"/>
+<path d="M648 72A9 9 0 0 1 648 90Z" fill="#313244"/>
+<path d="M846 72A9 9 0 0 0 846 90Z" fill="#313244"/>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 342 351 369 405 423 432 441 450 486 504 513 522 531 540 558 567 576 585 594 603 612 621 630 639" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="855 864 873 882" fill="#cba6f7" font-weight="bold">work</tspan></text>
+<text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189 198 207" fill="#878ca4">format_theme"powerline"</tspan></text>
+<path d="M72 126L81 135L72 144Z" fill="#a6e3a1"/>
+<path d="M171 126L180 135L171 144Z" fill="#313244"/>
+<path d="M279 126L288 135L279 144Z" fill="#cba6f7"/>
+<path d="M405 126L414 135L405 144Z" fill="#313244"/>
+<path d="M495 126L504 135L495 144Z" fill="#313244"/>
+<path d="M693 126L702 135L693 144Z" fill="#313244"/>
+<path d="M846 126L837 135L846 144Z" fill="#cba6f7"/>
+<text y="139"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="198 216 225 234 243 252 261" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="306 324 333 342 351 360 369 387 432 450 459 468 477 522 540 549 558 567 576 594 603 612 621 630 639 648 657 666 675" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="855 864 873 882" fill="#1e1e2e" font-weight="bold">work</tspan></text>
+<text y="175"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 387 396 405 414 423 432 441 450 459 477" fill="#878ca4">session_format"#[fg=$accent,bold]session:{session}"</tspan></text>
+<path d="M72 180A9 9 0 0 1 72 198Z" fill="#313244"/>
+<path d="M99 180A9 9 0 0 0 99 198Z" fill="#313244"/>
+<path d="M162 180A9 9 0 0 1 162 198Z" fill="#313244"/>
+<path d="M189 180A9 9 0 0 0 189 198Z" fill="#cba6f7"/>
+<path d="M261 180A9 9 0 0 1 261 198Z" fill="#cba6f7"/>
+<path d="M288 180A9 9 0 0 0 288 198Z" fill="#313244"/>
+<path d="M378 180A9 9 0 0 1 378 198Z" fill="#313244"/>
+<path d="M405 180A9 9 0 0 0 405 198Z" fill="#313244"/>
+<path d="M459 180A9 9 0 0 1 459 198Z" fill="#313244"/>
+<path d="M486 180A9 9 0 0 0 486 198Z" fill="#313244"/>
+<path d="M648 180A9 9 0 0 1 648 198Z" fill="#313244"/>
+<text y="193"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 306 315 324 333 342 351 369 405 423 432 441 450 486 504 513 522 531 540 558 567 576 585 594 603 612 621 630 639" fill="#cdd6f4">3server●4docs5notes(FLOATING)</tspan><tspan x="774 783 792 801 810 819 828 837 855 864 873 882" fill="#cba6f7" font-weight="bold">session:work</tspan></text>
+<text y="229"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 189 198 216 225 243 252 261 270 279 288 297 306 324 333 342 360 369 378 387 396 405 423 432 441 459 468 477 495 504 513 522 540 549 558 567 576 585 603 612 621 639 648 657 666 675 684" fill="#878ca4">format_theme"pills"in40columns,toonarrowforthenamebesidethemarker</tspan></text>
+<path d="M72 234A9 9 0 0 1 72 252Z" fill="#313244"/>
+<path d="M99 234A9 9 0 0 0 99 252Z" fill="#313244"/>
+<path d="M162 234A9 9 0 0 1 162 252Z" fill="#313244"/>
+<path d="M189 234A9 9 0 0 0 189 252Z" fill="#cba6f7"/>
+<path d="M261 234A9 9 0 0 1 261 252Z" fill="#cba6f7"/>
+<path d="M288 234A9 9 0 0 0 288 252Z" fill="#313244"/>
+<path d="M324 234A9 9 0 0 1 324 252Z" fill="#313244"/>
+<text y="247"><tspan x="9 18 27 36 45 54" fill="#a6e3a1" font-weight="bold">NORMAL</tspan><tspan x="99 117 126 135 144 153" fill="#cdd6f4">1shell</tspan><tspan x="189 207 216 225 234 243 252" fill="#1e1e2e" font-weight="bold">2editor</tspan><tspan x="288 297 315" fill="#cdd6f4">+3→</tspan></text>
+</g>
+</g>
+</svg>

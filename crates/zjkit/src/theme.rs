@@ -113,6 +113,9 @@ pub const COLOR_THEMES: [ColorTheme; 6] = [
 
 /// The Powerline right-pointing arrow, a Nerd Font glyph.
 pub const ARROW: &str = "\u{e0b0}";
+/// The Powerline left-pointing arrow, a Nerd Font glyph: `ARROW` mirrored,
+/// for a block at the right end of a line, which points back along it.
+pub const ARROW_LEFT: &str = "\u{e0b2}";
 /// The left and right halves of a rounded pill, Nerd Font glyphs.
 pub const PILL_LEFT: &str = "\u{e0b6}";
 pub const PILL_RIGHT: &str = "\u{e0b4}";
@@ -324,6 +327,17 @@ pub fn unknown_names(configuration: &BTreeMap<String, String>) -> Vec<(&'static 
             (!known.contains(&name.as_str())).then_some((option, name))
         })
         .collect()
+}
+
+/// Log each theme option in `configuration` that names no theme, prefixed
+/// with `plugin`. Zellij writes a plugin's standard error to its log, which
+/// is the one place a bad value gets reported; the bar itself draws with
+/// `zellij` instead. Called where a configuration arrives, not each time the
+/// palette changes and the themes are laid again.
+pub fn log_unknown_themes(plugin: &str, configuration: &BTreeMap<String, String>) {
+    for (option, name) in unknown_names(configuration) {
+        eprintln!("{plugin}: unknown {option} \"{name}\", using \"{THEME_ZELLIJ}\"");
+    }
 }
 
 /// The format theme `configuration` selects, or `None` for `zellij`, unset
