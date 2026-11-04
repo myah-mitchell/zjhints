@@ -4,7 +4,7 @@
 //! the images of the screen in the docs draw the same.
 
 use super::editor::{Editor, Focus, Row, Section, OTHER_HEADING};
-use super::schema::{Kind, Schema};
+use super::schema::{pattern_prefix, Kind, Schema};
 use crate::format;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, ModeInfo, Styling};
@@ -250,6 +250,10 @@ impl<'a> Rows<'a> {
             Row::Add(pattern) => {
                 let what = if pattern.is_empty() { "a key" } else { pattern };
                 return RowView::plain("", Control::Button(format!("+ add {what}")));
+            }
+            Row::AddEntry(pattern) => {
+                let what = pattern_prefix(pattern).trim_end_matches('_');
+                return RowView::plain("", Control::Button(format!("+ add {what} entry")));
             }
             Row::Heading(title) => return RowView::plain("", Control::Heading(title.to_string())),
             Row::Option(option) => (option.name, option.kind, option.default),
@@ -528,11 +532,20 @@ pub fn describe(editor: &Editor) -> Option<String> {
         Row::Add("") => format!(
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
-        Row::Add(pattern) => {
+        ref row @ Row::Add(pattern) => {
             let family = editor.schema().families.iter().find(|family| family.pattern == pattern);
             let what = family.map_or("", |family| family.description);
-            format!("Add a {pattern} key. {what}.")
+            match editor.key_start(row) {
+                Some(start) if family.is_some_and(|family| family.is_numbered()) => {
+                    format!("Add a {pattern} key, starting as {start}. {what}.")
+                }
+                _ => format!("Add a {pattern} key. {what}."),
+            }
         }
+        ref row @ Row::AddEntry(pattern) => format!(
+            "Add an entry, starting with its {pattern} key as {}.",
+            editor.key_start(row).unwrap_or_default()
+        ),
         Row::Alias => "The plugins {} alias being edited.".to_string(),
         Row::Heading(_) => return None,
     };

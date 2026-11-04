@@ -58,6 +58,14 @@ impl FamilySpec {
     pub fn prefix(&self) -> &'static str {
         pattern_prefix(self.pattern)
     }
+
+    /// Whether the family's keys are fields of numbered entries: its first
+    /// placeholder is `<n>`, as in `launch_<n>_name`, so each key names the
+    /// entry it belongs to by number. The families sharing the prefix are
+    /// the entry's fields.
+    pub fn is_numbered(&self) -> bool {
+        self.pattern[self.prefix().len()..].starts_with("<n>")
+    }
 }
 
 /// The part of a family's `pattern` before its first placeholder, such as
@@ -66,6 +74,25 @@ pub fn pattern_prefix(pattern: &str) -> &str {
     pattern
         .split_once('<')
         .map_or(pattern, |(prefix, _)| prefix)
+}
+
+/// How a key of a numbered family's `pattern` starts for the entry
+/// `number`: the pattern with its `<n>` filled in, up to the next
+/// placeholder. `launch_3_command` for `launch_<n>_command`, a whole key, and
+/// `launch_3_config_` for `launch_<n>_config_<key>`, which still needs its
+/// `<key>`.
+pub fn entry_key_start(pattern: &str, number: u64) -> String {
+    let filled = pattern.replacen("<n>", &number.to_string(), 1);
+    pattern_prefix(&filled).to_string()
+}
+
+/// Whether `key` is `pattern` typed up to one of its placeholders and no
+/// further, so a key typed that far is not finished: `color_` for
+/// `color_<name>`, or `launch_1_config_` for `launch_<n>_config_<key>`.
+pub fn is_unfinished(pattern: &str, key: &str) -> bool {
+    pattern
+        .match_indices('<')
+        .any(|(index, _)| placeholder_lengths(&pattern[..index], key).is_some())
 }
 
 pub const fn family(
@@ -214,6 +241,17 @@ impl Schema {
                     .then_with(|| other_family.pattern.cmp(family.pattern))
             })
             .map(|(family, _)| family)
+    }
+
+    /// The number of the entry `key` is a field of: what the `<n>` of its
+    /// family stands for, when that family is numbered and has `prefix`.
+    /// `Some(12)` for `launch_12_name` and `launch_`.
+    pub fn entry_number(&self, prefix: &str, key: &str) -> Option<u64> {
+        let family = self
+            .family_of(key)
+            .filter(|family| family.is_numbered() && family.prefix() == prefix)?;
+        let length = *placeholder_lengths(family.pattern, key)?.first()?;
+        key[prefix.len()..prefix.len() + length].parse().ok()
     }
 
     /// The group a key is listed under: its option's, or its family's. `None`
@@ -444,6 +482,41 @@ mod tests {
         assert_eq!(description("launch_01_name"), None);
         assert_eq!(description("launch_a_config_name"), None);
         assert_eq!(FAMILY_SCHEMA.group_of("launch_1_other"), None);
+    }
+
+    #[test]
+    fn an_entry_s_number_is_what_its_family_s_number_placeholder_stands_for() {
+        let number = |key: &str| FAMILY_SCHEMA.entry_number("launch_", key);
+        assert_eq!(number("launch_12_name"), Some(12));
+        assert_eq!(number("launch_0_config_name"), Some(0));
+        assert_eq!(number("launch_01_name"), None);
+        assert_eq!(number("launch_1_other"), None);
+        assert_eq!(FAMILY_SCHEMA.entry_number("label_", "label_1"), None);
+        assert!(FAMILIES[2].is_numbered());
+        assert!(!FAMILIES[0].is_numbered());
+    }
+
+    #[test]
+    fn a_numbered_key_starts_with_the_entry_s_number_filled_in() {
+        assert_eq!(entry_key_start("launch_<n>_name", 3), "launch_3_name");
+        assert_eq!(
+            entry_key_start("launch_<n>_config_<key>", 12),
+            "launch_12_config_"
+        );
+    }
+
+    #[test]
+    fn a_key_typed_up_to_a_placeholder_is_unfinished() {
+        assert!(is_unfinished("color_<name>", "color_"));
+        assert!(is_unfinished("launch_<n>_config_<key>", "launch_"));
+        assert!(is_unfinished("launch_<n>_config_<key>", "launch_1_config_"));
+        assert!(!is_unfinished(
+            "launch_<n>_config_<key>",
+            "launch_1_config_a"
+        ));
+        assert!(!is_unfinished("launch_<n>_config_<key>", "launch_1_conf"));
+        assert!(!is_unfinished("launch_<n>_name", "launch_1_name"));
+        assert!(!is_unfinished("plain", "plain"));
     }
 
     #[test]
