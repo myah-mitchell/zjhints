@@ -16,9 +16,14 @@ fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// A bar loaded with `pairs` for its configuration.
+/// A bar loaded with `pairs` for its configuration, standing alone: it
+/// shares what an instance's bars share with no other `State`. See
+/// `instance`.
 fn loaded(pairs: &[(&str, &str)]) -> State {
-    let mut state = State::default();
+    let mut state = State {
+        instance: Instance::alone(),
+        ..Default::default()
+    };
     state.load(cfg(pairs));
     state
 }
@@ -667,7 +672,7 @@ fn changing_the_scope_lists_the_panes_again() {
 fn a_pane_the_bar_minimized_stays_listed_while_hidden() {
     let mut state = loaded(&plain_with(&[("minimized_format", "-")]));
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(
@@ -694,28 +699,28 @@ fn a_pane_the_bar_minimized_stays_listed_while_hidden() {
 fn a_minimized_pane_shown_again_some_other_way_is_listed_as_any_other() {
     let mut state = loaded(&PLAIN);
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(80, vec![(0, vec![floating(2, "b")])]));
     assert_eq!(shown(&state), "b");
     // It is still kept, as the update may be one sent before the hide.
-    assert!(state.minimized.contains_key(&PaneId::Terminal(2)));
+    assert!(state.minimized().contains_key(&PaneId::Terminal(2)));
 }
 
 #[test]
 fn a_minimized_pane_is_forgotten_once_closed_or_tiled() {
     let mut state = loaded(&PLAIN);
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(1), FloatingPaneCoordinates::default());
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(2), FloatingPaneCoordinates::default());
     let mut tiled = floating(2, "b");
     tiled.is_floating = false;
     state.update(panes(80, vec![(0, vec![tiled])]));
-    assert!(state.minimized.is_empty());
+    assert!(state.minimized().is_empty());
 }
 
 #[test]
@@ -739,7 +744,7 @@ fn each_flag_shows_in_its_own_default_words() {
     exited.exited = true;
     let mut state = loaded(&[("show_launcher", "false")]);
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
     state.update(Event::TabUpdate(tabs(2, 0)));
     state.update(panes(
@@ -789,7 +794,7 @@ fn a_title_and_a_tab_name_are_drawn_as_text_with_their_control_characters_escape
 fn with_no_formats_the_bar_takes_zellij_s_colors() {
     let mut state = loaded(&[]);
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
     state.update(Event::ModeUpdate(mode()));
     state.update(Event::TabUpdate(tabs(1, 0)));
@@ -1146,7 +1151,7 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
         // narrow for the focused entry beside its markers.
         for width in [400, 30, 8] {
             let mut state = loaded(&options);
-            state.minimized = state_minimized.clone();
+            *state.minimized_mut() = state_minimized.clone();
             state.update(Event::ModeUpdate(mode_info.clone()));
             state.update(Event::TabUpdate(tabs(3, 1)));
             state.update(panes(width, by_tab.clone()));
@@ -1732,7 +1737,6 @@ fn a_left_click_focuses_a_plugin_pane_and_pulls_one_from_another_tab() {
                 far,
                 mouse::geometry_of(&floating(2, "far"))
             )]),
-            pulled(far, 0),
         ]
     );
 }
@@ -1745,7 +1749,7 @@ fn a_left_click_on_the_focused_entry_minimizes_its_pane_recording_where_it_stood
         vec![Call::HidePaneWithId(PaneId::Terminal(2))]
     );
     assert_eq!(
-        state.minimized.get(&PaneId::Terminal(2)),
+        state.minimized().get(&PaneId::Terminal(2)),
         Some(&fixed((10, 5), (40, 12), Some(false)))
     );
 }
@@ -1774,7 +1778,7 @@ fn a_left_click_on_a_minimized_entry_restores_its_pane_where_it_stood() {
             )]),
         ]
     );
-    assert!(state.minimized.is_empty());
+    assert!(state.minimized().is_empty());
     // The entry stays as it was until Zellij reports the pane on screen.
     assert_eq!(shown(&state), "vim|_htop_|logs");
 }
@@ -1826,7 +1830,7 @@ fn a_left_click_on_a_marker_brings_up_the_nearest_hidden_entry() {
     let mut state = bar(&PLAIN, 13, tabs(1, 0), by_tab.clone());
     let geometry = fixed((1, 2), (30, 10), Some(false));
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(4), geometry.clone());
     state.update(panes(13, by_tab));
     assert_eq!(shown(&state), "<4|e|[f]|g|3>");
@@ -1912,7 +1916,7 @@ fn the_second_left_click_of_a_double_click_does_nothing_and_the_double_click_ren
             vec![focus_terminal(2), restore.clone(), rename(pane)],
             "reported hidden: {reported_hidden}"
         );
-        assert!(state.minimized.is_empty());
+        assert!(state.minimized().is_empty());
     }
 }
 
@@ -1954,7 +1958,7 @@ fn a_double_click_on_a_minimized_entry_restores_and_renames_its_pane() {
     let mut state = three_panes();
     let geometry = fixed((1, 1), (20, 8), Some(false));
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(3), geometry.clone());
     state.update(panes(
         80,
@@ -2157,7 +2161,7 @@ fn the_menu(calls: &[Call]) -> (u64, Vec<&'static str>) {
 fn three_panes_one_minimized(geometry: &FloatingPaneCoordinates) -> State {
     let mut state = three_panes();
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(3), geometry.clone());
     state.update(panes(
         80,
@@ -2262,7 +2266,7 @@ fn a_pane_is_kept_minimized_through_an_update_sent_before_its_hide() {
     after_mouse(&mut state, Mouse::LeftClick(0, 5));
     // Sent before the hide took effect: the pane is still on screen in it.
     state.update(htop_shown_again());
-    assert!(state.minimized.contains_key(&PaneId::Terminal(2)));
+    assert!(state.minimized().contains_key(&PaneId::Terminal(2)));
     let hidden = vec![(
         0,
         vec![
@@ -2279,7 +2283,7 @@ fn a_pane_is_kept_minimized_through_an_update_sent_before_its_hide() {
 fn a_minimized_pane_shown_again_some_other_way_is_forgotten_and_minimizes_again() {
     let mut state = three_panes_htop_hidden();
     state.update(htop_shown_again());
-    assert!(!state.minimized.contains_key(&PaneId::Terminal(2)));
+    assert!(!state.minimized().contains_key(&PaneId::Terminal(2)));
     assert_eq!(shown(&state), "[vim]|htop|logs");
 
     let (request_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 7)));
@@ -2290,7 +2294,7 @@ fn a_minimized_pane_shown_again_some_other_way_is_forgotten_and_minimizes_again(
     );
     // Where it stands now, not where it stood when first minimized.
     assert_eq!(
-        state.minimized.get(&PaneId::Terminal(2)),
+        state.minimized().get(&PaneId::Terminal(2)),
         Some(&fixed((30, 2), (20, 6), Some(false)))
     );
 }
@@ -2312,7 +2316,7 @@ fn minimizing_from_the_menu_records_where_the_pane_stood() {
     let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 5)));
     after_answer(&mut state, request_id, choose(0));
     assert_eq!(
-        state.minimized.get(&PaneId::Terminal(2)),
+        state.minimized().get(&PaneId::Terminal(2)),
         Some(&fixed((10, 5), (40, 12), Some(false)))
     );
 }
@@ -2411,7 +2415,7 @@ fn a_menu_item_acts_on_the_pane_as_it_stands_when_chosen() {
     let (request_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 12)));
     assert_eq!(labels[0], "Focus");
     state
-        .minimized
+        .minimized_mut()
         .insert(PaneId::Terminal(3), geometry.clone());
     assert_eq!(
         after_answer(&mut state, request_id, choose(0)),
@@ -2424,7 +2428,7 @@ fn a_menu_item_acts_on_the_pane_as_it_stands_when_chosen() {
     let geometry = fixed((1, 1), (20, 8), Some(false));
     let mut state = three_panes();
     let (request_id, _) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 12)));
-    state.minimized.insert(PaneId::Terminal(3), geometry);
+    state.minimized_mut().insert(PaneId::Terminal(3), geometry);
     assert_eq!(after_answer(&mut state, request_id, choose(1)), vec![]);
 }
 
@@ -2445,7 +2449,7 @@ fn the_wheel_steps_the_focus_through_the_panes_on_screen() {
             ],
         )],
     );
-    state.minimized.insert(PaneId::Terminal(2), geometry);
+    state.minimized_mut().insert(PaneId::Terminal(2), geometry);
     state.refresh_entries();
     assert_eq!(shown(&state), "a|_b_|[c]|d");
     // Up for the next, as zjtabs and Zellij's own tab bar go, and down for
@@ -3791,8 +3795,9 @@ fn frame_click(pane: PaneId, item_id: &str, button: MouseButton) -> Event {
 /// The URL the bars in these tests run.
 const BAR_URL: &str = "zjtaskbar";
 
-/// Another bar like this one, with plugin id `id`, as it stands once it
-/// has its permissions: tiled and taking no focus.
+/// The pane of another bar of the instance, with plugin id `id`, as it
+/// stands once it has its permissions: tiled and taking no focus. A test of
+/// one `State` tells it of the others with `join_other_bars`.
 fn other_bar(id: u32) -> PaneInfo {
     PaneInfo {
         id,
@@ -3802,6 +3807,17 @@ fn other_bar(id: u32) -> PaneInfo {
     }
 }
 
+/// Tell `state` that every pane of `by_tab` running `BAR_URL` is another
+/// bar of its instance, as those bars' slots would once loaded.
+fn join_other_bars(state: &State, by_tab: &[(usize, Vec<PaneInfo>)]) {
+    let bars = by_tab
+        .iter()
+        .flat_map(|(_, panes)| panes)
+        .filter(|pane| pane.plugin_url.as_deref() == Some(BAR_URL))
+        .map(|pane| pane.id);
+    state.instance.get_mut().bars.extend(bars);
+}
+
 /// A tiled terminal pane, `id`, titled `title`.
 fn tiled(id: u32, title: &str) -> PaneInfo {
     let mut pane = floating(id, title);
@@ -3809,15 +3825,15 @@ fn tiled(id: u32, title: &str) -> PaneInfo {
     pane
 }
 
-/// A bar with `pairs` for its configuration, running `BAR_URL`, given
-/// `by_tab` for the panes and its permissions.
+/// A bar with `pairs` for its configuration, given `by_tab` for the panes,
+/// with the other bars there, and its permissions.
 fn granted_bar(
     pairs: &[(&str, &str)],
     tab_count: usize,
     by_tab: Vec<(usize, Vec<PaneInfo>)>,
 ) -> State {
-    let mut state = bar(pairs, 80, tabs(tab_count, 0), by_tab);
-    state.bar.own_url = Some(BAR_URL.to_string());
+    let mut state = bar(pairs, 80, tabs(tab_count, 0), by_tab.clone());
+    join_other_bars(&state, &by_tab);
     state.update(granted());
     state
 }
@@ -3839,23 +3855,19 @@ fn framed_bar(pairs: &[(&str, &str)]) -> State {
 
 #[test]
 fn frame_buttons_go_on_every_pane_of_the_bar_s_tab_and_of_tabs_without_a_bar_once_granted() {
-    let mut state = bar(
-        &PLAIN,
-        80,
-        tabs(3, 0),
-        vec![
-            (
-                0,
-                vec![floating(1, "vim"), tiled(4, "shell"), tiled(5, "logs")],
-            ),
-            (
-                1,
-                vec![other_bar(50), floating(3, "far"), tiled(8, "far shell")],
-            ),
-            (2, vec![tiled(6, "alone"), floating(7, "top")]),
-        ],
-    );
-    state.bar.own_url = Some(BAR_URL.to_string());
+    let by_tab = vec![
+        (
+            0,
+            vec![floating(1, "vim"), tiled(4, "shell"), tiled(5, "logs")],
+        ),
+        (
+            1,
+            vec![other_bar(50), floating(3, "far"), tiled(8, "far shell")],
+        ),
+        (2, vec![tiled(6, "alone"), floating(7, "top")]),
+    ];
+    let mut state = bar(&PLAIN, 80, tabs(3, 0), by_tab.clone());
+    join_other_bars(&state, &by_tab);
     state.update(Event::PaneUpdate(state.panes.clone()));
     assert_eq!(frame_items(&state.host.calls()), vec![]);
     // The second tab's panes are its own bar's to frame. The third tab has
@@ -4063,7 +4075,7 @@ fn the_frame_buttons_minimize_maximize_and_close_their_pane() {
         after_event(&mut state, frame_click(vim, "minimize", MouseButton::Left)),
         vec![Call::HidePaneWithId(vim)]
     );
-    assert!(state.minimized.contains_key(&vim));
+    assert!(state.minimized().contains_key(&vim));
 }
 
 #[test]
@@ -4139,73 +4151,8 @@ fn restoring_a_minimized_pane_of_another_tab_shows_it_in_this_one_where_it_stood
                 tab_id: Some(100),
             },
             Call::ChangeFloatingPanesCoordinates(vec![(far, mouse::geometry_of(&stood))]),
-            pulled(far, 0),
         ]
     );
-}
-
-/// The message a bar sends the others once it pulled `pane` into the tab
-/// at `position`.
-fn pulled(pane: PaneId, position: usize) -> Call {
-    Call::Broadcast {
-        name: "zjtaskbar::pulled".to_string(),
-        payload: frame::pulled_payload(pane, position),
-    }
-}
-
-/// The `zjtaskbar::pulled` message `payload`, as another bar sends it.
-fn pulled_message(payload: &str) -> PipeMessage {
-    PipeMessage::new(
-        PipeSource::Plugin(50),
-        "zjtaskbar::pulled",
-        &Some(payload.to_string()),
-        &None,
-        false,
-    )
-}
-
-#[test]
-fn a_pulled_message_names_the_tab_and_the_pane() {
-    assert_eq!(
-        frame::pulled_payload(PaneId::Terminal(2), 1),
-        "1 terminal 2"
-    );
-    assert_eq!(frame::pulled_payload(PaneId::Plugin(7), 0), "0 plugin 7");
-}
-
-#[test]
-fn a_bar_takes_its_buttons_off_a_pane_pulled_into_a_tab_it_does_not_frame() {
-    // This bar has not seen the pane leave its tab, as Zellij tells only the
-    // plugins of the tab on screen.
-    let mut state = framed_bar(&PLAIN);
-    state.host.clear();
-    assert!(!state.pipe(pulled_message("1 terminal 1")));
-    assert_eq!(
-        state.host.calls(),
-        vec![Call::SetPaneFrameItems(PaneId::Terminal(1), vec![])]
-    );
-    // An update with the pane still in this tab puts them back.
-    let unchanged = Event::PaneUpdate(state.panes.clone());
-    assert_eq!(
-        frame_items(&after_event(&mut state, unchanged)),
-        vec![(PaneId::Terminal(1), default_frame_items(false))]
-    );
-}
-
-#[test]
-fn a_bar_keeps_its_buttons_on_a_pane_pulled_into_a_tab_it_frames() {
-    let mut state = framed_bar(&PLAIN);
-    state.host.clear();
-    for payload in [
-        "0 terminal 1",
-        "1 terminal 3",
-        "1 plugin 1",
-        "1 terminal",
-        "x terminal 1",
-    ] {
-        assert!(!state.pipe(pulled_message(payload)));
-    }
-    assert_eq!(state.host.calls(), vec![]);
 }
 
 #[test]
@@ -4226,4 +4173,403 @@ fn the_wheel_steps_to_a_pane_in_another_tab_without_pulling_it() {
             .any(|call| matches!(call, Call::ShowPaneWithId { .. } | Call::HidePaneWithId(_))),
         "{calls:?}"
     );
+}
+
+// Several bars of one instance, run as Zellij runs them: each in a slot of
+// `zjkit::shared::Shared`, sharing what `instance` keeps.
+
+use zjkit::shared::{Effect, Outcome, Shared};
+
+/// The pane of the bar in slot `id`, 80 columns wide.
+fn bar_pane(id: u32) -> PaneInfo {
+    let mut pane = other_bar(id);
+    pane.pane_content_columns = 80;
+    pane
+}
+
+fn context(slot_id: Option<u32>, client_id: Option<ClientId>) -> EventContext {
+    EventContext { slot_id, client_id }
+}
+
+/// The panes of each tab, by position, as Zellij reports them to every
+/// slot.
+fn manifest(by_tab: Vec<Vec<PaneInfo>>) -> Event {
+    Event::PaneUpdate(PaneManifest {
+        panes: by_tab.into_iter().enumerate().collect(),
+    })
+}
+
+/// An instance with a bar loaded with `PLAIN` and `pairs` in a slot for
+/// each of `ids`, shown `by_tab` for the panes and two tabs, the one at
+/// `active` on screen for client 1, and granted its permissions.
+fn bars(
+    ids: &[u32],
+    pairs: &[(&'static str, &'static str)],
+    active: usize,
+    by_tab: Vec<Vec<PaneInfo>>,
+) -> Shared<State> {
+    // Whatever an instance of an earlier test on this thread kept.
+    instance::reset();
+    let mut shared = Shared::<State>::default();
+    for id in ids {
+        shared.add_slot(Slot {
+            id: *id,
+            kind: SlotKind::Pane,
+            configuration: cfg(&plain_with(pairs)),
+        });
+    }
+    shared.take_event(Event::ModeUpdate(mode()), context(None, Some(1)));
+    shared.take_event(manifest(by_tab), context(None, None));
+    shared.take_event(Event::TabUpdate(tabs(2, active)), context(None, Some(1)));
+    shared.take_event(granted(), context(Some(ids[0]), Some(1)));
+    shared
+}
+
+/// `bars`, with each bar loaded with `PLAIN` and its own pairs, by id.
+fn bars_each(
+    each: &[(u32, &[(&'static str, &'static str)])],
+    active: usize,
+    by_tab: Vec<Vec<PaneInfo>>,
+) -> Shared<State> {
+    instance::reset();
+    let mut shared = Shared::<State>::default();
+    for (id, pairs) in each {
+        shared.add_slot(Slot {
+            id: *id,
+            kind: SlotKind::Pane,
+            configuration: cfg(&plain_with(pairs)),
+        });
+    }
+    shared.take_event(Event::ModeUpdate(mode()), context(None, Some(1)));
+    shared.take_event(manifest(by_tab), context(None, None));
+    shared.take_event(Event::TabUpdate(tabs(2, active)), context(None, Some(1)));
+    shared.take_event(granted(), context(Some(each[0].0), Some(1)));
+    shared
+}
+
+/// The frame items an `Outcome` placed, in order.
+fn placed_items(outcome: &Outcome) -> Vec<(PaneId, Vec<FrameItem>)> {
+    outcome
+        .effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::SetPaneFrameItems(pane, items) => Some((*pane, items.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Draw slot `id` for client 1, and return the frame items placed as it
+/// did.
+fn draw(shared: &mut Shared<State>, id: u32) -> Vec<(PaneId, Vec<FrameItem>)> {
+    placed_items(&shared.render_slot(1, 80, id, 1))
+}
+
+/// What slot `id` asks of Zellij for `event`, which client 1 sent through
+/// `slot`, if any.
+fn slot_after(shared: &mut Shared<State>, id: u32, slot: Option<u32>, event: Event) -> Vec<Call> {
+    shared.plugin(id).unwrap().host.clear();
+    shared.take_event(event, context(slot, Some(1)));
+    shared.plugin(id).unwrap().host.calls()
+}
+
+/// Two tabs, each with its bar, slots 10 and 11, and `vim` floating in the
+/// first.
+fn two_tabs() -> Vec<Vec<PaneInfo>> {
+    vec![vec![bar_pane(10), floating(1, "vim")], vec![bar_pane(11)]]
+}
+
+/// The same with `vim` pulled into the second tab.
+fn vim_pulled() -> Event {
+    manifest(vec![
+        vec![bar_pane(10)],
+        vec![bar_pane(11), floating(1, "vim")],
+    ])
+}
+
+#[test]
+fn each_tab_s_panes_get_the_buttons_of_that_tab_s_bar_alone() {
+    let mut shared = bars(&[10, 11], &[], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    assert_eq!(draw(&mut shared, 11), vec![]);
+    assert_eq!(
+        draw(&mut shared, 10),
+        vec![(vim, default_frame_items(false))]
+    );
+    assert_eq!(draw(&mut shared, 11), vec![]);
+}
+
+#[test]
+fn a_pane_pulled_from_a_tab_not_on_screen_keeps_one_bar_s_buttons_until_that_bar_draws() {
+    let mut shared = bars(&[10, 11], &[], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    // Client 1 goes to the second tab and pulls vim in from the first,
+    // whose bar is not drawn now and so cannot take its buttons off.
+    shared.take_event(Event::TabUpdate(tabs(2, 1)), context(None, Some(1)));
+    shared.take_event(vim_pulled(), context(None, None));
+    assert_eq!(draw(&mut shared, 11), vec![]);
+    assert_eq!(draw(&mut shared, 11), vec![]);
+    // The first bar's buttons still act, from that bar.
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            10,
+            None,
+            frame_click(vim, "maximize", MouseButton::Left)
+        ),
+        vec![Call::TogglePaneIdFullscreen(vim)]
+    );
+    // Once the first tab is shown, its bar takes them off, and the second
+    // bar puts its own on as it draws next.
+    shared.take_event(Event::TabUpdate(tabs(2, 0)), context(None, Some(1)));
+    assert_eq!(draw(&mut shared, 10), vec![(vim, vec![])]);
+    shared.take_event(Event::TabUpdate(tabs(2, 1)), context(None, Some(1)));
+    assert_eq!(
+        draw(&mut shared, 11),
+        vec![(vim, default_frame_items(false))]
+    );
+    // A click on them now goes to the second bar.
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            11,
+            None,
+            frame_click(vim, "maximize", MouseButton::Left)
+        ),
+        vec![Call::TogglePaneIdFullscreen(vim)]
+    );
+    assert_eq!(draw(&mut shared, 10), vec![]);
+}
+
+#[test]
+fn buttons_a_bar_never_placed_leave_the_pane_free_at_once() {
+    let mut shared = bars(&[10, 11], &[], 1, two_tabs());
+    let vim = PaneId::Terminal(1);
+    // The first bar wanted vim's frame but was never drawn to place them.
+    shared.take_event(vim_pulled(), context(None, None));
+    assert_eq!(
+        draw(&mut shared, 11),
+        vec![(vim, default_frame_items(false))]
+    );
+    // What it drew later takes nothing from the second bar.
+    draw(&mut shared, 10);
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            11,
+            None,
+            frame_click(vim, "maximize", MouseButton::Left)
+        ),
+        vec![Call::TogglePaneIdFullscreen(vim)]
+    );
+}
+
+#[test]
+fn a_bar_that_closes_leaves_its_tab_s_panes_to_the_first_bar_left() {
+    let mut shared = bars(&[10, 11], &[], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    // Zellij takes the closing bar's buttons off every frame itself.
+    shared.remove_slot(10);
+    shared.take_event(
+        manifest(vec![vec![floating(1, "vim")], vec![bar_pane(11)]]),
+        context(None, None),
+    );
+    assert_eq!(
+        draw(&mut shared, 11),
+        vec![(vim, default_frame_items(false))]
+    );
+}
+
+#[test]
+fn a_bar_reported_gone_before_it_closes_leaves_its_panes_as_it_closes() {
+    let mut shared = bars(&[10, 11], &[], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    // Zellij reports the bar's pane gone before the slot closes, while vim
+    // is still the closing bar's.
+    shared.take_event(
+        manifest(vec![vec![floating(1, "vim")], vec![bar_pane(11)]]),
+        context(None, None),
+    );
+    let outcome = shared.remove_slot(10);
+    assert_eq!(outcome.render, RenderResponse::Slots(vec![11]));
+    assert_eq!(
+        draw(&mut shared, 11),
+        vec![(vim, default_frame_items(false))]
+    );
+}
+
+#[test]
+fn a_close_button_left_from_a_bar_that_does_not_ask_asks_while_another_bar_would() {
+    let quiet: &[(&str, &str)] = &[("mouse_close_confirm", "false")];
+    let mut shared = bars_each(&[(10, quiet), (11, &[])], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    // vim goes to the second tab, whose bar asks before closing, with the
+    // first bar's buttons still on its frame.
+    shared.take_event(Event::TabUpdate(tabs(2, 1)), context(None, Some(1)));
+    shared.take_event(vim_pulled(), context(None, None));
+    let close = || frame_click(vim, "close", MouseButton::Left);
+    let calls = slot_after(&mut shared, 10, None, close());
+    let (_, request) = the_prompt(&calls);
+    assert_eq!(
+        request,
+        close_prompt("Close pane \"vim\" and end what runs in it?")
+    );
+
+    // With no bar left that asks, it closes at once.
+    shared.remove_slot(11);
+    shared.plugin_mut(10).unwrap().pending_prompt = Default::default();
+    assert_eq!(
+        slot_after(&mut shared, 10, None, close()),
+        vec![Call::CloseTerminalPane(1)]
+    );
+}
+
+#[test]
+fn a_bar_that_stops_asking_before_closing_leaves_the_close_buttons_alone() {
+    let quiet: &[(&str, &str)] = &[("mouse_close_confirm", "false")];
+    let mut shared = bars_each(&[(10, quiet), (11, &[])], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    // The second bar is set not to ask either, from its settings.
+    let configuration = cfg(&plain_with(quiet));
+    shared
+        .plugin_mut(11)
+        .unwrap()
+        .apply_configuration(configuration);
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            10,
+            None,
+            frame_click(vim, "close", MouseButton::Left)
+        ),
+        vec![Call::CloseTerminalPane(1)]
+    );
+}
+
+#[test]
+fn a_pane_minimized_from_one_bar_is_listed_by_every_bar_its_scope_takes_in() {
+    let mut shared = bars(&[10, 11], &[], 0, two_tabs());
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            10,
+            None,
+            frame_click(vim, "minimize", MouseButton::Left)
+        ),
+        vec![Call::HidePaneWithId(vim)]
+    );
+    shared.take_event(
+        manifest(vec![
+            vec![bar_pane(10), suppressed(floating(1, "vim"))],
+            vec![bar_pane(11)],
+        ]),
+        context(None, None),
+    );
+    assert_eq!(shown(shared.plugin(10).unwrap()), "_vim_");
+    assert_eq!(shown(shared.plugin(11).unwrap()), "_vim_");
+
+    // A bar listing only the tab on screen lists it only from there.
+    let mut shared = bars(&[10, 11], &[("pane_scope", "tab")], 1, two_tabs());
+    shared.plugin_mut(10).unwrap().minimize(vim);
+    shared.take_event(
+        manifest(vec![
+            vec![bar_pane(10), suppressed(floating(1, "vim"))],
+            vec![bar_pane(11)],
+        ]),
+        context(None, None),
+    );
+    assert_eq!(shown(shared.plugin(11).unwrap()), "");
+    shared.take_event(Event::TabUpdate(tabs(2, 0)), context(None, Some(1)));
+    assert_eq!(shown(shared.plugin(11).unwrap()), "_vim_");
+}
+
+#[test]
+fn any_bar_restores_a_pane_another_minimized_where_it_stood() {
+    let stood = placed(floating(1, "vim"), (10, 5), (40, 12), false);
+    let mut shared = bars(
+        &[10, 11],
+        &[],
+        0,
+        vec![
+            vec![bar_pane(10), focused(stood.clone())],
+            vec![bar_pane(11)],
+        ],
+    );
+    let vim = PaneId::Terminal(1);
+    draw(&mut shared, 10);
+    shared.take_event(
+        frame_click(vim, "minimize", MouseButton::Left),
+        context(None, Some(1)),
+    );
+    shared.take_event(
+        manifest(vec![
+            vec![bar_pane(10), suppressed(stood.clone())],
+            vec![bar_pane(11)],
+        ]),
+        context(None, None),
+    );
+    // From the second tab, its bar shows vim again there, where it stood.
+    shared.take_event(Event::TabUpdate(tabs(2, 1)), context(None, Some(1)));
+    draw(&mut shared, 11);
+    assert_eq!(shown(shared.plugin(11).unwrap()), "_vim(one)_");
+    assert_eq!(
+        slot_after(
+            &mut shared,
+            11,
+            Some(11),
+            Event::Mouse(Mouse::LeftClick(0, 0))
+        ),
+        vec![
+            Call::ShowPaneWithId {
+                pane_id: vim,
+                should_float_if_hidden: true,
+                tab_id: Some(101),
+            },
+            Call::ChangeFloatingPanesCoordinates(vec![(vim, mouse::geometry_of(&stood))]),
+        ]
+    );
+    // It is no longer minimized for either bar.
+    assert!(!shared.plugin(10).unwrap().minimized().contains_key(&vim));
+}
+
+#[test]
+fn a_bar_never_lists_another_bar_of_its_instance() {
+    let mut floating_bar = bar_pane(11);
+    floating_bar.is_floating = true;
+    floating_bar.is_selectable = true;
+    let shared = bars(
+        &[10, 11],
+        &[],
+        0,
+        vec![vec![bar_pane(10), floating(1, "vim"), floating_bar], vec![]],
+    );
+    assert_eq!(shown(shared.plugin(10).unwrap()), "vim");
+    assert_eq!(shown(shared.plugin(11).unwrap()), "vim");
+}
+
+#[test]
+fn each_bar_s_clock_ticks_on_its_own_timer() {
+    let mut shared = bars(
+        &[10, 11],
+        &[("tray", "clock"), ("clock_utc_offset", "+00:00")],
+        0,
+        two_tabs(),
+    );
+    for id in [10, 11] {
+        shared.plugin(id).unwrap().host.clear();
+    }
+    // Both armed one for the next minute as they loaded, the first first,
+    // so the first timer to fire is its, and it arms the next one alone.
+    let armed = |shared: &Shared<State>, id| timers(&shared.plugin(id).unwrap().host.calls()).len();
+    shared.take_event(Event::Timer(60.0), context(None, None));
+    assert_eq!((armed(&shared, 10), armed(&shared, 11)), (1, 0));
+    shared.take_event(Event::Timer(60.0), context(None, None));
+    assert_eq!((armed(&shared, 10), armed(&shared, 11)), (1, 1));
 }

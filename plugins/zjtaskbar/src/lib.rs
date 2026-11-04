@@ -14,7 +14,8 @@
 //! Zellij. It is a library so that other crates' tests can draw it into the
 //! docs images, through `draw_for_image` behind the `images` feature.
 
-use std::collections::BTreeMap;
+use std::cell::{Ref, RefMut};
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
@@ -29,6 +30,7 @@ mod frame;
 mod host;
 #[cfg(test)]
 mod images;
+mod instance;
 mod launcher;
 mod mouse;
 mod settings;
@@ -39,6 +41,7 @@ use draw::Clickable;
 use entries::{Entry, Minimized, PaneScope, Tab};
 use flags::FLAGS;
 use host::*;
+use instance::Instance;
 use tray::TrayItem;
 
 const CONFIG_PANE_SCOPE: &str = "pane_scope";
@@ -177,6 +180,9 @@ pub struct State {
     /// What every call into Zellij goes through, so tests can see them. See
     /// `BarHost`.
     host: BarHost,
+    /// What every slot of the instance shares: the minimized panes and where
+    /// the bars are. See `instance`.
+    instance: Instance,
     /// Whether this instance runs as the bar or the settings screen. Only the
     /// bar uses the fields below.
     role: Role,
@@ -239,7 +245,8 @@ pub struct State {
     /// `frame_buttons` is off. See `frame`.
     frame_buttons: Option<frame::FrameButtonTexts>,
     /// The buttons last placed on each pane's frame, so they are sent again
-    /// only when they change.
+    /// only when they change. These are the panes whose frames the bar
+    /// holds; see `frame`.
     frame_items_sent: BTreeMap<PaneId, Vec<FrameItem>>,
     /// Draw the launcher's button, while the mouse is on. See
     /// `State::launcher_shown`.
@@ -281,12 +288,9 @@ pub struct State {
     panes: PaneManifest,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
-    /// The panes the bar hid from the screen and keeps listed, so they can be
-    /// brought back, each with where it stood. See `entries` for why the bar
-    /// keeps them itself.
-    minimized: Minimized,
     /// What the bar lists, in the order it draws them, from `panes`, `tabs`,
-    /// `minimized` and `pane_scope`. See `refresh_entries`.
+    /// the instance's minimized panes and `pane_scope`. See
+    /// `refresh_entries`.
     entries: Vec<Entry>,
     /// The last `ModeUpdate`, for the nested-session state, and for the tray's
     /// mode and session name.
@@ -407,6 +411,22 @@ impl State {
             config::non_empty_string_option(configuration, zjkit::mode::CONFIG_MODE_FORMAT);
         // `pane_scope` decides which panes are listed.
         self.refresh_entries();
+        self.note_frame_close_confirm();
+    }
+
+    /// Tell the instance whether this bar's frame close button asks first.
+    /// See `instance`. Known once the bar has loaded and has its id.
+    fn note_frame_close_confirm(&self) {
+        let Some(id) = self.bar.plugin_id else {
+            return;
+        };
+        let asks = self.frame_buttons.is_some() && self.mouse_close_confirm;
+        let mut common = self.instance.get_mut();
+        if asks {
+            common.confirm_frame_close.insert(id);
+        } else {
+            common.confirm_frame_close.remove(&id);
+        }
     }
 
     /// The features the options as read turn on, whose permissions the bar
@@ -439,17 +459,36 @@ impl State {
     /// redraw: an update that changes nothing the bar shows, such as a pane
     /// moving or a tiled pane's title, leaves them as they were.
     fn refresh_entries(&mut self) -> bool {
-        let own_pane = self.bar.plugin_id.map(PaneId::Plugin);
         let entries = entries::entries_of(
             &self.panes,
             &self.tabs,
-            &self.minimized,
+            &self.minimized(),
             self.pane_scope,
-            own_pane,
+            &self.bar_ids(),
         );
         let changed = entries != self.entries;
         self.entries = entries;
         changed
+    }
+
+    /// The panes minimized from any bar of the instance, each with where it
+    /// stood, so they can be brought back. See `entries` for why the bars
+    /// keep them themselves.
+    fn minimized(&self) -> Ref<'_, Minimized> {
+        Ref::map(self.instance.get(), |common| &common.minimized)
+    }
+
+    /// The same, to change.
+    fn minimized_mut(&self) -> RefMut<'_, Minimized> {
+        RefMut::map(self.instance.get_mut(), |common| &mut common.minimized)
+    }
+
+    /// The plugin ids of the instance's bars, which are their panes' ids:
+    /// this one's and every other slot's running the bar.
+    fn bar_ids(&self) -> BTreeSet<u32> {
+        let mut bars = self.instance.get().bars.clone();
+        bars.extend(self.bar.plugin_id);
+        bars
     }
 }
 
@@ -489,6 +528,16 @@ impl zjkit::shared::SlotPlugin for State {
     fn bar_mut(&mut self) -> Option<&mut BarCore> {
         self.role.is_bar().then_some(&mut self.bar)
     }
+
+    /// The panes a closed bar held go to the bars left. Zellij may have
+    /// reported its pane gone while it still held them, so this is the
+    /// first moment another bar may take them.
+    fn slot_removed(&mut self, _id: u32) -> bool {
+        if self.role.is_bar() {
+            self.sync_frame_buttons();
+        }
+        false
+    }
 }
 
 impl ZellijPlugin for State {
@@ -501,6 +550,10 @@ impl ZellijPlugin for State {
         let permissions = BarPlugin::permissions(self, &BAR);
         self.bar
             .load(&self.host, &BAR, &permissions, BarPlugin::mouse(self));
+        if let Some(id) = self.bar.plugin_id {
+            self.instance.get_mut().bars.insert(id);
+        }
+        self.note_frame_close_confirm();
         // Arms the clock's first timer. Its offset waits for the permission.
         self.follow_clock();
     }
@@ -508,6 +561,17 @@ impl ZellijPlugin for State {
     fn update(&mut self, event: Event) -> bool {
         if !self.role.is_bar() {
             return self.role.update(event);
+        }
+        // The slot is going, as `zjkit::shared` says with this, so the other
+        // bars no longer leave anything to it. Zellij takes its buttons off
+        // every frame itself.
+        if let Event::BeforeClose = event {
+            if let Some(id) = self.bar.plugin_id {
+                let mut common = self.instance.get_mut();
+                common.bars.remove(&id);
+                common.confirm_frame_close.remove(&id);
+            }
+            return false;
         }
         let handled = self.bar.update(&self.host, &BAR, &event);
         let mut should_render = BarCore::follow(self, &BAR, handled);
@@ -521,7 +585,7 @@ impl ZellijPlugin for State {
         );
         match event {
             Event::PaneUpdate(manifest) => {
-                entries::forget_gone(&mut self.minimized, &manifest);
+                entries::forget_gone(&mut self.minimized_mut(), &manifest);
                 self.panes = manifest;
                 should_render |= self.refresh_entries();
             }
@@ -573,10 +637,6 @@ impl ZellijPlugin for State {
                 self.sync_frame_buttons();
                 should_render
             }
-            None if message.name == frame::PULLED_MESSAGE => {
-                self.pane_pulled(message.payload.as_deref());
-                false
-            }
             None => false,
         }
     }
@@ -586,6 +646,9 @@ impl ZellijPlugin for State {
             self.role.render(rows, cols);
             return;
         }
+        // Before anything is printed, as a call after it would follow the
+        // drawing out. See `zjkit::shared`.
+        self.claim_frame_buttons();
         let (output, click_spans) = self.draw_bar();
         self.bar
             .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
@@ -619,7 +682,10 @@ pub fn draw_for_image(
     manifest: PaneManifest,
     columns: usize,
 ) -> String {
-    let mut state = State::default();
+    let mut state = State {
+        instance: Instance::alone(),
+        ..Default::default()
+    };
     // Set before the options, as `color_theme zellij` draws in its colors.
     state.bar.zellij_palette = Some(mode_info.style.colors);
     state.bar.pane_width = Some(columns);
@@ -628,7 +694,7 @@ pub fn draw_for_image(
     for pane in manifest.panes.values().flatten() {
         if pane.is_suppressed && !pane.is_floating {
             let pane_id = zjkit::panes::pane_id_of(pane);
-            state.minimized.insert(pane_id, Default::default());
+            state.minimized_mut().insert(pane_id, Default::default());
         }
     }
     state.panes = manifest;

@@ -2,28 +2,32 @@
 //!
 //! The bar lists a session's floating panes, terminals and plugins alike,
 //! one entry each. Tiled panes are left out, and so are panes that cannot be
-//! selected, such as other bars and this one.
+//! selected and the instance's bars, this one among them, wherever they
+//! stand.
 //!
-//! A pane the bar minimized stays listed, marked as minimized. Zellij
+//! A pane minimized from a bar stays listed, marked as minimized. Zellij
 //! reports a hidden floating pane as suppressed and no longer floating, the
 //! same as a hidden tiled pane, so the bar cannot tell from the manifest
-//! which hidden panes were floating. It keeps the ids of the panes it
-//! minimized itself instead, in `State::minimized`, and lists those. With
-//! each id it keeps where the pane stood, which Zellij forgets as it hides a
-//! pane; see `mouse::geometry_of`.
+//! which hidden panes were floating. The bars keep the ids of the panes they
+//! minimized themselves instead, and list those. The instance's bars share
+//! them (see `instance`), so a pane minimized from one bar is listed by every
+//! bar whose `pane_scope` takes in its tab, and any of them brings it back.
+//! With each id is kept where the pane stood, which Zellij forgets as it
+//! hides a pane; see `mouse::geometry_of`.
 //!
 //! The entries are grouped by tab, in the order the tabs stand, and within a
 //! tab ordered by pane id, terminals before plugins. A pane's id never
 //! changes, so the entries stay where they are as the focus moves between
 //! them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use zellij_tile::prelude::{FloatingPaneCoordinates, PaneId, PaneInfo, PaneManifest, TabInfo};
 
-/// The panes the bar minimized itself, each with where it stood on screen
-/// before it was hidden, so restoring it puts it back there.
+/// The panes the bars minimized themselves, each with where it stood on
+/// screen before it was hidden, so restoring it puts it back there. One set
+/// serves every bar of the instance; see `instance`.
 ///
-/// A pane is kept from the moment the bar asks Zellij to hide it until a
+/// A pane is kept from the moment a bar asks Zellij to hide it until a
 /// `PaneUpdate` shows it is no longer minimized. See `forget_gone` for when
 /// that is.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -171,15 +175,16 @@ impl Entry {
 /// Every pane of `manifest` the bar lists, in the order it draws them.
 ///
 /// `tabs` is the last `TabUpdate`, which says which tab is active and names
-/// them. `minimized` holds the panes the bar minimized itself, and
-/// `own_pane` is the bar's own, which is never listed. With `PaneScope::Tab`
-/// and no active tab known yet, nothing is listed.
+/// them. `minimized` holds the panes the bars minimized themselves, and
+/// `bars` the plugin ids of the instance's bars, whose panes are never
+/// listed. With `PaneScope::Tab` and no active tab known yet, nothing is
+/// listed.
 pub(crate) fn entries_of(
     manifest: &PaneManifest,
     tabs: &[Tab],
     minimized: &Minimized,
     scope: PaneScope,
-    own_pane: Option<PaneId>,
+    bars: &BTreeSet<u32>,
 ) -> Vec<Entry> {
     let active = tabs.iter().find(|tab| tab.active).map(|tab| ActiveTab {
         position: tab.position,
@@ -207,7 +212,8 @@ pub(crate) fn entries_of(
         for pane in panes {
             let pane_id = pane_id_of(pane);
             let minimized = is_minimized(pane, minimized);
-            if Some(pane_id) == own_pane || !(is_listed_floating(pane) || minimized) {
+            let is_bar = pane.is_plugin && bars.contains(&pane.id);
+            if is_bar || !(is_listed_floating(pane) || minimized) {
                 continue;
             }
             entries.push(Entry {
