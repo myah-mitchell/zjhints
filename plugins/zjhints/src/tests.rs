@@ -2511,7 +2511,7 @@ fn a_popup_instance_ignores_what_the_bar_handles() {
     assert_eq!(state.mode_info.mode, ModeInfo::default().mode);
     let preview = preview_args("zjhints", &[("show_mode", None, Some("true"))]);
     let message = PipeMessage::new(
-        PipeSource::Plugin(5),
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
         settings::SCHEMA.live_message,
         &None,
         &Some(preview),
@@ -2726,19 +2726,14 @@ fn preview_args(
 }
 
 /// Send `bar` a preview from the settings screen, as `pipe` gets it.
-/// Returns whether the bar should redraw. The screen is plugin 5, whose pane
-/// runs from the bar's own URL, as a bar only takes a preview from its own
-/// plugin. A bar that has had no `PaneUpdate` yet is first given the alias
-/// `zjhints` for its URL, as its first one would give it.
+/// Returns whether the bar should redraw. The screen runs in the bar's own
+/// shared instance, as a bar only takes a preview from there. A bar that has
+/// had no `PaneUpdate` yet is first given the alias `zjhints` for its URL, as
+/// its first one would give it.
 fn preview(bar: &mut State, args: BTreeMap<String, String>) -> bool {
-    let url = bar
-        .bar
-        .own_url
-        .get_or_insert_with(|| "zjhints".to_string())
-        .clone();
-    bar.bar.plugin_pane_urls.insert(5, url);
+    bar.bar.own_url.get_or_insert_with(|| "zjhints".to_string());
     bar.pipe(PipeMessage::new(
-        PipeSource::Plugin(5),
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
         settings::SCHEMA.live_message,
         &None,
         &Some(args),
@@ -3042,6 +3037,7 @@ fn clicking_the_mode_prefix_opens_settings() {
             message: OPEN_SETTINGS_MESSAGE.to_string(),
             pane_title: "zjhints settings".to_string(),
             own_url: Some("zjhints-alt".to_string()),
+            instance: None,
         }]
     );
 }
@@ -3173,6 +3169,7 @@ fn zellij_s_settings_entry_opens_settings_from_the_bar_of_the_client_that_chose_
             message: OPEN_SETTINGS_MESSAGE.to_string(),
             pane_title: "zjhints settings".to_string(),
             own_url: Some("zjhints".to_string()),
+            instance: None,
         }]
     );
 }

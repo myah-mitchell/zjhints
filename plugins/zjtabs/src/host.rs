@@ -26,8 +26,8 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
     // switching tabs on a click or the wheel, closing a tab on a middle click
     // and opening Zellij's context menu.
     PermissionType::ChangeApplicationState,
-    // The hide, show and toggle messages between bars, and opening the
-    // settings screen, which is this plugin again in a floating pane.
+    // Opening the settings screen, a floating pane of the bar's own
+    // instance, and the live previews it sends the bars.
     PermissionType::MessageAndLaunchOtherPlugins,
 ];
 

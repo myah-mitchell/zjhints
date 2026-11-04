@@ -1351,6 +1351,7 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
             message: OPEN_SETTINGS_MESSAGE.to_string(),
             pane_title: SETTINGS_PANE_TITLE.to_string(),
             own_url: Some("zjtaskbar".to_string()),
+            instance: None,
         }]
     );
     assert_eq!(SETTINGS_PANE_TITLE, "zjtaskbar settings");
@@ -1358,13 +1359,9 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
 }
 
 /// A preview from the settings screen of `alias`, as `pipe` gets it, with
-/// each change as `(key, value before, value now)`. The screen is plugin 5,
-/// whose pane runs from the bar's own URL, as a bar only takes a preview
-/// from its own plugin.
+/// each change as `(key, value before, value now)`. The screen runs in the
+/// bar's own shared instance, as a bar only takes a preview from there.
 fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
-    if let Some(url) = state.bar.own_url.clone() {
-        state.bar.plugin_pane_urls.insert(5, url);
-    }
     let changes: Vec<live::Change> = changes
         .iter()
         .map(|(key, was, now)| live::Change {
@@ -1374,7 +1371,7 @@ fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Optio
         })
         .collect();
     state.pipe(PipeMessage::new(
-        PipeSource::Plugin(5),
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
         settings::SCHEMA.live_message,
         &None,
         &Some(live::encode(alias, &changes)),
@@ -1450,10 +1447,6 @@ fn a_launcher_entry_previewed_from_the_screen_reaches_the_bar_s_menu() {
 fn a_launcher_entry_sent_as_a_preview_by_another_plugin_is_refused() {
     let mut state = bar(&[], 80, tabs(1, 0), vec![]);
     state.bar.own_url = Some("zjtaskbar".to_string());
-    state
-        .bar
-        .plugin_pane_urls
-        .insert(6, "file:/plugins/other.wasm".to_string());
     state.host.clear();
     let changes: Vec<live::Change> = [
         ("launch_0_name", "New terminal"),
