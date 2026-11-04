@@ -81,6 +81,13 @@ pub trait SlotPlugin: ZellijPlugin + Default {
     /// Called after every event and message for a slot loaded in the
     /// background, with `load_plugins`, which Zellij never draws.
     fn background(&mut self) {}
+
+    /// Called on each slot left once slot `id` has closed, after Zellij may
+    /// already have sent the `PaneUpdate` for its pane closing. Returns
+    /// whether the slot should draw again.
+    fn slot_removed(&mut self, _id: SlotId) -> bool {
+        false
+    }
 }
 
 /// The slot whose `P` is running, and the client it runs for when Zellij
@@ -709,6 +716,11 @@ impl<P: SlotPlugin> Shared<P> {
         router.collapsed.remove(&id);
         router.retell.remove(&id);
         router.queued.retain(|(slot, _)| *slot != id);
+        for other in self.slot_ids() {
+            self.deliver(other, None, Callback::NONE, |plugin| {
+                plugin.slot_removed(id)
+            });
+        }
         self.finish(Callback::NONE)
     }
 
