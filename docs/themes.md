@@ -152,4 +152,4 @@ Switching to another color theme recolors these as well, since they refer to the
 
 The `powerline` and `pills` format themes and the `nerd-font` alias theme draw glyphs from a [Nerd Font](https://www.nerdfonts.com/). Powerline arrows are U+E0B0, and pill ends are U+E0B6 and U+E0B4. Without a Nerd Font in your terminal these render as empty boxes.
 
-Nerd Font glyphs are East Asian Ambiguous. If your terminal draws them two columns wide, set `ambiguous_width 2` so [fitting](fitting.md#glyph-width) measures the bar correctly.
+Each glyph takes one column, the width Zellij lays it out at. See [Glyph width](fitting.md#glyph-width).

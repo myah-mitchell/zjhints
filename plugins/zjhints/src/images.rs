@@ -264,7 +264,7 @@ impl Screen {
     /// Put `character` at a spot of the grid, if it fits, and say how many
     /// columns it took.
     fn put(&mut self, row: usize, column: usize, character: char, look: Look) -> usize {
-        let width = char_width(character, false);
+        let width = char_width(character);
         let Some(cells) = self.rows.get_mut(row) else {
             return width;
         };

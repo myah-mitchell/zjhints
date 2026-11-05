@@ -454,9 +454,9 @@ pub fn swatch_ansi((red, green, blue): Rgb) -> String {
     format!("\u{1b}[38;2;{red};{green};{blue}m██\u{1b}[0m")
 }
 
-/// The first `count` visible characters of an ANSI string, styles kept.
+/// The first `count` columns of an ANSI string, styles kept.
 pub fn take_visible(ansi: &str, count: usize) -> String {
-    crate::ansi::truncate_ansi_string(ansi, "", count, false)
+    crate::ansi::truncate_ansi_string(ansi, "", count)
 }
 
 /// The menu's items: each section's title, with ` ●` after one holding
@@ -526,6 +526,9 @@ pub fn describe(editor: &Editor) -> Option<String> {
             option.description,
             option.default.unwrap_or("unset")
         ),
+        Row::Key(key) if editor.schema().deprecated_options.contains(&key.as_str()) => {
+            format!("{key}: deprecated, and has no effect. Del removes it.")
+        }
         Row::Key(key) => match editor.schema().family_of(&key) {
             Some(family) => format!(
                 "{}: {} ({}). Del removes it.",
@@ -708,34 +711,21 @@ pub fn is_previewed(schema: &Schema, section: Section) -> bool {
         .is_some_and(|group| section == Section::Group(group))
 }
 
-/// The display columns `text` takes in the pane. Zellij lays out a plugin's
-/// pane with East Asian Ambiguous characters one column wide, so they are
-/// counted as one here, whatever `ambiguous_width` says for the bar.
+/// The display columns plain `text` takes in the pane, measured as Zellij
+/// lays it out (see `crate::ansi::cluster_width`).
 pub fn columns(text: &str) -> usize {
-    text.chars()
-        .map(|ch| crate::ansi::char_width(ch, false))
-        .sum()
+    crate::ansi::text_width(text)
 }
 
 /// `text` cut to `width` columns, ending in `…` when it was cut. A wide
-/// character that would cross the edge is left out whole.
+/// character or an emoji that would cross the edge is left out whole.
 pub fn truncate(text: &str, width: usize) -> String {
     if columns(text) <= width {
         return text.to_string();
     }
-    let room = width.saturating_sub(1);
-    let mut cut = String::new();
-    let mut used = 0;
-    for ch in text.chars() {
-        let width = crate::ansi::char_width(ch, false);
-        if used + width > room {
-            break;
-        }
-        cut.push(ch);
-        used += width;
+    if width == 0 {
+        return String::new();
     }
-    if width > 0 {
-        cut.push('…');
-    }
-    cut
+    let (kept, _) = crate::ansi::prefix_within(text, width - 1);
+    format!("{kept}…")
 }

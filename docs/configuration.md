@@ -21,7 +21,6 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `auto_width` | `true` | Fit the hints to the bar's own pane, or to the terminal when feeding zjstatus |
 | `max_length` | `0` | Hard cap on the line's width in columns, `0` for unlimited |
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
-| `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Format string appended when a lone hint is too wide to fit and must be cut mid-hint |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
@@ -161,3 +160,11 @@ Options of the settings screen itself. They are read only by the instance that r
 | --- | --- | --- |
 | `settings` | `false` | Run this instance as the settings screen instead of the bar |
 | `alias` | unset | The `plugins {}` alias to edit, when more than one loads zjhints |
+
+## Deprecated
+
+Options the plugin accepts, so a config setting one still loads, but ignores. The plugin logs a line for each one set, and the settings screen lists it under *Other*, where it can be removed.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `ambiguous_width` | unset | Nothing. Text is measured the way Zellij lays it out, with East Asian Ambiguous characters one column wide. See [Glyph width](fitting.md#glyph-width) |

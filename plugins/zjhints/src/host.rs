@@ -1,7 +1,7 @@
 //! The bar's calls into Zellij that tests stub out, and the permissions,
 //! events and pipe messages they use.
 
-use crate::{theme, CONFIG_AMBIGUOUS_WIDTH, DEFAULT_PIPE_NAME, LEGACY_PIPE_NAME};
+use crate::{settings, theme, DEFAULT_PIPE_NAME, LEGACY_PIPE_NAME};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 use zjkit::visibility;
@@ -91,10 +91,14 @@ pub(crate) fn log_unknown_themes(configuration: &BTreeMap<String, String>) {
     }
 }
 
-pub(crate) fn parse_wide_ambiguous(configuration: &BTreeMap<String, String>) -> bool {
-    configuration
-        .get(CONFIG_AMBIGUOUS_WIDTH)
-        .is_some_and(|value| value.trim() == "2")
+/// Log each deprecated option `configuration` sets, which the bar accepts
+/// but ignores. Called where `log_unknown_themes` is.
+pub(crate) fn log_deprecated_options(configuration: &BTreeMap<String, String>) {
+    for option in settings::options::DEPRECATED_OPTIONS {
+        if configuration.contains_key(*option) {
+            eprintln!("zjhints: {option} is deprecated and has no effect");
+        }
+    }
 }
 
 /// Open a hover preview at the bar pane's `line` and `column`, without taking

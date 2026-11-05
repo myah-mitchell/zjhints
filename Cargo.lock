@@ -2775,6 +2775,7 @@ name = "zjkit"
 version = "0.1.0"
 dependencies = [
  "ansi_term",
+ "unicode-segmentation",
  "unicode-width 0.2.2",
  "zellij-tile",
  "zellij-utils",

@@ -28,15 +28,17 @@ reserve_columns 32
 
 ## Glyph width
 
-Fitting depends on measuring how many columns the hints occupy, which is not the same as counting characters: a CJK ideograph or an emoji takes two.
+Fitting depends on measuring how many columns the hints occupy, which is not the same as counting characters. The plugin measures text the way Zellij lays out a plugin's pane: one grapheme cluster at a time, where a cluster is what reads as a single character, such as `é` written as `e` and a combining accent, or an emoji built from several characters.
 
-Nerd Font glyphs are East Asian Ambiguous: one column by the Unicode standard, but two in a terminal actually set up to display them. If you use them in `key_alias_*` or `mod_alias_*` and the hints overflow slightly, so that fitting looks right on wide windows and breaks near the edge, set:
+| Text | Columns |
+| --- | --- |
+| A CJK ideograph, such as `日` | 2 |
+| An emoji, including one with a skin tone (`👍🏽`), one joined from several (`👩‍💻`), a flag (`🇯🇵`) or a symbol in its emoji form (`❤️`) | 2 |
+| An East Asian Ambiguous character, such as the arrows, `⇧` and every Nerd Font glyph | 1 |
 
-```kdl
-ambiguous_width 2
-```
+Zellij lays out an East Asian Ambiguous character one column wide whatever the terminal is set to draw, so the plugin counts it as one too.
 
-Getting this wrong under-counts every such glyph, so the plugin believes the line fits while the terminal wraps or clips it.
+When a hint has to be cut, a cluster that would cross the limit is left out whole rather than split, so the cut can fall a column short of the limit.
 
 ## What gets dropped
 

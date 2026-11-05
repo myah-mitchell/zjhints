@@ -755,6 +755,9 @@ impl Editor {
                 if self.schema.screen_options.contains(&key) {
                     return Outcome::Refused(format!("{key} is read only by the settings screen"));
                 }
+                if self.schema.deprecated_options.contains(&key) {
+                    return Outcome::Refused(format!("{key} is deprecated and has no effect"));
+                }
                 if self.schema.internal_options.contains(&key) {
                     let plugin = self.schema.plugin;
                     return Outcome::Refused(format!("{key} is used by {plugin} itself"));

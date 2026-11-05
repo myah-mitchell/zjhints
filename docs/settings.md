@@ -178,7 +178,7 @@ Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `c
 
 Each group with families ends in a button per family to add a key, such as *+ add color_\<name\>*. Click it, or select it and press `Enter`, and the key starts with the family's prefix: type the rest, press `Enter`, then type its value.
 
-*Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group.
+*Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group. A [deprecated](configuration.md#deprecated) option set in the config is listed there too, and cannot be added.
 
 ## Previewing and saving
 

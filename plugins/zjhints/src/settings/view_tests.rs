@@ -492,6 +492,16 @@ fn every_help_button_presses_the_key_it_names() {
 }
 
 #[test]
+fn a_deprecated_option_is_described_as_having_no_effect() {
+    let mut editor = editor(&[("ambiguous_width", "2")]);
+    editor.submit(&Field::NewKey, "ambiguous_width");
+    assert_eq!(
+        describe(&editor).as_deref(),
+        Some("ambiguous_width: deprecated, and has no effect. Del removes it.")
+    );
+}
+
+#[test]
 fn the_description_explains_the_selected_row() {
     let mut editor = editor(&[("color_blue", "#0000ff")]);
     editor.submit(&Field::NewKey, "key_order");

@@ -28,8 +28,6 @@ plugins {
         // terminal's, less reserve_columns for whatever shares the bar.
         auto_width true // default
         reserve_columns 0 // default, used only when feeding zjstatus
-        // Set to 2 if your terminal draws Nerd Font glyphs double-width.
-        ambiguous_width 1 // default
         // Appended when a single hint is too wide to fit even alone
         overflow_str "..." // default
         // Name of the pipe for zjstatus integration

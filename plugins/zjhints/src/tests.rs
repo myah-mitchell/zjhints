@@ -281,10 +281,6 @@ fn rendered(
         limit: config.get("limit").and_then(|v| v.parse::<usize>().ok()),
         drop_indicator: config.get("drop_indicator").map(|v| v.as_str()),
         precedence: Precedence::from_config(config.get("hint_precedence").map_or("", |v| v)),
-        wide_ambiguous: config
-            .get("ambiguous_width")
-            .map(|v| v == "2")
-            .unwrap_or(false),
         shared: &[],
         config: &config,
         click: ClickBehavior::RunActions,
@@ -574,7 +570,7 @@ fn a_replaced_key_is_measured_at_its_real_width() {
         &[("keys_frames", "mouse wheel"), ("limit", "40")],
     );
     assert!(
-        calculate_visible_length(&wide, false) <= 40,
+        calculate_visible_length(&wide) <= 40,
         "over the limit: {:?}",
         wide
     );
@@ -904,7 +900,7 @@ fn the_indicator_is_paid_for_out_of_the_same_budget() {
         &[("drop_indicator", "<more>"), ("limit", "22")],
     );
     assert!(
-        calculate_visible_length(&wide, false) <= 22,
+        calculate_visible_length(&wide) <= 22,
         "over the limit: {:?}",
         wide
     );
@@ -1273,7 +1269,6 @@ fn rendered_descended_indicator(
         mode: "normal",
         hint_order: &hint_order,
         limit: None,
-        wide_ambiguous: false,
         drop_indicator: None,
         precedence: Precedence::default(),
         shared: &[],
@@ -2159,7 +2154,7 @@ fn column_of(state: &State, needle: &str) -> usize {
     let byte = bar
         .find(needle)
         .unwrap_or_else(|| panic!("{:?} not on the bar {:?}", needle, bar));
-    bar[..byte].chars().count()
+    calculate_visible_length(&bar[..byte])
 }
 
 fn menu_labels(outcome: &MouseOutcome) -> Vec<String> {
@@ -2256,16 +2251,57 @@ fn without_the_mode_prefix_the_first_hint_has_no_spacer() {
 }
 
 #[test]
-fn click_columns_count_wide_ambiguous_characters_as_two() {
+fn click_columns_count_an_emoji_as_the_two_columns_zellij_gives_it() {
     let mut state = clickable_state(InputMode::Pane, four_hints());
+    // A hand and a skin tone, two characters drawn as one emoji.
+    state
+        .config
+        .insert("label_close_pane".to_string(), "👍🏽".to_string());
+    assert_eq!(rendered_bar(&state), " a 👍🏽|b fullscreen|c frames|d pin");
+    // " a " is columns 0 to 2, the emoji 3 and 4, the spacer 5.
+    let run = |action| MouseOutcome::Run(vec![action]);
+    assert_eq!(left_click(&state, 4), run(Action::CloseFocus));
+    assert_eq!(left_click(&state, 5), MouseOutcome::Nothing);
+    assert_eq!(left_click(&state, 6), run(Action::ToggleFocusFullscreen));
+    assert_eq!(column_of(&state, "b fullscreen"), 6);
+}
+
+#[test]
+fn click_columns_count_an_ambiguous_character_as_one() {
+    let mut state = clickable_state(InputMode::Pane, four_hints());
+    // `│` is East Asian Ambiguous, which Zellij lays out one column wide.
     state.hint_spacer = Some("│".to_string());
-    state.wide_ambiguous = true;
-    // " a close" is columns 0 to 7, the spacer 8 and 9.
-    assert_eq!(left_click(&state, 9), MouseOutcome::Nothing);
+    // " a close" is columns 0 to 7, the spacer 8.
+    assert_eq!(left_click(&state, 8), MouseOutcome::Nothing);
     assert_eq!(
-        left_click(&state, 10),
+        left_click(&state, 9),
         MouseOutcome::Run(vec![Action::ToggleFocusFullscreen])
     );
+}
+
+#[test]
+fn ambiguous_width_has_no_effect() {
+    let draw = |ambiguous_width: Option<&str>| {
+        let mut configuration = vec![
+            ("hint_spacer", "│"),
+            ("label_close_pane", "\u{f121} close"),
+            ("mouse", "true"),
+            ("max_length", "24"),
+        ];
+        configuration.extend(ambiguous_width.map(|width| ("ambiguous_width", width)));
+        let mut state = bar_with(&configuration);
+        state.mode_info = ModeInfo {
+            mode: InputMode::Pane,
+            base_mode: Some(InputMode::Normal),
+            keybinds: vec![(InputMode::Pane, four_hints())],
+            ..Default::default()
+        };
+        state.draw_bar()
+    };
+    let (line, click_map) = draw(None);
+    assert!(calculate_visible_length(&line) <= 24, "{line:?}");
+    assert_eq!(draw(Some("2")), (line.clone(), click_map.clone()));
+    assert_eq!(draw(Some("1")), (line, click_map));
 }
 
 #[test]
@@ -2542,7 +2578,7 @@ fn overflow_str_is_a_format_string() {
     let (line, _) = state.draw_bar();
     // Reset first, so the bold of the cut key does not reach the marker.
     assert!(line.contains("\u{1b}[0m\u{1b}[38;2;255;0;0m>"), "{line:?}");
-    assert_eq!(calculate_visible_length(&line, false), 5);
+    assert_eq!(calculate_visible_length(&line), 5);
     // Plain text is drawn as it is.
     state.overflow_str = "...".to_string();
     assert_eq!(rendered_bar(&state), " a...");
@@ -2611,7 +2647,7 @@ fn with_mouse_nested_the_descended_indicator_presses_the_ascend_keys() {
     );
     // Past the end of the indicator does nothing.
     let (line, _) = state.draw_bar();
-    let width = calculate_visible_length(&line, false);
+    let width = calculate_visible_length(&line);
     assert_eq!(left_click(&state, width), MouseOutcome::Nothing);
 }
 

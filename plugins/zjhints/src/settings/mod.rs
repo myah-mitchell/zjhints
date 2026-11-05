@@ -18,6 +18,7 @@ pub static SCHEMA: Schema = Schema {
     options: options::OPTIONS,
     families: options::FAMILIES,
     screen_options: options::SCREEN_OPTIONS,
+    deprecated_options: options::DEPRECATED_OPTIONS,
     internal_options: crate::popup::INTERNAL_OPTIONS,
     live_message: "zjhints::configure",
     preview_group: Some("Theme"),

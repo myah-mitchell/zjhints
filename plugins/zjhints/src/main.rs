@@ -78,9 +78,6 @@ struct State {
     max_length: usize,
     auto_width: bool,
     reserve_columns: usize,
-    /// Whether East Asian Ambiguous characters occupy two columns. Nerd Font
-    /// glyphs are Ambiguous, and most terminals showing them render two.
-    wide_ambiguous: bool,
     /// Terminal width in columns, learned from `PaneUpdate`. `None` until the
     /// first one arrives, when auto-fitting stays off rather than guessing.
     terminal_width: Option<usize>,
@@ -269,7 +266,6 @@ const CONFIG_OVERFLOW_STR: &str = "overflow_str";
 const CONFIG_HINT_PRECEDENCE: &str = "hint_precedence";
 const CONFIG_AUTO_WIDTH: &str = "auto_width";
 const CONFIG_RESERVE_COLUMNS: &str = "reserve_columns";
-const CONFIG_AMBIGUOUS_WIDTH: &str = "ambiguous_width";
 const CONFIG_HIDE_SHARED_HINTS: &str = "hide_shared_hints";
 const CONFIG_HIDE_WHEN_NESTED: &str = "hide_when_nested";
 const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
@@ -512,8 +508,6 @@ struct HintStyle<'a> {
     /// Columns available for the hints, or `None` when unbounded. Whole hints
     /// are dropped to fit rather than the line being cut mid-hint.
     limit: Option<usize>,
-    /// See `State::wide_ambiguous`.
-    wide_ambiguous: bool,
     /// Rendered in place of hints dropped for lack of room. `None` leaves the
     /// gap unmarked.
     drop_indicator: Option<&'a str>,
@@ -1022,7 +1016,6 @@ impl State {
                     mode: &mode_key,
                     hint_order: &hint_order,
                     limit: None,
-                    wide_ambiguous: self.wide_ambiguous,
                     drop_indicator: None,
                     precedence: Precedence::default(),
                     shared: &[],
@@ -1046,10 +1039,8 @@ impl State {
                         .as_deref()
                         .map(|spacer| format::render_template(spacer, &[], &self.config, dim))
                         .unwrap_or_default();
-                    let prefix_width = calculate_visible_length(
-                        &ANSIStrings(&mode_prefix).to_string(),
-                        self.wide_ambiguous,
-                    );
+                    let prefix_width =
+                        calculate_visible_length(&ANSIStrings(&mode_prefix).to_string());
                     (
                         format!("{}{}", ANSIStrings(&mode_prefix), ANSIStrings(&spacer)),
                         prefix_width,
@@ -1059,7 +1050,7 @@ impl State {
                 // on when its keys reach it, so clicking types them into it.
                 let segments = if self.mouse_nested && !styled_indicator.is_empty() {
                     vec![LineSegment {
-                        width: calculate_visible_length(&styled_indicator, self.wide_ambiguous),
+                        width: calculate_visible_length(&styled_indicator),
                         content: SegmentContent::Item(descended_indicator_target(
                             mode_info,
                             &self.config,
@@ -1068,7 +1059,7 @@ impl State {
                 } else {
                     vec![]
                 };
-                let start = calculate_visible_length(&prefix, self.wide_ambiguous);
+                let start = calculate_visible_length(&prefix);
                 let (line, click_map) = self.fit_line(
                     format!("{prefix}{styled_indicator}"),
                     segments,
@@ -1265,8 +1256,7 @@ impl State {
         } else {
             vec![]
         };
-        let mode_prefix_len =
-            calculate_visible_length(&ANSIStrings(&mode_prefix).to_string(), self.wide_ambiguous);
+        let mode_prefix_len = calculate_visible_length(&ANSIStrings(&mode_prefix).to_string());
 
         // A bare leading space is only wanted when the hints open the
         // line themselves: it's breathing room against the pane edge.
@@ -1292,7 +1282,6 @@ impl State {
                     .saturating_sub(leading_space)
                     .saturating_sub(mode_prefix_len)
             }),
-            wide_ambiguous: self.wide_ambiguous,
             drop_indicator: self.drop_indicator.as_deref(),
             precedence: self.hint_precedence,
             shared: &shared,
@@ -1331,16 +1320,16 @@ impl State {
         prefix: Range<usize>,
         dim: f32,
     ) -> (String, ClickMap) {
-        let visible_len = calculate_visible_length(&line, self.wide_ambiguous);
+        let visible_len = calculate_visible_length(&line);
         match self.length_limit() {
             Some(limit) if visible_len > limit => {
                 let overflow = render_overflow(&self.overflow_str, &self.config, dim);
-                let truncated = truncate_ansi_string(&line, &overflow, limit, self.wide_ambiguous);
+                let truncated = truncate_ansi_string(&line, &overflow, limit);
                 // Measured from what was drawn rather than worked out from
                 // `limit`, since the cut keeps whole characters and a wide one
                 // can leave it short of the limit.
-                let shown = calculate_visible_length(&truncated, self.wide_ambiguous);
-                let marker = calculate_visible_length(&overflow, self.wide_ambiguous).min(shown);
+                let shown = calculate_visible_length(&truncated);
+                let marker = calculate_visible_length(&overflow).min(shown);
                 let cut = Cut {
                     at: shown - marker,
                     overflow: shown - marker..shown,
@@ -1481,10 +1470,6 @@ impl State {
             .get(CONFIG_RESERVE_COLUMNS)
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(0);
-        // Nerd Font glyphs are East Asian Ambiguous. A terminal set up to show
-        // them draws two columns, so measuring them as one makes the plugin
-        // think the line fits when it overflows.
-        self.wide_ambiguous = parse_wide_ambiguous(&configuration);
         // Optional zjstatus-style format strings for the key and description
         // parts of each hint. When unset, the theme palette is used (see
         // `style_key_with_modifier` / `style_description`). An empty string is
@@ -1633,6 +1618,7 @@ impl State {
         }
         let had_mouse = self.mouse;
         log_unknown_themes(&configuration);
+        log_deprecated_options(&configuration);
         self.apply_configuration(configuration);
         if self.mouse && !had_mouse {
             self.enable_mouse();
@@ -1672,6 +1658,7 @@ impl ZellijPlugin for State {
         self.plugin_id = Some(ids.plugin_id);
         self.client_id = Some(ids.client_id);
         log_unknown_themes(&configuration);
+        log_deprecated_options(&configuration);
         self.apply_configuration(configuration);
 
         request_permission(&bar_permissions(self.mouse));

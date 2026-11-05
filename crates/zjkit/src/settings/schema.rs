@@ -150,6 +150,11 @@ pub struct Schema {
     /// They configure the screen rather than the bar, so they are not listed
     /// on it.
     pub screen_options: &'static [&'static str],
+    /// Options the plugin still accepts but no longer reads, so a config
+    /// setting one loads without complaint. The screen lists one only when
+    /// it is set, under "Other", says it has no effect, and refuses to add
+    /// one.
+    pub deprecated_options: &'static [&'static str],
     /// Keys only the plugin itself sets, such as a popup's, which the screen
     /// refuses to add.
     pub internal_options: &'static [&'static str],

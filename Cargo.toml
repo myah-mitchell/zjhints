@@ -11,6 +11,7 @@ rust-version = "1.96"
 # workflows that read or rewrite these requirements only look at this file.
 [workspace.dependencies]
 ansi_term = "0.12"
+unicode-segmentation = "1.13.3"
 unicode-width = "0.2"
 zellij-tile = "0.46.0"
 zellij-tile-utils = "0.46.0"

@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 ansi_term.workspace = true
+unicode-segmentation.workspace = true
 unicode-width.workspace = true
 zellij-tile.workspace = true
 zellij-utils.workspace = true

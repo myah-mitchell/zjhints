@@ -246,7 +246,7 @@ fn family_keys_are_listed_in_their_groups_with_an_add_line_each() {
         ]
     );
     assert_eq!(editor.rows_of(Section::Other), [key("bogus"), Row::Add("")]);
-    assert_eq!(editor.rows_of(Section::Group("Fitting")).len(), 6);
+    assert_eq!(editor.rows_of(Section::Group("Fitting")).len(), 5);
 }
 
 #[test]
@@ -404,6 +404,33 @@ fn keys_zellij_reserves_cannot_be_added() {
             Outcome::Refused(_)
         ));
     }
+}
+
+#[test]
+fn a_deprecated_option_is_listed_only_when_set() {
+    let unset = editor(&[]);
+    let listed = |editor: &Editor, section| {
+        editor.rows_of(section).iter().any(|row| match row {
+            Row::Option(option) => option.name == "ambiguous_width",
+            Row::Key(key) => key == "ambiguous_width",
+            _ => false,
+        })
+    };
+    for section in unset.sections() {
+        assert!(!listed(&unset, section), "{section:?}");
+    }
+    let set = editor(&[("ambiguous_width", "2")]);
+    assert!(listed(&set, Section::Other));
+    assert_eq!(set.value("ambiguous_width"), Some("2"));
+}
+
+#[test]
+fn a_deprecated_option_cannot_be_added() {
+    let mut editor = editor(&[]);
+    assert!(matches!(
+        editor.submit(&Field::NewKey, "ambiguous_width"),
+        Outcome::Refused(_)
+    ));
 }
 
 #[test]
