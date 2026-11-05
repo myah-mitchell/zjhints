@@ -146,6 +146,13 @@ impl<T> ColumnSpans<T> {
         }
     }
 
+    /// Make the columns of every span of `other` stand for its value here
+    /// too, as when one part of a line is laid out on its own and then drawn
+    /// after another.
+    pub fn append(&mut self, other: ColumnSpans<T>) {
+        self.spans.extend(other.spans);
+    }
+
     /// The span covering `column`, if any.
     pub fn span_at(&self, column: usize) -> Option<&ColumnSpan<T>> {
         self.spans
@@ -378,14 +385,18 @@ fn hidden_items_menu(items: &[Item]) -> MouseOutcome {
 /// What the answer to a menu should lead to. Anything but a choice of one of
 /// its entries does nothing, as does a menu this plugin has no record of.
 pub fn menu_answer_outcome(entries: Option<Vec<MenuEntry>>, result: &PromptResult) -> MouseOutcome {
-    let PromptResult::Answered(PromptValue::Choice(value)) = result else {
-        return MouseOutcome::Nothing;
-    };
-    let entry = entries.and_then(|entries| {
-        let index = value.parse::<usize>().ok()?;
-        entries.into_iter().nth(index)
-    });
+    let entry = menu_choice(result).and_then(|index| entries?.into_iter().nth(index));
     entry.map_or(MouseOutcome::Nothing, MenuEntry::chosen)
+}
+
+/// The index of the entry chosen in a menu from `labeled_menu_request`, or
+/// `None` when `result` is anything but a choice: a dismissal, a timeout, an
+/// error, or an answer of another kind.
+pub fn menu_choice(result: &PromptResult) -> Option<usize> {
+    let PromptResult::Answered(PromptValue::Choice(value)) = result else {
+        return None;
+    };
+    value.parse().ok()
 }
 
 impl MenuEntry {
@@ -439,14 +450,70 @@ impl ActionQueue {
 /// is its index, which is how `menu_answer_outcome` finds it again. A click
 /// outside it closes it, as it does Zellij's own context menu.
 pub fn menu_request(entries: &[MenuEntry]) -> PromptRequest {
+    labeled_menu_request(entries.iter().map(|entry| entry.label.clone()))
+}
+
+/// The prompt that shows `labels` as a menu at the mouse, as `menu_request`
+/// does, for a bar that keeps what each entry does itself. Each entry's
+/// value is its index, which `menu_choice` reads back from the answer.
+pub fn labeled_menu_request(labels: impl IntoIterator<Item = String>) -> PromptRequest {
     PromptRequest::menu(
-        entries
-            .iter()
+        labels
+            .into_iter()
             .enumerate()
-            .map(|(index, entry)| ChoiceItem::labeled(index.to_string(), entry.label.clone())),
+            .map(|(index, label)| ChoiceItem::labeled(index.to_string(), label)),
     )
     .placement(PromptPlacement::Mouse)
     .outside_click(OutsideClick::Close)
+}
+
+/// The one prompt a bar is waiting on an answer to, with what it asked
+/// about, such as the tab a close confirmation would close.
+///
+/// `Host::prompt` returns an id, and Zellij sends the answer back with it in
+/// `Event::PromptResult`. Every plugin's prompts share that event, and so do
+/// a plugin's own older prompts, so an answer is acted on only when its id is
+/// the one waited for.
+///
+/// Only the newest prompt is kept: waiting for another replaces the one
+/// before, whose answer is then ignored. Keeping the older one instead would
+/// leave the bar stuck if its answer never came, as when Zellij closes the
+/// popup without sending one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingPrompt<T> {
+    waiting: Option<(u64, T)>,
+}
+
+impl<T> Default for PendingPrompt<T> {
+    fn default() -> Self {
+        Self { waiting: None }
+    }
+}
+
+impl<T> PendingPrompt<T> {
+    /// Wait for the answer to the prompt `request_id`, which asked about
+    /// `subject`, in place of any prompt waited for before.
+    pub fn wait_for(&mut self, request_id: u64, subject: T) {
+        self.waiting = Some((request_id, subject));
+    }
+
+    /// Take what the prompt `request_id` asked about, when it is the one
+    /// waited for, and stop waiting. Returns `None`, and keeps waiting, for an
+    /// answer to any other prompt.
+    pub fn answer(&mut self, request_id: u64) -> Option<T> {
+        match self.waiting.take() {
+            Some((waited_for, subject)) if waited_for == request_id => Some(subject),
+            other => {
+                self.waiting = other;
+                None
+            }
+        }
+    }
+
+    /// Whether a prompt is waiting on its answer.
+    pub fn is_waiting(&self) -> bool {
+        self.waiting.is_some()
+    }
 }
 
 /// What hovering a stretch of the bar shows: the entries of the menu a click
@@ -734,6 +801,15 @@ mod tests {
         assert_eq!(spans.value_at(1), Some(&'b'));
         assert_eq!(spans.value_at(2), None);
         assert_eq!(ColumnSpans::<char>::default().value_at(0), None);
+    }
+
+    #[test]
+    fn appended_spans_keep_their_own_columns() {
+        let mut spans = ColumnSpans::lay_out(0, [(2, Some('a'))]);
+        spans.append(ColumnSpans::lay_out(3, [(1, Some('b'))]));
+        assert_eq!(spans.value_at(1), Some(&'a'));
+        assert_eq!(spans.value_at(2), None);
+        assert_eq!(spans.value_at(3), Some(&'b'));
     }
 
     fn press(kind: PressKind, column: usize) -> BarMouseEvent {
@@ -1448,6 +1524,62 @@ mod tests {
         assert_ne!(preview_tag(1, 11), preview_tag(11, 1));
         for stray in ["", "7", "7-", "-2", "a-2", "7-b"] {
             assert_eq!(parse_preview_tag(stray), None, "{stray:?}");
+        }
+    }
+
+    #[test]
+    fn a_pending_prompt_hands_over_its_subject_once_to_its_own_answer() {
+        let mut pending = PendingPrompt::default();
+        assert!(!pending.is_waiting());
+        assert_eq!(pending.answer(1), None);
+        pending.wait_for(1, "tab");
+        assert!(pending.is_waiting());
+        assert_eq!(pending.answer(1), Some("tab"));
+        assert!(!pending.is_waiting());
+        assert_eq!(pending.answer(1), None);
+    }
+
+    #[test]
+    fn a_pending_prompt_ignores_and_keeps_waiting_through_other_answers() {
+        let mut pending = PendingPrompt::default();
+        pending.wait_for(2, "tab");
+        assert_eq!(pending.answer(1), None);
+        assert_eq!(pending.answer(3), None);
+        assert!(pending.is_waiting());
+        assert_eq!(pending.answer(2), Some("tab"));
+    }
+
+    #[test]
+    fn a_newer_prompt_replaces_the_one_waited_for() {
+        let mut pending = PendingPrompt::default();
+        pending.wait_for(1, "first");
+        pending.wait_for(2, "second");
+        assert_eq!(pending.answer(1), None);
+        assert_eq!(pending.answer(2), Some("second"));
+    }
+
+    #[test]
+    fn a_labeled_menu_reads_back_the_index_of_the_label_chosen() {
+        let labels = ["Focus", "Close"].map(str::to_string);
+        assert_eq!(
+            labeled_menu_request(labels.clone()),
+            menu_request(&labels.map(|label| MenuEntry {
+                label,
+                pick: MenuPick::Run(vec![]),
+            }))
+        );
+        let choice = |value: &str| PromptResult::Answered(PromptValue::Choice(value.to_string()));
+        assert_eq!(menu_choice(&choice("1")), Some(1));
+        for other in [
+            choice("-1"),
+            choice("x"),
+            PromptResult::Answered(PromptValue::Bool(true)),
+            PromptResult::Confirmed(true),
+            PromptResult::Cancelled,
+            PromptResult::TimedOut(Some(PromptValue::Choice("0".to_string()))),
+            PromptResult::Error("x".to_string()),
+        ] {
+            assert_eq!(menu_choice(&other), None, "{other:?}");
         }
     }
 }

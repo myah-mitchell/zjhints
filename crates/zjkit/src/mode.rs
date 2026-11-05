@@ -19,7 +19,7 @@
 //!
 //! A bar that ends its line with the session's name, as zjtabs does, draws it
 //! as the prefix's mirror image. `session_format` is the look each format
-//! theme gives it.
+//! theme gives it, and `session_shown` decides whether it is drawn at all.
 
 use crate::format;
 use crate::theme::{self, Shape, ARROW, ARROW_LEFT, MODES, PILL_LEFT, PILL_RIGHT};
@@ -29,7 +29,7 @@ use ansi_term::{
     Style,
 };
 use std::collections::BTreeMap;
-use zellij_tile::prelude::{InputMode, PaletteColor, Styling};
+use zellij_tile::prelude::{InputMode, ModeInfo, PaletteColor, Styling};
 
 /// The option that is the mode prefix's format string for every mode.
 pub const CONFIG_MODE_FORMAT: &str = "mode_format";
@@ -94,22 +94,52 @@ pub fn render_mode_prefix(
     config: &BTreeMap<String, String>,
     dim: f32,
 ) -> Vec<ANSIString<'static>> {
-    let mode_name = format!("{:?}", mode).to_uppercase();
     let suffix = mode_config_suffix(mode);
-    let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).map(String::as_str);
-    let label = per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or(&mode_name);
-    let symbol = per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default();
-    let format_str = per_mode(CONFIG_MODE_FORMAT_PREFIX).or(mode_format);
+    let format_str = config
+        .get(&format!("{CONFIG_MODE_FORMAT_PREFIX}{suffix}"))
+        .map(String::as_str)
+        .or(mode_format);
+    let words = ModeWords::of(mode, config);
 
     match format_str {
         Some(fmt) => format::render_template(
             fmt,
-            &[("mode", &mode_name), ("desc", label), ("key", symbol)],
+            &[
+                ("mode", &words.name),
+                ("desc", &words.label),
+                ("key", &words.symbol),
+            ],
             config,
             dim,
         ),
-        None if symbol.is_empty() => style_mode(label, colors),
-        None => style_mode(&format!("{symbol} {label}"), colors),
+        None if words.symbol.is_empty() => style_mode(&words.label, colors),
+        None => style_mode(&format!("{} {}", words.symbol, words.label), colors),
+    }
+}
+
+/// What a mode's format string draws for its placeholders.
+struct ModeWords {
+    /// The bare name of the mode's variant in capitals, as `ENTERSEARCH`,
+    /// drawn for `{mode}`.
+    name: String,
+    /// `mode_label_<mode>`, or the bare name while it is unset, drawn for
+    /// `{desc}`.
+    label: String,
+    /// `mode_key_<mode>`, or nothing while it is unset, drawn for `{key}`.
+    symbol: String,
+}
+
+impl ModeWords {
+    /// The words for `mode`, from the per-mode options in `config`.
+    fn of(mode: InputMode, config: &BTreeMap<String, String>) -> Self {
+        let name = format!("{:?}", mode).to_uppercase();
+        let suffix = mode_config_suffix(mode);
+        let per_mode = |prefix: &str| config.get(&format!("{prefix}{suffix}")).cloned();
+        ModeWords {
+            label: per_mode(CONFIG_MODE_LABEL_PREFIX).unwrap_or_else(|| name.clone()),
+            symbol: per_mode(CONFIG_MODE_KEY_PREFIX).unwrap_or_default(),
+            name,
+        }
     }
 }
 
@@ -159,22 +189,47 @@ fn colour_of(color: PaletteColor) -> Colour {
     }
 }
 
+/// The end of a bar's line a block of it stands against, which decides
+/// which of a shape's two ends the block draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Edge {
+    /// The start of the line, as the mode prefix of zjhints and zjtabs is.
+    /// The block draws only its right end, which faces the rest of the line.
+    Left,
+    /// The end of the line, as a tray or zjtabs' session name is. The block
+    /// draws only its left end, the mirror image of a block at the start.
+    Right,
+}
+
 /// Lay the mode prefix's options the selected themes set under `layered`,
 /// which is `configuration` with the plugin's own theme options laid under it
-/// so far. A key already in `layered`, the user's own included, is never
-/// replaced.
+/// so far, for a bar that draws the prefix at the start of its line. See
+/// `layer_theme_at`.
+pub fn layer_theme(
+    configuration: &BTreeMap<String, String>,
+    layered: &mut BTreeMap<String, String>,
+) {
+    layer_theme_at(configuration, layered, Edge::Left);
+}
+
+/// Lay the mode prefix's options the selected themes set under `layered`,
+/// which is `configuration` with the plugin's own theme options laid under it
+/// so far, for a bar that draws the mode against `edge` of its line. A key
+/// already in `layered`, the user's own included, is never replaced.
 ///
 /// - The alias theme gives every mode a symbol, `mode_key_<mode>`.
 /// - The format theme gives `mode_format` and a `mode_format_<mode>` for
 ///   every mode, each in the color `theme::MODES` gives that mode, with a
-///   block for the mode's symbol when it has one.
+///   block for the mode's symbol when it has one, in the shape that fits
+///   `edge`.
 ///
 /// A per-mode format outranks `mode_format`. When the user sets
 /// `mode_format` they mean it for every mode, so the theme's per-mode
 /// formats are left out rather than overriding it.
-pub fn layer_theme(
+pub fn layer_theme_at(
     configuration: &BTreeMap<String, String>,
     layered: &mut BTreeMap<String, String>,
+    edge: Edge,
 ) {
     if let Some(theme) = theme::alias_theme(configuration) {
         for (mode, symbol) in theme.modes {
@@ -200,38 +255,54 @@ pub fn layer_theme(
     let user_sets_mode_format = configuration.contains_key(CONFIG_MODE_FORMAT);
     layered
         .entry(CONFIG_MODE_FORMAT.to_string())
-        .or_insert_with(|| mode_format("accent", shape, false));
+        .or_insert_with(|| mode_format("accent", shape, false, edge));
     if !user_sets_mode_format {
         for ((mode, alias), keyed) in MODES.iter().zip(keyed) {
             layered
                 .entry(format!("{CONFIG_MODE_FORMAT_PREFIX}{mode}"))
-                .or_insert_with(|| mode_format(alias, shape, keyed));
+                .or_insert_with(|| mode_format(alias, shape, keyed, edge));
         }
     }
 }
 
 /// The mode prefix drawn on the color `alias` in `shape`, with a block for
-/// the mode's `{key}` symbol when `keyed`.
+/// the mode's `{key}` symbol when `keyed`, against `edge` of the line.
 ///
-/// The prefix opens the line, against the edge of the pane, so a shape with
-/// ends draws only the end that faces the rest of the line.
-fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
-    match (shape, keyed) {
-        (Shape::Flat, false) => format!("#[fg=$bg,bg=${alias},bold] {{desc}} "),
-        (Shape::Flat, true) => format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} "),
-        (Shape::Plain, false) => format!("#[fg=${alias},bold]{{desc}}"),
-        (Shape::Plain, true) => format!("#[fg=${alias},bold]{{key}} {{desc}}"),
-        (Shape::Powerline, false) => {
+/// A shape with ends draws only the end that faces the rest of the line:
+/// the right one at the start of the line, the left one at its end. A pill
+/// draws the symbol in its own block by the drawn end, so that block moves
+/// to the name's other side; the other shapes read the symbol, then the
+/// name, at either edge. A flat or plain shape has no ends, so it is the
+/// same at either edge.
+fn mode_format(alias: &str, shape: Shape, keyed: bool, edge: Edge) -> String {
+    match (shape, keyed, edge) {
+        (Shape::Flat, false, _) => format!("#[fg=$bg,bg=${alias},bold] {{desc}} "),
+        (Shape::Flat, true, _) => format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} "),
+        (Shape::Plain, false, _) => format!("#[fg=${alias},bold]{{desc}}"),
+        (Shape::Plain, true, _) => format!("#[fg=${alias},bold]{{key}} {{desc}}"),
+        (Shape::Powerline, false, Edge::Left) => {
             format!("#[fg=$bg,bg=${alias},bold] {{desc}} #[fg=${alias}]{ARROW}")
         }
-        (Shape::Powerline, true) => {
+        (Shape::Powerline, true, Edge::Left) => {
             format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} #[fg=${alias}]{ARROW}")
         }
-        (Shape::Pills, false) => {
+        (Shape::Powerline, false, Edge::Right) => {
+            format!("#[fg=${alias}]{ARROW_LEFT}#[fg=$bg,bg=${alias},bold] {{desc}} ")
+        }
+        (Shape::Powerline, true, Edge::Right) => {
+            format!("#[fg=${alias}]{ARROW_LEFT}#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} ")
+        }
+        (Shape::Pills, false, Edge::Left) => {
             format!("#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$surface]{PILL_RIGHT}")
         }
-        (Shape::Pills, true) => format!(
+        (Shape::Pills, true, Edge::Left) => format!(
             "#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$bg,bg=${alias},bold] {{key}} #[fg=${alias}]{PILL_RIGHT}"
+        ),
+        (Shape::Pills, false, Edge::Right) => {
+            format!("#[fg=$surface]{PILL_LEFT}#[fg=${alias},bg=$surface,bold] {{desc}} ")
+        }
+        (Shape::Pills, true, Edge::Right) => format!(
+            "#[fg=${alias}]{PILL_LEFT}#[fg=$bg,bg=${alias},bold] {{key}} #[fg=${alias},bg=$surface,bold] {{desc}} "
         ),
     }
 }
@@ -248,37 +319,61 @@ const SESSION_COLOR: &str = "accent";
 /// the mirror image of the mode prefix, which opens the line. Its one
 /// placeholder, `{session}`, is the session's name.
 ///
-/// The block closes the line, against the right edge of the pane, so a shape
-/// with ends draws only the end that faces the rest of the line, on its left:
-/// the left half of a pill, or an arrow pointing back along the line. A flat
-/// or plain one is the mode prefix's look with the name in place of the
-/// mode's.
+/// It is the mode prefix's own look against the line's right edge, with no
+/// symbol and the name in place of the mode's: see `mode_format`.
 pub fn session_format(shape: Shape) -> String {
-    let color = SESSION_COLOR;
-    match shape {
-        Shape::Flat => format!("#[fg=$bg,bg=${color},bold] {{session}} "),
-        Shape::Plain => format!("#[fg=${color},bold]{{session}}"),
-        Shape::Powerline => {
-            format!("#[fg=${color}]{ARROW_LEFT}#[fg=$bg,bg=${color},bold] {{session}} ")
-        }
-        Shape::Pills => {
-            format!("#[fg=$surface]{PILL_LEFT}#[fg=${color},bg=$surface,bold] {{session}} ")
-        }
-    }
+    mode_format(SESSION_COLOR, shape, false, Edge::Right).replace("{desc}", "{session}")
+}
+
+/// Whether a bar draws the session's name in `mode_info`, with its
+/// `show_session` option as the user set it, or `None` while it is unset,
+/// and `default` as what the bar does while it is unset and Zellij does not
+/// hide the name.
+///
+/// A `show_session` the user set decides alone, so `true` shows the name on
+/// the bar even when Zellij hides it from its own. Left unset, the name
+/// follows Zellij's `pane_frames { hide_session_name }`, as Zellij's own tab
+/// bar does, so turning that on hides the name from both: see
+/// `zellij_hides_session_name`.
+pub fn session_shown(show_session: Option<bool>, default: bool, mode_info: &ModeInfo) -> bool {
+    show_session.unwrap_or_else(|| default && !zellij_hides_session_name(mode_info))
+}
+
+/// Whether Zellij's own tab bar leaves the session's name off in
+/// `mode_info`: while its `hide_session_name` is on, except while the
+/// session is being renamed, when the bar shows the name as it is typed.
+/// The same test as `session_name_hidden` in Zellij's `bars` plugin.
+fn zellij_hides_session_name(mode_info: &ModeInfo) -> bool {
+    mode_info.style.hide_session_name && mode_info.mode != InputMode::RenameSession
 }
 
 /// The placeholders a bar fills in the mode prefix's format string under
 /// `key`, with the sample value each gets in the settings screen's list, or
 /// `None` when `key` is not one of the mode prefix's formats.
-pub fn sample_values(key: &str) -> Option<Vec<(&'static str, String)>> {
-    if key == CONFIG_MODE_FORMAT {
-        Some(vec![("mode", "NORMAL".to_string())])
+///
+/// The sample is the mode `key` is for, or normal mode for `mode_format`,
+/// which every mode without a format of its own draws. Each placeholder gets
+/// what the bar draws for it in that mode, with `config`'s
+/// `mode_label_<mode>` and `mode_key_<mode>`, so `{desc}` and `{key}` show
+/// as the bar would show them rather than as written.
+pub fn sample_values(
+    key: &str,
+    config: &BTreeMap<String, String>,
+) -> Option<Vec<(&'static str, String)>> {
+    let mode = if key == CONFIG_MODE_FORMAT {
+        InputMode::Normal
     } else {
-        // The bar names a mode by its variant, which is the suffix without
-        // underscores: enter_search is ENTERSEARCH.
-        key.strip_prefix(CONFIG_MODE_FORMAT_PREFIX)
-            .map(|mode| vec![("mode", mode.replace('_', "").to_uppercase())])
-    }
+        let suffix = key.strip_prefix(CONFIG_MODE_FORMAT_PREFIX)?;
+        INPUT_MODES
+            .into_iter()
+            .find(|mode| mode_config_suffix(*mode) == suffix)?
+    };
+    let words = ModeWords::of(mode, config);
+    Some(vec![
+        ("mode", words.name),
+        ("desc", words.label),
+        ("key", words.symbol),
+    ])
 }
 
 #[cfg(test)]
@@ -299,6 +394,43 @@ mod tests {
         let mut layered = configuration.clone();
         layer_theme(&configuration, &mut layered);
         layered
+    }
+
+    #[test]
+    fn a_mode_format_is_sampled_with_what_the_bar_draws_for_its_mode() {
+        let values = |key: &str, pairs: &[(&str, &str)]| sample_values(key, &cfg(pairs));
+        let samples = |mode: &str, desc: &str, key: &str| {
+            Some(vec![
+                ("mode", mode.to_string()),
+                ("desc", desc.to_string()),
+                ("key", key.to_string()),
+            ])
+        };
+        // Unset, the description is the mode's name and the symbol nothing.
+        assert_eq!(values("mode_format", &[]), samples("NORMAL", "NORMAL", ""));
+        assert_eq!(
+            values("mode_format_enter_search", &[]),
+            samples("ENTERSEARCH", "ENTERSEARCH", "")
+        );
+        // Set, they are the mode's own label and symbol, and normal mode's
+        // for the format every mode draws.
+        let per_mode = [
+            ("mode_label_normal", "Go"),
+            ("mode_key_normal", "N"),
+            ("mode_label_locked", "Lock"),
+            ("mode_key_locked", "L"),
+        ];
+        assert_eq!(
+            values("mode_format", &per_mode),
+            samples("NORMAL", "Go", "N")
+        );
+        assert_eq!(
+            values("mode_format_locked", &per_mode),
+            samples("LOCKED", "Lock", "L")
+        );
+        for key in ["mode_format_bogus", "mode_label_locked", "session_format"] {
+            assert_eq!(values(key, &per_mode), None, "{key}");
+        }
     }
 
     #[test]
@@ -354,7 +486,7 @@ mod tests {
     fn the_session_format_mirrors_the_mode_prefix_in_every_shape() {
         for (name, shape) in FORMAT_THEMES {
             let session = session_format(shape);
-            let mode = mode_format("accent", shape, false);
+            let mode = mode_format("accent", shape, false, Edge::Left);
             assert!(session.contains("{session}"), "{name}");
             assert!(session.contains("$accent"), "{name}");
             // The prefix's end faces right, after its block; the session's
@@ -374,6 +506,119 @@ mod tests {
                 // The same look as the prefix, with the name for the mode's.
                 _ => assert_eq!(session.replace("{session}", "{desc}"), mode, "{name}"),
             }
+        }
+    }
+
+    fn mode_info(hide_session_name: bool, mode: InputMode) -> ModeInfo {
+        let mut mode_info = ModeInfo {
+            mode,
+            ..Default::default()
+        };
+        mode_info.style.hide_session_name = hide_session_name;
+        mode_info
+    }
+
+    #[test]
+    fn an_unset_show_session_follows_zellij_s_hide_session_name() {
+        assert!(session_shown(
+            None,
+            true,
+            &mode_info(false, InputMode::Normal)
+        ));
+        assert!(!session_shown(
+            None,
+            true,
+            &mode_info(true, InputMode::Normal)
+        ));
+        // Zellij's own bar shows the name as it is typed.
+        assert!(session_shown(
+            None,
+            true,
+            &mode_info(true, InputMode::RenameSession)
+        ));
+        // A bar that hides the name by default hides it either way.
+        assert!(!session_shown(
+            None,
+            false,
+            &mode_info(false, InputMode::Normal)
+        ));
+    }
+
+    #[test]
+    fn a_show_session_the_user_set_decides_alone() {
+        for hide_session_name in [false, true] {
+            for default in [false, true] {
+                let mode_info = mode_info(hide_session_name, InputMode::Normal);
+                assert!(session_shown(Some(true), default, &mode_info));
+                assert!(!session_shown(Some(false), default, &mode_info));
+            }
+        }
+    }
+
+    fn layered_at(pairs: &[(&str, &str)], edge: Edge) -> BTreeMap<String, String> {
+        let configuration = cfg(pairs);
+        let mut layered = configuration.clone();
+        layer_theme_at(&configuration, &mut layered, edge);
+        layered
+    }
+
+    #[test]
+    fn at_the_right_edge_every_mode_format_is_the_mirror_image_of_the_left_one() {
+        for (name, shape) in FORMAT_THEMES {
+            for alias_theme in ["zellij", "unicode"] {
+                let pairs = [
+                    (CONFIG_FORMAT_THEME, name),
+                    (CONFIG_ALIAS_THEME, alias_theme),
+                ];
+                let left = layered_at(&pairs, Edge::Left);
+                let right = layered_at(&pairs, Edge::Right);
+                assert_eq!(left, layered(&pairs), "{name}");
+                let keys: Vec<&String> = left.keys().collect();
+                assert_eq!(keys, right.keys().collect::<Vec<_>>(), "{name}");
+                for key in keys
+                    .into_iter()
+                    .filter(|key| key.starts_with(CONFIG_MODE_FORMAT))
+                {
+                    let (left, right) = (&left[key], &right[key]);
+                    for placeholder in ["{desc}", "{key}"] {
+                        assert_eq!(
+                            left.contains(placeholder),
+                            right.contains(placeholder),
+                            "{name} {key}"
+                        );
+                    }
+                    match shape {
+                        // The end comes first, facing back along the line,
+                        // and the right-facing one is gone.
+                        Shape::Powerline => {
+                            assert!(right.find(ARROW_LEFT) < right.find("{desc}"), "{key}");
+                            assert!(!right.contains(ARROW), "{name} {key}");
+                        }
+                        Shape::Pills => {
+                            assert!(right.find(PILL_LEFT) < right.find("{desc}"), "{key}");
+                            assert!(!right.contains(PILL_RIGHT), "{name} {key}");
+                        }
+                        Shape::Flat | Shape::Plain => assert_eq!(left, right, "{name} {key}"),
+                    }
+                    // A pill's symbol block stays by its drawn end.
+                    if right.contains("{key}") && shape == Shape::Pills {
+                        assert!(right.find("{key}") < right.find("{desc}"), "{name} {key}");
+                        assert!(left.find("{desc}") < left.find("{key}"), "{name} {key}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_session_format_is_the_right_edge_mode_prefix_with_the_name() {
+        for (name, shape) in FORMAT_THEMES {
+            let mode = mode_format(SESSION_COLOR, shape, false, Edge::Right);
+            assert_eq!(
+                session_format(shape).replace("{session}", "{desc}"),
+                mode,
+                "{name}"
+            );
         }
     }
 

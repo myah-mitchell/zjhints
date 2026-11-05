@@ -2,7 +2,8 @@
 //!
 //! The settings screen broadcasts every change as a pipe message, named by
 //! the plugin's `Schema::live_message`, to all plugins in the session; each
-//! bar keeps the ones meant for it. A broadcast
+//! bar keeps the ones meant for it, and only from a plugin that runs the
+//! bar's own plugin, as the screen does. A broadcast
 //! launches nothing, unlike a message addressed by plugin URL, which starts a
 //! new instance when no running one matches its configuration exactly.
 //!

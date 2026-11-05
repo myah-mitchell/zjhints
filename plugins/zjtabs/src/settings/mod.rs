@@ -60,7 +60,7 @@ fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static 
             ("flags", sample_flags(config)),
         ],
         "overflow_left_format" | "overflow_right_format" => vec![("count", "3".to_string())],
-        _ => zjkit::mode::sample_values(key).unwrap_or_default(),
+        _ => zjkit::mode::sample_values(key, config).unwrap_or_default(),
     }
 }
 
