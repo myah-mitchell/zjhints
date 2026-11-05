@@ -98,7 +98,7 @@ Turning `mouse` on asks for one permission on top of the ones the bar always nee
 
 Switching and closing tabs and opening Zellij's menus also need permission to change Zellij state, which the bar always asks for to add its *zjtabs* settings entry. The full list is in [Permissions](overview.md#permissions).
 
-Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new ones. So does turning `mouse_close_confirm` on while `mouse` is on. Turning either off asks for nothing.
+Zellij asks once for the whole instance, in the pane of one of its bars, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new ones. So does turning `mouse_close_confirm` on while `mouse` is on. Turning either off asks for nothing.
 
 ## Zellij support
 

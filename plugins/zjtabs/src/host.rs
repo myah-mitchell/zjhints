@@ -26,8 +26,8 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
     // switching tabs on a click or the wheel, closing a tab on a middle click
     // and opening Zellij's context menu.
     PermissionType::ChangeApplicationState,
-    // The hide, show and toggle messages between bars, and opening the
-    // settings screen, which is this plugin again in a floating pane.
+    // Opening the settings screen, a floating pane of the bar's own
+    // instance, and the live previews it sends the bars.
     PermissionType::MessageAndLaunchOtherPlugins,
 ];
 
@@ -87,8 +87,7 @@ pub(crate) const MOUSE_EVENTS: [EventType; 2] = [
 /// The pipe message that opens the settings screen, or brings it up.
 pub(crate) const OPEN_SETTINGS_MESSAGE: &str = "zjtabs::open_settings";
 
-/// The hide, show and toggle messages, and the question a new bar asks the
-/// running ones.
+/// The hide, show and toggle messages.
 pub(crate) static VISIBILITY: visibility::Names = zjkit::visibility_names!("zjtabs");
 
 /// What zjkit needs to know to run the bar. See `zjkit::bar`.

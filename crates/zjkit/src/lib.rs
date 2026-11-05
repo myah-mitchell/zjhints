@@ -12,6 +12,8 @@ pub mod format;
 pub mod host;
 #[cfg(feature = "images")]
 pub mod images;
+#[cfg(any(test, feature = "testing"))]
+pub mod junk;
 pub mod launch;
 pub mod mode;
 pub mod mouse;
@@ -19,5 +21,6 @@ pub mod nesting;
 pub mod panes;
 pub mod popup;
 pub mod settings;
+pub mod shared;
 pub mod theme;
 pub mod visibility;

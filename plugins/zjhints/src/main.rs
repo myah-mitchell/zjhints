@@ -49,6 +49,11 @@ struct State {
     /// hidden pane that reports the bar's own URL too.
     bar: BarCore,
     initialized: bool,
+    /// Whether what the bar draws may have changed since a background slot
+    /// last drew it. See `ZellijPlugin::background`.
+    stale: bool,
+    /// The line a background slot last published, if it has.
+    published: Option<String>,
     /// The zjstatus pipe names each render is published on. See
     /// [`pipe_names_from_config`].
     pipe_names: Vec<String>,
@@ -189,7 +194,7 @@ impl Default for KeybindsFetcher {
     }
 }
 
-register_plugin!(State);
+register_shared_plugin!(zjkit::shared::Shared<State>);
 
 const TO_NORMAL: Action = Action::SwitchToMode {
     input_mode: InputMode::Normal,
@@ -1108,20 +1113,31 @@ impl State {
             url,
             &tag,
             &preview.labels(),
-            self.pane_rows.max(1),
-            preview.columns.start,
+            (self.pane_rows.max(1), preview.columns.start),
+            self.bar.instance(),
         );
     }
 
     /// Take `message` if it is a popup of this bar saying it opened, closed
     /// or had an entry clicked.
+    ///
+    /// The popup is a slot of the bar's shared instance, so Zellij names the
+    /// instance as the sender of its messages, and the popup says which slot
+    /// it is in an argument. Only a message from the instance is believed.
     fn take_popup_message(&mut self, message: &PipeMessage) {
         let opened = message.name == popup::NAMES.opened;
         let picked = message.name == popup::NAMES.picked;
         if !opened && !picked && message.name != popup::NAMES.closed {
             return;
         }
-        let PipeSource::Plugin(popup) = message.source else {
+        if message.source != PipeSource::Plugin(self.host.instance_id()) {
+            return;
+        }
+        let Some(popup) = message
+            .args
+            .get(zjkit::popup::POPUP_SLOT_ARG)
+            .and_then(|slot| slot.parse().ok())
+        else {
             return;
         };
         let Some(generation) = message
@@ -1453,6 +1469,37 @@ impl BarPlugin for State {
     }
 }
 
+/// Each slot of the shared instance is a `State` of its own; only a bar has
+/// the bar's state for `zjkit::shared` to read.
+impl zjkit::shared::SlotPlugin for State {
+    fn bar(&self) -> Option<&BarCore> {
+        self.role.is_bar().then_some(&self.bar)
+    }
+
+    fn bar_mut(&mut self) -> Option<&mut BarCore> {
+        self.role.is_bar().then_some(&mut self.bar)
+    }
+
+    /// Zellij never draws a slot loaded in the background, with
+    /// `load_plugins`, so it has no render to publish its line from. It
+    /// publishes it here instead, when the line has changed, and prints
+    /// nothing.
+    fn background(&mut self) {
+        if !self.role.is_bar() || !self.stale {
+            return;
+        }
+        self.stale = false;
+        let (output, _) = self.draw_bar();
+        self.note_initialized(&output);
+        // Until zjstatus has answered a mode change it may not have been
+        // ready to hear the line, so the line goes again with every event.
+        if !self.initialized || self.published.as_deref() != Some(&output) {
+            self.publish(&output);
+            self.published = Some(output);
+        }
+    }
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.role = Role::load(&BAR, &configuration);
@@ -1570,6 +1617,7 @@ impl ZellijPlugin for State {
             }
             _ => {}
         };
+        self.stale |= should_render;
         should_render
     }
 
@@ -1579,7 +1627,9 @@ impl ZellijPlugin for State {
             return false;
         }
         if let Some(handled) = self.bar.pipe(&self.host, &BAR, &message) {
-            return BarCore::follow(self, &BAR, handled);
+            let redraw = BarCore::follow(self, &BAR, handled);
+            self.stale |= redraw;
+            return redraw;
         }
         self.take_popup_message(&message);
         false
@@ -1590,27 +1640,24 @@ impl ZellijPlugin for State {
             self.role.render(rows, cols);
             return;
         }
+        let output = self.prepare_render(rows);
+        // Zellij reads this text from the same stream as every call this
+        // plugin makes, so all of them are made before it, never after.
+        print!("{}", output);
+    }
+}
+
+impl State {
+    /// Make every call drawing the bar leads to, and return what it draws.
+    ///
+    /// The calls are all made here rather than in `render` after it prints,
+    /// because the text printed and the calls share one stream.
+    fn prepare_render(&mut self, rows: usize) -> String {
         let (output, click_map) = self.draw_bar();
-        let mode_info = &self.mode_info;
-
-        // HACK: Because we're not sure when zjstatus will be ready to receive messages,
-        // we'll repeatedly send messages until the user has switched to a different mode,
-        // at which point we'll assume that zjstatus has been initialized. The render function
-        // does not seem to be called too frequently, so this should be fine.
-        if !output.is_empty() && Some(mode_info.mode) != mode_info.base_mode {
-            self.initialized = true;
-        }
-
+        self.note_initialized(&output);
         self.bar
             .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
-
-        for pipe_name in &self.pipe_names {
-            self.host.broadcast(
-                ZJSTATUS_PIPE_MESSAGE,
-                format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output),
-            );
-        }
-        print!("{}", output);
+        self.publish(&output);
         // A preview of a hint that is no longer there would mislead.
         if click_map != self.click_map {
             let step = self.preview_memory.dismiss();
@@ -1618,6 +1665,30 @@ impl ZellijPlugin for State {
         }
         self.click_map = click_map;
         self.pane_rows = rows;
+        output
+    }
+
+    /// Note that zjstatus can be taken to be ready for `output`.
+    ///
+    /// HACK: Because we're not sure when zjstatus will be ready to receive
+    /// messages, the line is sent repeatedly until the user has switched to a
+    /// different mode, at which point zjstatus is assumed to have been
+    /// initialized. Renders are not too frequent, so this should be fine.
+    fn note_initialized(&mut self, output: &str) {
+        let mode_info = &self.mode_info;
+        if !output.is_empty() && Some(mode_info.mode) != mode_info.base_mode {
+            self.initialized = true;
+        }
+    }
+
+    /// Send `output` to every zjstatus pipe this bar feeds.
+    fn publish(&self, output: &str) {
+        for pipe_name in &self.pipe_names {
+            self.host.broadcast(
+                ZJSTATUS_PIPE_MESSAGE,
+                format!("zjstatus::pipe::pipe_{}::{}", pipe_name, output),
+            );
+        }
     }
 }
 

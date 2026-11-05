@@ -48,7 +48,7 @@ layout {
 }
 ```
 
-This puts the bar at the top of every tab in place of Zellij's own tab bar. Put the pane after `children` to move it to the bottom, or add a second pane there for [zjhints](../installation.md#option-a-its-own-pane).
+This puts the bar at the top of every tab in place of Zellij's own tab bar. The pane in each tab is a bar of one running zjtabs, a [shared instance](../shared-instances.md). Put the pane after `children` to move it to the bottom, or add a second pane there for [zjhints](../installation.md#option-a-its-own-pane).
 
 Options go inside the alias's braces or inside the pane's `plugin` block, as for zjhints:
 
@@ -65,13 +65,13 @@ Every option and its default is in the [configuration reference](configuration.m
 
 ## Permissions
 
-zjtabs asks for these permissions the first time it runs. Zellij shows the prompt in the plugin's pane and remembers the answer.
+zjtabs asks for these permissions the first time it runs. Zellij shows one prompt for all its bars, in the pane of one of them, and remembers the answer.
 
 | Permission | Used for |
 | --- | --- |
 | *Access Zellij state (Panes, Tabs and UI)* | Reading the tabs, the input mode and the bar's own pane |
 | *Change Zellij state (Panes, Tabs and UI) and run commands* | Switching and closing tabs, opening Zellij's menus and adding the *zjtabs* settings entry |
-| *Send messages to and launch other plugins* | The hide, show and toggle messages between bars, and opening the settings screen |
+| *Send messages to and launch other plugins* | Opening the settings screen |
 | *Execute actions as the user* | Renaming a tab on a double-click and opening the session manager from the session name, asked for only with `mouse` on |
 | *Start new terminals and plugins* | Asking before a middle click closes a tab, asked for only with `mouse` and `mouse_close_confirm` both on |
 

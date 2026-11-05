@@ -1029,6 +1029,7 @@ fn a_click_on_the_mode_prefix_opens_the_settings_screen() {
                 message: OPEN_SETTINGS_MESSAGE.to_string(),
                 pane_title: SETTINGS_PANE_TITLE.to_string(),
                 own_url: Some("zjtabs".to_string()),
+                instance: None,
             }],
             "{column}"
         );
@@ -2051,6 +2052,7 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
             message: OPEN_SETTINGS_MESSAGE.to_string(),
             pane_title: SETTINGS_PANE_TITLE.to_string(),
             own_url: Some("zjtabs".to_string()),
+            instance: None,
         }]
     );
     assert_eq!(SETTINGS_PANE_TITLE, "zjtabs settings");
@@ -2058,13 +2060,9 @@ fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_
 }
 
 /// A preview from the settings screen of `alias`, as `pipe` gets it, with
-/// each change as `(key, value before, value now)`. The screen is plugin 5,
-/// whose pane runs from the bar's own URL, as a bar only takes a preview
-/// from its own plugin.
+/// each change as `(key, value before, value now)`. The screen runs in the
+/// bar's own shared instance, as a bar only takes a preview from there.
 fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
-    if let Some(url) = state.bar.own_url.clone() {
-        state.bar.plugin_pane_urls.insert(5, url);
-    }
     let changes: Vec<live::Change> = changes
         .iter()
         .map(|(key, was, now)| live::Change {
@@ -2074,7 +2072,7 @@ fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Optio
         })
         .collect();
     state.pipe(PipeMessage::new(
-        PipeSource::Plugin(5),
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
         settings::SCHEMA.live_message,
         &None,
         &Some(live::encode(alias, &changes)),
@@ -2114,4 +2112,13 @@ fn a_preview_of_another_alias_changes_nothing() {
     let changes = [("tab_spacer", Some("|"), Some("/"))];
     assert!(!preview(&mut state, "another", &changes));
     assert_eq!(shown(&state), "1:a|[2:b]|3:c");
+}
+
+// Anyone who can launch a plugin can add a pane with any options to a
+// running instance, and a panic in one slot takes every bar down. See
+// `zjkit::junk`.
+
+#[test]
+fn no_options_at_all_make_an_instance_panic() {
+    zjkit::junk::shake::<State>(&BAR, 0x79c637b8, 400, || {});
 }

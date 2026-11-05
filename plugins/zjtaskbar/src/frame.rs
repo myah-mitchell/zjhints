@@ -1,62 +1,47 @@
 //! Buttons on the frames of the session's panes, as a desktop window has:
 //! minimize, maximize and close, at the right of the frame's top row.
 //!
-//! Zellij shows each plugin's buttons side by side, so every tab's panes
-//! take their buttons from one bar only: the bar in that tab, or for a tab
-//! with no bar, the session's first bar, the one with the lowest plugin id.
-//! A bar takes its buttons off a pane that moves to a tab it does not
-//! frame. Minimizing a pane from its frame so keeps it on the bar that
-//! framed it, which is the one that can restore it.
+//! Each tab's panes are framed by one bar of the instance: the bar in that
+//! tab, or for a tab with no bar, the instance's first bar, the one with the
+//! lowest plugin id. See `owned_tabs`.
+//!
+//! Zellij keeps each bar's buttons on a pane apart and shows them side by
+//! side, so a pane carries one bar's buttons at a time. The bar whose
+//! buttons are on a pane holds it, as `zjkit::shared::frame_owner` tells,
+//! the same record that sends a click on them to that bar. A bar puts its
+//! buttons on a pane only when no bar holds it or it does. One that should
+//! no longer frame a pane, as when the pane moved to another tab, takes its
+//! buttons off, and the pane is free once they are off. Only then does the
+//! bar that frames it now put its own on, which it tries again each time it
+//! draws.
+//!
+//! Zellij changes a bar's buttons only while it draws that bar, and draws a
+//! bar only while it is on screen, so what a bar places or takes off waits
+//! for its next drawing (see `zjkit::shared`). A pane pulled out of a tab
+//! not on screen so keeps that tab's bar's buttons until the tab is shown
+//! again. They still work meanwhile, as the click goes to the bar that
+//! placed them, and only the maximize button's text can be out of date.
+//!
+//! A pane minimized from any bar keeps its buttons, as its frame is not
+//! drawn until it is restored. Every bar lists it, so any of them can bring
+//! it back; see `instance`.
 //!
 //! Minimizing a tiled pane floats it first, so that it comes back as a
 //! floating pane, as every pane on the bar is. Zellij leaves the last tiled
 //! pane of a tab tiled, so that pane has no minimize button.
 //!
 //! The buttons are sent only when they change, as a frame keeps them until
-//! the pane closes or the bar unloads. Placing them needs
-//! `ChangeApplicationState`, so none are sent before it is granted.
-//!
-//! Zellij tells only the plugins of the tab on screen about the panes, so a
-//! bar in another tab cannot see a pane leave it. A bar that pulls a pane
-//! into the tab on screen says so in a `PULLED_MESSAGE` to the others, and
-//! the one that framed it where it was takes its buttons off.
+//! the pane closes or the bar unloads, when Zellij takes them off itself.
+//! Placing them needs `ChangeApplicationState`, so none are sent before it
+//! is granted.
 
 use crate::entries::{is_minimized, Minimized, PaneScope};
 use crate::State;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use zellij_tile::prelude::*;
 use zjkit::host::Host;
 use zjkit::panes::pane_id_of;
-
-/// The message a bar sends every other bar once it has pulled a pane into
-/// the tab on screen. Its payload is `pulled_payload`'s.
-pub(crate) const PULLED_MESSAGE: &str = "zjtaskbar::pulled";
-
-/// The payload of a `PULLED_MESSAGE` for `pane`, pulled into the tab at
-/// `position`: the position, then `terminal` or `plugin` and the pane's id.
-pub(crate) fn pulled_payload(pane: PaneId, position: usize) -> String {
-    match pane {
-        PaneId::Terminal(id) => format!("{position} terminal {id}"),
-        PaneId::Plugin(id) => format!("{position} plugin {id}"),
-    }
-}
-
-/// The pane and tab position of a `PULLED_MESSAGE`'s payload, if it is one.
-fn parse_pulled(payload: &str) -> Option<(PaneId, usize)> {
-    let mut words = payload.split(' ');
-    let position = words.next()?.parse().ok()?;
-    let kind = words.next()?;
-    let id = words.next()?.parse().ok()?;
-    if words.next().is_some() {
-        return None;
-    }
-    let pane = match kind {
-        "terminal" => PaneId::Terminal(id),
-        "plugin" => PaneId::Plugin(id),
-        _ => return None,
-    };
-    Some((pane, position))
-}
+use zjkit::shared::frame_owner;
 
 /// One button of a pane's frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,29 +118,23 @@ pub(crate) struct Framed {
     pub can_minimize: bool,
 }
 
-/// The positions of the tabs of `manifest` whose panes the bar with
-/// `own_pane` frames, each with whether it may minimize panes there. See
-/// the module's docs. Empty while the bar's own pane is not on screen.
+/// The positions of the tabs of `manifest` whose panes the bar `own_id`
+/// frames, each with whether it may minimize panes there. See the module's
+/// docs. Empty while the bar's own pane is not on screen.
 ///
-/// The bars are the plugin panes on screen running the bar's own URL that
-/// take no focus, as a bar does once it has its permissions, and its own
-/// pane. A floating settings screen of the same plugin is not one. In a
-/// tab with no bar, the first bar minimizes panes only while it lists every
-/// tab, as it would otherwise not list the pane it minimized.
+/// The bars are the plugin panes on screen whose ids are in `bars`, the
+/// instance's bars, and the bar's own pane. A settings screen of the same
+/// plugin is not one. In a tab with no bar, the first bar minimizes panes
+/// only while it lists every tab, as it would otherwise not list the pane
+/// it minimized while that tab is shown.
 pub(crate) fn owned_tabs(
     manifest: &PaneManifest,
-    own_pane: PaneId,
-    own_url: Option<&str>,
+    own_id: u32,
+    bars: &BTreeSet<u32>,
     pane_scope: PaneScope,
 ) -> BTreeMap<usize, bool> {
     let is_bar = |pane: &PaneInfo| {
-        pane.is_plugin
-            && !pane.is_suppressed
-            && (pane_id_of(pane) == own_pane
-                || (!pane.is_floating
-                    && !pane.is_selectable
-                    && own_url.is_some()
-                    && pane.plugin_url.as_deref() == own_url))
+        pane.is_plugin && !pane.is_suppressed && (pane.id == own_id || bars.contains(&pane.id))
     };
     let tab_bars: BTreeMap<usize, u32> = manifest
         .panes
@@ -169,9 +148,6 @@ pub(crate) fn owned_tabs(
             Some((*position, first))
         })
         .collect();
-    let PaneId::Plugin(own_id) = own_pane else {
-        return BTreeMap::new();
-    };
     if !tab_bars.values().any(|id| *id == own_id) {
         return BTreeMap::new();
     }
@@ -190,8 +166,8 @@ pub(crate) fn owned_tabs(
 
 /// The panes of `manifest` whose frames the bar puts buttons on: those that
 /// take focus and are on screen in the tabs of `owned` (see `owned_tabs`),
-/// and the panes there the bar minimized. Tiled panes running `own_url`,
-/// which are bars, have none.
+/// and the minimized panes there. The instance's bars, by their ids in
+/// `bars`, have none.
 ///
 /// A pane has no minimize button where `owned` says the bar may not
 /// minimize, or when it is the only tiled pane of its tab that takes focus,
@@ -200,7 +176,7 @@ pub(crate) fn framed_panes(
     manifest: &PaneManifest,
     minimized: &Minimized,
     owned: &BTreeMap<usize, bool>,
-    own_url: Option<&str>,
+    bars: &BTreeSet<u32>,
 ) -> BTreeMap<PaneId, Framed> {
     let mut framed = BTreeMap::new();
     for (position, may_minimize) in owned {
@@ -214,13 +190,12 @@ pub(crate) fn framed_panes(
             .filter(|pane| !pane.is_floating)
             .count();
         for pane in panes {
-            let is_bar =
-                !pane.is_floating && own_url.is_some() && pane.plugin_url.as_deref() == own_url;
+            let is_bar = pane.is_plugin && bars.contains(&pane.id);
             if is_bar || !(on_screen(&pane) || is_minimized(pane, minimized)) {
                 continue;
             }
-            // A pane the bar minimized keeps the buttons it had, as its frame
-            // is not drawn until it is restored, floating.
+            // A minimized pane keeps the buttons it had, as its frame is not
+            // drawn until it is restored, floating.
             let can_minimize =
                 *may_minimize && (pane.is_floating || is_minimized(pane, minimized) || tiled > 1);
             framed.insert(
@@ -240,6 +215,22 @@ impl State {
     /// the ones that should not, and leave the rest alone. See the module's
     /// docs.
     pub(crate) fn sync_frame_buttons(&mut self) {
+        self.place_frame_buttons(true);
+    }
+
+    /// Put the buttons on the frames that should have them and have none
+    /// yet, as the pane was held by another bar the last time, and take
+    /// none off. Called as the bar draws, when Zellij places them at once.
+    ///
+    /// None are taken off here: a pane the bar has just restored is still
+    /// hidden and no longer minimized until Zellij reports it shown, and
+    /// would lose its buttons in between.
+    pub(crate) fn claim_frame_buttons(&mut self) {
+        self.place_frame_buttons(false);
+    }
+
+    /// `sync_frame_buttons`, which takes buttons off only when `release`.
+    fn place_frame_buttons(&mut self, release: bool) {
         let granted = self
             .bar
             .granted_permissions
@@ -247,73 +238,59 @@ impl State {
         if !granted {
             return;
         }
-        let own_url = self.bar.own_url.as_deref();
+        let bars = self.bar_ids();
         let owned = match self.bar.plugin_id {
-            Some(id) => owned_tabs(&self.panes, PaneId::Plugin(id), own_url, self.pane_scope),
+            Some(id) => owned_tabs(&self.panes, id, &bars, self.pane_scope),
             None => BTreeMap::new(),
         };
         let wanted: BTreeMap<PaneId, Vec<FrameItem>> = match &self.frame_buttons {
-            Some(texts) => framed_panes(&self.panes, &self.minimized, &owned, own_url)
+            Some(texts) => framed_panes(&self.panes, &self.minimized(), &owned, &bars)
                 .into_iter()
                 .map(|(pane, framed)| (pane, texts.items(framed)))
                 .filter(|(_, items)| !items.is_empty())
                 .collect(),
             None => BTreeMap::new(),
         };
-        for pane in self.frame_items_sent.keys() {
-            if !wanted.contains_key(pane) {
-                self.host.set_pane_frame_items(*pane, vec![]);
+        if release {
+            let unwanted: Vec<PaneId> = self
+                .frame_items_sent
+                .keys()
+                .filter(|pane| !wanted.contains_key(pane))
+                .copied()
+                .collect();
+            for pane in unwanted {
+                self.frame_items_sent.remove(&pane);
+                self.host.set_pane_frame_items(pane, vec![]);
             }
         }
-        for (pane, items) in &wanted {
-            if self.frame_items_sent.get(pane) != Some(items) {
-                self.host.set_pane_frame_items(*pane, items.clone());
+        for (pane, items) in wanted {
+            if self.frame_items_sent.get(&pane) == Some(&items) || !self.may_frame(pane) {
+                continue;
             }
-        }
-        self.frame_items_sent = wanted;
-    }
-
-    /// Tell the other bars that `pane` was pulled into the tab on screen.
-    /// See the module's docs.
-    pub(crate) fn announce_pull(&self, pane: PaneId) {
-        if let Some(tab) = self.tabs.iter().find(|tab| tab.active) {
-            self.host
-                .broadcast(PULLED_MESSAGE, pulled_payload(pane, tab.position));
+            self.host.set_pane_frame_items(pane, items.clone());
+            self.frame_items_sent.insert(pane, items);
         }
     }
 
-    /// A `PULLED_MESSAGE` from a bar, this one included: take the buttons
-    /// off the pane it names unless this bar frames the tab it went to.
-    ///
-    /// The bar may not have seen the pane leave, so it goes by the tab the
-    /// message names. The next `PaneUpdate` it gets puts them back if they
-    /// belong there after all.
-    pub(crate) fn pane_pulled(&mut self, payload: Option<&str>) {
-        let Some((pane, position)) = payload.and_then(parse_pulled) else {
-            return;
-        };
-        if !self.frame_items_sent.contains_key(&pane) {
-            return;
-        }
-        let frames_destination = self.bar.plugin_id.is_some_and(|id| {
-            owned_tabs(
-                &self.panes,
-                PaneId::Plugin(id),
-                self.bar.own_url.as_deref(),
-                self.pane_scope,
-            )
-            .contains_key(&position)
-        });
-        if !frames_destination {
-            self.frame_items_sent.remove(&pane);
-            self.host.set_pane_frame_items(pane, vec![]);
-        }
+    /// Whether the bar may put its buttons on `pane`: no other bar of the
+    /// instance holds it. See the module's docs.
+    fn may_frame(&self, pane: PaneId) -> bool {
+        frame_owner(pane).is_none_or(|owner| Some(owner) == self.bar.plugin_id)
+    }
+
+    /// Whether the buttons on `pane` are the bar's: it placed them and has
+    /// not taken them off, or it has asked to and Zellij has not done so
+    /// yet, so they are still on the frame.
+    fn holds_frame(&self, pane: PaneId) -> bool {
+        self.frame_items_sent.contains_key(&pane)
+            || frame_owner(pane).is_some_and(|owner| Some(owner) == self.bar.plugin_id)
     }
 
     /// A click on one of the bar's frame buttons, `item_id`, on `pane`.
     /// Only a left click acts. Minimize and close act as the bar's own
-    /// mouse does, close asking first while `mouse_close_confirm` is on,
-    /// and minimize floating a tiled pane first.
+    /// mouse does, close asking first while `mouse_close_confirm` is on for
+    /// this bar or any other bar with frame buttons, and minimize floating
+    /// a tiled pane first.
     pub(crate) fn frame_button_clicked(&mut self, click: &FrameItemClick) {
         if click.button != MouseButton::Left {
             return;
@@ -321,17 +298,24 @@ impl State {
         let Some(button) = FrameButton::of_id(&click.item_id) else {
             return;
         };
-        if !self.frame_items_sent.contains_key(&click.pane_id) {
+        if !self.holds_frame(click.pane_id) {
             return;
         }
         match button {
             FrameButton::Minimize => {
-                if !self.minimized.contains_key(&click.pane_id) {
+                if !self.minimized().contains_key(&click.pane_id) {
                     self.minimize(click.pane_id);
                 }
             }
             FrameButton::Maximize => self.host.toggle_pane_id_fullscreen(click.pane_id),
-            FrameButton::Close => self.close_pane(click.pane_id),
+            // The buttons may be left from a bar whose tab the pane has
+            // moved out of, into one whose bar asks before closing, so the
+            // button asks if any bar of the instance would.
+            FrameButton::Close => {
+                let confirm =
+                    self.mouse_close_confirm || !self.instance.get().confirm_frame_close.is_empty();
+                self.close_pane_asking(click.pane_id, confirm);
+            }
         }
     }
 }

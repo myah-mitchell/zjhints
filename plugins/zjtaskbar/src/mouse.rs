@@ -291,7 +291,7 @@ impl State {
         }
     }
 
-    /// Show `pane`, which the bar minimized, again where it stood, focused.
+    /// Show `pane`, which a bar minimized, again where it stood, focused.
     ///
     /// Focusing a hidden pane shows it floating at once, in the same step,
     /// and Zellij handles the move after it in the order sent, so the move
@@ -306,7 +306,7 @@ impl State {
     /// A pane in another tab is shown in the one on screen instead, as
     /// `pull` does.
     fn restore(&mut self, pane: PaneId) {
-        let geometry = self.minimized.remove(&pane);
+        let geometry = self.minimized_mut().remove(&pane);
         let shown_here = self.tab_to_pull_into(pane).is_some_and(|tab_id| {
             self.host
                 .show_pane_with_id(pane, true, Some(tab_id))
@@ -318,9 +318,6 @@ impl State {
         if let Some(geometry) = geometry.filter(|geometry| *geometry != Default::default()) {
             self.host
                 .change_floating_panes_coordinates(vec![(pane, geometry)]);
-        }
-        if shown_here {
-            self.announce_pull(pane);
         }
     }
 
@@ -339,8 +336,7 @@ impl State {
     /// Zellij moves a pane between tabs only as it shows it from hidden, so
     /// the pane is hidden first and shown in the tab on screen. As with
     /// `restore`, showing it places it as if it were new, so where it stood
-    /// is read before it is hidden and put back after. The other bars are
-    /// told, as the one framing the tab it left may not see it go.
+    /// is read before it is hidden and put back after.
     fn pull(&mut self, pane: PaneId) -> bool {
         let Some(tab_id) = self.tab_to_pull_into(pane) else {
             return false;
@@ -359,7 +355,6 @@ impl State {
         }
         self.host
             .change_floating_panes_coordinates(vec![(pane, geometry)]);
-        self.announce_pull(pane);
         true
     }
 
@@ -393,19 +388,19 @@ impl State {
             self.host.toggle_pane_embed_or_eject_for_pane_id(pane);
             FloatingPaneCoordinates::default()
         };
-        self.minimized.insert(pane, geometry);
+        self.minimized_mut().insert(pane, geometry);
         self.host.hide_pane_with_id(pane);
     }
 
-    /// Bring `pane` up: restore it if the bar minimized it, or focus it if
+    /// Bring `pane` up: restore it if a bar minimized it, or focus it if
     /// the keyboard does not go to it already.
     ///
-    /// Whether the bar minimized it is what the bar asked of Zellij, not what
+    /// Whether a bar minimized it is what the bars asked of Zellij, not what
     /// the last `PaneUpdate` says. A pane the bar has just hidden is still on
     /// screen in that update, and focusing it the plain way would show it
     /// placed as new and keep it listed as minimized.
     fn bring_up(&mut self, pane: PaneId) {
-        if self.minimized.contains_key(&pane) {
+        if self.minimized().contains_key(&pane) {
             self.restore(pane);
         } else if !self
             .entries
@@ -436,10 +431,15 @@ impl State {
     /// Close `pane`, a pane on the bar or, from its frame's button, any
     /// other, asking first while `mouse_close_confirm` is on.
     pub(crate) fn close_pane(&mut self, pane: PaneId) {
+        self.close_pane_asking(pane, self.mouse_close_confirm);
+    }
+
+    /// `close_pane`, asking first when `confirm`.
+    pub(crate) fn close_pane_asking(&mut self, pane: PaneId, confirm: bool) {
         let Some(info) = self.pane_info(pane) else {
             return;
         };
-        if !self.mouse_close_confirm {
+        if !confirm {
             self.close_now(pane);
             return;
         }
@@ -510,7 +510,7 @@ impl State {
                 match item {
                     PaneMenuItem::Restore | PaneMenuItem::Focus => self.bring_up(pane),
                     PaneMenuItem::Minimize => {
-                        if !self.minimized.contains_key(&pane) {
+                        if !self.minimized().contains_key(&pane) {
                             self.minimize(pane);
                         }
                     }

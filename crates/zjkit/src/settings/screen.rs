@@ -6,8 +6,11 @@ use super::editor::{own_location, Editor, Field, Focus, Outcome, Row, Section};
 use super::live;
 use super::schema::Schema;
 use super::view::{self, Command, Control, FormatView, HelpState, Layout, Marker, RowView};
+use crate::host::{Host, Zellij};
+use crate::shared;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
+use zellij_tile::ui_components::BUTTON_PRESS_SECONDS;
 use zellij_utils::input::config_blocks::plugin_aliases_kdl;
 
 /// What the host is to report back on.
@@ -137,8 +140,8 @@ impl SettingsScreen {
         // needs.
         let mut permissions = vec![PermissionType::Reconfigure];
         permissions.extend((self.schema.permissions)());
-        request_permission(&permissions);
-        subscribe(&[
+        Zellij.request_permission(&permissions);
+        Zellij.subscribe(&[
             EventType::Key,
             EventType::Mouse,
             EventType::Timer,
@@ -161,7 +164,7 @@ impl SettingsScreen {
                 // pane, so it can sit beside the bar it edits without holding
                 // the keyboard. Pinning needs `ChangeApplicationState`, one
                 // of the bar's permissions asked for above.
-                set_floating_pane_pinned(PaneId::Plugin(get_plugin_ids().plugin_id), true);
+                set_floating_pane_pinned(PaneId::Plugin(Zellij.plugin_ids().plugin_id), true);
                 self.read();
                 true
             }
@@ -256,7 +259,7 @@ impl SettingsScreen {
         let snapshot = read_config();
         self.config_file = snapshot.config_file_path.clone();
         let aliases = snapshot.blocks.plugin_aliases;
-        let own_url = get_pane_info(PaneId::Plugin(get_plugin_ids().plugin_id))
+        let own_url = get_pane_info(PaneId::Plugin(Zellij.plugin_ids().plugin_id))
             .and_then(|pane| pane.plugin_url);
         let editor = match own_url.as_deref() {
             None => Err(
@@ -312,7 +315,7 @@ impl SettingsScreen {
 
     fn handle_key(&mut self, key: KeyWithModifier) -> bool {
         if self.closing {
-            close_self();
+            Zellij.close_self();
             return false;
         }
         if self.question.is_some() {
@@ -334,7 +337,7 @@ impl SettingsScreen {
         let previewed = self.shows_preview();
         let Some(editor) = self.editor_mut() else {
             if is_plain(&key, BareKey::Esc) {
-                close_self();
+                Zellij.close_self();
             }
             return false;
         };
@@ -528,7 +531,7 @@ impl SettingsScreen {
             }
         }
         if let Some(press) = pressed {
-            self.button_timers += 1;
+            self.count_button_press();
             return match press {
                 Some(bare) => self.handle_key(KeyWithModifier::new(bare)),
                 None => true,
@@ -607,12 +610,12 @@ impl SettingsScreen {
             (button.handle_mouse(mouse) == UiResponse::Activated).then_some(*command)
         });
         if let Some(command) = command {
-            self.button_timers += 1;
+            self.count_button_press();
             return self.run(command);
         }
         if let Some(button) = &mut self.overrides_button {
             if button.handle_mouse(mouse) == UiResponse::Activated {
-                self.button_timers += 1;
+                self.count_button_press();
                 self.overrides_hidden = !self.overrides_hidden;
                 return true;
             }
@@ -655,6 +658,14 @@ impl SettingsScreen {
         false
     }
 
+    /// Count the timer a button starts when it is pressed, which comes back
+    /// as a `Timer` event. The button sets it itself, so it is noted as this
+    /// slot's for `shared`.
+    fn count_button_press(&mut self) {
+        self.button_timers += 1;
+        shared::expect_timer(BUTTON_PRESS_SECONDS);
+    }
+
     fn handle_timer(&mut self) -> bool {
         if self.button_timers > 0 {
             self.button_timers -= 1;
@@ -671,7 +682,7 @@ impl SettingsScreen {
             return changed;
         }
         if self.closing {
-            close_self();
+            Zellij.close_self();
         }
         false
     }
@@ -784,7 +795,10 @@ impl SettingsScreen {
             self.notice = Some("Nothing to revert".to_string());
             return;
         }
-        self.question = Some((prompt(revert_all_request(unsaved)), Question::RevertAll));
+        self.question = Some((
+            Zellij.prompt(revert_all_request(unsaved)),
+            Question::RevertAll,
+        ));
     }
 
     fn ask_changed_outside(&mut self) {
@@ -795,7 +809,7 @@ impl SettingsScreen {
             .unwrap_or("The config file")
             .to_string();
         self.question = Some((
-            prompt(changed_outside_request(&file)),
+            Zellij.prompt(changed_outside_request(&file)),
             Question::ChangedOutside,
         ));
     }
@@ -863,9 +877,10 @@ impl SettingsScreen {
         self.previewed = editor.working().clone();
     }
 
-    /// Put the pending values in the session's alias, so bars started from
-    /// now on load them, as Zellij keeps settings edits applied to the
-    /// session until they are saved or reverted.
+    /// Put the pending values in the session's alias, as Zellij keeps
+    /// settings edits applied to the session until they are saved or
+    /// reverted. Running bars already show them through the previews; a bar
+    /// started later still loads the alias as the session started with it.
     fn keep_in_session(&mut self) {
         let Some(editor) = self.editor_mut() else {
             return;
@@ -884,7 +899,7 @@ impl SettingsScreen {
         };
         self.keep_in_session();
         if unsaved == 0 {
-            close_self();
+            Zellij.close_self();
             return false;
         }
         let noun = if unsaved == 1 {
@@ -896,7 +911,7 @@ impl SettingsScreen {
             "{unsaved} unsaved {noun} applied to this session. Ctrl+a in settings saves them."
         ));
         self.closing = true;
-        set_timeout(CLOSE_SECONDS);
+        Zellij.set_timeout(CLOSE_SECONDS);
         true
     }
 

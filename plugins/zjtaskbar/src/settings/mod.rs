@@ -193,6 +193,9 @@ fn preview_state(
     configuration.insert(crate::CONFIG_AUTO_WIDTH.to_string(), "true".to_string());
     let width = width.min(PREVIEW_COLUMNS);
     let mut state = crate::State {
+        // Its sample panes are its own, and must not reach the bars of the
+        // instance the screen runs in.
+        instance: crate::instance::Instance::alone(),
         bar: zjkit::bar::BarCore {
             zellij_palette: Some(mode_info.style.colors),
             pane_width: Some(width),
@@ -233,7 +236,7 @@ fn preview_state(
         };
         if sample.minimized {
             let pane_id = zjkit::panes::pane_id_of(&pane);
-            state.minimized.insert(pane_id, Default::default());
+            state.minimized_mut().insert(pane_id, Default::default());
         }
         panes.entry(sample.tab).or_default().push(pane);
     }

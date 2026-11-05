@@ -42,10 +42,12 @@ Left-click the focused entry to minimize its pane. The pane is hidden from the s
 
 Zellij places a hidden floating pane as if it were new when it comes back, with a frame and at a size of its own choosing. So the bar records where the pane stood as it hides it, its position, its size and whether it has a frame, and puts it back there on restore. If the terminal shrank in the meantime, Zellij moves the pane in to fit.
 
+The bars of an instance share the panes they minimize. A pane minimized from one bar is listed on every bar whose `pane_scope` takes in its tab, any of them restores it, and it stays restorable after the bar that minimized it closes. See [Shared instances](../shared-instances.md).
+
 Two things are not kept:
 
 - A pinned floating pane may come back unpinned. Zellij does not tell plugins whether a pane is pinned, so the bar cannot put that back.
-- The bar remembers the panes it minimized only while it runs. Zellij reports a hidden floating pane the same way as a hidden tiled one, so a pane minimized before the bar restarts, as when the plugin is reloaded, stays hidden and is not listed again.
+- The bars remember the panes minimized from any of them only while the plugin runs. Zellij reports a hidden floating pane the same way as a hidden tiled one, so a pane minimized before the plugin restarts, as when it is reloaded, stays hidden and is not listed again.
 
 ## Renaming
 
@@ -125,24 +127,35 @@ mouse_wheel_reversed true
 
 ## Frame buttons
 
-Every pane that takes focus, tiled or floating, gets three buttons at the right of its frame's top row: minimize, maximize and close. They work with `mouse` off too, since the clicks land on the frame and not the bar.
+Every pane that takes focus gets three buttons at the right of its frame's top row: minimize, maximize and close. They work with `mouse` off too, since the clicks land on the frame and not the bar.
+
+The buttons need a frame to sit on. Floating panes always have one. Tiled panes have one only with full frames, so set this in your Zellij config to give them buttons:
+
+```kdl
+pane_frame_style "full"
+```
+
+With Zellij's default frame style, `titles`, a tiled pane shows a title line with no room for buttons. With `pane_frame_style "none"` or `pane_frames false`, it has no frame at all.
 
 | Button | Left click |
 | --- | --- |
 | Minimize, `[─]` | Minimizes the pane, as a left click on its focused entry does; a tiled pane is floated first |
-| Maximize, `[□]` | Fills the tab with the pane, the button turning to `[❐]`; click again for its own size |
-| Close, `[✕]` | Closes the pane, asking first while `mouse_close_confirm` is on |
+| Maximize, `[□]` | Makes the pane fullscreen, filling the tab |
+| Close, `[✕]` | Closes the pane, asking first while any bar of the instance with frame buttons has `mouse_close_confirm` on |
 
 Other mouse buttons on them do nothing. A minimized pane keeps its buttons for when it comes back.
+
+A fullscreen pane has no frame, so the button that would give it back its own size, `[❐]` from `frame_restore_text`, is never drawn and can't be clicked. Leave fullscreen with Zellij's own key instead, `Ctrl p` then `f` by default.
 
 A minimized tiled pane joins the bar as a floating pane, and from then on is one like any other. It comes back where Zellij places a new floating pane, since it never stood anywhere as one. The last tiled pane of a tab has no minimize button, because Zellij keeps a tab's last tiled pane tiled.
 
 Each tab's panes take their buttons from one bar, so no frame shows two sets:
 
 - A tab with a bar gets its buttons from that bar. A pane moved to another tab takes that tab's buttons.
-- A tab without a bar gets them from the session's first bar, the one Zellij loaded first. A pane minimized there joins that bar. With `pane_scope "tab"`, that bar doesn't list the tab, so its panes have no minimize button.
+- A tab without a bar gets them from the first bar of the instance, the one that started first. With `pane_scope "tab"`, that bar doesn't list the tab, so its panes have no minimize button.
+- A pane pulled out of a tab that is not on screen keeps that tab's buttons, and they still work, until the tab is shown again. The maximize button can show the wrong symbol meanwhile.
 
-A bar recognizes the others by the plugin URL they run. With two zjtaskbar aliases in one session, each counts only its own bars, so a frame can show both sets. The buttons show only on frames Zellij draws a title row for, so a borderless pane has none.
+The bars of one instance count each other whichever alias they run from. Bars of separate instances, which load the plugin from another location or set a different `instance`, do not, so a frame can show both sets. The buttons show only on frames Zellij draws a title row for, so a borderless pane has none.
 
 Turn the buttons off with `frame_buttons false`, or change or leave off one with its text option. See [Frame](configuration.md#frame).
 
@@ -159,7 +172,7 @@ Focusing, minimizing, moving and closing panes, the frame buttons and opening Ze
 
 With `mouse` off, the close button's prompt still asks for *Start new terminals and plugins*, unless `mouse_close_confirm` is off too.
 
-Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new ones. Turning it off asks for nothing.
+Zellij asks once for the whole instance, in the pane of one of its bars, and remembers the answer. Turning `mouse` on after the bar was already granted its usual permissions asks again, for the whole set with the new ones. Turning it off asks for nothing.
 
 ## Zellij support
 

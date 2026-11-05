@@ -8,7 +8,7 @@ zjtaskbar is a taskbar for [Zellij](https://github.com/zellij-org/zellij)'s floa
 
 With no options set, zjtaskbar lists every floating pane of the session as an entry, the way a desktop taskbar lists windows: a ribbon in the Zellij theme's colors holding the pane's title and its flags, with the focused pane highlighted. A launcher button starts the bar. It works with no options set, and picking a theme restyles it in one line. See [Themes](../themes.md).
 
-- It lists terminal and plugin panes alike, grouped by tab in the order the tabs stand and ordered by pane id within a tab, so entries stay where they are as the focus moves. Tiled panes and other bars are never listed. See [Entries](configuration.md#entries).
+- It lists terminal and plugin panes alike, grouped by tab in the order the tabs stand and ordered by pane id within a tab, so entries stay where they are as the focus moves. Tiled panes and the bars of the instance are never listed. See [Entries](configuration.md#entries).
 - It lists the panes of every tab, marking the ones in another tab with its name, or of the active tab only with `pane_scope "tab"`. See [Flags](formats.md#flags).
 - It flags a pane that is minimized, whose command has exited, that runs a plugin, or that is in another tab. See [Flags](formats.md#flags).
 - When the entries do not fit, it keeps a window of them around the focused one and counts the rest in a marker on each side. See [Overflow](overflow.md).
@@ -50,7 +50,7 @@ layout {
 }
 ```
 
-This puts the bar at the bottom of every tab, the way a desktop taskbar sits. Put the pane before `children` to move it to the top. To run it beside [zjtabs](../zjtabs/overview.md#loading-it-in-a-layout) or [zjhints](../installation.md#option-a-its-own-pane), give each bar a pane of its own in the same template.
+This puts the bar at the bottom of every tab, the way a desktop taskbar sits. The pane in each tab is a bar of one running zjtaskbar, a [shared instance](../shared-instances.md), so every bar lists and restores the same minimized panes. Put the pane before `children` to move it to the top. To run it beside [zjtabs](../zjtabs/overview.md#loading-it-in-a-layout) or [zjhints](../installation.md#option-a-its-own-pane), give each bar a pane of its own in the same template.
 
 Options go inside the alias's braces or inside the pane's `plugin` block, as for zjhints:
 
@@ -68,13 +68,13 @@ Every option and its default is in the [configuration reference](configuration.m
 
 ## Permissions
 
-zjtaskbar asks for these permissions the first time it runs. Zellij shows the prompt in the plugin's pane and remembers the answer.
+zjtaskbar asks for these permissions the first time it runs. Zellij shows one prompt for all its bars, in the pane of one of them, and remembers the answer.
 
 | Permission | Used for | Asked for |
 | --- | --- | --- |
 | *Access Zellij state (Panes, Tabs and UI)* | Reading the panes, the tabs, the input mode and the bar's own pane | Always |
 | *Change Zellij state (Panes, Tabs and UI) and run commands* | Adding the *zjtaskbar* settings entry; with `mouse` on, focusing, minimizing, moving and closing panes and opening Zellij's bar menu | Always |
-| *Send messages to and launch other plugins* | The hide, show and toggle messages between bars, and opening the settings screen | Always |
+| *Send messages to and launch other plugins* | Opening the settings screen | Always |
 | *Execute actions as the user* | Renaming a pane, opening the session manager from the tray, and the launcher's new terminal and Zellij screens | With `mouse` on |
 | *Start new terminals and plugins* | The pane menu, the close prompt and the launcher's menu, which are Zellij prompts, and the launcher's plugin entries | With `mouse` on |
 | *Run commands* | Running `date +%z` for the clock's offset from UTC, and the launcher's command entries | While the tray has a clock with no `clock_utc_offset`, or the launcher lists a command |
@@ -83,8 +83,9 @@ With the defaults, the bar asks for the first five: `mouse` is on, and the tray 
 
 ## Known limits
 
-- A pane minimized before the bar reloads stays hidden and is not listed again. See [Minimizing](mouse.md#minimizing).
+- A pane minimized before the plugin reloads stays hidden and is not listed again. See [Minimizing](mouse.md#minimizing).
 - A pinned floating pane may come back unpinned after it is minimized and restored. See [Minimizing](mouse.md#minimizing).
+- A pane pulled out of a tab that is not on screen keeps that tab's frame buttons until the tab is shown again. See [Frame buttons](mouse.md#frame-buttons).
 - With `clock` in the tray, the bar asks for *Run commands* to run `date +%z`, since a plugin cannot read the system's time zone. Set `clock_utc_offset` to do without it. See [The time zone](tray.md#the-time-zone).
 - While the clock asks the system for its offset, a change of daylight saving time shows within the hour rather than at once. See [The time zone](tray.md#the-time-zone).
 
