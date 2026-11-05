@@ -79,13 +79,14 @@ keep = 7
 # keep = 3
 
 # The 0.6.0 early-access release: main-dev, where the zjkit workspace work
-# lands until it is proven and merged into main, with the zjtabs and zjtaskbar
-# branches stacked on it. To rebuild after any of them moves, run the workflow
-# by hand naming ea-release with publish ticked. Its tag carries the version,
-# so `make ea` does not find it; download the plugins from the release page.
+# lands until it is proven and merged into main, with the zjtabs, zjtaskbar and
+# shared-plugins branches stacked on it. To rebuild after any of them moves,
+# run the workflow by hand naming ea-release with publish ticked. Its tag
+# carries the version, so `make ea` does not find it; download the plugins from
+# the release page.
 [build.ea-release]
 tag = "ea-v0.6.0-{date}"
 base = "main-dev"
-stack = ["feat/zjtabs", "feat/zjtaskbar"]
+stack = ["feat/zjtabs", "feat/zjtaskbar", "feat/shared-plugins"]
 prerelease = true
 keep = 3

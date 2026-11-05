@@ -227,7 +227,7 @@ A stack may not change anything under `.github/workflows/`; such a build is refu
 
 To rebuild with whatever the branches have gained since, run the workflow by hand naming the table with publish ticked, or set `on = "nightly"` so it rebuilds each night that its inputs moved. Pick a new label to keep two EA builds around side by side, such as `ea-nested-sessions` and `ea-zellij-0.46`.
 
-The base can be another branch when the work builds on it. `ea-release` stacks `feat/zjtabs` and `feat/zjtaskbar` onto `main-dev`, because those plugins need the zjkit workspace that only `main-dev` has so far. Its releases carry `zjtabs.wasm` and `zjtaskbar.wasm` next to `zjhints.wasm` (see [Plugins in a release](#plugins-in-a-release)). Take each branch out of its stack once it is merged into `main-dev`.
+The base can be another branch when the work builds on it. `ea-release` stacks `feat/zjtabs`, `feat/zjtaskbar` and `feat/shared-plugins` onto `main-dev`, because that work needs the zjkit workspace that only `main-dev` has so far. Its releases carry `zjtabs.wasm` and `zjtaskbar.wasm` next to `zjhints.wasm` (see [Plugins in a release](#plugins-in-a-release)). Take each branch out of its stack once it is merged into `main-dev`.
 
 Install one with `make ea LABEL=<label>`. See [Installing what is published](#installing-what-is-published).
 
