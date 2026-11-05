@@ -1,17 +1,19 @@
 //! The sessions the README shows: a Zellij session drawn by hand around the
-//! real bar, played through one of the plugin's features a keypress at a time.
+//! real bars, played through one of the plugin's features a keypress at a
+//! time.
 //!
-//! Only the chrome is a stand-in. The tab bar, the pane frames and what runs
-//! in the panes are drawn here to look like Zellij's, while the bar, its hover
-//! preview and the settings screen come from the code that draws them in the
-//! plugin, so the demo cannot show the plugin doing anything it does not.
+//! Only the chrome is a stand-in. The pane frames and what runs in the panes
+//! are drawn here to look like Zellij's, while the bar, its hover preview and
+//! the settings screen come from the code that draws them in the plugin, and
+//! the tab bar is zjtabs, drawn by its own code at its defaults. So the demo
+//! cannot show either plugin doing anything it does not.
 
-use super::{
-    bar_state, draw_pointer, hover_at, hovers_of, palette, rgb_of, settings_screen, Animation,
-    Frame, Hover, Pen, Rgb, Screen, BASE_THEME, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
-};
+use super::{bar_state, draw_pointer, hover_at, hovers_of, settings_screen, Hover, BASE_THEME};
+use crate::settings::view::Rgb;
 use crate::{ActiveTab, ClickMap, NestedGuest, TabFocus};
-use zellij_tile::prelude::{InputMode, PaneId};
+use std::collections::BTreeMap;
+use zellij_tile::prelude::{InputMode, ModeInfo, PaneId, TabInfo};
+use zjkit::images::{mode_info, palette, rgb_of, Animation, Frame, Pen, Screen, PILL_RIGHT};
 
 /// The terminal's size, and the rows under it that narrate the demo: one
 /// for the pointer under the bar, a rule setting the narration apart from
@@ -75,6 +77,15 @@ static THEME_TOUR: [Look; 15] = [
 
 /// The pane a nested session runs in, as the host knows it.
 const NESTED_PANE: PaneId = PaneId::Terminal(2);
+
+/// The name of the host session, which its tab bar shows and a nested session
+/// in it knows it by.
+const HOST_SESSION: &str = "demo";
+/// The name of the nested session, which its tab bar shows.
+const NESTED_SESSION: &str = "work";
+
+/// The one tab each session has, named as Zellij names a session's first.
+const TAB_NAME: &str = "Tab #1";
 
 /// What runs in the pane on the right once the terminal is split.
 #[derive(Clone, Copy, PartialEq)]
@@ -189,7 +200,7 @@ impl Scene {
             state.nested_guests.insert(
                 NESTED_PANE,
                 NestedGuest {
-                    session_path: vec!["work".to_string()],
+                    session_path: vec![NESTED_SESSION.to_string()],
                     mode,
                     base_mode: Some(InputMode::Normal),
                     keybinds: state.mode_info.keybinds.clone(),
@@ -211,8 +222,6 @@ struct Chrome {
     text: Rgb,
     focused_frame: Rgb,
     frame: Rgb,
-    tab: Rgb,
-    tab_text: Rgb,
     path: Rgb,
     prompt: Rgb,
     passed: Rgb,
@@ -233,8 +242,6 @@ impl Chrome {
                     .frame_unselected
                     .map_or(styling.list_unselected.base, |frame| frame.base),
             ),
-            tab: rgb_of(styling.ribbon_selected.background),
-            tab_text: rgb_of(styling.ribbon_selected.base),
             path: rgb_of(text.emphasis_0),
             prompt: rgb_of(text.emphasis_2),
             passed: rgb_of(text.emphasis_2),
@@ -277,42 +284,27 @@ fn paint(screen: &mut Screen, row: usize, column: usize, text: &str, pen: Pen) -
     column + text.chars().count()
 }
 
-/// Zellij's tab bar across the top of `area`: the session's name, then its
-/// one tab as a ribbon.
-fn draw_tab_bar(screen: &mut Screen, area: Area, session: &str, chrome: &Chrome) {
-    let column = paint(
-        screen,
-        area.row,
-        area.column,
-        &format!(" Zellij ({session}) "),
-        Pen {
-            bold: true,
-            ..chrome.pen(chrome.text)
-        },
-    );
-    let ribbon = Pen {
-        background: Some(chrome.tab),
-        bold: true,
-        ..chrome.pen(chrome.tab_text)
-    };
-    let column = paint(
-        screen,
-        area.row,
-        column,
-        &POWERLINE_ARROW.to_string(),
-        Pen {
-            background: Some(chrome.tab),
-            ..chrome.pen(TERMINAL_BACKGROUND)
-        },
-    );
-    let column = paint(screen, area.row, column, " Tab #1 ", ribbon);
-    paint(
-        screen,
-        area.row,
-        column,
-        &POWERLINE_ARROW.to_string(),
-        chrome.pen(chrome.tab),
-    );
+/// zjtabs as the tab bar across the top of `area`, loaded with no options,
+/// for a session in `mode_info` with its one tab. Returns what of `area` is
+/// left for the panes: every row under the bar, or the whole of it when the
+/// bar draws nothing, as `collapse_when_empty`, on by default, gives the bar's
+/// row back to the panes.
+fn draw_tab_bar(screen: &mut Screen, area: Area, mode_info: ModeInfo) -> Area {
+    let tabs = [TabInfo {
+        name: TAB_NAME.to_string(),
+        active: true,
+        ..Default::default()
+    }];
+    let line = zjtabs::draw_for_image(BTreeMap::new(), mode_info, &tabs, area.columns);
+    if line.is_empty() {
+        return area;
+    }
+    screen.print(area.row, area.column, &line);
+    Area {
+        row: area.row + 1,
+        rows: area.rows - 1,
+        ..area
+    }
 }
 
 /// Whatever `draw` puts in `area`, cut off at its edges as a pane cuts off
@@ -427,16 +419,20 @@ fn draw_test_run(screen: &mut Screen, area: Area, chrome: &Chrome) {
     draw_prompt(screen, row + 5, area.column + 1, "", chrome);
 }
 
-/// A nested Zellij session filling `area`: its own tab bar and one pane. Its
-/// bar is left off, as `hide_when_nested` does.
-fn draw_nested(screen: &mut Screen, area: Area, descended: bool) {
+/// A nested Zellij session in `mode` filling `area`: its tab bar and one
+/// pane, faded unless the host has `descended` into it. Its zjhints bar is
+/// left off, as `hide_when_nested` does. The same option, on by default in
+/// zjtabs too, leaves off the tab bar while the host's is on screen, and then
+/// the pane takes the bar's row.
+fn draw_nested(screen: &mut Screen, area: Area, mode: InputMode, descended: bool) {
     let chrome = Chrome::new(!descended);
-    draw_tab_bar(screen, Area { rows: 1, ..area }, "work", &chrome);
-    let pane = Area {
-        row: area.row + 1,
-        rows: area.rows - 1,
-        ..area
+    let nested = ModeInfo {
+        session_name: Some(NESTED_SESSION.to_string()),
+        session_ancestry: vec![HOST_SESSION.to_string()],
+        session_ascended: Some(!descended),
+        ..mode_info(mode)
     };
+    let pane = draw_tab_bar(screen, area, nested);
     draw_frame(screen, pane, "~", true, &chrome);
     let inside = pane.inside();
     draw_prompt(screen, inside.row, inside.column + 1, "", &chrome);
@@ -535,23 +531,20 @@ fn draw(scene: &Scene) -> Screen {
     let chrome = Chrome::new(descended);
     let columns = scene.columns;
 
-    draw_tab_bar(
-        &mut screen,
-        Area {
-            row: 0,
-            column: 0,
-            rows: 1,
-            columns,
-        },
-        "demo",
-        &chrome,
-    );
-    let panes = Area {
-        row: 1,
+    // The host hands its keyboard to the nested session it has descended
+    // into, and its tab bar fades as its chrome does.
+    let host = ModeInfo {
+        session_name: Some(HOST_SESSION.to_string()),
+        session_dimmed: descended.then_some(true),
+        ..mode_info(scene.mode)
+    };
+    let screen_area = Area {
+        row: 0,
         column: 0,
-        rows: ROWS - 2,
+        rows: ROWS - 1,
         columns,
     };
+    let panes = draw_tab_bar(&mut screen, screen_area, host);
     let floating = scene.settings.is_some();
     if scene.right == RightPane::None {
         draw_frame(&mut screen, panes, "~/src/zjhints", !floating, &chrome);
@@ -583,9 +576,9 @@ fn draw(scene: &Scene) -> Screen {
                     draw_prompt(pane, area.row, area.column + 1, typed, &chrome)
                 });
             }
-            RightPane::Nested { descended, .. } => {
+            RightPane::Nested { mode, descended } => {
                 in_pane(&mut screen, right.inside(), |pane, area| {
-                    draw_nested(pane, area, descended)
+                    draw_nested(pane, area, mode, descended)
                 });
             }
             RightPane::None => {}
