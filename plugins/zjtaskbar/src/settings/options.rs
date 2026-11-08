@@ -10,15 +10,16 @@ use zjkit::settings::schema::{family, option, FamilySpec, Kind, OptionSpec};
 use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 
 /// A heading the options are grouped under, in the order they are shown:
-/// zjtaskbar's own first, in the order the bar draws what they set up. Then
+/// zjtaskbar's own first, in the order the bar draws what they set up, then
+/// with Frame, for the buttons on the panes' frames, after them. Then
 /// Theme, Colors, Behavior and Mouse, where zjtabs shows them, so the groups
 /// the bars share sit in the same place in each.
 ///
 /// A group may hold fixed options, families, or both. Adding one takes its
 /// name here and its options or families naming it as their group.
 pub const GROUPS: &[&str] = &[
-    "Entries", "Flags", "Overflow", "Launcher", "Tray", "Clock", "Session", "Mode", "Theme",
-    "Colors", "Behavior", "Mouse",
+    "Entries", "Flags", "Overflow", "Launcher", "Tray", "Clock", "Session", "Mode", "Frame",
+    "Theme", "Colors", "Behavior", "Mouse",
 ];
 
 pub const OPTIONS: &[OptionSpec] = &[
@@ -209,7 +210,42 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Mouse",
         Kind::Bool,
         Some("true"),
-        "Ask before a middle click or the pane menu closes a pane",
+        "Ask before a middle click, the pane menu or a frame's close button closes a pane",
+    ),
+    option(
+        "frame_buttons",
+        "Frame",
+        Kind::Bool,
+        Some("true"),
+        "Put minimize, maximize and close buttons on the frames of every pane, minimize floating a tiled pane",
+    ),
+    option(
+        "frame_minimize_text",
+        "Frame",
+        Kind::Text,
+        Some(" [\u{2500}]"),
+        "Text of the minimize button, which an empty value leaves off",
+    ),
+    option(
+        "frame_maximize_text",
+        "Frame",
+        Kind::Text,
+        Some(" [\u{25a1}]"),
+        "Text of the maximize button, which an empty value leaves off",
+    ),
+    option(
+        "frame_restore_text",
+        "Frame",
+        Kind::Text,
+        Some(" [\u{2750}]"),
+        "Text of the maximize button while its pane fills the tab, a click giving it back its own size",
+    ),
+    option(
+        "frame_close_text",
+        "Frame",
+        Kind::Text,
+        Some(" [\u{2715}] "),
+        "Text of the close button, which an empty value leaves off",
     ),
     option(
         "show_launcher",
@@ -405,6 +441,12 @@ mod tests {
         CONFIG_SESSION_FORMAT, CONFIG_SHOW_SESSION, CONFIG_TRAY, CONFIG_TRAY_SPACER,
         DEFAULT_CLOCK_FORMAT, DEFAULT_SHOW_SESSION, DEFAULT_TRAY, DEFAULT_TRAY_SPACER,
     };
+    use crate::{
+        CONFIG_FRAME_BUTTONS, CONFIG_FRAME_CLOSE_TEXT, CONFIG_FRAME_MAXIMIZE_TEXT,
+        CONFIG_FRAME_MINIMIZE_TEXT, CONFIG_FRAME_RESTORE_TEXT, DEFAULT_FRAME_BUTTONS,
+        DEFAULT_FRAME_CLOSE_TEXT, DEFAULT_FRAME_MAXIMIZE_TEXT, DEFAULT_FRAME_MINIMIZE_TEXT,
+        DEFAULT_FRAME_RESTORE_TEXT,
+    };
 
     /// What an option's default should read, from the constant the bar falls
     /// back on, or `None` for an option that is unset by default. Every
@@ -479,6 +521,26 @@ mod tests {
             (CONFIG_SHOW_SESSION, Some(DEFAULT_SHOW_SESSION.to_string())),
             (CONFIG_SESSION_FORMAT, None),
             (zjkit::mode::CONFIG_MODE_FORMAT, None),
+            (
+                CONFIG_FRAME_BUTTONS,
+                Some(DEFAULT_FRAME_BUTTONS.to_string()),
+            ),
+            (
+                CONFIG_FRAME_MINIMIZE_TEXT,
+                Some(DEFAULT_FRAME_MINIMIZE_TEXT.to_string()),
+            ),
+            (
+                CONFIG_FRAME_MAXIMIZE_TEXT,
+                Some(DEFAULT_FRAME_MAXIMIZE_TEXT.to_string()),
+            ),
+            (
+                CONFIG_FRAME_RESTORE_TEXT,
+                Some(DEFAULT_FRAME_RESTORE_TEXT.to_string()),
+            ),
+            (
+                CONFIG_FRAME_CLOSE_TEXT,
+                Some(DEFAULT_FRAME_CLOSE_TEXT.to_string()),
+            ),
             // The options zjkit reads for every bar: whether the bar starts
             // hidden, and the themes.
             (zjkit::visibility::OPTION, Some("false".to_string())),

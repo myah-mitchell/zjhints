@@ -428,6 +428,8 @@ impl State {
     ///
     /// A pane the bar no longer lists, gone since the line was drawn or the
     /// menu opened, is left alone either way.
+    /// Close `pane`, a pane on the bar or, from its frame's button, any
+    /// other, asking first while `mouse_close_confirm` is on.
     pub(crate) fn close_pane(&mut self, pane: PaneId) {
         self.close_pane_asking(pane, self.mouse_close_confirm);
     }

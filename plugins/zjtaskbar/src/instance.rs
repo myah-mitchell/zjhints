@@ -11,7 +11,15 @@
 //!   bar lists them and any of them can bring one back. Each bar still lists
 //!   only the tabs its own `pane_scope` takes in.
 //! - The slots running the bar, so a bar can tell where the others stand:
-//!   it never lists one of them.
+//!   it never lists one of them, and it leaves the panes of a tab that has a
+//!   bar to that bar. See `frame`.
+//! - The bars whose frame close button asks before closing. A pane can keep
+//!   one bar's buttons after it moves to another bar's tab, and its close
+//!   button then asks if any bar would. See `frame`.
+//!
+//! Which bar's buttons are on a pane's frame is the instance's too, but
+//! zjkit keeps that, as it sends the clicks on them by it. See
+//! `zjkit::shared::frame_owner`.
 //!
 //! An instance is a WebAssembly module of its own, run on one thread, and
 //! every slot's `State` lives in it, so they reach what they share through a
@@ -32,6 +40,8 @@ pub(crate) struct Common {
     pub minimized: Minimized,
     /// The plugin id of each slot running the bar, which is its pane's id.
     pub bars: BTreeSet<u32>,
+    /// The plugin ids of the bars whose frame close button asks first.
+    pub confirm_frame_close: BTreeSet<u32>,
 }
 
 thread_local! {
