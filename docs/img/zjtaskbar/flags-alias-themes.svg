@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1036" height="168" viewBox="0 0 1036 168" role="img">
+<!-- Drawn for zjtaskbar by zjkit's image engine: edit the code and run `make images`. -->
+<title>Five floating panes as pills after the launcher's button: the focused editor, notes minimized, cargo build exited, the filepicker plugin, and man zellij in the docs tab. With the zellij alias theme the button reads Menu and the flags read (MINIMIZED), (EXITED) and (PLUGIN), with none for the other tab; with ascii the button is a plus and the flags are _, X, P and @docs; with unicode the button is three bars and the flags are a down arrow, a cross, a gear and an up-right arrow before docs</title>
+<rect width="1036" height="168" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="9" y="18" width="36" height="18" fill="#313244"/>
+<rect x="72" y="18" width="54" height="18" fill="#cba6f7"/>
+<rect x="153" y="18" width="153" height="18" fill="#313244"/>
+<rect x="333" y="18" width="180" height="18" fill="#313244"/>
+<rect x="540" y="18" width="171" height="18" fill="#313244"/>
+<rect x="756" y="18" width="90" height="18" fill="#313244"/>
+<rect x="9" y="72" width="9" height="18" fill="#313244"/>
+<rect x="45" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="126" y="72" width="63" height="18" fill="#313244"/>
+<rect x="216" y="72" width="117" height="18" fill="#313244"/>
+<rect x="360" y="72" width="108" height="18" fill="#313244"/>
+<rect x="513" y="72" width="144" height="18" fill="#313244"/>
+<rect x="9" y="126" width="18" height="18" fill="#313244"/>
+<rect x="54" y="126" width="54" height="18" fill="#cba6f7"/>
+<rect x="135" y="126" width="63" height="18" fill="#313244"/>
+<rect x="225" y="126" width="117" height="18" fill="#313244"/>
+<rect x="369" y="126" width="108" height="18" fill="#313244"/>
+<rect x="522" y="126" width="144" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162 171" fill="#878ca4">alias_theme"zellij"</tspan></text>
+<path d="M9 18A9 9 0 0 0 9 36Z" fill="#313244"/>
+<path d="M45 18A9 9 0 0 1 45 36Z" fill="#313244"/>
+<path d="M72 18A9 9 0 0 0 72 36Z" fill="#cba6f7"/>
+<path d="M126 18A9 9 0 0 1 126 36Z" fill="#cba6f7"/>
+<path d="M153 18A9 9 0 0 0 153 36Z" fill="#313244"/>
+<path d="M306 18A9 9 0 0 1 306 36Z" fill="#313244"/>
+<path d="M333 18A9 9 0 0 0 333 36Z" fill="#313244"/>
+<path d="M513 18A9 9 0 0 1 513 36Z" fill="#313244"/>
+<path d="M540 18A9 9 0 0 0 540 36Z" fill="#313244"/>
+<path d="M711 18A9 9 0 0 1 711 36Z" fill="#313244"/>
+<path d="M756 18A9 9 0 0 0 756 36Z" fill="#313244"/>
+<path d="M846 18A9 9 0 0 1 846 36Z" fill="#313244"/>
+<text y="31"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99 108 117" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="153 162 171 180 189 207 216 225 234 243 252 261 270 279 288 297" fill="#6c7086">notes(MINIMIZED)</tspan><tspan x="333 342 351 360 369 387 396 405 414 423 441 450 459 468 477 486 495 504 540 549 558 567 576 585 594 603 612 621 639 648 657 666 675 684 693 702" fill="#cdd6f4">cargobuild(EXITED)filepicker(PLUGIN)</tspan><tspan x="729" fill="#6c7086">│</tspan><tspan x="756 765 774 792 801 810 819 828 837" fill="#cdd6f4">manzellij</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162" fill="#878ca4">alias_theme"ascii"</tspan></text>
+<path d="M9 72A9 9 0 0 0 9 90Z" fill="#313244"/>
+<path d="M18 72A9 9 0 0 1 18 90Z" fill="#313244"/>
+<path d="M45 72A9 9 0 0 0 45 90Z" fill="#cba6f7"/>
+<path d="M99 72A9 9 0 0 1 99 90Z" fill="#cba6f7"/>
+<path d="M126 72A9 9 0 0 0 126 90Z" fill="#313244"/>
+<path d="M189 72A9 9 0 0 1 189 90Z" fill="#313244"/>
+<path d="M216 72A9 9 0 0 0 216 90Z" fill="#313244"/>
+<path d="M333 72A9 9 0 0 1 333 90Z" fill="#313244"/>
+<path d="M360 72A9 9 0 0 0 360 90Z" fill="#313244"/>
+<path d="M468 72A9 9 0 0 1 468 90Z" fill="#313244"/>
+<path d="M513 72A9 9 0 0 0 513 90Z" fill="#313244"/>
+<path d="M657 72A9 9 0 0 1 657 90Z" fill="#313244"/>
+<text y="85"><tspan x="9" fill="#cba6f7" font-weight="bold">+</tspan><tspan x="45 54 63 72 81 90" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="126 135 144 153 162 180" fill="#6c7086">notes_</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 324 360 369 378 387 396 405 414 423 432 441 459" fill="#cdd6f4">cargobuildXfilepickerP</tspan><tspan x="486" fill="#6c7086">│</tspan><tspan x="513 522 531 549 558 567 576 585 594 612 621 630 639 648" fill="#cdd6f4">manzellij@docs</tspan></text>
+<text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117 126 135 144 153 162 171 180" fill="#878ca4">alias_theme"unicode"</tspan></text>
+<path d="M9 126A9 9 0 0 0 9 144Z" fill="#313244"/>
+<path d="M27 126A9 9 0 0 1 27 144Z" fill="#313244"/>
+<path d="M54 126A9 9 0 0 0 54 144Z" fill="#cba6f7"/>
+<path d="M108 126A9 9 0 0 1 108 144Z" fill="#cba6f7"/>
+<path d="M135 126A9 9 0 0 0 135 144Z" fill="#313244"/>
+<path d="M198 126A9 9 0 0 1 198 144Z" fill="#313244"/>
+<path d="M225 126A9 9 0 0 0 225 144Z" fill="#313244"/>
+<path d="M342 126A9 9 0 0 1 342 144Z" fill="#313244"/>
+<path d="M369 126A9 9 0 0 0 369 144Z" fill="#313244"/>
+<path d="M477 126A9 9 0 0 1 477 144Z" fill="#313244"/>
+<path d="M522 126A9 9 0 0 0 522 144Z" fill="#313244"/>
+<path d="M666 126A9 9 0 0 1 666 144Z" fill="#313244"/>
+<text y="139"><tspan x="9" fill="#cba6f7" font-weight="bold">☰</tspan><tspan x="54 63 72 81 90 99" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="135 144 153 162 171 189" fill="#6c7086">notes↓</tspan><tspan x="225 234 243 252 261 279 288 297 306 315 333 369 378 387 396 405 414 423 432 441 450 468" fill="#cdd6f4">cargobuild✕filepicker⚙</tspan><tspan x="495" fill="#6c7086">│</tspan><tspan x="522 531 540 558 567 576 585 594 603 621 630 639 648 657" fill="#cdd6f4">manzellij↗docs</tspan></text>
+</g>
+</g>
+</svg>

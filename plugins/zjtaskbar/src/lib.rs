@@ -11,7 +11,8 @@
 //! see `tray` and `clock`.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
-//! Zellij.
+//! Zellij. It is a library so that other crates' tests can draw it into the
+//! docs images, through `draw_for_image` behind the `images` feature.
 
 use std::cell::{Ref, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
@@ -27,6 +28,8 @@ mod entries;
 mod flags;
 mod frame;
 mod host;
+#[cfg(test)]
+mod images;
 mod instance;
 mod launcher;
 mod mouse;
@@ -658,6 +661,53 @@ impl ZellijPlugin for State {
         self.click_spans = click_spans;
         print!("{output}");
     }
+}
+
+/// The line zjtaskbar draws for the panes of `manifest` in `tabs`, in a bar
+/// `columns` wide, with `configuration` as its options and `mode_info` as
+/// the last `ModeUpdate` Zellij sent it: the ANSI the plugin prints, drawn
+/// by the same code.
+///
+/// For the docs images. The bar is set up as the plugin is once Zellij has
+/// reported its theme, its pane's width, the panes and the tabs, without
+/// asking Zellij for anything. A bar that `mode_info` hides, as
+/// `hide_when_nested` hides a nested session's, draws an empty line.
+///
+/// A pane of `manifest` reported hidden, suppressed and not floating, is
+/// taken as one the bar minimized itself, so an image can show a minimized
+/// entry without the clicks that would make one.
+///
+/// A clock in the tray shows the settings screen's sample time,
+/// `clock::SAMPLE_UNIX_SECONDS`, at `clock_utc_offset` or else at UTC, so an
+/// image comes out the same whenever it is drawn.
+#[cfg(any(test, feature = "images"))]
+pub fn draw_for_image(
+    configuration: BTreeMap<String, String>,
+    mode_info: ModeInfo,
+    tabs: &[TabInfo],
+    manifest: PaneManifest,
+    columns: usize,
+) -> String {
+    let mut state = State {
+        instance: Instance::alone(),
+        ..Default::default()
+    };
+    // Set before the options, as `color_theme zellij` draws in its colors.
+    state.bar.zellij_palette = Some(mode_info.style.colors);
+    state.bar.pane_width = Some(columns);
+    state.mode_info = mode_info;
+    state.tabs = entries::tabs_of(tabs);
+    for pane in manifest.panes.values().flatten() {
+        if pane.is_suppressed && !pane.is_floating {
+            let pane_id = zjkit::panes::pane_id_of(pane);
+            state.minimized_mut().insert(pane_id, Default::default());
+        }
+    }
+    state.panes = manifest;
+    // Reads the options and takes the entries from the panes and tabs.
+    state.apply_configuration(configuration);
+    state.clock.text = state.clock.sample_text();
+    state.draw_bar().0
 }
 
 #[cfg(test)]

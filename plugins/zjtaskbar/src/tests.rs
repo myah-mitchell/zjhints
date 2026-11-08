@@ -1490,6 +1490,38 @@ fn a_preview_of_another_alias_changes_nothing() {
     assert!(!preview(&mut state, "another", &changes));
 }
 
+// Drawing for the docs images.
+
+#[test]
+fn drawing_for_an_image_draws_what_the_plugin_would() {
+    let infos = tabs(2, 0);
+    let by_tab = vec![
+        (0, vec![focused(floating(1, "a"))]),
+        (1, vec![floating(2, "b")]),
+    ];
+    let state = bar(&PLAIN, 40, infos.clone(), by_tab.clone());
+    let Event::PaneUpdate(manifest) = panes(40, by_tab) else {
+        unreachable!()
+    };
+    assert_eq!(
+        draw_for_image(cfg(&PLAIN), mode(), &infos, manifest, 40),
+        state.draw_bar().0
+    );
+}
+
+#[test]
+fn drawing_for_an_image_takes_a_hidden_pane_as_one_the_bar_minimized() {
+    let by_tab = vec![(
+        0,
+        vec![focused(floating(1, "a")), suppressed(floating(2, "b"))],
+    )];
+    let Event::PaneUpdate(manifest) = panes(40, by_tab) else {
+        unreachable!()
+    };
+    let line = draw_for_image(cfg(&PLAIN), mode(), &tabs(1, 0), manifest, 40);
+    assert_eq!(strip_ansi(&line), "[a]|_b_");
+}
+
 // The mouse.
 
 /// Render the bar as Zellij does, at the width of its own pane, or 80
@@ -3970,6 +4002,18 @@ fn a_mode_or_session_change_redraws_only_when_that_item_is_in_the_tray() {
     assert!(state.update(Event::ModeUpdate(nameless.clone())));
     nameless.session_name = Some(String::new());
     assert!(!state.update(Event::ModeUpdate(nameless)));
+}
+
+// The tray in the docs images.
+
+#[test]
+fn an_image_shows_the_sample_time() {
+    let options = tray_with("clock", &[("clock_utc_offset", "")]);
+    let Event::PaneUpdate(manifest) = panes(30, vec![(0, vec![floating(1, "a")])]) else {
+        unreachable!()
+    };
+    let line = draw_for_image(cfg(&options), mode(), &tabs(1, 0), manifest, 30);
+    assert!(strip_ansi(&line).ends_with("~09:41"), "{line:?}");
 }
 
 // Frame buttons.

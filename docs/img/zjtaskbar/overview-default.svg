@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="60" viewBox="0 0 928 60" role="img">
+<!-- Drawn for zjtaskbar by zjkit's image engine: edit the code and run `make images`. -->
+<title>The zjtaskbar bar in the Zellij theme's colors: a Menu button for the launcher, then four floating panes. The htop entry is a ribbon, the editor entry is highlighted as the focused one, and the notes entry is plain text ending in (MINIMIZED). After a line between the tabs comes the man zellij entry, from the docs tab. The rest of the bar is blank, since the tray is empty by default</title>
+<rect width="928" height="60" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="54" height="18" fill="#cdd6f4"/>
+<rect x="63" y="18" width="54" height="18" fill="#cdd6f4"/>
+<rect x="126" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="207" y="18" width="171" height="18" fill="#181825"/>
+<rect x="405" y="18" width="108" height="18" fill="#cdd6f4"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90 108 117 126 135 144 162 171 189 198 207 225 234 243 252 261 270 288 297 306 315 324 333 342 360 369 378 387 396 405" fill="#878ca4">thedefaultlook,intheZellijtheme'scolors</tspan></text>
+<text y="31"><tspan x="9 18 27 36" fill="#181825" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#181825">htop</tspan><tspan x="135 144 153 162 171 180" fill="#181825" font-weight="bold">editor</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 387" fill="#cdd6f4">notes(MINIMIZED)│</tspan><tspan x="414 423 432 450 459 468 477 486 495" fill="#181825">manzellij</tspan></text>
+</g>
+</g>
+</svg>
