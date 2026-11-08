@@ -3,7 +3,9 @@
 //! This is the one list of options in the code. Tests hold it to the bar's own
 //! `CONFIG_*` and `DEFAULT_*` constants, so an option added to the bar and not
 //! here, or a default changed in one place only, fails the build rather than
-//! going missing from the screen or showing the wrong default.
+//! going missing from the screen or showing the wrong default. They also hold
+//! it to the configuration reference (docs/zjtabs/configuration.md), so an
+//! option added to one and not the other fails the build too.
 
 use zjkit::settings::schema::{family, option, FamilySpec, Kind, OptionSpec};
 use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
@@ -287,6 +289,9 @@ mod tests {
         DEFAULT_MOUSE_CLOSE_CONFIRM, DEFAULT_MOUSE_WHEEL_REVERSED, DEFAULT_OVERFLOW_STR,
         DEFAULT_RENAME_PLACEHOLDER, DEFAULT_SHOW_MODE, DEFAULT_SHOW_SESSION, DEFAULT_TAB_SPACER,
     };
+    use zjkit::settings::reference;
+
+    const REFERENCE: &str = include_str!("../../../../docs/zjtabs/configuration.md");
 
     /// What an option's default should read, from the constant the bar falls
     /// back on, or `None` for an option that is unset by default. Every
@@ -368,6 +373,21 @@ mod tests {
             );
         }
         assert_eq!(OPTIONS.len(), defaults.len());
+    }
+
+    #[test]
+    fn every_documented_option_is_in_the_table_and_no_other() {
+        reference::assert_names_match(REFERENCE, &SCHEMA);
+    }
+
+    #[test]
+    fn defaults_and_groups_match_the_reference() {
+        reference::assert_defaults_and_groups_match(REFERENCE, &SCHEMA);
+    }
+
+    #[test]
+    fn groups_are_in_reference_order() {
+        reference::assert_group_order_matches(REFERENCE, &SCHEMA);
     }
 
     #[test]

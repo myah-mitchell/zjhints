@@ -3,7 +3,9 @@
 //! plumbing in `zjkit`.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
-//! Zellij.
+//! Zellij. It is a library so that zjhints' tests can draw zjtabs as the tab
+//! bar of the docs images that show a whole Zellij session, through
+//! `draw_for_image` behind the `images` feature.
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
@@ -14,6 +16,8 @@ use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
 mod flags;
 mod host;
+#[cfg(test)]
+mod images;
 mod mouse;
 mod settings;
 mod tabs;
@@ -390,6 +394,34 @@ impl ZellijPlugin for State {
         print!("{output}");
         self.click_spans = click_spans;
     }
+}
+
+/// The line zjtabs draws for `tabs` in a bar `columns` wide, with
+/// `configuration` as its options and `mode_info` as the last `ModeUpdate`
+/// Zellij sent it, which names the session: the ANSI the plugin prints, drawn
+/// by the same code.
+///
+/// For the docs images: zjtabs' own images draw the bar alone, and zjhints'
+/// draw it as the tab bar of a whole Zellij session, so neither needs a
+/// stand-in for it. The bar is set up as the plugin is once Zellij has
+/// reported its theme, its pane's width and its tabs, without asking Zellij
+/// for anything. A bar that `mode_info` hides, as `hide_when_nested` hides a
+/// nested session's, draws an empty line.
+#[cfg(any(test, feature = "images"))]
+pub fn draw_for_image(
+    configuration: BTreeMap<String, String>,
+    mode_info: ModeInfo,
+    tabs: &[TabInfo],
+    columns: usize,
+) -> String {
+    let mut state = State::default();
+    // Set before the options, as `color_theme zellij` draws in its colors.
+    state.bar.zellij_palette = Some(mode_info.style.colors);
+    state.apply_configuration(configuration);
+    state.bar.pane_width = Some(columns);
+    state.mode_info = mode_info;
+    state.tabs = tabs::tabs_of(tabs);
+    state.draw_bar().0
 }
 
 #[cfg(test)]

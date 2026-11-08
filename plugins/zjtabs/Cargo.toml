@@ -15,7 +15,14 @@ zellij-tile.workspace = true
 zellij-tile-utils.workspace = true
 zellij-utils.workspace = true
 
+[features]
+# Makes `draw_for_image` public, for the zjhints tests that draw zjtabs as the
+# tab bar of the docs images showing a whole Zellij session. The plugin itself
+# never calls it, so the release build leaves it out.
+images = []
+
 [dev-dependencies]
-# A dev-dependency's features stay out of the release build, so the wasm
-# plugin does not compile `junk`, the options one test loads the plugin with.
-zjkit = { workspace = true, features = ["testing"] }
+# The tests draw the images in docs/img/zjtabs. A dev-dependency's features
+# stay out of the release build, so the wasm plugin does not compile the
+# engine, nor `junk`, the options one test loads the plugin with.
+zjkit = { workspace = true, features = ["images", "testing"] }
