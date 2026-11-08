@@ -79,7 +79,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 
 ### The zjtabs plugin
 
-zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij as a shared plugin, so that tests elsewhere in the workspace can reach its `draw_for_image` through its `images` feature.
+zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij as a shared plugin, so that zjhints' tests can depend on the library and draw zjtabs in its images (see [Images](#images)).
 
 | File | What it holds |
 | --- | --- |
@@ -178,7 +178,13 @@ An animation is a list of frames, each a `Screen` and how long it shows, written
 
 Each row of the screen is written once per distinct look and shown only during its frames, so a frame that changes a few rows costs a few rows. Keep the frames that change everything, such as a resize, few. The session demos in the README, drawn by `plugins/zjhints/src/images/session.rs`, run 16 to 26 seconds each and take 30 to 110 KB, the fitting demo the most for its resize. Under `prefers-reduced-motion: reduce` the animation stops on the still frame, and so does a viewer that applies CSS but does not animate it. A viewer that ignores the `<style>` block altogether draws every frame on top of the others, so check a new image in a browser.
 
-The session demo draws Zellij's tab bar, pane frames and pane contents by hand. Only the bar, its hover preview and the settings screen come from the plugin, so change the hand-drawn parts there when Zellij's look changes.
+The session demo draws Zellij's pane frames and pane contents by hand. The bar, its hover preview and the settings screen come from zjhints, and the tab bar is zjtabs at its defaults, so change the hand-drawn parts there when Zellij's look changes.
+
+#### Images that draw both plugins
+
+The session demos are zjhints' images: they live in `docs/img`, carry zjhints' mark, and only zjhints' test writes, compares or removes them. Their tab bar comes from `zjtabs::draw_for_image`, which zjhints' tests reach through a dev-dependency on zjtabs with its `images` feature on. Neither release build includes it.
+
+So a change to how zjtabs looks can leave zjhints' images stale as well as its own. `make images` redraws both plugins' images, and `cargo test --all-features` fails on any that are stale, whichever plugin owns them.
 
 ## Pull requests
 

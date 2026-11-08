@@ -2768,6 +2768,7 @@ dependencies = [
  "zellij-tile-utils",
  "zellij-utils",
  "zjkit",
+ "zjtabs",
 ]
 
 [[package]]

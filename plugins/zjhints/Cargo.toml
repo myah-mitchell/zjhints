@@ -21,3 +21,6 @@ zellij-utils.workspace = true
 # of the release build, so the wasm plugin does not compile the engine, nor
 # `junk`, the options one test loads the plugin with.
 zjkit = { workspace = true, features = ["images", "testing"] }
+# The same tests draw zjtabs as the tab bar of the images showing a whole
+# Zellij session. As a dev-dependency, zjtabs stays out of the release build.
+zjtabs = { workspace = true, features = ["images"] }

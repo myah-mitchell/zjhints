@@ -19,6 +19,8 @@ zellij-tile-utils = "0.46.0"
 # saves through; zellij-tile already builds it, so it adds nothing to compile.
 zellij-utils = "0.46.0"
 zjkit = { path = "crates/zjkit" }
+# For zjhints' tests only, which draw it as the tab bar of the docs images.
+zjtabs = { path = "plugins/zjtabs" }
 
 # Override: myah-mitchell/zellij's fork-ea-v0.46.7-261103 is its early-access
 # build. It is upstream main, which has the nested-session, plugin-collapse,
