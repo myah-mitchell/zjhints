@@ -24,9 +24,10 @@ pub static SCHEMA: Schema = Schema {
     draw_bar,
 };
 
-/// The sample values the screen fills a format's placeholders with: none.
-fn sample_values(_key: &str, _config: &BTreeMap<String, String>) -> Vec<(&'static str, String)> {
-    Vec::new()
+/// The sample values the screen fills a format's placeholders with: the mode
+/// prefix's, the only ones zjkit knows.
+fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static str, String)> {
+    zjkit::mode::sample_values(key, config).unwrap_or_default()
 }
 
 /// The preview of the bar on the screen, which is empty: zjtaskbar draws no

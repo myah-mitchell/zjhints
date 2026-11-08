@@ -48,16 +48,20 @@ pub(crate) enum Feature {
     LauncherZellijAction,
     /// A launcher entry that runs a command in a new floating pane.
     LauncherCommand,
+    /// The tray's clock, while it has no `clock_utc_offset` to go by and asks
+    /// the system for the local time's offset instead.
+    ClockCommand,
 }
 
 impl Feature {
     /// Every feature, for the settings screen, which asks for what a bar with
     /// every feature on needs.
-    pub(crate) const ALL: [Feature; 4] = [
+    pub(crate) const ALL: [Feature; 5] = [
         Feature::Mouse,
         Feature::Launcher,
         Feature::LauncherZellijAction,
         Feature::LauncherCommand,
+        Feature::ClockCommand,
     ];
 
     /// What the feature needs beyond what the bar always asks for.
@@ -84,6 +88,11 @@ impl Feature {
                 // Opening a pane that runs a command.
                 PermissionType::RunCommands,
             ],
+            Feature::ClockCommand => &[
+                // Running `date` for the local time's offset from UTC, which
+                // a plugin cannot read from its sandbox.
+                PermissionType::RunCommands,
+            ],
         }
     }
 }
@@ -103,7 +112,7 @@ pub(crate) fn bar_permissions(features: &[Feature]) -> Vec<PermissionType> {
 }
 
 /// The events the bar always subscribes to.
-pub(crate) const BAR_EVENTS: [EventType; 5] = [
+pub(crate) const BAR_EVENTS: [EventType; 7] = [
     // The nested-session state that hides or dims the bar, and the Zellij
     // theme the default look is drawn in.
     EventType::ModeUpdate,
@@ -114,6 +123,11 @@ pub(crate) const BAR_EVENTS: [EventType; 5] = [
     // Which tab is active, whether its floating panes are shown, and the
     // names of the tabs the panes are in.
     EventType::TabUpdate,
+    // The tray's clock: its ticks, and the answer of the command that asks
+    // the system for its offset from UTC. Neither needs a permission, and
+    // neither arrives unless the clock asks for it.
+    EventType::Timer,
+    EventType::RunCommandResult,
     // The answers to the pane menu, the close confirmation and the
     // launcher's menu.
     EventType::PromptResult,

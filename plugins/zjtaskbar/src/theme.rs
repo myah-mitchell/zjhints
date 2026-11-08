@@ -8,11 +8,11 @@
 //!
 //! - `color_theme` supplies the `color_<name>` aliases.
 //! - `format_theme` supplies the entry, spacer, tab separator, overflow
-//!   marker, `overflow_str` and launcher button format strings, which
+//!   marker, `overflow_str`, launcher button and tray format strings, which
 //!   draw with those aliases. `zellij` (the default) adds none, leaving the
 //!   bar in Zellij's own ribbon colors.
-//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as and
-//!   the launcher's `{symbol}`. `zellij`
+//! - `alias_theme` supplies the symbol each flag of `{flags}` shows as, the
+//!   launcher's `{symbol}`, and each mode's `{key}` in the tray. `zellij`
 //!   (the default) adds none, leaving the bar's own words.
 //!
 //! The three touch separate options, so the order they are laid in does not
@@ -21,14 +21,16 @@
 
 use crate::flags::FLAGS;
 use crate::{
-    CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER, CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT,
-    CONFIG_LAUNCHER_SYMBOL, CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT,
-    CONFIG_OVERFLOW_LEFT_FORMAT, CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR,
-    CONFIG_TAB_SEPARATOR,
+    CONFIG_CLOCK_ITEM_FORMAT, CONFIG_ENTRY_FORMAT, CONFIG_ENTRY_SPACER,
+    CONFIG_FOCUSED_ENTRY_FORMAT, CONFIG_LAUNCHER_FORMAT, CONFIG_LAUNCHER_SYMBOL,
+    CONFIG_MINIMIZED_ENTRY_FORMAT, CONFIG_OTHER_TAB_FORMAT, CONFIG_OVERFLOW_LEFT_FORMAT,
+    CONFIG_OVERFLOW_RIGHT_FORMAT, CONFIG_OVERFLOW_STR, CONFIG_SESSION_FORMAT, CONFIG_TAB_SEPARATOR,
+    CONFIG_TRAY_SPACER,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::Styling;
-use zjkit::theme::{color_entries, Shape, ARROW, PILL_LEFT, PILL_RIGHT};
+use zjkit::mode::Edge;
+use zjkit::theme::{color_entries, Shape, ARROW, ARROW_LEFT, PILL_LEFT, PILL_RIGHT};
 
 /// The symbol each flag shows as under each alias theme, in the order of
 /// `flags::FLAGS`: minimized, exited, plugin, and in another tab.
@@ -98,7 +100,59 @@ pub fn layer(
             add(key.to_string(), value);
         }
     }
+    // The tray's mode item, in the shape the mode prefix of zjhints and
+    // zjtabs takes, turned to face the entries from the line's right end,
+    // and whole: see `edge_looks` for the look of one against the edge.
+    zjkit::mode::layer_theme_at(configuration, &mut layered, Edge::InsideRight);
     layered
+}
+
+/// The looks the format theme gives the tray's items where one closes the
+/// line against the pane's right edge, open at that end, for every item
+/// whose format the user leaves to the theme. The options hold each item's
+/// whole look, for anywhere else on the line. See `State::draw_bar`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct EdgeLooks {
+    /// The mode's formats, in place of those of the same name. See
+    /// `zjkit::mode::theme_formats_at`.
+    pub mode: BTreeMap<String, String>,
+    /// The session's format, in place of `session_format`.
+    pub session: Option<String>,
+    /// The clock's format, in place of `clock_item_format`.
+    pub clock: Option<String>,
+}
+
+/// The `EdgeLooks` of the format theme `configuration`, the user's own
+/// options, selects. None while it selects no shape.
+pub(crate) fn edge_looks(configuration: &BTreeMap<String, String>) -> EdgeLooks {
+    let Some(shape) = zjkit::theme::shape(configuration) else {
+        return EdgeLooks::default();
+    };
+    let unset = |key: &str| !configuration.contains_key(key);
+    EdgeLooks {
+        mode: zjkit::mode::theme_formats_at(configuration, Edge::Right),
+        session: unset(CONFIG_SESSION_FORMAT).then(|| zjkit::mode::session_format(shape, true)),
+        clock: unset(CONFIG_CLOCK_ITEM_FORMAT).then(|| clock_format(shape, true)),
+    }
+}
+
+/// The clock drawn in `shape` at the line's right end: the mirror image of a
+/// normal entry, with a pill closed at both ends unless `at_edge`, where
+/// the pane's edge closes it, as `zjkit::mode::session_format` draws the
+/// session's name.
+fn clock_format(shape: Shape, at_edge: bool) -> String {
+    let edge = match shape {
+        Shape::Flat => "#[fg=$fg,bg=$surface] {clock} ".to_string(),
+        Shape::Plain => "#[fg=$fg]{clock}".to_string(),
+        Shape::Powerline => {
+            format!("#[fg=$surface]{ARROW_LEFT}#[fg=$fg,bg=$surface] {{clock}} ")
+        }
+        Shape::Pills => format!("#[fg=$surface]{PILL_LEFT}#[fg=$fg,bg=$surface] {{clock}} "),
+    };
+    match shape {
+        Shape::Pills if !at_edge => format!("{edge}#[fg=$surface]{PILL_RIGHT}"),
+        _ => edge,
+    }
 }
 
 /// The flag symbols of the alias theme `configuration` selects, or `None`
@@ -135,7 +189,17 @@ fn launcher_symbol(configuration: &BTreeMap<String, String>) -> Option<&'static 
 /// The launcher's button has the shape of an entry, with its symbol in the
 /// accent color on the background of a normal one and in bold, so it stands
 /// apart from both the focused entry and the rest.
-fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
+///
+/// The tray's items stand at the line's right end, so each is the mirror
+/// image of an entry, facing back along the line toward the entries, as
+/// zjtabs draws its session name: a powerline arrow points back along the
+/// line, and a pill is drawn whole. The clock is drawn like a normal entry,
+/// and the session's name as zjtabs draws it, in the accent color; see
+/// `zjkit::mode::session_format`. These are the looks for anywhere on the
+/// line: the bar draws the last item in its look for the pane's right edge,
+/// open at that end, when it can tell the item ends there. See
+/// `edge_looks`. The tray's spacer is the entries' own.
+fn format_entries(shape: Shape) -> [(&'static str, String); 12] {
     let separator = "#[fg=$muted] \u{2502} ".to_string();
     let launcher = match shape {
         Shape::Flat => "#[fg=$accent,bg=$surface,bold] {symbol} ".to_string(),
@@ -147,6 +211,7 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
             "#[fg=$surface]{PILL_LEFT}#[fg=$accent,bg=$surface,bold]{{symbol}}#[fg=$surface]{PILL_RIGHT}"
         ),
     };
+    let clock = clock_format(shape, false);
     let (entry, focused, minimized, spacer, left, right, overflow) = match shape {
         Shape::Flat => (
             "#[fg=$fg,bg=$surface] {title}{flags} ".to_string(),
@@ -205,6 +270,12 @@ fn format_entries(shape: Shape) -> [(&'static str, String); 9] {
         (CONFIG_OVERFLOW_RIGHT_FORMAT, right),
         (CONFIG_OVERFLOW_STR, overflow),
         (CONFIG_LAUNCHER_FORMAT, launcher),
+        (CONFIG_TRAY_SPACER, spacer.to_string()),
+        (CONFIG_CLOCK_ITEM_FORMAT, clock),
+        (
+            CONFIG_SESSION_FORMAT,
+            zjkit::mode::session_format(shape, false),
+        ),
     ]
 }
 
@@ -272,8 +343,10 @@ pub(crate) mod tests {
     /// The options a theme may set that are format strings.
     fn is_format(key: &str) -> bool {
         key.ends_with("_format")
+            || key.starts_with(zjkit::mode::CONFIG_MODE_FORMAT_PREFIX)
             || key == CONFIG_ENTRY_SPACER
             || key == CONFIG_TAB_SEPARATOR
+            || key == CONFIG_TRAY_SPACER
             || key == CONFIG_OVERFLOW_STR
     }
 
@@ -292,6 +365,11 @@ pub(crate) mod tests {
                         ("flags", " _"),
                         ("count", "3"),
                         ("symbol", "+"),
+                        ("clock", "09:41"),
+                        ("session", "work"),
+                        ("desc", "NORMAL"),
+                        ("key", "N"),
+                        ("mode", "NORMAL"),
                     ],
                     &layered,
                     0.0,
@@ -490,6 +568,66 @@ pub(crate) mod tests {
                 assert_ne!(layered[CONFIG_LAUNCHER_FORMAT], entry_look, "{name} {key}");
             }
         }
+    }
+
+    #[test]
+    fn the_tray_s_items_are_whole_in_the_options_and_open_at_the_edge() {
+        for (name, shape) in FORMAT_THEMES {
+            let pairs = [(CONFIG_FORMAT_THEME, name), (CONFIG_ALIAS_THEME, "unicode")];
+            let layered = themed(&pairs);
+            let edge = edge_looks(&cfg(&pairs));
+            let mut looks = vec![
+                (
+                    &layered[CONFIG_SESSION_FORMAT],
+                    edge.session.clone().unwrap(),
+                ),
+                (
+                    &layered[CONFIG_CLOCK_ITEM_FORMAT],
+                    edge.clock.clone().unwrap(),
+                ),
+            ];
+            assert!(!edge.mode.is_empty(), "{name}");
+            for (key, look) in &edge.mode {
+                looks.push((&layered[key], look.clone()));
+            }
+            for (whole, open) in looks {
+                match shape {
+                    // Closed at both ends anywhere on the line, and left open
+                    // at the right one against the pane's edge.
+                    Shape::Pills => {
+                        assert!(whole.contains(PILL_LEFT), "{name} {whole}");
+                        assert_eq!(
+                            *whole,
+                            format!("{open}#[fg=$surface]{PILL_RIGHT}"),
+                            "{name}"
+                        );
+                    }
+                    // An arrow points back along the line wherever it is.
+                    Shape::Powerline => {
+                        assert!(whole.contains(ARROW_LEFT), "{name} {whole}");
+                        assert!(!whole.contains(ARROW), "{name} {whole}");
+                        assert_eq!(*whole, open, "{name}");
+                    }
+                    Shape::Flat | Shape::Plain => assert_eq!(*whole, open, "{name}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_item_whose_format_the_user_set_has_no_look_of_the_theme_s_at_the_edge() {
+        let user = cfg(&[
+            (CONFIG_FORMAT_THEME, "pills"),
+            (CONFIG_SESSION_FORMAT, "[{session}]"),
+            (CONFIG_CLOCK_ITEM_FORMAT, "{clock}"),
+            ("mode_format", "<{mode}>"),
+        ]);
+        assert_eq!(edge_looks(&user), EdgeLooks::default());
+        assert_eq!(edge_looks(&cfg(&[])), EdgeLooks::default());
+        assert_eq!(
+            edge_looks(&cfg(&[(CONFIG_FORMAT_THEME, "zellij")])),
+            EdgeLooks::default()
+        );
     }
 
     #[test]

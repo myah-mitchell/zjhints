@@ -6,7 +6,9 @@
 //! with the focused one highlighted and the minimized ones marked. See
 //! `entries` for which panes it lists and in what order, `draw` for how it
 //! draws them, and `mouse` for what clicking them does. A launcher button
-//! at the bar's left end opens new floating panes; see `launcher`.
+//! at the bar's left end opens new floating panes; see `launcher`. A tray
+//! at its right end shows the time, the session's name or the input mode;
+//! see `tray` and `clock`.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
 //! Zellij.
@@ -19,6 +21,7 @@ use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
 use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
+mod clock;
 mod draw;
 mod entries;
 mod flags;
@@ -28,12 +31,14 @@ mod launcher;
 mod mouse;
 mod settings;
 mod theme;
+mod tray;
 
 use draw::Clickable;
 use entries::{Entry, Minimized, PaneScope, Tab};
 use flags::FLAGS;
 use host::*;
 use instance::Instance;
+use tray::TrayItem;
 
 const CONFIG_PANE_SCOPE: &str = "pane_scope";
 const CONFIG_ENTRY_FORMAT: &str = "entry_format";
@@ -63,6 +68,14 @@ const CONFIG_LAUNCHER_FORMAT: &str = "launcher_format";
 const CONFIG_LAUNCHER_SYMBOL: &str = "launcher_symbol";
 const CONFIG_LAUNCHER_NEW_TERMINAL: &str = "launcher_new_terminal";
 const CONFIG_LAUNCHER_ZELLIJ_ACTIONS: &str = "launcher_zellij_actions";
+const CONFIG_TRAY: &str = "tray";
+const CONFIG_TRAY_SPACER: &str = "tray_spacer";
+const CONFIG_CLOCK_FORMAT: &str = "clock_format";
+const CONFIG_CLOCK_ITEM_FORMAT: &str = "clock_item_format";
+const CONFIG_CLOCK_UTC_OFFSET: &str = "clock_utc_offset";
+const CONFIG_SHOW_SESSION: &str = "show_session";
+const CONFIG_SESSION_FORMAT: &str = "session_format";
+
 // Every tab's floating panes, as a desktop taskbar lists the windows of
 // every workspace: a pane left open in another tab is still one click away,
 // rather than out of sight until that tab is visited.
@@ -124,6 +137,23 @@ const DEFAULT_LAUNCHER_SYMBOL: &str = "Menu";
 // reached only through session mode's keys.
 const DEFAULT_LAUNCHER_NEW_TERMINAL: bool = true;
 const DEFAULT_LAUNCHER_ZELLIJ_ACTIONS: bool = true;
+// Empty, so a bar with nothing set draws nothing extra and asks for no
+// permission until an item is chosen. The session's name and the input mode
+// repeat what zjtabs and zjhints draw, and a taskbar is most often run
+// beside one of them; the clock needs either `date +%z`, and so permission
+// to run commands, or a `clock_utc_offset` set by hand.
+const DEFAULT_TRAY: &str = "";
+// One space, as between the entries, so items drawn in Zellij's ribbon
+// colors read as separate blocks.
+const DEFAULT_TRAY_SPACER: &str = " ";
+// Hours and minutes on a 24-hour clock: the shortest time that reads
+// without a date or AM and PM, and one that changes only once a minute, so
+// the bar redraws for it no more often than that.
+const DEFAULT_CLOCK_FORMAT: &str = "%H:%M";
+// Shown, as in zjtabs: listing `session` in the tray is the user asking for
+// it. While unset, Zellij's own `hide_session_name` still hides it; see
+// `zjkit::mode::session_shown`.
+const DEFAULT_SHOW_SESSION: bool = true;
 
 #[derive(Default)]
 pub struct State {
@@ -204,6 +234,30 @@ pub struct State {
     /// The user's own entries in the launcher's menu, in order, from the
     /// `launch_<n>_*` keys. See `launcher`.
     launch_entries: Vec<launcher::LaunchEntry>,
+    /// The items of the tray, in the order they are drawn. See `tray`.
+    tray: Vec<TrayItem>,
+    /// Drawn between neighboring items of the tray, and between the tray and
+    /// what comes before it.
+    tray_spacer: String,
+    /// The tray's clock: its options, and what it knows of the time. See
+    /// `clock`.
+    clock: clock::Clock,
+    /// The tray's session item's `show_session`, or `None` while it is
+    /// unset, which leaves it to Zellij's `hide_session_name`. See
+    /// `State::session_name`.
+    show_session: Option<bool>,
+    /// The format of the tray's session item, or `None` for Zellij's own
+    /// ribbon colors.
+    session_format: Option<String>,
+    /// The format of the tray's mode item, or `None` for zjkit's built-in
+    /// look. The theme's per-mode formats are read from the configuration
+    /// as it is drawn; see `zjkit::mode::render_mode_prefix`.
+    mode_format: Option<String>,
+    /// The format theme's looks for a tray item that closes the line against
+    /// the pane's right edge, where the user left the item's format to it.
+    /// The options hold the whole looks, for anywhere else. See
+    /// `theme::edge_looks` and `State::draw_bar`.
+    edge_looks: theme::EdgeLooks,
     /// The panes from the last `PaneUpdate`, which the entries are taken
     /// from.
     panes: PaneManifest,
@@ -213,7 +267,8 @@ pub struct State {
     /// the instance's minimized panes and `pane_scope`. See
     /// `refresh_entries`.
     entries: Vec<Entry>,
-    /// The last `ModeUpdate`, for the nested-session state.
+    /// The last `ModeUpdate`, for the nested-session state, and for the tray's
+    /// mode and session name.
     mode_info: ModeInfo,
     /// What each column of the line last drawn stands for, for the mouse.
     click_spans: ColumnSpans<Clickable>,
@@ -306,6 +361,20 @@ impl State {
             DEFAULT_LAUNCHER_ZELLIJ_ACTIONS,
         );
         self.launch_entries = launcher::launch_entries(configuration);
+        self.tray = tray::tray_items(&text(CONFIG_TRAY, DEFAULT_TRAY));
+        self.tray_spacer = text(CONFIG_TRAY_SPACER, DEFAULT_TRAY_SPACER);
+        // What the clock knows of the time is kept: only its options change.
+        self.clock.format = text(CONFIG_CLOCK_FORMAT, DEFAULT_CLOCK_FORMAT);
+        self.clock.item_format =
+            config::non_empty_string_option(configuration, CONFIG_CLOCK_ITEM_FORMAT);
+        self.clock.offset_source = clock::OffsetSource::of(
+            config::non_empty_string_option(configuration, CONFIG_CLOCK_UTC_OFFSET).as_deref(),
+        );
+        self.show_session = config::explicit_bool_option(configuration, CONFIG_SHOW_SESSION);
+        self.session_format = config::non_empty_string_option(configuration, CONFIG_SESSION_FORMAT);
+        self.mode_format =
+            config::non_empty_string_option(configuration, zjkit::mode::CONFIG_MODE_FORMAT);
+        self.edge_looks = theme::edge_looks(&self.bar.user_configuration);
         // `pane_scope` decides which panes are listed.
         self.refresh_entries();
     }
@@ -325,6 +394,9 @@ impl State {
         }
         if self.launcher_runs_commands() {
             features.push(Feature::LauncherCommand);
+        }
+        if self.clock_runs_command() {
+            features.push(Feature::ClockCommand);
         }
         features
     }
@@ -418,6 +490,8 @@ impl ZellijPlugin for State {
         if let Some(id) = self.bar.plugin_id {
             self.instance.get_mut().bars.insert(id);
         }
+        // Arms the clock's first timer. Its offset waits for the permission.
+        self.follow_clock();
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -445,13 +519,21 @@ impl ZellijPlugin for State {
                 should_render |= self.refresh_entries();
             }
             // A mode update arrives on every mode change and more, but the
-            // bar shows only how nesting hides or dims it. The Zellij theme it
-            // also carries is `BarCore`'s to follow.
+            // bar shows only how nesting hides or dims it, and the mode and
+            // the session's name while they are in the tray. The Zellij theme
+            // it also carries is `BarCore`'s to follow.
             Event::ModeUpdate(mode_info) => {
                 if self.mode_view(&mode_info) != self.mode_view(&self.mode_info) {
                     should_render = true;
                 }
                 self.mode_info = mode_info;
+            }
+            // `BarCore` has made the pane unselectable and, on a grant, added
+            // the settings entry. The clock's offset may wait on it.
+            Event::PermissionRequestResult(status) => self.clock_permission_answered(status),
+            Event::Timer(_) => self.clock_timer_fired(),
+            Event::RunCommandResult(exit_code, stdout, _, context) => {
+                self.answer_clock_command(exit_code, &stdout, &context)
             }
             // What a click does comes back as a `PaneUpdate`, so the mouse
             // never redraws by itself.
@@ -459,6 +541,8 @@ impl ZellijPlugin for State {
             Event::PromptResult(request_id, result) => self.answer_prompt(request_id, &result),
             _ => {}
         }
+        // Whatever came, the clock may have a new option, offset or tick.
+        should_render |= self.follow_clock();
         should_render
     }
 
@@ -468,7 +552,8 @@ impl ZellijPlugin for State {
             return false;
         }
         match self.bar.pipe(&self.host, &BAR, &message) {
-            Some(handled) => BarCore::follow(self, &BAR, handled),
+            // A preview from the settings screen may change the tray.
+            Some(handled) => BarCore::follow(self, &BAR, handled) | self.follow_clock(),
             None => false,
         }
     }
