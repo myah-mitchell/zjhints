@@ -94,6 +94,8 @@ The mode prefix is colored by mode, the same in every format theme:
 
 A mode with a symbol, from an [alias theme](#alias-themes) or your own `mode_key_<mode>`, draws it with its name: before the name in most shapes, and in a block of its own after the name in `pills`. A mode without one gets the name alone.
 
+In the bar's own pane the mode prefix opens the line against the pane's left edge, so a `pills` prefix is rounded on its right end only. Piped into zjstatus, the line sits wherever zjstatus places it, so the prefix is a whole pill, rounded at both ends. A `mode_format` of your own is drawn as written in either place.
+
 A format theme leaves `show_mode` off until you turn it on, so the mode prefix only appears when you ask for it. Its `drop_indicator` marks the gap where hints were dropped to fit, drawn in the theme's shape, whether or not `mouse` is on. Its `overflow_str` ends a hint cut short in the same shape. The per-hint `key_format_<id>` and `desc_format_<id>` options keep their defaults.
 
 ## Alias themes

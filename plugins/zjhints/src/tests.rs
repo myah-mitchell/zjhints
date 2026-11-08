@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use zjkit::ansi::{AnsiParser, AnsiSegment};
 use zjkit::host::{Call, Recorder};
+use zjkit::mode::render_mode_prefix;
 use zjkit::popup::PreviewPopup;
 use zjkit::settings::live;
 use zjkit::settings::screen::SettingsScreen;
@@ -3352,6 +3353,50 @@ fn rendering_publishes_the_line_on_every_zjstatus_pipe() {
         state.host.calls(),
         vec![published("zjhints"), published("zjstatus_hints")]
     );
+}
+
+/// The line `state` publishes to zjstatus, as plain text.
+fn published_line(state: &mut State) -> String {
+    state.host.clear();
+    state.render(1, 40);
+    let calls = state.host.calls();
+    let Some(Call::Broadcast { payload, .. }) = calls.first() else {
+        panic!("nothing was published: {calls:?}");
+    };
+    strip_ansi(payload.trim_start_matches("zjstatus::pipe::pipe_zjhints::"))
+}
+
+#[test]
+fn the_theme_s_mode_prefix_is_whole_unless_it_opens_the_bar_s_own_pane() {
+    use zjkit::theme::{ARROW, PILL_LEFT, PILL_RIGHT};
+    let bar = |options: &[(&str, &str)]| {
+        let mut state = bar_with(options);
+        state.show_mode = true;
+        state.pipe_names = vec!["zjhints".to_string()];
+        state
+    };
+    let starts = |line: String, prefix: String| {
+        assert!(
+            line.starts_with(&prefix),
+            "{line:?} does not start {prefix:?}"
+        );
+    };
+    // Feeding zjstatus, with no pane of its own, the line is set among
+    // zjstatus's own widgets, so the pill is closed at both ends.
+    let mut state = bar(&[("format_theme", "pills")]);
+    starts(
+        published_line(&mut state),
+        format!("{PILL_LEFT} NORMAL {PILL_RIGHT}"),
+    );
+    // In its own pane the line opens the pane, so the pill is open there.
+    state.bar.pane_width = Some(40);
+    starts(published_line(&mut state), format!(" NORMAL {PILL_RIGHT}"));
+    // A powerline arrow keeps its open end either way.
+    let mut state = bar(&[("format_theme", "powerline")]);
+    starts(published_line(&mut state), format!(" NORMAL {ARROW}"));
+    // A format of the user's own is drawn as written.
+    let mut state = bar(&[("format_theme", "pills"), ("mode_format", "<{mode}>")]);
+    starts(published_line(&mut state), "<NORMAL>".to_string());
 }
 
 #[test]

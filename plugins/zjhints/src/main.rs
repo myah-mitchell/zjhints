@@ -1,4 +1,4 @@
-use ansi_term::ANSIStrings;
+use ansi_term::{ANSIString, ANSIStrings};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
@@ -12,7 +12,7 @@ use zjkit::format;
 use zjkit::host::Host;
 #[cfg(test)]
 use zjkit::mode::mode_config_suffix;
-use zjkit::mode::{render_mode_prefix, CONFIG_MODE_FORMAT};
+use zjkit::mode::{render_mode_prefix_with, Edge, CONFIG_MODE_FORMAT};
 use zjkit::mouse;
 use zjkit::nesting;
 use zjkit::panes::{focus_by_tab, pane_id_of, terminal_width, ActiveTab, TabFocus};
@@ -95,6 +95,10 @@ struct State {
     /// alongside it. See `render_mode_prefix`.
     show_mode: bool,
     mode_format: Option<String>,
+    /// The format theme's mode prefix closed at both ends, where the user
+    /// left its formats to the theme, for a line that does not open the
+    /// bar's own pane, as one sent to zjstatus does. See `mode_prefix`.
+    whole_mode_looks: BTreeMap<String, String>,
     /// What each nested session hosted in one of this session's panes reports
     /// about itself, keyed by the pane it runs in so several of them never
     /// overwrite each other. Populated from `NestedSessionModeUpdate` and
@@ -630,6 +634,33 @@ impl State {
         })
     }
 
+    /// The input mode `mode`, drawn as `zjkit::mode::render_mode_prefix`
+    /// draws it, in `colors`, the Zellij theme's colors already dimmed.
+    ///
+    /// The format theme's prefix opens the line against the left edge of the
+    /// pane, open at that end, only in the bar's own visible pane, where the
+    /// line is sure to start on the pane's first column. A bar with no
+    /// visible pane is feeding zjstatus (see `auto_width_limit`), which
+    /// places the line among its own widgets, so there the theme's prefix is
+    /// closed at both ends. A format the user set is drawn as written either
+    /// way.
+    fn mode_prefix(&self, mode: InputMode, colors: &Styling, dim: f32) -> Vec<ANSIString<'static>> {
+        let no_looks = BTreeMap::new();
+        let looks = if self.bar.pane_width.is_some() {
+            &no_looks
+        } else {
+            &self.whole_mode_looks
+        };
+        render_mode_prefix_with(
+            mode,
+            colors,
+            self.mode_format.as_deref(),
+            &self.bar.configuration,
+            looks,
+            dim,
+        )
+    }
+
     /// Whether this session is nested inside another Zellij session.
     fn is_nested(&self) -> bool {
         nesting::is_nested(&self.mode_info)
@@ -962,13 +993,7 @@ impl State {
                 let (prefix, prefix_width) = if styled_indicator.is_empty() || !self.show_mode {
                     (String::new(), 0)
                 } else {
-                    let mode_prefix = render_mode_prefix(
-                        mode_info.mode,
-                        colors,
-                        self.mode_format.as_deref(),
-                        &self.bar.configuration,
-                        dim,
-                    );
+                    let mode_prefix = self.mode_prefix(mode_info.mode, colors, dim);
                     // Spaced from the prefix as the first hint would be.
                     let spacer = self
                         .hint_spacer
@@ -1182,13 +1207,7 @@ impl State {
             &mode_info.style.colors
         };
         let mode_prefix = if self.show_mode {
-            render_mode_prefix(
-                mode_info.mode,
-                colors,
-                self.mode_format.as_deref(),
-                &self.bar.configuration,
-                dim,
-            )
+            self.mode_prefix(mode_info.mode, colors, dim)
         } else {
             vec![]
         };
@@ -1308,6 +1327,7 @@ impl State {
     /// does, so a value behaves the same whichever way it arrived. See
     /// `BarCore::configure`.
     fn apply_configuration(&mut self, user_configuration: BTreeMap<String, String>) {
+        let whole_mode_looks = zjkit::mode::theme_formats_at(&user_configuration, Edge::InsideLeft);
         let configuration = self.bar.configure(&BAR, user_configuration);
         self.max_length = config::usize_option(configuration, "max_length", DEFAULT_MAX_LENGTH);
         self.overflow_str = configuration
@@ -1351,6 +1371,7 @@ impl State {
         // `{mode}` placeholder. When unset, the theme's ribbon_selected pill
         // style is used (see `style_mode`).
         self.mode_format = config::non_empty_string_option(configuration, CONFIG_MODE_FORMAT);
+        self.whole_mode_looks = whole_mode_looks;
         // Fit the hints to the terminal, dropping the trailing ones as it
         // narrows instead of overflowing off the edge.
         self.auto_width = config::bool_option(configuration, CONFIG_AUTO_WIDTH, true);
