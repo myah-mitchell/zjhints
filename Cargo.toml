@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/zjkit", "plugins/zjhints"]
+members = ["crates/zjkit", "plugins/zjhints", "plugins/zjtabs"]
 resolver = "2"
 
 [workspace.package]
