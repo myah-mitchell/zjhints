@@ -47,7 +47,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
 | `popup` | The floating pane a hover preview opens in |
-| `settings` | The settings screen, driven by the plugin's `Schema` |
+| `settings` | The settings screen, driven by the plugin's `Schema`, with an add line for each option family, and the check of a `Schema` against its reference page |
 | `theme` | Color themes, format themes and symbol sets |
 | `visibility` | Hide, show and toggle messages, and collapsing an empty row |
 

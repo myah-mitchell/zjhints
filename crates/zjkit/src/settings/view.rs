@@ -4,7 +4,7 @@
 //! the images of the screen in the docs draw the same.
 
 use super::editor::{Editor, Focus, Row, Section, OTHER_HEADING};
-use super::schema::{Kind, Schema};
+use super::schema::{pattern_prefix, Kind, Schema};
 use crate::format;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, ModeInfo, Styling};
@@ -157,6 +157,10 @@ pub enum Marker {
     Default,
     /// Not set, so the selected theme's value applies.
     Theme,
+    /// A key starting like a family's that fits none, so the bar ignores
+    /// it (see `Schema::misfit_family`). It is shown even when the key is
+    /// unsaved, since the header and the menu still count the change.
+    Ignored,
 }
 
 impl Marker {
@@ -166,6 +170,7 @@ impl Marker {
             Marker::Unsaved => "● unsaved",
             Marker::Default => "○ default",
             Marker::Theme => "○ theme",
+            Marker::Ignored => "✗ ignored",
         }
     }
 }
@@ -247,9 +252,13 @@ impl<'a> Rows<'a> {
                     .collect();
                 return RowView::plain("alias", Control::Dropdown(names, chosen));
             }
-            Row::Add(prefix) => {
-                let what = add_what(editor.schema(), prefix);
+            Row::Add(pattern) => {
+                let what = if pattern.is_empty() { "a key" } else { pattern };
                 return RowView::plain("", Control::Button(format!("+ add {what}")));
+            }
+            Row::AddEntry(pattern) => {
+                let what = pattern_prefix(pattern).trim_end_matches('_');
+                return RowView::plain("", Control::Button(format!("+ add {what} entry")));
             }
             Row::Heading(title) => return RowView::plain("", Control::Heading(title.to_string())),
             Row::Option(option) => (option.name, option.kind, option.default),
@@ -262,7 +271,9 @@ impl<'a> Rows<'a> {
             .map(String::as_str)
             .filter(|_| set.is_none());
         let shown = set.or(themed).or(default);
-        let marker = if editor.is_edited(key) {
+        let marker = if editor.schema().misfit_family(key).is_some() {
+            Marker::Ignored
+        } else if editor.is_edited(key) {
             Marker::Unsaved
         } else if set.is_some() {
             Marker::None
@@ -365,20 +376,6 @@ pub fn trailer_columns(view: &RowView, field_end: usize, list_end: usize) -> (us
         list_end.saturating_sub(marker_width)
     };
     (swatch, marker)
-}
-
-/// What an add line adds: every family starting with `prefix`, or any key.
-fn add_what(schema: &Schema, prefix: &str) -> String {
-    if prefix.is_empty() {
-        return "a key".to_string();
-    }
-    schema
-        .families
-        .iter()
-        .filter(|family| family.prefix() == prefix)
-        .map(|family| family.pattern)
-        .collect::<Vec<_>>()
-        .join(" or ")
 }
 
 /// A value as shown in its field. Text is always quoted, so its spaces show
@@ -529,27 +526,42 @@ pub fn describe(editor: &Editor) -> Option<String> {
         Row::Key(key) if editor.schema().deprecated_options.contains(&key.as_str()) => {
             format!("{key}: deprecated, and has no effect. Del removes it.")
         }
-        Row::Key(key) => match editor.schema().family_of(&key) {
-            Some(family) => format!(
-                "{}: {} ({}). Del removes it.",
-                crate::ansi::show_controls(&key),
-                family.description,
-                family.pattern
-            ),
-            None => format!(
-                "{}: not an option {} reads. Del removes it.",
-                crate::ansi::show_controls(&key),
-                editor.schema().plugin
-            ),
-        },
+        Row::Key(key) => {
+            let schema = editor.schema();
+            let shown = crate::ansi::show_controls(&key);
+            match (schema.family_of(&key), schema.misfit_family(&key)) {
+                (Some(family), _) => format!(
+                    "{shown}: {} ({}). Del removes it.",
+                    family.description, family.pattern
+                ),
+                (None, Some(family)) => format!(
+                    "{shown}: fits no {} option, so {} ignores it. Del removes it.",
+                    schema.patterns_with_prefix(family.prefix()),
+                    schema.plugin
+                ),
+                (None, None) => format!(
+                    "{shown}: not an option {} reads. Del removes it.",
+                    schema.plugin
+                ),
+            }
+        }
         Row::Add("") => format!(
             "Add a key no other group lists. It is listed under {OTHER_HEADING} unless a group fits it."
         ),
-        Row::Add(prefix) => {
-            let family = editor.schema().families.iter().find(|family| family.prefix() == prefix);
+        ref row @ Row::Add(pattern) => {
+            let family = editor.schema().families.iter().find(|family| family.pattern == pattern);
             let what = family.map_or("", |family| family.description);
-            format!("Add a key starting {prefix}. {what}.")
+            match editor.key_start(row) {
+                Some(start) if family.is_some_and(|family| family.is_numbered()) => {
+                    format!("Add a {pattern} key, starting as {start}. {what}.")
+                }
+                _ => format!("Add a {pattern} key. {what}."),
+            }
         }
+        ref row @ Row::AddEntry(pattern) => format!(
+            "Add an entry, starting with its {pattern} key as {}.",
+            editor.key_start(row).unwrap_or_default()
+        ),
         Row::Alias => "The plugins {} alias being edited.".to_string(),
         Row::Heading(_) => return None,
     };

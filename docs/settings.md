@@ -93,6 +93,7 @@ After each value comes a marker of where it comes from:
 | *● unsaved* | Changed from the config file and not saved yet |
 | *○ default* | Not set, so the field shows the built-in default, dimmed |
 | *○ theme* | Not set, so the field shows the value the selected [theme](themes.md) gives it, dimmed |
+| *✗ ignored* | A key the bar does not read: it starts like a family's keys but fits none, as in [Keys that fit no family](#keys-that-fit-no-family) |
 | None | Set in the config file and unchanged |
 
 Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal. So is a character that reorders text, such as `\u{202e}`.
@@ -178,7 +179,13 @@ Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `c
 
 Each group with families ends in a button per family to add a key, such as *+ add color_\<name\>*. Click it, or select it and press `Enter`, and the key starts with the family's prefix: type the rest, press `Enter`, then type its value.
 
+Families whose keys start alike each have a button of their own.
+
 *Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group. A [deprecated](configuration.md#deprecated) option set in the config is listed there too, and cannot be added.
+
+### Keys that fit no family
+
+A key that starts like a family's keys but fits none of them is listed in that family's group and marked *✗ ignored*, since the bar does not read it. An example is `mode_label_bogus`, whose last word is no mode. The line under the rows names the keys it could have been. Add the key you meant, then select the ignored one and press `Del` to remove it.
 
 ## Previewing and saving
 

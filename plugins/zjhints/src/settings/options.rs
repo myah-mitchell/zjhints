@@ -404,7 +404,20 @@ mod tests {
         assert_eq!(SCHEMA.group_of("keys_go_to_tab"), Some("Styling"));
         assert_eq!(SCHEMA.group_of("mode_format"), Some("Mode prefix"));
         assert_eq!(SCHEMA.group_of("something_else"), None);
-        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+        // A key that starts like a family's but fits none is listed with
+        // the family it was likely meant for, which the screen warns about.
+        for (key, group, pattern) in [
+            ("mode_format_bogus", "Mode prefix", "mode_format_<mode>"),
+            ("label_", "Labels", "label_<id>"),
+            ("color_", "Colors", "color_<name>"),
+        ] {
+            assert_eq!(SCHEMA.group_of(key), Some(group), "{key}");
+            let misfit = SCHEMA.misfit_family(key).map(|family| family.pattern);
+            assert_eq!(misfit, Some(pattern), "{key}");
+        }
+        assert_eq!(SCHEMA.patterns_with_prefix("label_"), "label_*");
+        assert!(SCHEMA.misfit_family("something_else").is_none());
+        assert!(SCHEMA.misfit_family("label_quit").is_none());
     }
 
     #[test]

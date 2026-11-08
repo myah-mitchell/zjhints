@@ -205,14 +205,15 @@ fn family_keys_are_listed_in_their_groups_with_an_add_line_each() {
     let key = |key: &str| Row::Key(key.to_string());
     assert_eq!(
         editor.rows_of(Section::Group("Colors")),
-        [key("color_blue"), Row::Add("color_")]
+        [key("color_blue"), Row::Add("color_<name>")]
     );
     assert_eq!(
         editor.rows_of(Section::Group("Labels")),
         [
             key("label_locked_quit"),
             key("label_quit"),
-            Row::Add("label_")
+            Row::Add("label_<id>"),
+            Row::Add("label_<mode>_<id>"),
         ]
     );
     assert_eq!(
@@ -220,9 +221,9 @@ fn family_keys_are_listed_in_their_groups_with_an_add_line_each() {
         [
             key("chord_alias_leader"),
             key("mod_alias_ctrl"),
-            Row::Add("mod_alias_"),
-            Row::Add("chord_mods_"),
-            Row::Add("chord_alias_"),
+            Row::Add("mod_alias_<name>"),
+            Row::Add("chord_mods_<name>"),
+            Row::Add("chord_alias_<name>"),
         ]
     );
     let styling = editor.rows_of(Section::Group("Styling"));
@@ -230,9 +231,9 @@ fn family_keys_are_listed_in_their_groups_with_an_add_line_each() {
         styling[4..],
         [
             key("key_format_quit"),
-            Row::Add("key_format_"),
-            Row::Add("desc_format_"),
-            Row::Add("keys_"),
+            Row::Add("key_format_<id>"),
+            Row::Add("desc_format_<id>"),
+            Row::Add("keys_<id>"),
         ]
     );
     let mode = editor.rows_of(Section::Group("Mode prefix"));
@@ -240,9 +241,9 @@ fn family_keys_are_listed_in_their_groups_with_an_add_line_each() {
         mode[2..],
         [
             key("mode_format_locked"),
-            Row::Add("mode_format_"),
-            Row::Add("mode_label_"),
-            Row::Add("mode_key_"),
+            Row::Add("mode_format_<mode>"),
+            Row::Add("mode_label_<mode>"),
+            Row::Add("mode_key_<mode>"),
         ]
     );
     assert_eq!(editor.rows_of(Section::Other), [key("bogus"), Row::Add("")]);
@@ -337,7 +338,7 @@ fn reset_removes_the_key_from_the_alias() {
 fn keys_are_added_from_their_group_and_deleted() {
     let mut editor = editor(&[]);
     show_section(&mut editor, Section::Group("Colors"));
-    assert_eq!(editor.selected_row(), Some(Row::Add("color_")));
+    assert_eq!(editor.selected_row(), Some(Row::Add("color_<name>")));
     let Outcome::StartField { field, text } = editor.activate() else {
         panic!("expected a field");
     };
@@ -364,7 +365,29 @@ fn keys_are_added_from_their_group_and_deleted() {
 
     assert_eq!(editor.reset_selected(), Outcome::Changed);
     assert_eq!(editor.value("color_red"), None);
-    assert_eq!(editor.selected_row(), Some(Row::Add("color_")));
+    assert_eq!(editor.selected_row(), Some(Row::Add("color_<name>")));
+}
+
+#[test]
+fn an_unfinished_key_names_the_family_of_the_line_it_was_added_from() {
+    let mut editor = editor(&[]);
+    show_section(&mut editor, Section::Group("Labels"));
+    for pattern in ["label_<id>", "label_<mode>_<id>"] {
+        let row = editor
+            .rows()
+            .iter()
+            .position(|row| *row == Row::Add(pattern))
+            .unwrap();
+        editor.select(row);
+        let Outcome::StartField { field, text } = editor.activate() else {
+            panic!("expected a field");
+        };
+        assert_eq!(text, "label_");
+        assert_eq!(
+            editor.submit(&field, &text),
+            Outcome::Refused(format!("Finish the key, as in {pattern}"))
+        );
+    }
 }
 
 #[test]
@@ -522,7 +545,7 @@ fn revert_puts_one_key_back_to_the_files_value() {
     select_key(&mut editor, "color_x");
     assert_eq!(editor.revert_selected().as_deref(), Some("color_x"));
     assert_eq!(editor.value("color_x"), None);
-    assert_eq!(editor.selected_row(), Some(Row::Add("color_")));
+    assert_eq!(editor.selected_row(), Some(Row::Add("color_<name>")));
     assert!(!editor.is_dirty());
 
     editor.set_focus(Focus::Sidebar);

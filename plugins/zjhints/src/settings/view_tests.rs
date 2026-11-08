@@ -107,6 +107,31 @@ fn markers_say_whether_a_value_is_unsaved_default_or_set() {
 }
 
 #[test]
+fn a_saved_key_starting_like_a_family_s_but_fitting_none_is_marked_ignored() {
+    let mut editor = editor(&[("label_", "x"), ("mode_format_bogus", "x"), ("bogus", "x")]);
+    let marker = |editor: &Editor, key| row_view(editor, &key_row(key), FormatView::Raw).marker;
+    assert_eq!(marker(&editor, "label_"), Marker::Ignored);
+    assert_eq!(marker(&editor, "mode_format_bogus"), Marker::Ignored);
+    // A key starting like no family's is listed under Other, which says
+    // as much, so the row needs no warning of its own.
+    assert_eq!(marker(&editor, "bogus"), Marker::None);
+    let (section, row) = editor.locate("label_").unwrap();
+    assert_eq!(section, Section::Group("Labels"));
+    editor.show(section, row);
+    assert_eq!(
+        describe(&editor).unwrap(),
+        "label_: fits no label_* option, so zjhints ignores it. Del removes it."
+    );
+    let (section, row) = editor.locate("bogus").unwrap();
+    assert_eq!(section, Section::Other);
+    editor.show(section, row);
+    assert_eq!(
+        describe(&editor).unwrap(),
+        "bogus: not an option zjhints reads. Del removes it."
+    );
+}
+
+#[test]
 fn an_unset_field_shows_its_default_as_a_placeholder() {
     let editor = editor(&[("max_length", "40")]);
     assert_eq!(
@@ -162,14 +187,19 @@ fn control_characters_in_keys_and_values_show_as_escapes() {
 #[test]
 fn add_rows_are_buttons_naming_the_families_they_add() {
     let editor = editor(&[]);
-    let button = |prefix| row_view(&editor, &Row::Add(prefix), FormatView::Raw).control;
+    let button = |pattern| row_view(&editor, &Row::Add(pattern), FormatView::Raw).control;
     assert_eq!(
-        button("color_"),
+        button("color_<name>"),
         Control::Button("+ add color_<name>".to_string())
     );
+    // Two families sharing a prefix each have a line of their own.
     assert_eq!(
-        button("label_"),
-        Control::Button("+ add label_<id> or label_<mode>_<id>".to_string())
+        button("label_<id>"),
+        Control::Button("+ add label_<id>".to_string())
+    );
+    assert_eq!(
+        button("label_<mode>_<id>"),
+        Control::Button("+ add label_<mode>_<id>".to_string())
     );
     assert_eq!(button(""), Control::Button("+ add a key".to_string()));
     assert_eq!(
