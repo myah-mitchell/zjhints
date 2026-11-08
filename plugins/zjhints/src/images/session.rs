@@ -6,12 +6,14 @@
 //! preview and the settings screen come from the code that draws them in the
 //! plugin, so the demo cannot show the plugin doing anything it does not.
 
-use super::{
-    bar_state, draw_pointer, hover_at, hovers_of, palette, rgb_of, settings_screen, Animation,
-    Frame, Hover, Pen, Rgb, Screen, BASE_THEME, PILL_RIGHT, POWERLINE_ARROW, TERMINAL_BACKGROUND,
-};
+use super::{bar_state, draw_pointer, hover_at, hovers_of, settings_screen, Hover, BASE_THEME};
+use crate::settings::view::Rgb;
 use crate::{ActiveTab, ClickMap, NestedGuest, TabFocus};
 use zellij_tile::prelude::{InputMode, PaneId};
+use zjkit::images::{
+    palette, rgb_of, Animation, Frame, Pen, Screen, PILL_RIGHT, POWERLINE_ARROW,
+    TERMINAL_BACKGROUND,
+};
 
 /// The terminal's size, and the rows under it that narrate the demo: one
 /// for the pointer under the bar, a rule setting the narration apart from

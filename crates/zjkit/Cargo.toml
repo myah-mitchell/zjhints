@@ -12,3 +12,8 @@ unicode-segmentation.workspace = true
 unicode-width.workspace = true
 zellij-tile.workspace = true
 zellij-utils.workspace = true
+
+[features]
+# The image engine that draws docs/img from a plugin's own output. Only tests
+# use it, so it stays off in a plugin's wasm build.
+images = []

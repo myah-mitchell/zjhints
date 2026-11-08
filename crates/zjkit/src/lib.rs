@@ -10,6 +10,8 @@ pub mod dim;
 pub mod fit;
 pub mod format;
 pub mod host;
+#[cfg(feature = "images")]
+pub mod images;
 pub mod launch;
 pub mod mode;
 pub mod mouse;

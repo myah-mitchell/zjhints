@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1117" height="60" viewBox="0 0 1117 60" role="img">
-<!-- Drawn by src/images.rs: edit the code and run `make images`. -->
+<!-- Drawn for zjhints by zjkit's image engine: edit the code and run `make images`. -->
 <title>The normal mode bar narrowing from 120 to 36 columns and widening back, losing hints from the middle while quit stays last</title>
 <rect width="1117" height="60" rx="8" fill="#1e1e2e"/>
 <g transform="translate(14 12)">
