@@ -2,8 +2,10 @@
 
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
+This repository is a family of Zellij bars that share one library, `zjkit`: zjhints, described on this page, and [zjtabs](#zjtabs), a tab bar. They take the same themes, format strings and settings screen.
+
 > [!IMPORTANT]
-> zjhints needs Zellij 0.46 or newer, because it runs as one shared instance for all its panes. Six of this release's features also need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij of that version. See [Zellij support](#zellij-support) and [Shared instances](docs/shared-instances.md).
+> The plugins need Zellij 0.46 or newer, because each runs as one shared instance for all its panes. Six of this release's features also need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij of that version. See [Zellij support](#zellij-support) and [Shared instances](docs/shared-instances.md).
 
 <!-- Separates the two alerts; adjacent blockquotes would merge into one. -->
 
@@ -31,7 +33,7 @@ Six features in this release need plugin APIs that are not in a released Zellij 
 
 Until that release, zjhints is compiled against [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), an early-access Zellij build. It is upstream `main`, which has all six, plus the fork's own plugin API work that is not merged upstream yet. A plugin built against it still runs on Zellij 0.46 or newer without those additions as long as it only uses calls that Zellij has, and zjhints uses none of them. This build is the way to see these features working today.
 
-Without them the plugin still runs on Zellij 0.46 or newer. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. Zellij 0.45 and earlier cannot run the plugin, which loads as a [shared instance](docs/shared-instances.md). See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs on Zellij 0.46 or newer. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. Zellij 0.45 and earlier cannot run the plugins, which load as [shared instances](docs/shared-instances.md). See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 
@@ -93,9 +95,15 @@ Each part of it has its own page:
 | [Settings screen](docs/settings.md)                      | Editing every option in a floating pane, seeing each change on the bar, and saving it to your config file          |
 | [Hiding the bar](docs/hiding.md)                         | Hiding and showing it from a keybinding or a shell, giving its row back while hidden                               |
 | [Nested sessions](docs/nested-sessions.md)               | Showing the nested session's hints while you are in it, and hiding or dimming the host's own                       |
-| [Shared instances](docs/shared-instances.md)             | One running copy of the plugin serving every pane, keeping bars apart with the `instance` option                   |
+| [Shared instances](docs/shared-instances.md)             | One running copy of each plugin serving every pane, keeping bars apart with the `instance` option                  |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles. Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
+
+## zjtabs
+
+zjtabs is a tab bar in the same family. It draws each tab as a ribbon in Zellij's own colors until you pick a theme or write a format, flags tabs with a fullscreen pane, synchronized panes, floating panes or a bell, shows the current input mode before the tabs and the session's name after them, keeps a window of tabs around the active one with a count of the rest on each side, and takes clicks, the wheel, a double-click to rename, a middle click to close and Zellij's right-click menus.
+
+[zjtabs overview](docs/zjtabs/overview.md) shows how to load it in a layout, and every option and its default is in the [zjtabs configuration reference](docs/zjtabs/configuration.md). The pages on [themes](docs/themes.md), the [settings screen](docs/settings.md), [hiding the bar](docs/hiding.md) and [nested sessions](docs/nested-sessions.md) apply to both plugins.
 
 ## Known issues
 

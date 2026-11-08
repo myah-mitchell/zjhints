@@ -1,10 +1,10 @@
 # Shared instances
 
-zjhints runs as one shared Zellij plugin instance: a single running copy of the plugin serves every pane that loads it. This page covers what that means for a layout, what the bars of an instance share, and the `instance` option that keeps bars apart.
+zjhints and zjtabs each run as one shared Zellij plugin instance: a single running copy of the plugin serves every pane that loads it. This page covers what that means for a layout, what the bars of an instance share, and the `instance` option that keeps bars apart.
 
 ## Requirements
 
-The plugin needs Zellij 0.46 or newer. Until it is released, use the early-access build it is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103). See [Zellij support](../README.md#zellij-support).
+The plugins need Zellij 0.46 or newer. Until it is released, use the early-access build they are compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103). See [Zellij support](../README.md#zellij-support).
 
 ## One instance for every bar
 
@@ -42,7 +42,7 @@ Separate instances differ in two ways:
 
 Permissions don't keep them apart. Each instance asks in a pane of its own, but Zellij remembers the answer by the plugin's location, not by instance, so a grant in one covers the other without a prompt, and a later answer in either replaces the remembered one. To keep permissions apart, load the second alias from a copy of the wasm file at another path.
 
-`instance` is read by Zellij rather than by the plugin, so it has no row in the configuration reference. The settings screen lists it under *Other* when an alias sets it, and keeps it when you save. Zellij reads it only as a pane loads, so a preview never moves a running bar to another instance.
+`instance` is read by Zellij rather than by the plugins, so it has no row in the configuration references. The settings screen lists it under *Other* when an alias sets it, and keeps it when you save. Zellij reads it only as a pane loads, so a preview never moves a running bar to another instance.
 
 ### Opening the settings screen
 

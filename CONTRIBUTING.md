@@ -25,13 +25,14 @@ The first host build compiles all of `zellij-utils` and takes a while. After tha
 
 ## Repository layout
 
-The repository is a Cargo workspace. Run every command from its root: `make`, `cargo test` and `cargo build` cover every crate in it, and the built plugin lands at `target/wasm32-wasip1/release/zjhints.wasm`.
+The repository is a Cargo workspace. Run every command from its root: `make`, `cargo test` and `cargo build` cover every crate in it, and the built plugins land in `target/wasm32-wasip1/release/` as `zjhints.wasm` and `zjtabs.wasm`.
 
 | Path | What it holds |
 | --- | --- |
 | `crates/zjkit` | The library the plugins share, for code any bar needs rather than code about hints |
 | `plugins/zjhints` | The zjhints plugin itself |
-| `docs/` | The zjhints documentation and the images its tests draw |
+| `plugins/zjtabs` | The zjtabs plugin, a tab bar |
+| `docs/` | The documentation of every plugin, with the zjtabs pages in `docs/zjtabs/`, and the images their tests draw |
 
 ### The shared crate
 
@@ -74,6 +75,22 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `popup.rs` | zjhints' names for the hover-preview popup |
 | `theme.rs` | The hint options each shared theme sets |
 | `settings/` | zjhints' option tables and `Schema` |
+| `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
+
+### The zjtabs plugin
+
+zjtabs is a library with a binary on top. `main.rs` only registers the library's `State` with Zellij as a shared plugin, so that tests elsewhere in the workspace can reach its `draw_for_image` through its `images` feature.
+
+| File | What it holds |
+| --- | --- |
+| `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
+| `main.rs` | The plugin's registration with Zellij as a shared plugin |
+| `tabs.rs` | The tabs, the mode prefix before them and the session name after them, laying them out on one line and the window around the active tab |
+| `flags.rs` | The four flags a tab can show and their formats |
+| `mouse.rs` | Clicks, the wheel, double-click renaming, middle-click closing, the right-click menus and opening the settings screen from the mode prefix |
+| `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
+| `theme.rs` | The tab options each shared theme sets |
+| `settings/` | zjtabs' option tables and `Schema` |
 | `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
 
 ### Dependencies
@@ -133,14 +150,14 @@ chore(deps): bump unicode-width
 
 ### Documentation
 
-New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. A test in each plugin passes its reference and its `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
+New config options need a row in the configuration reference, [docs/configuration.md](docs/configuration.md) for zjhints and [docs/zjtabs/configuration.md](docs/zjtabs/configuration.md) for zjtabs, and a prose section explaining them on the page for that topic. A test in each plugin passes its reference and its `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
 
 ### Images
 
-The images in the README and under `docs/` are SVGs in `docs/img/`, drawn by `plugins/zjhints/src/images.rs` from the code that draws the bar and the settings screen, with the SVG engine in `crates/zjkit/src/images.rs`, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
+The images in the README and under `docs/` are SVGs in `docs/img/` for zjhints and `docs/img/zjtabs/` for zjtabs, each drawn by the `images.rs` of its plugin, such as `plugins/zjtabs/src/images.rs`, from the code that draws the bar and the settings screen, with the SVG engine in `crates/zjkit/src/images.rs`, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
 
 ```bash
-make images    # rewrites the generated SVGs in docs/img
+make images    # rewrites the generated SVGs in docs/img and docs/img/zjtabs
 ```
 
 `make images` knows the SVGs a plugin draws by a comment on their second line that names the plugin. It rewrites those, removes the ones that plugin no longer draws, and leaves every other file in `docs/img` alone, including another plugin's images, so an image made by hand can live there too.
