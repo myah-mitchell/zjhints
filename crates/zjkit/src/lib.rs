@@ -10,6 +10,7 @@ pub mod dim;
 pub mod fit;
 pub mod format;
 pub mod host;
+pub mod launch;
 pub mod mouse;
 pub mod nesting;
 pub mod panes;
