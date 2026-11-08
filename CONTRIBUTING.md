@@ -44,6 +44,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `dim` | Fades palette colors and Zellij `Styling` while a session is not where the keyboard goes |
 | `fit` | Drops whole items until a line fits, leaving one gap for the indicator |
 | `format` | Renders zjstatus-style format strings |
+| `host` | The `Host` trait over every Zellij call a bar makes, with `Zellij` and the test `Recorder`, including the time of day, where a plugin runs from, running a command, focusing, hiding, moving and closing panes, and opening floating command and plugin panes |
 | `mouse` | Click maps, menus and the hover-preview state machine |
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
