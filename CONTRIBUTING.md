@@ -123,7 +123,7 @@ chore(deps): bump unicode-width
 
 ### Documentation
 
-New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. The reference is checked against the options the code actually reads.
+New config options need a row in the [configuration reference](docs/configuration.md) and a prose section explaining them on the page for that topic. A test in each plugin passes its reference and its `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
 
 ### Images
 

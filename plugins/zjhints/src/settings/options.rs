@@ -339,82 +339,23 @@ pub const DEPRECATED_OPTIONS: &[&str] = &["ambiguous_width"];
 mod tests {
     use super::*;
     use crate::settings::SCHEMA;
-    use std::collections::BTreeMap;
+    use zjkit::settings::reference;
 
-    /// The options the configuration reference lists: name -> default as
-    /// written there (`None` for "unset"), and the heading each is under.
-    fn documented() -> BTreeMap<String, (Option<String>, String)> {
-        let reference = include_str!("../../../../docs/configuration.md");
-        let mut heading = String::new();
-        let mut options = BTreeMap::new();
-        for line in reference.lines() {
-            if let Some(title) = line.strip_prefix("## ") {
-                heading = title.to_string();
-                continue;
-            }
-            let cells: Vec<&str> = line.split('|').map(str::trim).collect();
-            // "| `name` | default | what it does |" splits into five cells.
-            if cells.len() < 5 || !cells[1].starts_with('`') {
-                continue;
-            }
-            let name = cells[1].trim_matches('`').to_string();
-            let default = match cells[2] {
-                "unset" => None,
-                written => Some(written.trim_matches('`').to_string()),
-            };
-            options.insert(name, (default, heading.clone()));
-        }
-        options
-    }
+    const REFERENCE: &str = include_str!("../../../../docs/configuration.md");
 
     #[test]
     fn every_documented_option_is_in_the_table_and_no_other() {
-        let documented: Vec<String> = documented().into_keys().collect();
-        let mut in_code: Vec<String> = OPTIONS
-            .iter()
-            .map(|option| option.name.to_string())
-            .chain(FAMILIES.iter().map(|family| family.pattern.to_string()))
-            .chain(SCREEN_OPTIONS.iter().map(|name| name.to_string()))
-            .chain(DEPRECATED_OPTIONS.iter().map(|name| name.to_string()))
-            .collect();
-        in_code.sort();
-        assert_eq!(in_code, documented);
+        reference::assert_names_match(REFERENCE, &SCHEMA);
     }
 
     #[test]
     fn defaults_and_groups_match_the_reference() {
-        let documented = documented();
-        for option in OPTIONS {
-            let (default, heading) = &documented[option.name];
-            assert_eq!(
-                option.default.map(str::to_string),
-                *default,
-                "default of {}",
-                option.name
-            );
-            assert_eq!(option.group, heading, "group of {}", option.name);
-        }
-        for family in FAMILIES {
-            let (_, heading) = &documented[family.pattern];
-            assert_eq!(family.group, heading, "group of {}", family.pattern);
-        }
+        reference::assert_defaults_and_groups_match(REFERENCE, &SCHEMA);
     }
 
     #[test]
     fn groups_are_in_reference_order() {
-        let reference = include_str!("../../../../docs/configuration.md");
-        let headings: Vec<&str> = reference
-            .lines()
-            .filter_map(|line| line.strip_prefix("## "))
-            .filter(|heading| GROUPS.contains(heading))
-            .collect();
-        assert_eq!(headings, GROUPS);
-        for option in OPTIONS {
-            assert!(GROUPS.contains(&option.group), "{}", option.name);
-        }
-        for family in FAMILIES {
-            assert!(GROUPS.contains(&family.group), "{}", family.pattern);
-        }
+        reference::assert_group_order_matches(REFERENCE, &SCHEMA);
     }
 
     #[test]

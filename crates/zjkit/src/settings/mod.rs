@@ -5,6 +5,7 @@
 
 pub mod editor;
 pub mod live;
+pub mod reference;
 pub mod schema;
 pub mod screen;
 pub mod view;
