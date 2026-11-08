@@ -186,13 +186,13 @@ Every change shows on the bars started from the alias as soon as you make it. No
 
 ![The settings screen on the Theme group, over a bar started from the alias. format_theme is set to flat, then powerline, then pills, then color_theme to dracula and alias_theme to unicode. With each change the header counts the unsaved changes, the preview under the theme options redraws, and the bar under the screen restyles to match it, from Zellij's ribbons to purple dracula pills with ^p style keys](img/settings-live.svg)
 
-`r` reverts the selected option, and `Ctrl r` reverts them all after asking. A revert puts the bars back to the file's values too.
+`r` reverts the selected option, and `Ctrl r` reverts them all after asking. The question highlights *Cancel*, so `Enter` keeps your changes. A revert puts the bars back to the file's values too.
 
-If the file changed on disk since Zellij read it, saving stops and asks what to do:
+If the file changed on disk since Zellij read it, saving stops and asks what to do. *Cancel* is highlighted, so `Enter` or `Esc` changes nothing:
 
+- **Cancel** keeps your changes unsaved.
 - **Overwrite** writes your changes over the file.
 - **Reload** takes the file as it is and drops your unsaved changes; the bars go back to the file's values.
-- **Cancel** keeps your changes unsaved.
 
 ### Closing with unsaved changes
 
