@@ -10,16 +10,18 @@ use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
 use zjkit::mode::CONFIG_MODE_FORMAT;
+use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
 mod flags;
 mod host;
+mod mouse;
 mod settings;
 mod tabs;
 mod theme;
 
 use flags::FLAGS;
 use host::*;
-use tabs::{ModeView, Tab};
+use tabs::{Clickable, ModeView, Tab};
 
 const CONFIG_TAB_FORMAT: &str = "tab_format";
 const CONFIG_ACTIVE_TAB_FORMAT: &str = "active_tab_format";
@@ -180,11 +182,18 @@ pub struct State {
     mouse_wheel_reversed: bool,
     /// Ask before a middle click closes a tab, rather than closing it at once.
     mouse_close_confirm: bool,
+    /// The close confirmation being shown, if any, with the id of the tab the
+    /// middle click landed on, as the click map had it, so the answer closes
+    /// that tab even if the tabs have moved since.
+    pending_close: PendingPrompt<usize>,
     /// The tabs from the last `TabUpdate`, in the order they stand.
     tabs: Vec<Tab>,
     /// The input mode, the session's name and the nested-session state from
     /// the last `ModeUpdate`.
     mode_info: ModeInfo,
+    /// Which columns of the line last drawn stand for which tab or marker,
+    /// the mode prefix or the session name.
+    click_spans: ColumnSpans<Clickable>,
 }
 
 impl State {
@@ -345,6 +354,12 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
             }
+            // Turning `mouse` off cannot take back the subscription, so the
+            // events keep coming and are left alone here.
+            Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse),
+            // Taken whatever `mouse` and `mouse_close_confirm` are now: the
+            // user was asked while they were on, and answered.
+            Event::PromptResult(request_id, result) => self.answer_close(request_id, &result),
             _ => {}
         }
         should_render
@@ -369,10 +384,11 @@ impl ZellijPlugin for State {
         // The size Zellij is about to draw the pane at, which a pane update
         // may not have reported yet. See `BarCore::edge`.
         self.bar.render_cols = Some(cols);
-        let (output, _) = self.draw_bar();
+        let (output, click_spans) = self.draw_bar();
         self.bar
             .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
         print!("{output}");
+        self.click_spans = click_spans;
     }
 }
 

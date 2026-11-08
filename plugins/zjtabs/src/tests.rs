@@ -1,6 +1,8 @@
 use super::*;
 use zjkit::bar::Handled;
 use zjkit::host::Call;
+use zjkit::launch::{launch_or_focus_floating, SESSION_MANAGER_ALIAS};
+
 fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
         .iter()
@@ -993,6 +995,90 @@ fn the_mode_prefix_dims_with_the_tabs() {
     }
 }
 
+#[test]
+fn a_click_on_the_first_tab_still_hits_it_with_the_mode_prefix_shown() {
+    // "<NORMAL>|1:a|[2:b]|3:c"
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(3, 1));
+    assert_eq!(
+        clickable(&state),
+        vec![
+            ("<NORMAL>".to_string(), Clickable::ModePrefix),
+            ("1:a".to_string(), drawn_tab(0)),
+            ("[2:b]".to_string(), drawn_tab(1)),
+            ("3:c".to_string(), drawn_tab(2)),
+        ]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 9)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 21)),
+        vec![Call::SwitchTabTo(3)]
+    );
+}
+
+#[test]
+fn a_click_on_the_mode_prefix_opens_the_settings_screen() {
+    // "<NORMAL>|1:a|[2:b]|3:c"
+    let mut state = bar(&plain_with_mode(&[]), 80, tabs(3, 1));
+    state.bar.own_url = Some("zjtabs".to_string());
+    for column in [0, 7] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::LeftClick(0, column)),
+            vec![Call::OpenSettings {
+                message: OPEN_SETTINGS_MESSAGE.to_string(),
+                pane_title: SETTINGS_PANE_TITLE.to_string(),
+                own_url: Some("zjtabs".to_string()),
+                instance: None,
+            }],
+            "{column}"
+        );
+    }
+    // The spacer after it stands for nothing.
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 8)), vec![]);
+}
+
+#[test]
+fn a_mode_prefix_cut_to_fit_opens_the_settings_screen_from_what_is_left_of_it() {
+    // "<NOR~"
+    let options = plain_with_mode(&[("overflow_str", "~")]);
+    let mut state = bar(&options, 5, tabs(3, 1));
+    assert!(matches!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 3))[..],
+        [Call::OpenSettings { .. }]
+    ));
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 4)), vec![]);
+}
+
+#[test]
+fn with_mouse_off_a_click_on_the_mode_prefix_does_nothing() {
+    let mut state = bar(&plain_with_mode(&[("mouse", "false")]), 80, tabs(3, 1));
+    for mouse in [Mouse::LeftClick(0, 0), Mouse::RightClick(0, 0)] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+}
+
+#[test]
+fn only_a_left_click_on_the_mode_prefix_acts_on_it_and_a_right_click_opens_the_bar_s_menu() {
+    // "<NORMAL>|1:a|[2:b]|3:c", closing at once so a middle click would show.
+    let options = plain_with_mode(&[("mouse_close_confirm", "false")]);
+    let mut state = bar(&options, 80, tabs(3, 1));
+    for column in [0, 7, 8] {
+        for mouse in [Mouse::MiddleClick(0, column), Mouse::DoubleClick(0, column)] {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }]
+        );
+    }
+}
+
 // The session name.
 
 /// A mode update in normal mode for the session named `name`.
@@ -1382,6 +1468,97 @@ fn the_session_name_dims_with_the_tabs() {
     }
 }
 
+/// What the bar asks of Zellij for a left click on the session name.
+fn opening_the_session_manager() -> Vec<Call> {
+    vec![Call::RunAction {
+        action: launch_or_focus_floating(SESSION_MANAGER_ALIAS),
+        context: BTreeMap::new(),
+    }]
+}
+
+#[test]
+fn the_session_name_has_columns_of_its_own_and_the_tabs_and_markers_still_hit() {
+    let options = plain_with_session(&[("mouse_close_confirm", "false")]);
+    let mut state = bar_in_session(&options, 23, tabs(4, 1));
+    assert_eq!(shown(&state), "1:a|[2:b]|3:c|1>|(work)");
+    assert_eq!(
+        clickable(&state),
+        vec![
+            ("1:a".to_string(), drawn_tab(0)),
+            ("[2:b]".to_string(), drawn_tab(1)),
+            ("3:c".to_string(), drawn_tab(2)),
+            ("1>".to_string(), Clickable::Marker(3)),
+            ("(work)".to_string(), Clickable::SessionName),
+        ]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 4)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 15)),
+        vec![Call::SwitchTabTo(4)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 17)),
+        opening_the_session_manager()
+    );
+    // With no limit on the line's width the name follows the tabs, and its
+    // columns with it.
+    let unfitted = plain_with_session(&[("auto_width", "false")]);
+    let state = bar_in_session(&unfitted, 80, tabs(3, 1));
+    assert_eq!(
+        clickable(&state).last(),
+        Some(&("(work)".to_string(), Clickable::SessionName))
+    );
+}
+
+#[test]
+fn a_left_click_on_the_session_name_opens_the_session_manager() {
+    // The blank on 13 to 22, the spacer on 23 and the name on 24 to 29.
+    let options = plain_with_session(&[("mouse_close_confirm", "false")]);
+    let mut state = bar_in_session(&options, 30, tabs(3, 1));
+    assert_eq!(
+        shown(&state),
+        format!("1:a|[2:b]|3:c{}|(work)", " ".repeat(10))
+    );
+    for column in [24, 29] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::LeftClick(0, column)),
+            opening_the_session_manager(),
+            "{column}"
+        );
+    }
+    // The blank and the spacer stand for nothing, and only a left click acts
+    // on the name: a right-click anywhere there opens the bar's menu.
+    for column in [13, 22, 23, 24, 29] {
+        let left = (column < 24).then_some(Mouse::LeftClick(0, column));
+        for mouse in left
+            .into_iter()
+            .chain([Mouse::DoubleClick(0, column), Mouse::MiddleClick(0, column)])
+        {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![Call::OpenContextMenu {
+                target: ContextMenuTarget::Bar,
+                line: 0,
+                column,
+            }]
+        );
+    }
+}
+
+#[test]
+fn with_mouse_off_a_click_on_the_session_name_does_nothing() {
+    let mut state = bar_in_session(&plain_with_session(&[("mouse", "false")]), 30, tabs(3, 1));
+    assert!(shown(&state).ends_with("|(work)"));
+    for mouse in [Mouse::LeftClick(0, 24), Mouse::RightClick(0, 24)] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+}
+
 /// A mode update in `input_mode` for the session named `work`, with Zellij's own
 /// `hide_session_name` set to `hidden`.
 fn in_session_hiding_its_name(input_mode: InputMode, hidden: bool) -> Event {
@@ -1568,6 +1745,482 @@ fn hiding_and_showing_redraw() {
     assert!(!state.pipe(message(VISIBILITY.hide)));
     assert!(state.pipe(message(VISIBILITY.toggle)));
     assert_eq!(shown(&state), "[1:a]");
+}
+
+// The mouse.
+
+/// What the bar asks of Zellij for `mouse`, once it has drawn itself at the
+/// width of its pane, as Zellij renders it.
+fn after_mouse(state: &mut State, mouse: Mouse) -> Vec<Call> {
+    let columns = state.bar.pane_width.unwrap_or(80);
+    state.render(1, columns);
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(mouse)));
+    state.host.calls()
+}
+
+#[test]
+fn a_click_on_a_tab_switches_to_it() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![Call::SwitchTabTo(3)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 4)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    // The spacer, past the end, and a line below the bar are not tabs.
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 3)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 40)), vec![]);
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(1, 0)), vec![]);
+}
+
+#[test]
+fn a_click_on_a_tab_numbered_from_zero_still_switches_to_it() {
+    let mut state = bar(&plain_with(&[("index_from_zero", "true")]), 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(1)]
+    );
+}
+
+#[test]
+fn a_click_on_a_marker_switches_to_the_nearest_hidden_tab() {
+    // "<4|5:e|[6:f]|7:g|3>"
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![Call::SwitchTabTo(4)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 18)),
+        vec![Call::SwitchTabTo(8)]
+    );
+}
+
+#[test]
+fn a_click_on_what_the_cut_left_of_a_tab_switches_to_it_but_not_on_overflow_str() {
+    // "[2:a long nam~", the marker for the tab before it left out
+    let infos = vec![tab(0, "a"), active(tab(1, "a long name"))];
+    let mut state = bar(&plain_with(&[("overflow_str", "~")]), 14, infos);
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 12)),
+        vec![Call::SwitchTabTo(2)]
+    );
+    assert_eq!(after_mouse(&mut state, Mouse::LeftClick(0, 13)), vec![]);
+}
+
+#[test]
+fn the_wheel_goes_to_the_next_tab_on_scroll_up_like_zellij_s_own_bar_without_wrapping() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(3)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+
+    state.update(Event::TabUpdate(tabs(3, 2)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollUp(1)), vec![]);
+    state.update(Event::TabUpdate(tabs(3, 0)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollDown(1)), vec![]);
+}
+
+#[test]
+fn with_the_wheel_reversed_scroll_up_goes_to_the_previous_tab_without_wrapping() {
+    let mut state = bar(
+        &plain_with(&[("mouse_wheel_reversed", "true")]),
+        80,
+        tabs(3, 1),
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollDown(1)),
+        vec![Call::SwitchTabTo(3)]
+    );
+
+    state.update(Event::TabUpdate(tabs(3, 0)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollUp(1)), vec![]);
+    state.update(Event::TabUpdate(tabs(3, 2)));
+    assert_eq!(after_mouse(&mut state, Mouse::ScrollDown(1)), vec![]);
+}
+
+#[test]
+fn the_wheel_direction_can_be_reversed_by_a_live_update() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert!(BarCore::follow(
+        &mut state,
+        &BAR,
+        Handled::Reconfigure(cfg(&[("mouse_wheel_reversed", "true")]))
+    ));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(1)]
+    );
+}
+
+#[test]
+fn the_wheel_also_steps_to_tabs_hidden_behind_a_marker() {
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    state.update(Event::TabUpdate(tabs(10, 6)));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::ScrollUp(1)),
+        vec![Call::SwitchTabTo(8)]
+    );
+}
+
+#[test]
+fn a_double_click_renames_the_tab_switching_to_it_first() {
+    let rename = |id: u64| Call::RunAction {
+        action: zellij_tile::prelude::actions::Action::StartRenameTabByTabId { id },
+        context: BTreeMap::new(),
+    };
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 5)),
+        vec![rename(101)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::DoubleClick(0, 12)),
+        vec![Call::SwitchTabTo(3), rename(102)]
+    );
+    // Not on a marker or a spacer.
+    assert_eq!(after_mouse(&mut state, Mouse::DoubleClick(0, 3)), vec![]);
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(after_mouse(&mut state, Mouse::DoubleClick(0, 0)), vec![]);
+}
+
+#[test]
+fn a_right_click_opens_the_tab_s_context_menu_or_else_the_bar_s() {
+    let menu = |target: ContextMenuTarget, column: usize| Call::OpenContextMenu {
+        target,
+        line: 0,
+        column,
+    };
+    // "<4|5:e|[6:f]|7:g|3>"
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::RightClick(0, 4)),
+        vec![menu(ContextMenuTarget::Tab(4), 4)]
+    );
+    for column in [0, 2, 30] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::RightClick(0, column)),
+            vec![menu(ContextMenuTarget::Bar, column)]
+        );
+    }
+}
+
+/// `PLAIN` with `mouse_close_confirm` off, so a middle click closes at once.
+fn plain_closing_at_once() -> Vec<(&'static str, &'static str)> {
+    plain_with(&[("mouse_close_confirm", "false")])
+}
+
+#[test]
+fn a_middle_click_closes_the_tab_under_it() {
+    // "1:a|[2:b]|3:c", the ids 100, 101 and 102.
+    let mut state = bar(&plain_closing_at_once(), 80, tabs(3, 1));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 0)),
+        vec![Call::CloseTabWithId(100)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 4)),
+        vec![Call::CloseTabWithId(101)]
+    );
+    assert_eq!(
+        after_mouse(&mut state, Mouse::MiddleClick(0, 12)),
+        vec![Call::CloseTabWithId(102)]
+    );
+}
+
+#[test]
+fn a_middle_click_off_a_tab_or_a_middle_drag_closes_nothing() {
+    // "1:a|[2:b]|3:c": the spacer, past the end, and a line below the bar.
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    for mouse in [
+        Mouse::MiddleClick(0, 3),
+        Mouse::MiddleClick(0, 40),
+        Mouse::MiddleClick(1, 0),
+        Mouse::MiddleHold(0, 0),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+    // "<4|5:e|[6:f]|7:g|3>": neither marker, as each stands for several tabs.
+    let mut state = bar(&PLAIN, 19, tabs(10, 5));
+    for column in [0, 18] {
+        assert_eq!(
+            after_mouse(&mut state, Mouse::MiddleClick(0, column)),
+            vec![]
+        );
+    }
+}
+
+#[test]
+fn a_middle_click_closes_the_tab_drawn_under_it_even_after_the_tabs_move() {
+    // "1:a|[2:b]|3:c" is drawn, then a `TabUpdate` puts a new tab first
+    // before the bar draws again.
+    let mut state = bar(&plain_closing_at_once(), 80, tabs(3, 1));
+    state.render(1, 80);
+    let mut moved = vec![tab(0, "new")];
+    moved[0].tab_id = 200;
+    moved.extend(tabs(3, 1).into_iter().map(|mut info| {
+        info.position += 1;
+        info
+    }));
+    assert!(state.update(Event::TabUpdate(moved)));
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(Mouse::MiddleClick(0, 0))));
+    assert_eq!(state.host.calls(), vec![Call::CloseTabWithId(100)]);
+}
+
+/// The one call of `calls`, which has to be a prompt: its id and request.
+fn the_prompt(calls: &[Call]) -> (u64, PromptRequest) {
+    match calls {
+        [Call::Prompt {
+            request_id,
+            request,
+        }] => (*request_id, request.clone()),
+        _ => panic!("expected one prompt, got {calls:?}"),
+    }
+}
+
+/// The calls the bar makes on Zellij's answer `result` to the prompt
+/// `request_id`.
+fn after_answer(state: &mut State, request_id: u64, result: PromptResult) -> Vec<Call> {
+    state.host.clear();
+    assert!(!state.update(Event::PromptResult(request_id, result)));
+    state.host.calls()
+}
+
+#[test]
+fn a_middle_click_asks_before_closing_the_tab_with_cancel_selected() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 12)));
+    let PromptSpec::Confirm { message, yes, no } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    assert_eq!(message.text, "Close tab 3 \"c\" and every pane in it?");
+    assert_eq!((yes.as_str(), no.as_str()), ("Close tab", "Cancel"));
+    assert_eq!(request.title.as_deref(), Some("Close tab?"));
+    // Zellij selects the button the default names, so `Enter` cancels.
+    assert_eq!(request.default.as_deref(), Some("false"));
+}
+
+#[test]
+fn the_close_confirmation_numbers_and_names_the_tab_as_the_bar_draws_it() {
+    let mut infos = tabs(2, 0);
+    infos[1].name = "esc\u{1b}[2J".to_string();
+    let mut state = bar(&plain_with(&[("index_from_zero", "true")]), 80, infos);
+    let line = shown(&state);
+    let column = line.find("1:").unwrap();
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, column)));
+    let PromptSpec::Confirm { message, .. } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    assert_eq!(
+        message.text,
+        "Close tab 1 \"esc\\u{1b}[2J\" and every pane in it?"
+    );
+}
+
+#[test]
+fn confirming_closes_the_tab_that_was_clicked() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+    // Answered once, it is no longer waiting.
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn any_other_answer_to_the_close_confirmation_closes_nothing() {
+    for result in [
+        PromptResult::Confirmed(false),
+        PromptResult::Cancelled,
+        PromptResult::TimedOut(None),
+        PromptResult::TimedOut(Some(PromptValue::Bool(true))),
+        PromptResult::Error("no popup".to_string()),
+        PromptResult::Answered(PromptValue::Bool(true)),
+    ] {
+        let mut state = bar(&PLAIN, 80, tabs(3, 1));
+        let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+        assert_eq!(
+            after_answer(&mut state, request_id, result.clone()),
+            vec![],
+            "{result:?}"
+        );
+        assert!(!state.pending_close.is_waiting(), "{result:?}");
+    }
+}
+
+#[test]
+fn an_answer_to_another_prompt_closes_nothing_and_keeps_waiting() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    assert_eq!(
+        after_answer(&mut state, request_id + 1, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+}
+
+#[test]
+fn an_answer_with_nothing_waiting_closes_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    assert_eq!(
+        after_answer(&mut state, 1, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn confirming_after_the_tab_is_gone_closes_nothing() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (request_id, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    // Closed some other way while the confirmation was up.
+    let mut remaining = tabs(3, 1);
+    remaining.remove(0);
+    state.update(Event::TabUpdate(remaining));
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![]
+    );
+}
+
+#[test]
+fn a_second_middle_click_replaces_the_close_confirmation_being_shown() {
+    // "1:a|[2:b]|3:c"
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    let (first, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 0)));
+    let (second, _) = the_prompt(&after_mouse(&mut state, Mouse::MiddleClick(0, 12)));
+    assert_ne!(first, second);
+    assert_eq!(
+        after_answer(&mut state, first, PromptResult::Confirmed(true)),
+        vec![]
+    );
+    assert_eq!(
+        after_answer(&mut state, second, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(102)]
+    );
+}
+
+#[test]
+fn the_close_confirmation_names_and_closes_the_tab_drawn_under_the_click_after_the_tabs_move() {
+    // "1:a|[2:b]|3:c" is drawn, then a `TabUpdate` puts a new tab first
+    // before the bar draws again.
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    state.render(1, 80);
+    let mut moved = vec![tab(0, "new")];
+    moved[0].tab_id = 200;
+    moved.extend(tabs(3, 1).into_iter().map(|mut info| {
+        info.position += 1;
+        info
+    }));
+    assert!(state.update(Event::TabUpdate(moved)));
+    state.host.clear();
+    assert!(!state.update(Event::Mouse(Mouse::MiddleClick(0, 0))));
+    let (request_id, request) = the_prompt(&state.host.calls());
+    let PromptSpec::Confirm { message, .. } = &request.spec else {
+        panic!("expected a confirmation, got {:?}", request.spec);
+    };
+    // The tab clicked, "a", now stands second.
+    assert_eq!(message.text, "Close tab 2 \"a\" and every pane in it?");
+    assert_eq!(
+        after_answer(&mut state, request_id, PromptResult::Confirmed(true)),
+        vec![Call::CloseTabWithId(100)]
+    );
+}
+
+#[test]
+fn with_mouse_off_the_mouse_does_nothing() {
+    let mut state = bar(&plain_with(&[("mouse", "false")]), 80, tabs(3, 1));
+    for mouse in [
+        Mouse::LeftClick(0, 0),
+        Mouse::DoubleClick(0, 0),
+        Mouse::RightClick(0, 0),
+        Mouse::MiddleClick(0, 0),
+        Mouse::ScrollUp(1),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![]);
+    }
+}
+
+#[test]
+fn the_mouse_does_nothing_while_the_bar_draws_nothing() {
+    let every_mouse = [
+        Mouse::LeftClick(0, 0),
+        Mouse::DoubleClick(0, 0),
+        Mouse::RightClick(0, 0),
+        Mouse::MiddleClick(0, 0),
+        Mouse::ScrollUp(1),
+        Mouse::ScrollDown(1),
+    ];
+    // The row stays on screen, blank, rather than collapsing.
+    let kept_row = plain_with(&[("collapse_when_empty", "false")]);
+    let mut hidden_by_option = kept_row.clone();
+    hidden_by_option.push(("hidden", "true"));
+    let hidden_by_message = || {
+        let mut state = bar(&kept_row, 80, tabs(3, 1));
+        let hide = PipeMessage::new(PipeSource::Keybind, VISIBILITY.hide, &None, &None, false);
+        assert!(state.pipe(hide));
+        state
+    };
+    let hidden_by_nesting = || {
+        let mut state = bar(&kept_row, 80, tabs(3, 1));
+        let mut nested = mode(InputMode::Normal);
+        nested.session_ancestry = vec!["host".to_string()];
+        assert!(state.update(Event::ModeUpdate(nested)));
+        state
+    };
+    for mut state in [
+        bar(&hidden_by_option, 80, tabs(3, 1)),
+        hidden_by_message(),
+        hidden_by_nesting(),
+        bar(&kept_row, 80, vec![]),
+    ] {
+        assert_eq!(shown(&state), "");
+        for mouse in every_mouse {
+            assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+        }
+    }
+}
+
+#[test]
+fn hover_and_horizontal_scrolling_do_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(3, 1));
+    for mouse in [
+        Mouse::Hover(0, 0),
+        Mouse::Hold(0, 0),
+        Mouse::Release(0, 0),
+        Mouse::ScrollLeft(1),
+        Mouse::ScrollRight(1),
+    ] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![]);
+    }
 }
 
 // Anyone who can launch a plugin can add a pane with any options to a
