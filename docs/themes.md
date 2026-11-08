@@ -15,7 +15,7 @@ alias_theme "unicode"
 ```
 
 > [!NOTE]
-> Every plugin in this repository shares these themes. The tables on this page describe zjhints; for what each theme sets in zjtabs, see [Themes for tabs](zjtabs/formats.md#themes).
+> Every plugin in this repository shares these themes. The tables on this page describe zjhints; for what each theme sets in zjtabs, see [Themes for tabs](zjtabs/formats.md#themes), and in zjtaskbar, [Themes for entries](zjtaskbar/formats.md#themes).
 
 ## Contents
 
