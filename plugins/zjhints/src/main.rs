@@ -49,6 +49,11 @@ struct State {
     /// hidden pane that reports the bar's own URL too.
     bar: BarCore,
     initialized: bool,
+    /// Whether what the bar draws may have changed since a background slot
+    /// last drew it. See `ZellijPlugin::background`.
+    stale: bool,
+    /// The line a background slot last published, if it has.
+    published: Option<String>,
     /// The zjstatus pipe names each render is published on. See
     /// [`pipe_names_from_config`].
     pipe_names: Vec<String>,
@@ -190,7 +195,7 @@ impl Default for KeybindsFetcher {
     }
 }
 
-register_plugin!(State);
+register_shared_plugin!(zjkit::shared::Shared<State>);
 
 const TO_NORMAL: Action = Action::SwitchToMode {
     input_mode: InputMode::Normal,
@@ -640,7 +645,8 @@ impl State {
     /// The format theme's prefix opens the line against the left edge of the
     /// pane, open at that end, only in the bar's own visible pane, where the
     /// line is sure to start on the pane's first column. A bar with no
-    /// visible pane is feeding zjstatus (see `auto_width_limit`), which
+    /// visible pane, such as a slot loaded in the background with
+    /// `load_plugins`, is feeding zjstatus (see `auto_width_limit`), which
     /// places the line among its own widgets, so there the theme's prefix is
     /// closed at both ends. A format the user set is drawn as written either
     /// way.
@@ -1470,6 +1476,37 @@ impl BarPlugin for State {
     }
 }
 
+/// Each slot of the shared instance is a `State` of its own; only a bar has
+/// the bar's state for `zjkit::shared` to read.
+impl zjkit::shared::SlotPlugin for State {
+    fn bar(&self) -> Option<&BarCore> {
+        self.role.is_bar().then_some(&self.bar)
+    }
+
+    fn bar_mut(&mut self) -> Option<&mut BarCore> {
+        self.role.is_bar().then_some(&mut self.bar)
+    }
+
+    /// Zellij never draws a slot loaded in the background, with
+    /// `load_plugins`, so it has no render to publish its line from. It
+    /// publishes it here instead, when the line has changed, and prints
+    /// nothing.
+    fn background(&mut self) {
+        if !self.role.is_bar() || !self.stale {
+            return;
+        }
+        self.stale = false;
+        let (output, _) = self.draw_bar();
+        self.note_initialized(&output);
+        // Until zjstatus has answered a mode change it may not have been
+        // ready to hear the line, so the line goes again with every event.
+        if !self.initialized || self.published.as_deref() != Some(&output) {
+            self.publish(&output);
+            self.published = Some(output);
+        }
+    }
+}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.role = Role::load(&BAR, &configuration);
@@ -1587,6 +1624,7 @@ impl ZellijPlugin for State {
             }
             _ => {}
         };
+        self.stale |= should_render;
         should_render
     }
 
@@ -1596,7 +1634,9 @@ impl ZellijPlugin for State {
             return false;
         }
         if let Some(handled) = self.bar.pipe(&self.host, &BAR, &message) {
-            return BarCore::follow(self, &BAR, handled);
+            let redraw = BarCore::follow(self, &BAR, handled);
+            self.stale |= redraw;
+            return redraw;
         }
         self.take_popup_message(&message);
         false
