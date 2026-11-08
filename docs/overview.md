@@ -16,6 +16,7 @@ The pages in this directory, and what each one is for. Start with the [configura
 | [Settings screen](settings.md) | Editing the options in a floating pane, with live preview on the bars |
 | [Hiding the bar](hiding.md) | Hiding and showing the bar from a keybinding, the right-click menu or a shell |
 | [Nested sessions](nested-sessions.md) | Running one Zellij session inside another, and running this plugin in its own pane |
+| [Shared instances](shared-instances.md) | One running copy of the plugin serving every pane, what the bars share, and keeping bars apart with `instance` |
 | [Automation](automation.md) | How the repository builds, tests, updates itself and publishes, and the setup GitHub needs |
 
 Automation is for anyone maintaining a copy of the repository. The rest are for anyone configuring the plugin.

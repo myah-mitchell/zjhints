@@ -11,7 +11,7 @@ It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.7-261103](
 
 ## Opening it
 
-There are four ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
+There are four ways in. Each one opens a floating pane that loads zjhints with `settings true`, which draws the screen instead of a bar. The pane joins the bars' [shared instance](shared-instances.md), which is how the bars receive its previews. A bar that sets `instance` needs the screen opened with the same value; see [Opening the settings screen](shared-instances.md#opening-the-settings-screen).
 
 The screen opens pinned, so it stays on screen while you click into other panes and type there, and the bars it previews on stay in view beside it. Clicking it again gives it the keyboard back. To let it hide with the other floating panes, unpin it from Zellij's pane menu.
 
@@ -203,15 +203,18 @@ If the file changed on disk since Zellij read it, saving stops and asks what to 
 
 ### Closing with unsaved changes
 
-Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the session: the bars keep them, and bars started later in the session load them too. A notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the bars running in the session, and a notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+
+A bar started later in the session, such as one in a new tab, starts from the alias as the session loaded it, without the unsaved changes. It joins the instance with its own options and doesn't take the previews the other bars are showing.
 
 ### What a preview reaches
 
 - Bars started from the alias being edited. A bar started from another alias, or from a plugin location rather than an alias, is left alone.
 - Bars in this session only. Other sessions pick the saved values up when they start.
+- Bars in the screen's own instance. A bar that sets a different `instance` is left alone.
 - Keys the alias controls for that bar. A key a layout sets on the bar's own pane, such as `show_mode true`, stays as the layout sets it through every later change to it.
 
-A bar takes a preview only from the settings screen, or another pane running the bar's own plugin. A preview sent by another plugin, or with `zellij pipe` or a keybinding, changes nothing. No other plugin can change a bar's options this way.
+A bar takes a preview only from a pane of its own instance, such as the settings screen. A preview sent by another plugin, another instance, `zellij pipe` or a keybinding changes nothing. No other plugin can change a bar's options this way.
 
 A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so previews reach it by alias like any other bar.
 
@@ -219,8 +222,6 @@ Unsaved changes last until the session ends. They never reach the config file, s
 
 ## Permissions
 
-The screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. Zellij keeps one grant for the screen and the bars, because they load from the same file, and each grant replaces the last; asking for the lot keeps opening the screen from taking permissions away from the bars.
-
-A bar granted its own, smaller set afterwards replaces the screen's grant in turn, so the screen can ask again the next time it opens. It is a floating pane, so the prompt can always be answered there.
+When it first draws, the screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. The screen and the bars are one instance, so Zellij keeps one grant for them. Each request carries everything the instance has been granted or asked for so far, one prompt at a time, so opening the screen never takes a permission from the bars, and a bar's later request never takes one from the screen. Denying a prompt takes the grant from the screen and every bar. The screen is a floating pane, so the prompt can always be answered there.
 
 The bar asks for permission to change application state so it can add its entry to Zellij's settings screen, and opening the screen from that entry or the mode prefix uses the permission to message plugins it already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.

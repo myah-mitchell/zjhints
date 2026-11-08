@@ -3,7 +3,7 @@
 A [Zellij](https://github.com/zellij-org/zellij) plugin that displays context-aware key bindings for the current mode, styled and configured to match the rest of your status bar. It runs standalone in its own pane, or pipes its output into [zjstatus](https://github.com/dj95/zjstatus) for setups that already use it. See [Installation](docs/installation.md) to set it up.
 
 > [!IMPORTANT]
-> Six of this release's features need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij, including 0.45.1. See [Zellij support](#zellij-support).
+> zjhints needs Zellij 0.46 or newer, because it runs as one shared instance for all its panes. Six of this release's features also need Zellij APIs that are accepted upstream but not in a released Zellij yet. Everything else works on a stock Zellij of that version. See [Zellij support](#zellij-support) and [Shared instances](docs/shared-instances.md).
 
 <!-- Separates the two alerts; adjacent blockquotes would merge into one. -->
 
@@ -29,9 +29,9 @@ Six features in this release need plugin APIs that are not in a released Zellij 
 | [#5778](https://github.com/zellij-org/zellij/pull/5778) | A popup can choose whether a click outside it closes it, which is how the [menus of hints](docs/mouse.md) close when you click away                                                                                                                                    |
 | [#5779](https://github.com/zellij-org/zellij/pull/5779) | A plugin can add an entry to Zellij's own settings screen, which is how the zjhints entry there opens the [settings screen](docs/settings.md#from-zellijs-settings-screen)                                                                                             |
 
-Until that release, zjhints is compiled against [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), an early-access Zellij build. It is upstream `main`, which has all six, plus the fork's own plugin API work that is not merged upstream yet. A plugin built against it still runs on a Zellij without those additions as long as it only uses calls that Zellij has, and zjhints uses none of them. This build is the way to see these features working today.
+Until that release, zjhints is compiled against [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), an early-access Zellij build. It is upstream `main`, which has all six, plus the fork's own plugin API work that is not merged upstream yet. A plugin built against it still runs on Zellij 0.46 or newer without those additions as long as it only uses calls that Zellij has, and zjhints uses none of them. This build is the way to see these features working today.
 
-Without them the plugin still runs, including on Zellij 0.45.1. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
+Without them the plugin still runs on Zellij 0.46 or newer. Hints, styling, labels, ordering and fitting all behave normally, and the first two features above are absent rather than broken. `mouse` is off by default and should stay off there, and the settings screen needs the build above until the next Zellij release. Zellij 0.45 and earlier cannot run the plugin, which loads as a [shared instance](docs/shared-instances.md). See [Versioning](docs/installation.md#versioning) for which zjhints line targets which Zellij.
 
 ## Rationale
 
@@ -93,6 +93,7 @@ Each part of it has its own page:
 | [Settings screen](docs/settings.md)                      | Editing every option in a floating pane, seeing each change on the bar, and saving it to your config file          |
 | [Hiding the bar](docs/hiding.md)                         | Hiding and showing it from a keybinding or a shell, giving its row back while hidden                               |
 | [Nested sessions](docs/nested-sessions.md)               | Showing the nested session's hints while you are in it, and hiding or dimming the host's own                       |
+| [Shared instances](docs/shared-instances.md)             | One running copy of the plugin serving every pane, keeping bars apart with the `instance` option                   |
 
 For a config in daily use rather than one written for the docs, see the [Zellij config](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/config.kdl) and the [layout](https://github.com/myah-mitchell/dotfiles/blob/main/zellij/.config/zellij/layouts/default.kdl) that loads it in myah-mitchell's dotfiles. Every page in `docs/` is listed in the [documentation overview](docs/overview.md).
 

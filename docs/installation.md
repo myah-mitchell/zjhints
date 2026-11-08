@@ -2,6 +2,10 @@
 
 This page covers adding zjhints to Zellij: a configuration with the common options annotated, the release channels and which build matches your Zellij, and the two ways to display the hints. For every option and its default, see the [configuration reference](configuration.md).
 
+## Requirements
+
+Zellij 0.46 or newer. Every bar runs as a [shared instance](shared-instances.md), which earlier versions cannot load. Some features need Zellij APIs that no release has yet; see [Zellij support](../README.md#zellij-support).
+
 ## Placeholders
 
 Some option names and tag names on this page are families rather than fixed strings. Each family's variable part is written in angle brackets.
@@ -238,6 +242,8 @@ Wire the plugin into your default layout (`layouts/default.kdl`) either of two w
 ### Option A: its own pane
 
 This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjhints` alias defined in the `plugins {}` block. Set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](nested-sessions.md) hiding and dimming work at all.
+
+In a `default_tab_template` this puts a bar in every tab. All of them are panes of one running zjhints, which is how [shared instances](shared-instances.md) work.
 
 ### Option B: piped into zjstatus
 

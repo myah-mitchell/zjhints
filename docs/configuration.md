@@ -4,6 +4,8 @@ Every option the plugin reads, with its default. The plugin works with none of t
 
 Options are grouped by topic, and each group names the page carrying the detail behind it. An option written with a placeholder in it is a family rather than a single key: you append your own value.
 
+Zellij also reads an `instance` key from a plugin's options, to decide which panes share a running copy of the plugin. It is not an option of the plugin, so it has no row here. See [Shared instances](shared-instances.md#keeping-bars-apart).
+
 | Placeholder | You replace it with |
 | --- | --- |
 | `<id>` | A hint's concept id, giving `label_split_down` |
@@ -148,17 +150,17 @@ Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
 | --- | --- | --- |
 | `pipe_name` | `zjhints` | Name of the pipe zjstatus reads the hints from |
 
-`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](installation.md#displaying-the-hints).
+`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. A bar loaded with `load_plugins` publishes its line whenever the line changes, and a bar in a pane publishes each time it draws. See [Displaying the hints](installation.md#displaying-the-hints).
 
 Left unset, the hints also go out on `zjstatus_hints`, the name this plugin published on before it was renamed, so a zjstatus config written against `{pipe_zjstatus_hints}` keeps rendering untouched. Setting `pipe_name` publishes on that name alone.
 
 ## Settings screen
 
-Options of the settings screen itself. They are read only by the instance that runs the screen, not by the bar. See [Settings screen](settings.md).
+Options of the settings screen itself. They are read only by the pane that runs the screen, not by the bars. See [Settings screen](settings.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `settings` | `false` | Run this instance as the settings screen instead of the bar |
+| `settings` | `false` | Run this pane as the settings screen instead of the bar |
 | `alias` | unset | The `plugins {}` alias to edit, when more than one loads zjhints |
 
 ## Deprecated
