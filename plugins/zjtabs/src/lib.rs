@@ -14,10 +14,12 @@ use zjkit::mode::CONFIG_MODE_FORMAT;
 mod flags;
 mod host;
 mod settings;
+mod tabs;
 mod theme;
 
 use flags::FLAGS;
 use host::*;
+use tabs::{ModeView, Tab};
 
 const CONFIG_TAB_FORMAT: &str = "tab_format";
 const CONFIG_ACTIVE_TAB_FORMAT: &str = "active_tab_format";
@@ -87,7 +89,6 @@ const DEFAULT_SHOW_MODE: bool = true;
 // Only while `show_session` is unset and Zellij's own `hide_session_name` is
 // off, as that hides the name from Zellij's bar too; see
 // `tabs::session_shown`.
-#[allow(dead_code)]
 const DEFAULT_SHOW_SESSION: bool = true;
 // On by default, unlike zjhints: clicking a tab to go to it is what a tab bar
 // is expected to do, and Zellij's own tab bar does it.
@@ -179,6 +180,11 @@ pub struct State {
     mouse_wheel_reversed: bool,
     /// Ask before a middle click closes a tab, rather than closing it at once.
     mouse_close_confirm: bool,
+    /// The tabs from the last `TabUpdate`, in the order they stand.
+    tabs: Vec<Tab>,
+    /// The input mode, the session's name and the nested-session state from
+    /// the last `ModeUpdate`.
+    mode_info: ModeInfo,
 }
 
 impl State {
@@ -314,7 +320,34 @@ impl ZellijPlugin for State {
             return self.role.update(event);
         }
         let handled = self.bar.update(&self.host, &BAR, &event);
-        BarCore::follow(self, &BAR, handled)
+        let mut should_render = BarCore::follow(self, &BAR, handled);
+        match event {
+            Event::TabUpdate(infos) => {
+                let tabs = tabs::tabs_of(&infos);
+                if tabs != self.tabs {
+                    self.tabs = tabs;
+                    should_render = true;
+                }
+            }
+            // A mode update arrives on every mode change and more, but the
+            // bar shows only whether a tab is being renamed, how nesting
+            // hides or dims it, the mode itself while `show_mode` is on, and
+            // the session's name while it is shown, which changes when the
+            // session is renamed. Whether it is shown can change too, with
+            // Zellij's own `hide_session_name`. The Zellij theme it also
+            // carries is `BarCore`'s to follow.
+            Event::ModeUpdate(mode_info) => {
+                let view = |mode_info: &ModeInfo| {
+                    ModeView::of(mode_info, self.show_mode, self.show_session)
+                };
+                if view(&mode_info) != view(&self.mode_info) {
+                    should_render = true;
+                }
+                self.mode_info = mode_info;
+            }
+            _ => {}
+        }
+        should_render
     }
 
     fn pipe(&mut self, message: PipeMessage) -> bool {
@@ -336,10 +369,10 @@ impl ZellijPlugin for State {
         // The size Zellij is about to draw the pane at, which a pane update
         // may not have reported yet. See `BarCore::edge`.
         self.bar.render_cols = Some(cols);
-        // The line is empty: the bar draws no tabs, so it gives its row back
-        // to the panes around it unless `collapse_when_empty` keeps it.
+        let (output, _) = self.draw_bar();
         self.bar
-            .sync_collapsed(&self.host, self.collapse_when_empty, true);
+            .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
+        print!("{output}");
     }
 }
 
