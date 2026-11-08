@@ -139,19 +139,39 @@ pub fn prefix_within(text: &str, max: usize) -> (&str, usize) {
 /// `\u{1b}` for ESC or `\n` for a newline, so that it shows as text instead
 /// of acting on the terminal. For plain text from the config or a nested
 /// session, never for ANSI the plugin styled itself.
+///
+/// The characters that reorder text for right-to-left scripts are escaped
+/// too (see `is_bidi_control`), so a pane title cannot draw itself backwards
+/// or make the bar after it read in a different order.
 pub fn show_controls(text: &str) -> Cow<'_, str> {
-    if !text.chars().any(char::is_control) {
+    let escaped = |ch: char| ch.is_control() || is_bidi_control(ch);
+    if !text.chars().any(escaped) {
         return Cow::Borrowed(text);
     }
     let mut shown = String::with_capacity(text.len());
     for ch in text.chars() {
-        if ch.is_control() {
+        if escaped(ch) {
             shown.extend(ch.escape_default());
         } else {
             shown.push(ch);
         }
     }
     Cow::Owned(shown)
+}
+
+/// Whether `ch` is one of Unicode's bidirectional formatting characters,
+/// its `Bidi_Control` property: the marks, embeddings, overrides and
+/// isolates that change the order text is shown in, such as U+202E, the
+/// right-to-left override.
+///
+/// Other invisible format characters are left alone, as emoji are built from
+/// some of them: the zero-width joiner joins a family emoji, and tag
+/// characters spell a regional flag.
+fn is_bidi_control(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+    )
 }
 
 /// Columns `ch` takes on its own, with control characters taking none.
@@ -333,6 +353,25 @@ mod tests {
             "a\\nb\\tc\\u{7f}\\u{9b}"
         );
         assert!(matches!(show_controls("漢字 → ok"), Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn characters_that_reorder_text_are_shown_as_escapes() {
+        assert_eq!(show_controls("evil\u{202e}txt.exe"), "evil\\u{202e}txt.exe");
+        for ch in [
+            '\u{061c}', '\u{200e}', '\u{200f}', '\u{202a}', '\u{2066}', '\u{2069}',
+        ] {
+            let shown = show_controls(&ch.to_string()).into_owned();
+            assert_eq!(shown, ch.escape_unicode().to_string(), "{shown}");
+        }
+        // The joiner of a family emoji and the tags of a regional flag are
+        // invisible format characters too, but drawn as they are.
+        for emoji in [
+            "\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}",
+            "\u{1f3f4}\u{e0067}\u{e0062}\u{e0073}\u{e0063}\u{e0074}\u{e007f}",
+        ] {
+            assert!(matches!(show_controls(emoji), Cow::Borrowed(_)), "{emoji}");
+        }
     }
 
     #[test]
