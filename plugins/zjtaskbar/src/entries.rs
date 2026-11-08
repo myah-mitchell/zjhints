@@ -13,7 +13,7 @@
 //! them (see `instance`), so a pane minimized from one bar is listed by every
 //! bar whose `pane_scope` takes in its tab, and any of them brings it back.
 //! With each id is kept where the pane stood, which Zellij forgets as it
-//! hides a pane.
+//! hides a pane; see `mouse::geometry_of`.
 //!
 //! The entries are grouped by tab, in the order the tabs stand, and within a
 //! tab ordered by pane id, terminals before plugins. A pane's id never
@@ -49,7 +49,6 @@ struct MinimizedPane {
 impl Minimized {
     /// Keep `pane` as minimized, standing at `geometry` before it was
     /// hidden. Called as the bar asks Zellij to hide it.
-    #[cfg(test)]
     pub(crate) fn insert(&mut self, pane: PaneId, geometry: FloatingPaneCoordinates) {
         let minimized = MinimizedPane {
             geometry,
@@ -58,9 +57,21 @@ impl Minimized {
         self.panes.insert(pane, minimized);
     }
 
+    /// Forget `pane` as minimized, handing back where it stood, if the bar
+    /// minimized it.
+    pub(crate) fn remove(&mut self, pane: &PaneId) -> Option<FloatingPaneCoordinates> {
+        self.panes.remove(pane).map(|minimized| minimized.geometry)
+    }
+
     /// Whether the bar minimized `pane` and has not forgotten it since.
     pub(crate) fn contains_key(&self, pane: &PaneId) -> bool {
         self.panes.contains_key(pane)
+    }
+
+    /// Where `pane` stood before the bar minimized it.
+    #[cfg(test)]
+    pub(crate) fn get(&self, pane: &PaneId) -> Option<&FloatingPaneCoordinates> {
+        self.panes.get(pane).map(|minimized| &minimized.geometry)
     }
 
     #[cfg(test)]
@@ -99,7 +110,8 @@ impl PaneScope {
 /// what the bar never shows.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Tab {
-    /// The tab's `TabInfo::tab_id`, which stays the same as tabs move.
+    /// The tab's `TabInfo::tab_id`, which stays the same as tabs move. A
+    /// pane is pulled into a tab by this; see `State::pull`.
     pub id: usize,
     /// Where the tab stands among the others, counted from 0. A pane
     /// manifest lists its panes under this.

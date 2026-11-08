@@ -76,7 +76,7 @@ pub(crate) fn bar_permissions(features: &[Feature]) -> Vec<PermissionType> {
 }
 
 /// The events the bar always subscribes to.
-pub(crate) const BAR_EVENTS: [EventType; 4] = [
+pub(crate) const BAR_EVENTS: [EventType; 5] = [
     // The nested-session state that hides or dims the bar, and the Zellij
     // theme the default look is drawn in.
     EventType::ModeUpdate,
@@ -87,6 +87,8 @@ pub(crate) const BAR_EVENTS: [EventType; 4] = [
     // Which tab is active, whether its floating panes are shown, and the
     // names of the tabs the panes are in.
     EventType::TabUpdate,
+    // The answers to the pane menu and the close confirmation.
+    EventType::PromptResult,
 ];
 
 /// The events the bar subscribes to while `mouse` is on.

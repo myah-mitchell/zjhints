@@ -120,6 +120,12 @@ impl State {
         self.bar.visibility.is_hidden() || self.hidden_by_nesting()
     }
 
+    /// Whether the line drawn now is blank: `draws_nothing` says so, or
+    /// there are no entries and no `empty_format` to draw in their place.
+    pub(crate) fn draws_blank_line(&self) -> bool {
+        self.draws_nothing() || (self.entries.is_empty() && self.empty_format.is_none())
+    }
+
     /// The line to draw: the entries that fit, or `empty_format` while there
     /// are none, or nothing while `draws_nothing` says so. With it, the
     /// columns each entry and marker it shows was drawn on.

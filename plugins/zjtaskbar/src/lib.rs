@@ -4,26 +4,30 @@
 //!
 //! The bar lists the session's floating panes as entries, grouped by tab,
 //! with the focused one highlighted and the minimized ones marked. See
-//! `entries` for which panes it lists and in what order, and `draw` for how
-//! it draws them.
+//! `entries` for which panes it lists and in what order, `draw` for how it
+//! draws them, and `mouse` for what clicking them does.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
 //! Zellij.
 
 use std::cell::{Ref, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 use zellij_tile::prelude::*;
 use zjkit::bar::{BarCore, BarPlugin, BarSpec, Role};
 use zjkit::config;
+use zjkit::mouse::{ColumnSpans, PendingPrompt};
 
 mod draw;
 mod entries;
 mod flags;
 mod host;
 mod instance;
+mod mouse;
 mod settings;
 mod theme;
 
+use draw::Clickable;
 use entries::{Entry, Minimized, PaneScope, Tab};
 use flags::FLAGS;
 use host::*;
@@ -158,7 +162,7 @@ pub struct State {
     dim_when_unfocused: bool,
     /// How strongly to dim, in `zjkit::dim::color`'s `0.0..=1.0` scale.
     dim_strength: f32,
-    /// Whether the bar takes clicks and the wheel.
+    /// Whether the bar takes clicks and the wheel. See `mouse`.
     mouse: bool,
     /// Swap what scrolling up and down step to.
     mouse_wheel_reversed: bool,
@@ -175,6 +179,13 @@ pub struct State {
     entries: Vec<Entry>,
     /// The last `ModeUpdate`, for the nested-session state.
     mode_info: ModeInfo,
+    /// What each column of the line last drawn stands for, for the mouse.
+    click_spans: ColumnSpans<Clickable>,
+    /// The pane menu or close confirmation being shown, if any. See `mouse::Prompted`.
+    pending_prompt: PendingPrompt<mouse::Prompted>,
+    /// The last left click on the bar, to tell the second click of a double
+    /// click from a click of its own. See `mouse::LeftClick`.
+    last_left_click: Option<mouse::LeftClick>,
 }
 
 impl State {
@@ -380,6 +391,10 @@ impl ZellijPlugin for State {
                 }
                 self.mode_info = mode_info;
             }
+            // What a click does comes back as a `PaneUpdate`, so the mouse
+            // never redraws by itself.
+            Event::Mouse(mouse) if self.mouse => self.follow_mouse(&mouse, Instant::now()),
+            Event::PromptResult(request_id, result) => self.answer_prompt(request_id, &result),
             _ => {}
         }
         should_render
@@ -404,9 +419,10 @@ impl ZellijPlugin for State {
         // The size Zellij is about to draw the pane at, which a pane update
         // may not have reported yet. See `BarCore::edge`.
         self.bar.render_cols = Some(cols);
-        let (output, _) = self.draw_bar();
+        let (output, click_spans) = self.draw_bar();
         self.bar
             .sync_collapsed(&self.host, self.collapse_when_empty, output.is_empty());
+        self.click_spans = click_spans;
         print!("{output}");
     }
 }
