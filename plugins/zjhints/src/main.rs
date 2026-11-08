@@ -21,7 +21,6 @@ mod host;
 mod images;
 mod keypress;
 mod keys;
-mod mode_prefix;
 mod popup;
 mod settings;
 mod theme;
@@ -38,7 +37,9 @@ use popup::PreviewPopup;
 use hints::*;
 use host::*;
 use keys::*;
-use mode_prefix::*;
+#[cfg(test)]
+use zjkit::mode::mode_config_suffix;
+use zjkit::mode::{render_mode_prefix, CONFIG_MODE_FORMAT};
 
 #[derive(Default)]
 struct State {
@@ -272,17 +273,10 @@ const CONFIG_COLLAPSE_WHEN_EMPTY: &str = "collapse_when_empty";
 const CONFIG_DIM_WHEN_UNFOCUSED: &str = "dim_when_unfocused";
 const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_SHOW_MODE: &str = "show_mode";
-const CONFIG_MODE_FORMAT: &str = "mode_format";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_NESTED: &str = "mouse_nested";
 const CONFIG_MOUSE_HOVER: &str = "mouse_hover";
 const CONFIG_MOUSE_MENUS: &str = "mouse_menus";
-// Per-mode override of the mode prefix, e.g. `mode_format_normal`. Matches
-// zjstatus's own `mode_<suffix>` naming exactly (see `mode_config_suffix`),
-// so an icon set up for zjstatus's {mode} widget can be reused here.
-const CONFIG_MODE_FORMAT_PREFIX: &str = "mode_format_";
-const CONFIG_MODE_LABEL_PREFIX: &str = "mode_label_";
-const CONFIG_MODE_KEY_PREFIX: &str = "mode_key_";
 
 /// Concept id of the synthetic hint standing in for the descended-session
 /// placeholder (see `render`'s `is_host_descended` branch), and its default

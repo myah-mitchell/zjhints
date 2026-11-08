@@ -64,7 +64,6 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `main.rs` | The plugin state, its options, and the Zellij event loop |
 | `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
 | `keys.rs` | Key grouping, key and modifier aliases, and key order |
-| `mode_prefix.rs` | The mode drawn ahead of the hints |
 | `host.rs` | Permissions, pipe names, and the host calls tests stub out |
 | `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
 | `popup.rs` | zjhints' names for the hover-preview popup |

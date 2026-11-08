@@ -17,12 +17,11 @@
 
 use crate::{
     CONFIG_DESC_FORMAT, CONFIG_DROP_INDICATOR, CONFIG_HINT_SPACER, CONFIG_KEY_ALIAS_PREFIX,
-    CONFIG_KEY_FORMAT, CONFIG_MODE_FORMAT, CONFIG_MODE_FORMAT_PREFIX, CONFIG_MODE_KEY_PREFIX,
-    CONFIG_MOD_ALIAS_PREFIX, CONFIG_OVERFLOW_STR,
+    CONFIG_KEY_FORMAT, CONFIG_MOD_ALIAS_PREFIX, CONFIG_OVERFLOW_STR,
 };
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, Styling};
-use zjkit::theme::{color_entries, Shape, ARROW, MODES, PILL_LEFT, PILL_RIGHT};
+use zjkit::theme::{color_entries, Shape, ARROW, PILL_LEFT, PILL_RIGHT};
 pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 
 /// `configuration` with the selected themes' options laid under it. A key the
@@ -31,10 +30,9 @@ pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOIC
 /// `zellij_palette` is the running Zellij theme, which `color_theme zellij`
 /// takes its aliases from. `None` (no palette has arrived yet) adds none.
 ///
-/// A format theme colors each mode's prefix through `mode_format_<mode>`,
-/// which outranks `mode_format`. When the user sets `mode_format` they mean it
-/// for every mode, so those per-mode defaults are left out rather than
-/// overriding it.
+/// The mode prefix's options, `mode_key_<mode>` from the alias theme and
+/// `mode_format` and `mode_format_<mode>` from the format theme, are laid in
+/// by `zjkit::mode::layer_theme`, which every bar shares.
 pub fn layer(
     configuration: &BTreeMap<String, String>,
     zellij_palette: Option<&Styling>,
@@ -65,40 +63,19 @@ pub fn layer(
                 add(format!("{CONFIG_KEY_ALIAS_PREFIX}{key}"), alias.to_string());
             }
         }
-        for (mode, symbol) in theme.modes {
-            add(
-                format!("{CONFIG_MODE_KEY_PREFIX}{mode}"),
-                symbol.to_string(),
-            );
-        }
     }
 
+    zjkit::mode::layer_theme(configuration, &mut layered);
+
     if let Some(shape) = zjkit::theme::shape(configuration) {
-        // Read after the alias theme went in, so a mode whose symbol came
-        // from either one gets a block for it.
-        let has_key = |mode: &str| {
-            layered
-                .get(&format!("{CONFIG_MODE_KEY_PREFIX}{mode}"))
-                .is_some_and(|symbol| !symbol.is_empty())
-        };
-        let keyed: Vec<bool> = MODES.iter().map(|(mode, _)| has_key(mode)).collect();
-        let user_sets_mode_format = configuration.contains_key(CONFIG_MODE_FORMAT);
         for (key, value) in format_entries(shape) {
             layered.entry(key).or_insert(value);
-        }
-        if !user_sets_mode_format {
-            for ((mode, alias), keyed) in MODES.iter().zip(keyed) {
-                layered
-                    .entry(format!("{CONFIG_MODE_FORMAT_PREFIX}{mode}"))
-                    .or_insert_with(|| mode_format(alias, shape, keyed));
-            }
         }
     }
     layered
 }
 
-/// The hint formats a format theme sets, and its `mode_format` for display
-/// and for modes it has no own entry for.
+/// The hint formats a format theme sets.
 fn format_entries(shape: Shape) -> Vec<(String, String)> {
     // The drop indicator is drawn like a description, so the gap where
     // hints were dropped reads as part of the bar. The overflow marker ends a
@@ -139,34 +116,7 @@ fn format_entries(shape: Shape) -> Vec<(String, String)> {
         (CONFIG_HINT_SPACER.to_string(), spacer.to_string()),
         (CONFIG_DROP_INDICATOR.to_string(), drop),
         (CONFIG_OVERFLOW_STR.to_string(), overflow),
-        (
-            CONFIG_MODE_FORMAT.to_string(),
-            mode_format("accent", shape, false),
-        ),
     ]
-}
-
-/// The mode prefix drawn on the color `alias`, with a block for the mode's
-/// `{key}` symbol when `keyed`.
-fn mode_format(alias: &str, shape: Shape, keyed: bool) -> String {
-    match (shape, keyed) {
-        (Shape::Flat, false) => format!("#[fg=$bg,bg=${alias},bold] {{desc}} "),
-        (Shape::Flat, true) => format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} "),
-        (Shape::Plain, false) => format!("#[fg=${alias},bold]{{desc}}"),
-        (Shape::Plain, true) => format!("#[fg=${alias},bold]{{key}} {{desc}}"),
-        (Shape::Powerline, false) => {
-            format!("#[fg=$bg,bg=${alias},bold] {{desc}} #[fg=${alias}]{ARROW}")
-        }
-        (Shape::Powerline, true) => {
-            format!("#[fg=$bg,bg=${alias},bold] {{key}} {{desc}} #[fg=${alias}]{ARROW}")
-        }
-        (Shape::Pills, false) => {
-            format!("#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$surface]{PILL_RIGHT}")
-        }
-        (Shape::Pills, true) => format!(
-            "#[fg=${alias},bg=$surface,bold] {{desc}} #[fg=$bg,bg=${alias},bold] {{key}} #[fg=${alias}]{PILL_RIGHT}"
-        ),
-    }
 }
 
 #[cfg(test)]
