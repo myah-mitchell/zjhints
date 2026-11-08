@@ -3781,3 +3781,12 @@ fn a_popup_slot_and_its_bar_slot_find_each_other_by_slot() {
         }]
     );
 }
+
+// Anyone who can launch a plugin can add a pane with any options to a
+// running instance, and a panic in one slot takes every bar down. See
+// `zjkit::junk`.
+
+#[test]
+fn no_options_at_all_make_an_instance_panic() {
+    zjkit::junk::shake::<State>(&BAR, 0x21f84473, 400, || {});
+}
