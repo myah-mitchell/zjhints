@@ -15,7 +15,7 @@
 //! values a theme selects under the user's own configuration.
 
 use std::collections::BTreeMap;
-use zellij_tile::prelude::{PaletteColor, Styling};
+use zellij_tile::prelude::{PaletteColor, StyleDeclaration, Styling};
 
 /// The option that picks a color theme.
 pub const CONFIG_COLOR_THEME: &str = "color_theme";
@@ -113,6 +113,9 @@ pub const COLOR_THEMES: [ColorTheme; 6] = [
 
 /// The Powerline right-pointing arrow, a Nerd Font glyph.
 pub const ARROW: &str = "\u{e0b0}";
+/// The Powerline left-pointing arrow, a Nerd Font glyph: `ARROW` mirrored,
+/// for a block at the right end of a line, which points back along it.
+pub const ARROW_LEFT: &str = "\u{e0b2}";
 /// The left and right halves of a rounded pill, Nerd Font glyphs.
 pub const PILL_LEFT: &str = "\u{e0b6}";
 pub const PILL_RIGHT: &str = "\u{e0b4}";
@@ -326,6 +329,17 @@ pub fn unknown_names(configuration: &BTreeMap<String, String>) -> Vec<(&'static 
         .collect()
 }
 
+/// Log each theme option in `configuration` that names no theme, prefixed
+/// with `plugin`. Zellij writes a plugin's standard error to its log, which
+/// is the one place a bad value gets reported; the bar itself draws with
+/// `zellij` instead. Called where a configuration arrives, not each time the
+/// palette changes and the themes are laid again.
+pub fn log_unknown_themes(plugin: &str, configuration: &BTreeMap<String, String>) {
+    for (option, name) in unknown_names(configuration) {
+        eprintln!("{plugin}: unknown {option} \"{name}\", using \"{THEME_ZELLIJ}\"");
+    }
+}
+
 /// The format theme `configuration` selects, or `None` for `zellij`, unset
 /// or unknown.
 pub fn shape(configuration: &BTreeMap<String, String>) -> Option<Shape> {
@@ -390,6 +404,25 @@ pub fn color_value(color: PaletteColor) -> String {
     }
 }
 
+/// `text` as a format string drawn in the colors of a Zellij ribbon, bold
+/// when `bold` is set, or unstyled while `ribbon` is `None`, before Zellij
+/// has sent its theme.
+///
+/// This is how a bar draws a piece in Zellij's own look, the one it has
+/// while its format option is unset: a tab bar's tabs on the selected and
+/// unselected ribbons, say, the way Zellij's own tab bar draws them.
+pub fn zellij_look(ribbon: Option<StyleDeclaration>, text: &str, bold: bool) -> String {
+    match ribbon {
+        Some(ribbon) => format!(
+            "#[fg={},bg={}{}]{text}",
+            color_value(ribbon.base),
+            color_value(ribbon.background),
+            if bold { ",bold" } else { "" },
+        ),
+        None => text.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,6 +432,24 @@ mod tests {
             .iter()
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn the_zellij_look_draws_text_on_a_ribbon_once_its_colors_are_known() {
+        let ribbon = StyleDeclaration {
+            base: PaletteColor::Rgb((1, 2, 3)),
+            background: PaletteColor::EightBit(238),
+            ..Default::default()
+        };
+        assert_eq!(
+            zellij_look(Some(ribbon), " {name} ", true),
+            "#[fg=#010203,bg=238,bold] {name} "
+        );
+        assert_eq!(
+            zellij_look(Some(ribbon), "+{count}", false),
+            "#[fg=#010203,bg=238]+{count}"
+        );
+        assert_eq!(zellij_look(None, " {name} ", true), " {name} ");
     }
 
     fn is_hex_color(value: &str) -> bool {

@@ -40,7 +40,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | Module | What it does |
 | --- | --- |
 | `ansi` | Measures and cuts ANSI-styled text by visible width |
-| `dim` | Fades palette colors while a session is not where the keyboard goes |
+| `dim` | Fades palette colors and Zellij `Styling` while a session is not where the keyboard goes |
 | `fit` | Drops whole items until a line fits, leaving one gap for the indicator |
 | `format` | Renders zjstatus-style format strings |
 | `mouse` | Click maps, menus and the hover-preview state machine |
