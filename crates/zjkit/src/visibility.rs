@@ -9,7 +9,8 @@
 //! (`<plugin>::visibility`), unless the user has already hidden or shown it.
 //!
 //! Everything here is pure logic; sending the messages and collapsing the
-//! pane are host calls the plugin makes.
+//! pane are host calls the plugin makes. It collapses the pane as it draws,
+//! and `shared` does so for it as it is hidden or shown.
 
 use crate::settings::live;
 use std::collections::BTreeMap;
@@ -176,6 +177,19 @@ impl Visibility {
         changed
     }
 
+    /// Take `hidden` from another bar started from the same alias, as a bar
+    /// in a new tab joins the others, unless the user has already hidden or
+    /// shown this one. Returns whether anything changed.
+    pub fn adopt(&mut self, hidden: bool) -> bool {
+        if self.settled {
+            return false;
+        }
+        self.settled = true;
+        let changed = hidden != self.hidden;
+        self.hidden = hidden;
+        changed
+    }
+
     /// Take the first answer to the bar's question. Returns whether anything
     /// changed.
     pub fn take_answer(&mut self, source: &PipeSource, payload: Option<&str>) -> bool {
@@ -224,6 +238,26 @@ impl Visibility {
         }
         self.collapsed = should_collapse;
         Some(should_collapse)
+    }
+
+    /// What to tell Zellij about the row as the bar is hidden or shown away
+    /// from a render, which Zellij may not call again while the pane is
+    /// collapsed or on a tab nobody looks at: a hidden bar draws nothing
+    /// and gives its row up, and a bar shown takes it back until it next
+    /// draws. `None` when Zellij was last told so already. Records the
+    /// answer as the new last word.
+    pub fn row_after_hiding(&mut self) -> Option<bool> {
+        if self.collapsed == self.hidden {
+            return None;
+        }
+        self.collapsed = self.hidden;
+        Some(self.hidden)
+    }
+
+    /// Zellij kept the row after all, as a prompt was up in the pane (see
+    /// `shared`): the next render says again whether to collapse it.
+    pub fn row_kept(&mut self) {
+        self.collapsed = false;
     }
 }
 

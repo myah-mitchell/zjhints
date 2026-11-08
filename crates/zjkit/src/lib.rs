@@ -19,5 +19,6 @@ pub mod nesting;
 pub mod panes;
 pub mod popup;
 pub mod settings;
+pub mod shared;
 pub mod theme;
 pub mod visibility;

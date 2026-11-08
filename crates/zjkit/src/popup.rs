@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 
+use crate::host::{Host, Zellij};
 use crate::mouse::HOVER_PICKED_ENTRY_ARG;
 
 /// How long a popup waits to be hovered before it closes itself, which is
@@ -203,7 +204,7 @@ impl PreviewPopup {
     /// Subscribes to what the popup needs and asks for `permissions`, which
     /// must be the bar's whole set (see below).
     pub fn load(&self, permissions: &[PermissionType]) {
-        subscribe(&[
+        Zellij.subscribe(&[
             EventType::Mouse,
             EventType::Timer,
             EventType::PermissionRequestResult,
@@ -212,8 +213,8 @@ impl PreviewPopup {
         // Messaging the bar needs a permission. The popup shares the bar's
         // location, and so its cached grants, which a request replaces: the
         // bar's whole set is granted from the cache, without a prompt.
-        request_permission(permissions);
-        set_timeout(HOVER_IDLE_SECONDS);
+        Zellij.request_permission(permissions);
+        Zellij.set_timeout(HOVER_IDLE_SECONDS);
     }
 
     pub fn update(&mut self, event: Event) -> bool {
@@ -234,12 +235,12 @@ impl PreviewPopup {
         match action {
             PopupAction::Stay => {}
             PopupAction::Redraw => return true,
-            PopupAction::Close => close_self(),
+            PopupAction::Close => Zellij.close_self(),
             PopupAction::Pick(index) => {
                 let args =
                     BTreeMap::from([(HOVER_PICKED_ENTRY_ARG.to_string(), index.to_string())]);
                 self.tell_owner(self.names.picked, args);
-                close_self();
+                Zellij.close_self();
             }
         }
         false
@@ -247,7 +248,7 @@ impl PreviewPopup {
 
     pub fn pipe(&self, message: &PipeMessage) {
         if message.name == self.names.close && self.is_from_owner(&message.source) {
-            close_self();
+            Zellij.close_self();
         }
     }
 

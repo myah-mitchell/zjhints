@@ -56,6 +56,7 @@ Every Zellij call a bar makes goes through the `Host` trait. In the plugin that 
 | `panes` | Focus and widths from a pane manifest |
 | `popup` | The floating pane a hover preview opens in |
 | `settings` | The settings screen, driven by the plugin's `Schema`, with an add line for each option family, and the check of a `Schema` against its reference page |
+| `shared` | Runs a plugin as a Zellij shared instance, a plugin state per slot, routing events, timers, permissions and calls about its own pane to the right slot |
 | `theme` | Color themes, format themes and symbol sets |
 | `visibility` | Hide, show and toggle messages, and collapsing an empty row |
 
