@@ -1125,20 +1125,31 @@ impl State {
             url,
             &tag,
             &preview.labels(),
-            self.pane_rows.max(1),
-            preview.columns.start,
+            (self.pane_rows.max(1), preview.columns.start),
+            self.bar.instance(),
         );
     }
 
     /// Take `message` if it is a popup of this bar saying it opened, closed
     /// or had an entry clicked.
+    ///
+    /// The popup is a slot of the bar's shared instance, so Zellij names the
+    /// instance as the sender of its messages, and the popup says which slot
+    /// it is in an argument. Only a message from the instance is believed.
     fn take_popup_message(&mut self, message: &PipeMessage) {
         let opened = message.name == popup::NAMES.opened;
         let picked = message.name == popup::NAMES.picked;
         if !opened && !picked && message.name != popup::NAMES.closed {
             return;
         }
-        let PipeSource::Plugin(popup) = message.source else {
+        if message.source != PipeSource::Plugin(self.host.instance_id()) {
+            return;
+        }
+        let Some(popup) = message
+            .args
+            .get(zjkit::popup::POPUP_SLOT_ARG)
+            .and_then(|slot| slot.parse().ok())
+        else {
             return;
         };
         let Some(generation) = message

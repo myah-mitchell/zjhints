@@ -4,12 +4,23 @@
 //! the menu. The popup tells the bar when it opens and closes, and closes
 //! itself when the pointer leaves it, a click lands on it, or it is never
 //! hovered.
+//!
+//! The popup is a slot of the bar's own shared instance, so a pipe message
+//! always names the instance as its sender and says nothing about which slot
+//! sent it. The bar and its popup therefore address each other by slot id,
+//! which Zellij routes to that slot alone. The bar's slot id is in the
+//! popup's tag, and the popup tells the bar its own in `POPUP_SLOT_ARG`. A
+//! message is believed when its sender is the shared instance both run in.
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
 
 use crate::host::{Host, Zellij};
 use crate::mouse::HOVER_PICKED_ENTRY_ARG;
+
+/// The argument of every message a popup sends its bar that holds the popup's
+/// own slot id, which the bar closes it by.
+pub const POPUP_SLOT_ARG: &str = "popup";
 
 /// How long a popup waits to be hovered before it closes itself, which is
 /// what keeps one from outliving a pointer that left the bar elsewhere.
@@ -21,7 +32,8 @@ const HOVER_IDLE_SECONDS: f64 = 3.0;
 #[derive(Debug)]
 pub struct Names {
     /// Sent by a popup to the bar that opened it, with the popup's tag, once
-    /// it can take messages, so the bar learns its plugin id.
+    /// it can take messages, so the bar learns its slot id from
+    /// `POPUP_SLOT_ARG`.
     pub opened: &'static str,
     /// Sent by a popup to its bar, with its tag, as it closes.
     pub closed: &'static str,
@@ -168,7 +180,7 @@ enum PopupAction {
 pub struct PreviewPopup {
     names: &'static Names,
     tag: String,
-    /// The plugin id of the bar that opened it.
+    /// The slot id of the bar that opened it, from the tag.
     owner: Option<u32>,
     list: MenuList,
     /// Whether the pointer has been over the popup.
@@ -247,7 +259,9 @@ impl PreviewPopup {
     }
 
     pub fn pipe(&self, message: &PipeMessage) {
-        if message.name == self.names.close && self.is_from_owner(&message.source) {
+        if message.name == self.names.close
+            && self.is_from_owner(&message.source, Zellij.instance_id())
+        {
             Zellij.close_self();
         }
     }
@@ -274,14 +288,27 @@ impl PreviewPopup {
     }
 
     fn tell_owner(&self, name: &str, args: BTreeMap<String, String>) {
-        if let Some(owner) = self.owner {
-            pipe_message_to_plugin(
-                MessageToPlugin::new(name)
-                    .with_destination_plugin_id(owner)
-                    .with_payload(self.tag.clone())
-                    .with_args(args),
-            );
+        if let Some(message) = self.message_to_owner(name, args, Zellij.plugin_ids().plugin_id) {
+            pipe_message_to_plugin(message);
         }
+    }
+
+    /// The message `name` to the bar's slot, from the popup in slot `slot`,
+    /// with `args` and the popup's slot id. `None` when the tag names no bar.
+    fn message_to_owner(
+        &self,
+        name: &str,
+        mut args: BTreeMap<String, String>,
+        slot: u32,
+    ) -> Option<MessageToPlugin> {
+        let owner = self.owner?;
+        args.insert(POPUP_SLOT_ARG.to_string(), slot.to_string());
+        Some(
+            MessageToPlugin::new(name)
+                .with_destination_plugin_id(owner)
+                .with_payload(self.tag.clone())
+                .with_args(args),
+        )
     }
 
     /// The pointer leaving the popup closes it. A left-click on an entry
@@ -320,13 +347,13 @@ impl PreviewPopup {
         }
     }
 
-    /// Any plugin or `zellij pipe` can send a close message, so only the
-    /// bar's own counts.
-    fn is_from_owner(&self, source: &PipeSource) -> bool {
-        matches!(
-            (source, self.owner),
-            (PipeSource::Plugin(sender), Some(owner)) if *sender == owner
-        )
+    /// Any plugin or `zellij pipe` can send a close message, so only one from
+    /// the shared instance the popup runs in, `instance`, counts. A message
+    /// to the popup's slot from a slot of another bar in that instance cannot
+    /// be told from the bar's own, but it also cannot be sent without the
+    /// popup's slot id.
+    fn is_from_owner(&self, source: &PipeSource, instance: u32) -> bool {
+        self.owner.is_some() && *source == PipeSource::Plugin(instance)
     }
 }
 
@@ -483,15 +510,18 @@ mod tests {
     }
 
     #[test]
-    fn only_the_bar_that_opened_the_popup_can_close_it() {
+    fn only_the_popup_s_own_instance_can_close_it() {
         let popup = popup(&["a"]);
-        assert!(popup.is_from_owner(&PipeSource::Plugin(7)));
+        // The bar is a slot of the popup's instance, 100, and not any other
+        // plugin, whatever its id.
+        assert!(popup.is_from_owner(&PipeSource::Plugin(100), 100));
         for source in [
-            PipeSource::Plugin(8),
+            PipeSource::Plugin(7),
+            PipeSource::Plugin(101),
             PipeSource::Cli("pipe".to_string()),
             PipeSource::Keybind,
         ] {
-            assert!(!popup.is_from_owner(&source), "{source:?}");
+            assert!(!popup.is_from_owner(&source, 100), "{source:?}");
         }
         // A tag that names no bar is closed by no message.
         let stray = PreviewPopup::from_configuration(
@@ -499,7 +529,35 @@ mod tests {
             &configuration(&NAMES, "stray", &entries(&["a"])),
         )
         .expect("a popup");
-        assert!(!stray.is_from_owner(&PipeSource::Plugin(7)));
+        assert!(!stray.is_from_owner(&PipeSource::Plugin(100), 100));
+    }
+
+    #[test]
+    fn a_popup_writes_to_the_bar_s_slot_and_names_its_own() {
+        let popup = popup(&["a"]);
+        let args = BTreeMap::from([("entry".to_string(), "1".to_string())]);
+        let message = popup
+            .message_to_owner(NAMES.picked, args, 31)
+            .expect("a bar to write to");
+        assert_eq!(message.message_name, NAMES.picked);
+        // The bar is slot 7 of the tag "7-2", reached by its slot id.
+        assert_eq!(message.destination_plugin_id, Some(7));
+        assert_eq!(message.message_payload.as_deref(), Some("7-2"));
+        assert_eq!(
+            message.message_args,
+            BTreeMap::from([
+                ("entry".to_string(), "1".to_string()),
+                (POPUP_SLOT_ARG.to_string(), "31".to_string()),
+            ])
+        );
+        let stray = PreviewPopup::from_configuration(
+            &NAMES,
+            &configuration(&NAMES, "stray", &entries(&["a"])),
+        )
+        .expect("a popup");
+        assert!(stray
+            .message_to_owner(NAMES.opened, BTreeMap::new(), 31)
+            .is_none());
     }
 
     #[test]
