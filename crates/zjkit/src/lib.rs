@@ -11,6 +11,7 @@ pub mod fit;
 pub mod format;
 pub mod host;
 pub mod launch;
+pub mod mode;
 pub mod mouse;
 pub mod nesting;
 pub mod panes;

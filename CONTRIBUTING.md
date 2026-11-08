@@ -47,6 +47,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `format` | Renders zjstatus-style format strings |
 | `host` | The `Host` trait over every Zellij call a bar makes, with `Zellij` and the test `Recorder`, including the time of day, where a plugin runs from, running a command, focusing, hiding, moving and closing panes, and opening floating command and plugin panes |
 | `launch` | Zellij's own launch-or-focus and new floating terminal actions, so a click opens what its default keybindings open |
+| `mode` | The current input mode drawn as a prefix, its per-mode options, the look each theme gives it against either end of a bar (`Edge`), and the session name, its mirror image, with the rule for showing it |
 | `mouse` | Click maps, column spans for bars of items, press classification, menus of hints or plain labels, the prompt a bar waits on (`PendingPrompt`) and the hover-preview state machine |
 | `nesting` | Reads nested-session state from `ModeInfo` |
 | `panes` | Focus and widths from a pane manifest |
