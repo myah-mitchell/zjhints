@@ -40,12 +40,25 @@ pub(crate) const BAR_PERMISSIONS: [PermissionType; 3] = [
 pub(crate) enum Feature {
     /// Clicking the bar's entries and the bar itself.
     Mouse,
+    /// The launcher's menu and the plugins it opens.
+    Launcher,
+    /// A launcher item that runs one of Zellij's own actions: a new
+    /// terminal, or opening the session manager, the settings or the plugin
+    /// manager.
+    LauncherZellijAction,
+    /// A launcher entry that runs a command in a new floating pane.
+    LauncherCommand,
 }
 
 impl Feature {
     /// Every feature, for the settings screen, which asks for what a bar with
     /// every feature on needs.
-    pub(crate) const ALL: [Feature; 1] = [Feature::Mouse];
+    pub(crate) const ALL: [Feature; 4] = [
+        Feature::Mouse,
+        Feature::Launcher,
+        Feature::LauncherZellijAction,
+        Feature::LauncherCommand,
+    ];
 
     /// What the feature needs beyond what the bar always asks for.
     pub(crate) fn permissions(self) -> &'static [PermissionType] {
@@ -56,6 +69,20 @@ impl Feature {
                 PermissionType::RunActionsAsUser,
                 // The pane menu and the close confirmation, which are prompts.
                 PermissionType::OpenTerminalsOrPlugins,
+            ],
+            Feature::Launcher => &[
+                // The launcher's menu, which is a prompt, and the plugin
+                // entries, which open plugins in floating panes.
+                PermissionType::OpenTerminalsOrPlugins,
+            ],
+            Feature::LauncherZellijAction => &[
+                // Zellij's `NewFloatingPane` and `LaunchOrFocusPlugin`, run
+                // as its own keys run them; see `zjkit::launch`.
+                PermissionType::RunActionsAsUser,
+            ],
+            Feature::LauncherCommand => &[
+                // Opening a pane that runs a command.
+                PermissionType::RunCommands,
             ],
         }
     }
@@ -87,7 +114,8 @@ pub(crate) const BAR_EVENTS: [EventType; 5] = [
     // Which tab is active, whether its floating panes are shown, and the
     // names of the tabs the panes are in.
     EventType::TabUpdate,
-    // The answers to the pane menu and the close confirmation.
+    // The answers to the pane menu, the close confirmation and the
+    // launcher's menu.
     EventType::PromptResult,
 ];
 

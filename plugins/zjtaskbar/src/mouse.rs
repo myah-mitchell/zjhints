@@ -12,6 +12,10 @@
 //! menu of what can be done to its pane, and anywhere else opens Zellij's
 //! own bar menu. The wheel steps the focus through the panes on screen.
 //!
+//! A left click on the launcher's button opens its menu, and a right-click
+//! there opens Zellij's bar menu, as anywhere off an entry does. See
+//! `launcher`.
+//!
 //! Minimizing hides a pane with `Host::hide_pane_with_id`, which Zellij
 //! reports as suppressed. Zellij forgets where a hidden floating pane stood:
 //! focusing it again places it as if it were new, with a frame. So the bar
@@ -19,6 +23,7 @@
 //! as it restores it; see `geometry_of`.
 
 use crate::draw::Clickable;
+use crate::launcher::LauncherItem;
 use crate::State;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -65,6 +70,9 @@ pub(crate) enum Prompted {
         pane: PaneId,
         items: Vec<PaneMenuItem>,
     },
+    /// The launcher's menu, with the items it showed, in order, as the
+    /// pane menu keeps its own.
+    Launcher { items: Vec<LauncherItem> },
 }
 
 /// One item of the menu a right-click on an entry opens.
@@ -179,8 +187,9 @@ impl State {
                     // a surprise.
                     (PressKind::Middle, Some(Clickable::Entry(pane))) => self.close_pane(pane),
                     (PressKind::Right, Some(Clickable::Entry(pane))) => self.open_pane_menu(pane),
-                    // A spacer, a separator, a marker or the cut of an
-                    // overlong line: there is no one pane to act on.
+                    // The launcher's button, a spacer, a separator, a marker or
+                    // the cut of an overlong line: there is no one pane to act
+                    // on.
                     (PressKind::Right, _) => {
                         self.host
                             .open_context_menu(ContextMenuTarget::Bar, 0, column)
@@ -196,7 +205,8 @@ impl State {
     /// A left click at `column`, which came at `now`: bring the pane of the
     /// entry under it up, or minimize it if it is the one focused. A marker
     /// acts as its nearest hidden entry would, and the hidden entries are
-    /// never focused, so a click on one never minimizes.
+    /// never focused, so a click on one never minimizes. On the launcher's
+    /// button, open its menu.
     ///
     /// A click that follows the last on the same column within
     /// `DOUBLE_CLICK_TIME` is the second half of a double-click, and does
@@ -216,6 +226,10 @@ impl State {
         }
         let pane = match target {
             Some(Clickable::Entry(pane) | Clickable::Marker(pane)) => pane,
+            Some(Clickable::Launcher) => {
+                self.open_launcher_menu();
+                return;
+            }
             None => return,
         };
         let Some(entry) = self.entries.iter().find(|entry| entry.pane == pane) else {
@@ -440,13 +454,14 @@ impl State {
     }
 
     /// Act on Zellij's answer `result` to the prompt `request_id`, when it is
-    /// the pane menu or close confirmation the bar is waiting on, and the
-    /// pane is still on the bar. An answer to any other prompt is left
-    /// alone.
+    /// the pane menu, close confirmation or launcher menu the bar is waiting
+    /// on, and for a pane's, the pane is still on the bar. An answer to any
+    /// other prompt is left alone.
     ///
     /// A close confirmation closes the pane only when the user chose to. The
-    /// pane menu acts on the item chosen, as the pane stands now. Any other
-    /// answer, a dismissal or a timeout included, does nothing.
+    /// pane menu acts on the item chosen, as the pane stands now, and the
+    /// launcher's menu opens the item chosen, as the menu showed it. Any
+    /// other answer, a dismissal or a timeout included, does nothing.
     pub(crate) fn answer_prompt(&mut self, request_id: u64, result: &PromptResult) {
         let Some(prompted) = self.pending_prompt.answer(request_id) else {
             return;
@@ -475,6 +490,11 @@ impl State {
                     // Asks first with `mouse_close_confirm` on, as a middle
                     // click does: a menu item is as easy to pick by mistake.
                     PaneMenuItem::Close => self.close_pane(pane),
+                }
+            }
+            Prompted::Launcher { items } => {
+                if let Some(item) = menu_choice(result).and_then(|index| items.get(index)) {
+                    self.launch(item);
                 }
             }
         }

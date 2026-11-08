@@ -1,5 +1,6 @@
 use super::*;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use zellij_tile::prelude::actions::Action;
 use zellij_utils::input::layout::PercentOrFixed;
@@ -63,7 +64,7 @@ fn with_no_feature_on_the_bar_asks_only_for_what_it_always_needs() {
 
 #[test]
 fn the_mouse_asks_to_run_actions_and_show_prompts() {
-    let state = loaded(&[]);
+    let state = loaded(&[("show_launcher", "false")]);
     assert_eq!(state.features(), vec![Feature::Mouse]);
     let mut expected = BAR_PERMISSIONS.to_vec();
     expected.extend([
@@ -77,10 +78,12 @@ fn the_mouse_asks_to_run_actions_and_show_prompts() {
         [
             ("mouse_close_confirm", "false"),
             ("mouse_wheel_reversed", "true"),
+            ("show_launcher", "false"),
         ],
         [
             ("mouse_close_confirm", "true"),
             ("mouse_wheel_reversed", "false"),
+            ("show_launcher", "false"),
         ],
     ] {
         assert_eq!(BarPlugin::permissions(&loaded(&options), &BAR), expected);
@@ -123,6 +126,18 @@ fn each_feature_adds_its_own_permissions_once() {
 }
 
 #[test]
+fn only_the_features_that_run_commands_ask_to() {
+    for feature in Feature::ALL {
+        let runs_commands = matches!(feature, Feature::LauncherCommand);
+        assert_eq!(
+            bar_permissions(&[feature]).contains(&PermissionType::RunCommands),
+            runs_commands,
+            "{feature:?}"
+        );
+    }
+}
+
+#[test]
 fn the_settings_screen_asks_for_the_permissions_of_a_bar_with_every_feature_on() {
     let every_feature = bar_permissions(&Feature::ALL);
     assert_eq!((settings::SCHEMA.permissions)(), every_feature);
@@ -133,6 +148,7 @@ fn the_settings_screen_asks_for_the_permissions_of_a_bar_with_every_feature_on()
         PermissionType::MessageAndLaunchOtherPlugins,
         PermissionType::RunActionsAsUser,
         PermissionType::OpenTerminalsOrPlugins,
+        PermissionType::RunCommands,
     ] {
         assert_eq!(
             every_feature
@@ -191,6 +207,15 @@ fn unset_options_take_their_defaults() {
     assert_eq!(state.mouse, DEFAULT_MOUSE);
     assert_eq!(state.mouse_wheel_reversed, DEFAULT_MOUSE_WHEEL_REVERSED);
     assert_eq!(state.mouse_close_confirm, DEFAULT_MOUSE_CLOSE_CONFIRM);
+    assert_eq!(state.show_launcher, DEFAULT_SHOW_LAUNCHER);
+    assert_eq!(state.launcher_format, None);
+    assert_eq!(state.launcher_symbol, DEFAULT_LAUNCHER_SYMBOL);
+    assert_eq!(state.launcher_new_terminal, DEFAULT_LAUNCHER_NEW_TERMINAL);
+    assert_eq!(
+        state.launcher_zellij_actions,
+        DEFAULT_LAUNCHER_ZELLIJ_ACTIONS
+    );
+    assert_eq!(state.launch_entries, vec![]);
 }
 
 #[test]
@@ -219,6 +244,13 @@ fn every_option_is_read_from_its_key() {
         ("mouse", "false"),
         ("mouse_wheel_reversed", "true"),
         ("mouse_close_confirm", "false"),
+        ("show_launcher", "false"),
+        ("launcher_format", "<{symbol}>"),
+        ("launcher_symbol", "Go"),
+        ("launcher_new_terminal", "false"),
+        ("launcher_zellij_actions", "false"),
+        ("launch_1_name", "htop"),
+        ("launch_1_command", "htop"),
     ]);
     assert_eq!(state.pane_scope, PaneScope::Tab);
     assert_eq!(state.entry_format.as_deref(), Some("{title}"));
@@ -240,6 +272,12 @@ fn every_option_is_read_from_its_key() {
     assert!(!state.mouse);
     assert!(state.mouse_wheel_reversed);
     assert!(!state.mouse_close_confirm);
+    assert!(!state.show_launcher);
+    assert_eq!(state.launcher_format.as_deref(), Some("<{symbol}>"));
+    assert_eq!(state.launcher_symbol, "Go");
+    assert!(!state.launcher_new_terminal);
+    assert!(!state.launcher_zellij_actions);
+    assert_eq!(state.launch_entries.len(), 1);
 }
 
 #[test]
@@ -299,8 +337,11 @@ fn hidden_hides_the_bar() {
 
 // The panes and tabs the bar is shown.
 
-/// Formats with no styling, so a test can read the line as plain text.
-const PLAIN: [(&str, &str); 11] = [
+/// Formats with no styling, so a test can read the line as plain text, and
+/// no launcher's button, so the entries start at column 0. The launcher's
+/// own tests turn it back on.
+const PLAIN: [(&str, &str); 12] = [
+    ("show_launcher", "false"),
     ("entry_format", "{title}{flags}"),
     ("focused_entry_format", "[{title}{flags}]"),
     ("minimized_entry_format", "_{title}{flags}_"),
@@ -675,7 +716,7 @@ fn exited_and_plugin_panes_are_flagged_in_a_fixed_order() {
 fn each_flag_shows_in_its_own_default_words() {
     let mut exited = floating(1, "build");
     exited.exited = true;
-    let mut state = loaded(&[]);
+    let mut state = loaded(&[("show_launcher", "false")]);
     state
         .minimized_mut()
         .insert(PaneId::Terminal(3), FloatingPaneCoordinates::default());
@@ -747,7 +788,11 @@ fn with_no_formats_the_bar_takes_zellij_s_colors() {
         let parts = zjkit::format::render_template(format, &[], &config, 0.0);
         ansi_term::ANSIStrings(&parts).to_string()
     };
+    // The launcher's button on an unselected ribbon, in bold, and then the
+    // entries.
     let expected = [
+        drawn("#[fg=#040506,bg=#313244,bold] Menu "),
+        " ".to_string(),
         drawn("#[fg=#010203,bg=#a6e3a1,bold] a "),
         " ".to_string(),
         drawn("#[fg=#040506,bg=#313244] b "),
@@ -763,7 +808,7 @@ fn before_zellij_sends_its_theme_the_entries_are_unstyled() {
     let mut state = loaded(&[]);
     state.update(Event::TabUpdate(tabs(1, 0)));
     state.update(panes(80, vec![(0, vec![floating(1, "a")])]));
-    assert_eq!(state.draw_bar().0, " a ");
+    assert_eq!(state.draw_bar().0, " Menu   a ");
 }
 
 #[test]
@@ -771,7 +816,11 @@ fn a_styled_flag_keeps_the_entry_s_background_under_it() {
     let mut exited = floating(1, "a");
     exited.exited = true;
     let state = bar(
-        &[("format_theme", "flat"), ("exited_format", "#[fg=$red] X")],
+        &[
+            ("format_theme", "flat"),
+            ("exited_format", "#[fg=$red] X"),
+            ("show_launcher", "false"),
+        ],
         80,
         tabs(1, 0),
         vec![(0, vec![exited])],
@@ -981,7 +1030,12 @@ fn a_separator_wider_than_the_spacer_still_fits_the_line() {
 
 #[test]
 fn the_markers_are_drawn_in_zellij_s_colors_with_no_format() {
-    let state = bar(&[("entry_spacer", "|")], 20, tabs(1, 0), letters(10, 5));
+    let state = bar(
+        &[("entry_spacer", "|"), ("show_launcher", "false")],
+        20,
+        tabs(1, 0),
+        letters(10, 5),
+    );
     let line = shown(&state);
     assert!(line.starts_with(" \u{2190} +"), "{line:?}");
     assert!(line.ends_with(" \u{2192} "), "{line:?}");
@@ -1024,7 +1078,7 @@ fn a_focused_entry_too_wide_with_its_markers_is_cut_alone_with_no_markers() {
 #[test]
 fn a_cut_line_keeps_its_styles_closed() {
     let state = bar(
-        &[],
+        &[("show_launcher", "false")],
         6,
         tabs(1, 0),
         vec![(0, vec![focused(floating(1, "a long title"))])],
@@ -1073,8 +1127,19 @@ fn every_theme_combination_draws_a_whole_bar_with_nothing_left_raw() {
             }
             let columns = zjkit::ansi::calculate_visible_length(&line);
             assert!(columns <= width, "{combination:?} {width}: {columns}");
+            // The launcher's button leads at every width, the entries giving
+            // way to it.
+            assert_eq!(
+                state.draw_bar().1.value_at(0),
+                Some(&Clickable::Launcher),
+                "{combination:?} {width}"
+            );
             if width == 400 {
                 let text = strip_ansi(&line);
+                assert!(
+                    text.contains(&state.launcher_symbol),
+                    "{combination:?}: {text:?}"
+                );
                 for title in ["htop", "notes", "editor", "picker", "mail"] {
                     assert!(text.contains(title), "{combination:?}: {text:?}");
                 }
@@ -2301,6 +2366,412 @@ fn hovering_dragging_or_pressing_below_the_bar_s_line_does_nothing() {
     ] {
         assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
     }
+}
+
+// The launcher.
+
+/// `PLAIN` with the launcher's button on and drawn as a bare `+`, so the
+/// line reads as plain text, and `pairs` added.
+fn launcher_with(pairs: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static str)> {
+    let mut all = plain_with(&[
+        ("show_launcher", "true"),
+        ("launcher_format", "{symbol}"),
+        ("launcher_symbol", "+"),
+    ]);
+    all.extend_from_slice(pairs);
+    all
+}
+
+/// Two entries of the user's own: a command, then a plugin.
+const LAUNCH_ENTRIES: [(&str, &str); 7] = [
+    ("launch_1_name", "Top"),
+    ("launch_1_command", "htop"),
+    ("launch_1_args", "-d 10"),
+    ("launch_1_cwd", "/srv"),
+    ("launch_2_name", "Files"),
+    ("launch_2_plugin", "zellij:strider"),
+    ("launch_2_config_theme", "dark"),
+];
+
+/// The launcher's menu with every group on and `LAUNCH_ENTRIES`.
+const FULL_LAUNCHER_MENU: [&str; 6] = [
+    "New terminal",
+    "Top",
+    "Files",
+    "Session manager",
+    "Settings",
+    "Plugin manager",
+];
+
+/// A bar with the launcher on, `LAUNCH_ENTRIES`, `pairs`, and the panes of
+/// `three_panes`, drawn `+|vim|[htop]|logs`.
+fn launcher_bar(pairs: &[(&'static str, &'static str)]) -> State {
+    let mut options = launcher_with(&LAUNCH_ENTRIES);
+    options.extend_from_slice(pairs);
+    bar(
+        &options,
+        80,
+        tabs(1, 0),
+        vec![(
+            0,
+            vec![
+                floating(1, "vim"),
+                focused(floating(2, "htop")),
+                floating(3, "logs"),
+            ],
+        )],
+    )
+}
+
+/// The menu prompt that lists `labels`.
+fn launcher_menu(labels: &[&str]) -> PromptRequest {
+    labeled_menu_request(labels.iter().map(|label| label.to_string()))
+}
+
+/// The id of the launcher's menu a left click on its button opens.
+fn open_launcher(state: &mut State) -> u64 {
+    the_prompt(&after_mouse(state, Mouse::LeftClick(0, 0))).0
+}
+
+#[test]
+fn the_launcher_s_button_leads_the_bar_and_a_left_click_opens_its_menu() {
+    let mut state = launcher_bar(&[]);
+    assert_eq!(shown(&state), "+|vim|[htop]|logs");
+    let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::LeftClick(0, 0)));
+    assert_eq!(request, launcher_menu(&FULL_LAUNCHER_MENU));
+    // The entries' columns start after the button and its spacer.
+    let at = |column| state.click_spans.value_at(column).copied();
+    assert_eq!(at(0), Some(Clickable::Launcher));
+    assert_eq!(at(1), None);
+    for column in 2..5 {
+        assert_eq!(at(column), Some(Clickable::Entry(PaneId::Terminal(1))));
+    }
+    assert_eq!(at(5), None);
+    assert_eq!(at(6), Some(Clickable::Entry(PaneId::Terminal(2))));
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 2)),
+        vec![focus_terminal(1)]
+    );
+}
+
+#[test]
+fn the_launcher_s_menu_lists_only_the_groups_turned_on() {
+    for (options, labels) in [
+        (vec![], FULL_LAUNCHER_MENU.to_vec()),
+        (
+            vec![("launcher_new_terminal", "false")],
+            vec![
+                "Top",
+                "Files",
+                "Session manager",
+                "Settings",
+                "Plugin manager",
+            ],
+        ),
+        (
+            vec![("launcher_zellij_actions", "false")],
+            vec!["New terminal", "Top", "Files"],
+        ),
+        (
+            vec![
+                ("launcher_new_terminal", "false"),
+                ("launcher_zellij_actions", "false"),
+            ],
+            vec!["Top", "Files"],
+        ),
+    ] {
+        let mut state = launcher_bar(&options);
+        let (_, request) = the_prompt(&after_mouse(&mut state, Mouse::LeftClick(0, 0)));
+        assert_eq!(request, launcher_menu(&labels), "{options:?}");
+    }
+    // With no entries of the user's either, the menu would be empty, so the
+    // button is not drawn and the entries start at column 0.
+    let mut state = bar(
+        &launcher_with(&[
+            ("launcher_new_terminal", "false"),
+            ("launcher_zellij_actions", "false"),
+        ]),
+        80,
+        tabs(1, 0),
+        vec![(0, vec![floating(1, "vim")])],
+    );
+    assert_eq!(shown(&state), "vim");
+    assert_eq!(
+        after_mouse(&mut state, Mouse::LeftClick(0, 0)),
+        vec![focus_terminal(1)]
+    );
+}
+
+#[test]
+fn each_item_of_the_launcher_s_menu_opens_what_it_names() {
+    let run = |action| Call::RunAction {
+        action,
+        context: BTreeMap::new(),
+    };
+    let expected = [
+        run(zjkit::launch::new_floating_terminal()),
+        Call::OpenCommandPaneFloating {
+            path: PathBuf::from("htop"),
+            args: vec!["-d".to_string(), "10".to_string()],
+            cwd: Some(PathBuf::from("/srv")),
+            coordinates: None,
+            context: BTreeMap::new(),
+        },
+        Call::OpenPluginPaneFloating {
+            url: "zellij:strider".to_string(),
+            configuration: cfg(&[("theme", "dark")]),
+            coordinates: None,
+            context: BTreeMap::new(),
+        },
+        run(zjkit::launch::launch_or_focus_floating(
+            zjkit::launch::SESSION_MANAGER_ALIAS,
+        )),
+        run(zjkit::launch::launch_or_focus_floating(
+            zjkit::launch::CONFIGURATION_ALIAS,
+        )),
+        run(zjkit::launch::launch_or_focus_floating(
+            zjkit::launch::PLUGIN_MANAGER_ALIAS,
+        )),
+    ];
+    for (index, call) in expected.into_iter().enumerate() {
+        let mut state = launcher_bar(&[]);
+        let request_id = open_launcher(&mut state);
+        assert_eq!(
+            after_answer(&mut state, request_id, choose(index)),
+            vec![call],
+            "{}",
+            FULL_LAUNCHER_MENU[index]
+        );
+        assert!(!state.pending_prompt.is_waiting());
+    }
+}
+
+#[test]
+fn a_launcher_menu_dismissed_or_answered_out_of_its_items_opens_nothing() {
+    for result in [
+        PromptResult::Cancelled,
+        PromptResult::TimedOut(None),
+        PromptResult::Error("no popup".to_string()),
+        PromptResult::Confirmed(true),
+        choose(FULL_LAUNCHER_MENU.len()),
+        PromptResult::Answered(PromptValue::Choice("-1".to_string())),
+        PromptResult::Answered(PromptValue::Choice("Top".to_string())),
+    ] {
+        let mut state = launcher_bar(&[]);
+        let request_id = open_launcher(&mut state);
+        assert_eq!(
+            after_answer(&mut state, request_id, result.clone()),
+            vec![],
+            "{result:?}"
+        );
+        assert!(!state.pending_prompt.is_waiting(), "{result:?}");
+    }
+}
+
+#[test]
+fn a_launcher_menu_answer_for_another_prompt_or_one_replaced_opens_nothing() {
+    let mut state = launcher_bar(&[]);
+    let request_id = open_launcher(&mut state);
+    assert_eq!(after_answer(&mut state, request_id + 1, choose(0)), vec![]);
+    assert!(state.pending_prompt.is_waiting());
+
+    // A pane menu opened since takes the launcher's place.
+    let (pane_menu_id, labels) = the_menu(&after_mouse(&mut state, Mouse::RightClick(0, 2)));
+    assert_eq!(labels[0], "Focus");
+    assert_eq!(after_answer(&mut state, request_id, choose(0)), vec![]);
+    assert_eq!(
+        after_answer(&mut state, pane_menu_id, choose(0)),
+        vec![focus_terminal(1)]
+    );
+}
+
+#[test]
+fn a_launcher_menu_opens_the_item_it_showed_when_it_opened() {
+    let mut state = launcher_bar(&[]);
+    let request_id = open_launcher(&mut state);
+    let mut options = launcher_with(&LAUNCH_ENTRIES);
+    options.push(("launcher_new_terminal", "false"));
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(cfg(&options)));
+    assert_eq!(
+        after_answer(&mut state, request_id, choose(0)),
+        vec![Call::RunAction {
+            action: zjkit::launch::new_floating_terminal(),
+            context: BTreeMap::new(),
+        }]
+    );
+}
+
+#[test]
+fn a_right_click_on_the_launcher_s_button_opens_the_bar_menu_and_other_clicks_do_nothing() {
+    let mut state = launcher_bar(&[]);
+    assert_eq!(
+        after_mouse(&mut state, Mouse::RightClick(0, 0)),
+        vec![Call::OpenContextMenu {
+            target: ContextMenuTarget::Bar,
+            line: 0,
+            column: 0,
+        }]
+    );
+    for mouse in [Mouse::MiddleClick(0, 0), Mouse::DoubleClick(0, 0)] {
+        assert_eq!(after_mouse(&mut state, mouse), vec![], "{mouse:?}");
+    }
+    // The second click of a double-click opens no second menu.
+    let start = Instant::now();
+    the_prompt(&after_mouse_at(&mut state, Mouse::LeftClick(0, 0), start));
+    let soon = start + Duration::from_millis(100);
+    assert_eq!(
+        after_mouse_at(&mut state, Mouse::LeftClick(0, 0), soon),
+        vec![]
+    );
+}
+
+#[test]
+fn with_the_mouse_or_show_launcher_off_no_button_is_drawn() {
+    for options in [vec![("mouse", "false")], vec![("show_launcher", "false")]] {
+        let state = launcher_bar(&options);
+        assert_eq!(shown(&state), "vim|[htop]|logs", "{options:?}");
+        assert_ne!(
+            state.draw_bar().1.value_at(0),
+            Some(&Clickable::Launcher),
+            "{options:?}"
+        );
+    }
+}
+
+#[test]
+fn the_entries_give_way_before_the_launcher_s_button() {
+    for (width, expected) in [
+        (1, "+"),
+        // Too narrow for anything after the spacer.
+        (2, "+"),
+        (3, "+|."),
+        (6, "+|[f]"),
+        (15, "+|<4|e|[f]|g|3>"),
+        (40, "+|a|b|c|d|e|[f]|g|h|i|j"),
+    ] {
+        let state = bar(&launcher_with(&[]), width, tabs(1, 0), letters(10, 5));
+        let line = shown(&state);
+        assert_eq!(line, expected, "{width}");
+        assert!(line.chars().count() <= width, "{width}: {line:?}");
+        assert_eq!(
+            state.draw_bar().1.value_at(0),
+            Some(&Clickable::Launcher),
+            "{width}"
+        );
+    }
+    // A button wider than the bar is cut to it with `overflow_str`, as an
+    // entry is, and what is left of it still opens the menu. The cut stands
+    // for nothing, as an entry's does.
+    let mut state = bar(
+        &launcher_with(&[("launcher_symbol", "Launch")]),
+        4,
+        tabs(1, 0),
+        letters(3, 1),
+    );
+    assert_eq!(shown(&state), "L...");
+    the_prompt(&after_mouse(&mut state, Mouse::LeftClick(0, 0)));
+    assert_eq!(state.click_spans.value_at(1), None);
+}
+
+#[test]
+fn the_launcher_s_button_keeps_an_empty_bar_s_row_and_its_click() {
+    let mut state = bar(&launcher_with(&[]), 80, tabs(1, 0), vec![]);
+    assert_eq!(shown(&state), "+");
+    state.host.clear();
+    state.render(1, 80);
+    assert_eq!(state.host.calls(), vec![]);
+    the_prompt(&after_mouse(&mut state, Mouse::LeftClick(0, 0)));
+    // With `empty_format`, it is drawn after the button.
+    let state = bar(
+        &launcher_with(&[("empty_format", "no panes")]),
+        80,
+        tabs(1, 0),
+        vec![],
+    );
+    assert_eq!(shown(&state), "+|no panes");
+}
+
+#[test]
+fn the_launcher_s_button_dims_with_the_bar() {
+    let undimmed = bar(&[], 80, tabs(1, 0), vec![]).draw_bar().0;
+    assert_eq!(strip_ansi(&undimmed), " Menu ");
+    let mut state = bar(&[], 80, tabs(1, 0), vec![]);
+    let mut mode_info = mode();
+    mode_info.session_dimmed = Some(true);
+    state.update(Event::ModeUpdate(mode_info));
+    let dimmed = state.draw_bar().0;
+    assert_ne!(dimmed, undimmed);
+    assert_eq!(strip_ansi(&dimmed), " Menu ");
+}
+
+#[test]
+fn the_launcher_asks_for_what_its_menu_can_open_and_nothing_more() {
+    let commands = &LAUNCH_ENTRIES[..4];
+    let plugins = &LAUNCH_ENTRIES[4..];
+    let groups_off = [
+        ("launcher_new_terminal", "false"),
+        ("launcher_zellij_actions", "false"),
+    ];
+    let mouse = Feature::Mouse;
+    let launcher = Feature::Launcher;
+    let zellij_action = Feature::LauncherZellijAction;
+    let command = Feature::LauncherCommand;
+    for (options, features) in [
+        (vec![], vec![mouse, launcher, zellij_action]),
+        (
+            commands.to_vec(),
+            vec![mouse, launcher, zellij_action, command],
+        ),
+        (plugins.to_vec(), vec![mouse, launcher, zellij_action]),
+        ([plugins, &groups_off].concat(), vec![mouse, launcher]),
+        (
+            [commands, &groups_off].concat(),
+            vec![mouse, launcher, command],
+        ),
+        // An empty menu draws no button, so asks for nothing.
+        (groups_off.to_vec(), vec![mouse]),
+        // Neither does a button not drawn.
+        (
+            [commands, &[("show_launcher", "false")]].concat(),
+            vec![mouse],
+        ),
+        ([commands, &[("mouse", "false")]].concat(), vec![]),
+        // An entry left off the menu runs no command.
+        (
+            vec![("launch_1_command", "htop")],
+            vec![mouse, launcher, zellij_action],
+        ),
+    ] {
+        let state = loaded(&options);
+        assert_eq!(state.features(), features, "{options:?}");
+        assert_eq!(
+            BarPlugin::permissions(&state, &BAR),
+            bar_permissions(&features),
+            "{options:?}"
+        );
+    }
+    // By default, the launcher asks for nothing the mouse has not.
+    assert_eq!(
+        bar_permissions(&[mouse, launcher, zellij_action]),
+        bar_permissions(&[mouse])
+    );
+    // A command added later asks to run commands then.
+    let mut state = loaded(&[]);
+    state.host.clear();
+    BarCore::follow(&mut state, &BAR, Handled::Reconfigure(cfg(commands)));
+    assert!(
+        state
+            .host
+            .calls()
+            .contains(&Call::RequestPermission(bar_permissions(&[
+                mouse,
+                launcher,
+                zellij_action,
+                command
+            ]))),
+        "{:?}",
+        state.host.calls()
+    );
 }
 
 fn granted() -> Event {

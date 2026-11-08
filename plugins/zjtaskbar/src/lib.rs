@@ -5,7 +5,8 @@
 //! The bar lists the session's floating panes as entries, grouped by tab,
 //! with the focused one highlighted and the minimized ones marked. See
 //! `entries` for which panes it lists and in what order, `draw` for how it
-//! draws them, and `mouse` for what clicking them does.
+//! draws them, and `mouse` for what clicking them does. A launcher button
+//! at the bar's left end opens new floating panes; see `launcher`.
 //!
 //! The plugin is this library's `State`, which `main.rs` registers with
 //! Zellij.
@@ -23,6 +24,7 @@ mod entries;
 mod flags;
 mod host;
 mod instance;
+mod launcher;
 mod mouse;
 mod settings;
 mod theme;
@@ -56,6 +58,11 @@ const CONFIG_DIM_STRENGTH: &str = "dim_strength";
 const CONFIG_MOUSE: &str = "mouse";
 const CONFIG_MOUSE_WHEEL_REVERSED: &str = "mouse_wheel_reversed";
 const CONFIG_MOUSE_CLOSE_CONFIRM: &str = "mouse_close_confirm";
+const CONFIG_SHOW_LAUNCHER: &str = "show_launcher";
+const CONFIG_LAUNCHER_FORMAT: &str = "launcher_format";
+const CONFIG_LAUNCHER_SYMBOL: &str = "launcher_symbol";
+const CONFIG_LAUNCHER_NEW_TERMINAL: &str = "launcher_new_terminal";
+const CONFIG_LAUNCHER_ZELLIJ_ACTIONS: &str = "launcher_zellij_actions";
 // Every tab's floating panes, as a desktop taskbar lists the windows of
 // every workspace: a pane left open in another tab is still one click away,
 // rather than out of sight until that tab is visited.
@@ -104,6 +111,19 @@ const DEFAULT_MOUSE_WHEEL_REVERSED: bool = false;
 // Ask first: closing a pane ends what runs in it, and a middle click is easy
 // to make by accident. The same as zjtabs.
 const DEFAULT_MOUSE_CLOSE_CONFIRM: bool = true;
+// On by default, as a desktop taskbar has its start button: opening a new
+// terminal or one of Zellij's own screens is a click away with nothing to
+// set up. It needs the mouse, which is on by default too.
+const DEFAULT_SHOW_LAUNCHER: bool = true;
+// A word rather than a symbol, in the form the flags' defaults take, so the
+// button needs no particular font and says what a click opens; an
+// `alias_theme` swaps it for a symbol.
+const DEFAULT_LAUNCHER_SYMBOL: &str = "Menu";
+// Both on, so the menu is useful with nothing configured: a new terminal is
+// what a launcher is most often for, and Zellij's own screens are otherwise
+// reached only through session mode's keys.
+const DEFAULT_LAUNCHER_NEW_TERMINAL: bool = true;
+const DEFAULT_LAUNCHER_ZELLIJ_ACTIONS: bool = true;
 
 #[derive(Default)]
 pub struct State {
@@ -168,6 +188,22 @@ pub struct State {
     mouse_wheel_reversed: bool,
     /// Ask before closing a pane, from a middle click or the pane menu.
     mouse_close_confirm: bool,
+    /// Draw the launcher's button, while the mouse is on. See
+    /// `State::launcher_shown`.
+    show_launcher: bool,
+    /// The format of the launcher's button, or `None` for Zellij's own
+    /// ribbon colors.
+    launcher_format: Option<String>,
+    /// What `{symbol}` draws in the launcher's button.
+    launcher_symbol: String,
+    /// List a new terminal first in the launcher's menu.
+    launcher_new_terminal: bool,
+    /// List Zellij's own session manager, settings and plugin manager last
+    /// in the launcher's menu.
+    launcher_zellij_actions: bool,
+    /// The user's own entries in the launcher's menu, in order, from the
+    /// `launch_<n>_*` keys. See `launcher`.
+    launch_entries: Vec<launcher::LaunchEntry>,
     /// The panes from the last `PaneUpdate`, which the entries are taken
     /// from.
     panes: PaneManifest,
@@ -181,7 +217,8 @@ pub struct State {
     mode_info: ModeInfo,
     /// What each column of the line last drawn stands for, for the mouse.
     click_spans: ColumnSpans<Clickable>,
-    /// The pane menu or close confirmation being shown, if any. See `mouse::Prompted`.
+    /// The pane menu, close confirmation or launcher menu being shown, if
+    /// any. See `mouse::Prompted`.
     pending_prompt: PendingPrompt<mouse::Prompted>,
     /// The last left click on the bar, to tell the second click of a double
     /// click from a click of its own. See `mouse::LeftClick`.
@@ -253,6 +290,22 @@ impl State {
             CONFIG_MOUSE_CLOSE_CONFIRM,
             DEFAULT_MOUSE_CLOSE_CONFIRM,
         );
+        self.show_launcher =
+            config::bool_option(configuration, CONFIG_SHOW_LAUNCHER, DEFAULT_SHOW_LAUNCHER);
+        self.launcher_format =
+            config::non_empty_string_option(configuration, CONFIG_LAUNCHER_FORMAT);
+        self.launcher_symbol = text(CONFIG_LAUNCHER_SYMBOL, DEFAULT_LAUNCHER_SYMBOL);
+        self.launcher_new_terminal = config::bool_option(
+            configuration,
+            CONFIG_LAUNCHER_NEW_TERMINAL,
+            DEFAULT_LAUNCHER_NEW_TERMINAL,
+        );
+        self.launcher_zellij_actions = config::bool_option(
+            configuration,
+            CONFIG_LAUNCHER_ZELLIJ_ACTIONS,
+            DEFAULT_LAUNCHER_ZELLIJ_ACTIONS,
+        );
+        self.launch_entries = launcher::launch_entries(configuration);
         // `pane_scope` decides which panes are listed.
         self.refresh_entries();
     }
@@ -263,6 +316,15 @@ impl State {
         let mut features = Vec::new();
         if self.mouse {
             features.push(Feature::Mouse);
+        }
+        if self.launcher_shown() {
+            features.push(Feature::Launcher);
+        }
+        if self.launcher_runs_zellij_actions() {
+            features.push(Feature::LauncherZellijAction);
+        }
+        if self.launcher_runs_commands() {
+            features.push(Feature::LauncherCommand);
         }
         features
     }
