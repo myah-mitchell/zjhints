@@ -1310,6 +1310,186 @@ fn hiding_and_showing_redraw() {
     assert_eq!(VISIBILITY.toggle, "zjtaskbar::toggle");
 }
 
+// The settings screen.
+
+use zjkit::settings::live;
+
+#[test]
+fn a_grant_adds_the_bar_s_entry_to_zellij_s_settings_screen() {
+    let mut granted = State::default();
+    assert!(granted.update(Event::PermissionRequestResult(PermissionStatus::Granted)));
+    assert_eq!(
+        granted.host.calls(),
+        vec![
+            Call::SetSelectable(false),
+            Call::AddSettingsEntry("zjtaskbar".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn zellij_s_settings_entry_opens_the_settings_screen_from_the_bar_of_the_client_that_chose_it() {
+    let request = |client: &str| {
+        let args = BTreeMap::from([(
+            OPEN_PLUGIN_SETTINGS_CLIENT_ID_ARG.to_string(),
+            client.to_string(),
+        )]);
+        PipeMessage::new(
+            PipeSource::Plugin(1),
+            OPEN_PLUGIN_SETTINGS_MESSAGE,
+            &None,
+            &Some(args),
+            false,
+        )
+    };
+    let mut state = State {
+        bar: zjkit::bar::BarCore {
+            client_id: Some(2),
+            own_url: Some("zjtaskbar".to_string()),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(!state.pipe(request("3")));
+    assert_eq!(state.host.calls(), Vec::new());
+    assert!(!state.pipe(request("2")));
+    assert_eq!(
+        state.host.calls(),
+        vec![Call::OpenSettings {
+            message: OPEN_SETTINGS_MESSAGE.to_string(),
+            pane_title: SETTINGS_PANE_TITLE.to_string(),
+            own_url: Some("zjtaskbar".to_string()),
+            instance: None,
+        }]
+    );
+    assert_eq!(SETTINGS_PANE_TITLE, "zjtaskbar settings");
+    assert_eq!(OPEN_SETTINGS_MESSAGE, "zjtaskbar::open_settings");
+}
+
+/// A preview from the settings screen of `alias`, as `pipe` gets it, with
+/// each change as `(key, value before, value now)`. The screen runs in the
+/// bar's own shared instance, as a bar only takes a preview from there.
+fn preview(state: &mut State, alias: &str, changes: &[(&str, Option<&str>, Option<&str>)]) -> bool {
+    let changes: Vec<live::Change> = changes
+        .iter()
+        .map(|(key, was, now)| live::Change {
+            key: key.to_string(),
+            was: was.map(str::to_string),
+            now: now.map(str::to_string),
+        })
+        .collect();
+    state.pipe(PipeMessage::new(
+        PipeSource::Plugin(Recorder::INSTANCE_ID),
+        settings::SCHEMA.live_message,
+        &None,
+        &Some(live::encode(alias, &changes)),
+        false,
+    ))
+}
+
+#[test]
+fn a_preview_through_the_bar_s_pipe_changes_what_it_draws() {
+    let by_tab = vec![(0, vec![floating(1, "a"), focused(floating(2, "b"))])];
+    let mut state = bar(&PLAIN, 80, tabs(1, 0), by_tab);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    assert_eq!(shown(&state), "a|[b]");
+
+    let changes = [
+        ("entry_spacer", Some("|"), Some("/")),
+        ("focused_entry_format", Some("[{title}{flags}]"), None),
+    ];
+    assert!(preview(&mut state, "zjtaskbar", &changes));
+    // The focused entry is back in Zellij's look, which draws no brackets.
+    assert_eq!(shown(&state), "a/ b ");
+
+    let undo = [
+        ("entry_spacer", Some("/"), Some("|")),
+        ("focused_entry_format", None, Some("[{title}{flags}]")),
+    ];
+    assert!(preview(&mut state, "zjtaskbar", &undo));
+    assert_eq!(shown(&state), "a|[b]");
+}
+
+#[test]
+fn a_launcher_entry_previewed_from_the_screen_reaches_the_bar_s_menu() {
+    let mut state = bar(&[], 80, tabs(1, 0), vec![]);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state.host.clear();
+
+    // The screen sends one key at a time as the entry is added.
+    assert!(preview(
+        &mut state,
+        "zjtaskbar",
+        &[("launch_1_name", None, Some("Logs"))]
+    ));
+    assert_eq!(state.launch_entries, Vec::new());
+    let command = [("launch_1_command", None, Some("tail"))];
+    assert!(preview(&mut state, "zjtaskbar", &command));
+    let names: Vec<&str> = state.launch_entries.iter().map(|e| &*e.name).collect();
+    assert_eq!(names, ["Logs"]);
+    // Running the entry's command takes a permission the bar asks for then.
+    let with_command = bar_permissions(&[
+        Feature::Mouse,
+        Feature::Launcher,
+        Feature::LauncherZellijAction,
+        Feature::LauncherCommand,
+    ]);
+    assert!(
+        state
+            .host
+            .calls()
+            .contains(&Call::RequestPermission(with_command)),
+        "{:?}",
+        state.host.calls()
+    );
+
+    let undo = [
+        ("launch_1_name", Some("Logs"), None),
+        ("launch_1_command", Some("tail"), None),
+    ];
+    assert!(preview(&mut state, "zjtaskbar", &undo));
+    assert_eq!(state.launch_entries, Vec::new());
+}
+
+#[test]
+fn a_launcher_entry_sent_as_a_preview_by_another_plugin_is_refused() {
+    let mut state = bar(&[], 80, tabs(1, 0), vec![]);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state.host.clear();
+    let changes: Vec<live::Change> = [
+        ("launch_0_name", "New terminal"),
+        ("launch_0_command", "sh"),
+    ]
+    .iter()
+    .map(|(key, now)| live::Change {
+        key: key.to_string(),
+        was: None,
+        now: Some(now.to_string()),
+    })
+    .collect();
+    let message = |source| {
+        PipeMessage::new(
+            source,
+            settings::SCHEMA.live_message,
+            &None,
+            &Some(live::encode("zjtaskbar", &changes)),
+            false,
+        )
+    };
+    assert!(!state.pipe(message(PipeSource::Plugin(6))));
+    assert!(!state.pipe(message(PipeSource::Cli("pipe-1".to_string()))));
+    assert_eq!(state.launch_entries, Vec::new());
+    assert_eq!(state.host.calls(), Vec::new());
+}
+
+#[test]
+fn a_preview_of_another_alias_changes_nothing() {
+    let mut state = bar(&PLAIN, 80, tabs(1, 0), vec![(0, vec![floating(1, "a")])]);
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    let changes = [("entry_spacer", Some("|"), Some("/"))];
+    assert!(!preview(&mut state, "another", &changes));
+}
+
 // The mouse.
 
 /// Render the bar as Zellij does, at the width of its own pane, or 80
@@ -3542,6 +3722,32 @@ fn an_offset_the_user_sets_is_used_and_no_command_is_run() {
         assert!(!state.host.calls().contains(&clock_command()), "{offset}");
         assert!(shown(&state).ends_with("~09:41"), "{offset}");
     }
+}
+
+#[test]
+fn a_grant_from_before_the_clock_needed_its_command_runs_none() {
+    let mut state = clock_bar(&[("clock_utc_offset", "+01:00")], utc(9, 41, 27));
+    state.update(granted());
+    state.bar.own_url = Some("zjtaskbar".to_string());
+    state.host.clear();
+    // The offset is taken out on the settings screen, so the clock is to ask
+    // the system, which the grant the bar holds does not allow.
+    preview(
+        &mut state,
+        "zjtaskbar",
+        &[("clock_utc_offset", Some("+01:00"), None)],
+    );
+    let asked_to_run_commands = state.host.calls().iter().any(|call| {
+        matches!(call, Call::RequestPermission(asked) if asked.contains(&PermissionType::RunCommands))
+    });
+    assert!(asked_to_run_commands, "{:?}", state.host.calls());
+    assert!(!state.host.calls().contains(&clock_command()));
+    // The clock waits for the answer, drawing nothing rather than UTC.
+    assert_eq!(shown(&state), "[a]|b");
+
+    state.host.clear();
+    state.update(granted());
+    assert!(state.host.calls().contains(&clock_command()));
 }
 
 #[test]

@@ -66,7 +66,6 @@ impl Default for Instance {
 
 impl Instance {
     /// One shared with no other `State`.
-    #[cfg(test)]
     pub(crate) fn alone() -> Self {
         Instance(Rc::default())
     }

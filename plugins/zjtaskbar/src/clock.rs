@@ -51,6 +51,12 @@ const CLOCK_CONTEXT_VALUE: &str = "clock_utc_offset";
 /// late. A hundredth of a second is too short to see.
 const TICK_MARGIN_SECONDS: f64 = 0.01;
 
+/// The moment the settings screen's preview and the docs images show the
+/// clock at, so they draw the same whenever they are made: Tuesday,
+/// 2026-11-03 09:41:27 UTC, a morning time whose every field has two
+/// different digits, so a wrong specifier shows.
+const SAMPLE_UNIX_SECONDS: u64 = 1_793_698_887;
+
 /// Seconds in a minute, an hour and a day.
 const MINUTE: i64 = 60;
 const HOUR: i64 = 60 * MINUTE;
@@ -438,6 +444,19 @@ impl Clock {
         }
     }
 
+    /// The time the preview and the docs images show: `SAMPLE_UNIX_SECONDS`
+    /// drawn from `format`, at `clock_utc_offset` when it is set and at UTC
+    /// otherwise, as those have no system to ask.
+    pub(crate) fn sample_text(&self) -> Option<String> {
+        let sample = Clock {
+            format: self.format.clone(),
+            offset_source: self.offset_source,
+            system_offset: Some(UtcOffset::UTC),
+            ..Default::default()
+        };
+        sample.text_at(UNIX_EPOCH + std::time::Duration::from_secs(SAMPLE_UNIX_SECONDS))
+    }
+
     /// The time `now` drawn from `format` at the clock's offset, or `None`
     /// while that offset is not known.
     pub(crate) fn text_at(&self, now: SystemTime) -> Option<String> {
@@ -696,6 +715,24 @@ mod tests {
             assert_eq!(time.weekday, (previous.weekday + 1) % 7, "{time:?}");
             previous = time;
         }
+    }
+
+    #[test]
+    fn the_sample_time_is_the_one_its_comment_names() {
+        assert_eq!(
+            SAMPLE_UNIX_SECONDS as i64,
+            unix_seconds(2026, 11, 3, 9, 41, 27)
+        );
+        let clock = |offset: Option<&str>| Clock {
+            format: "%a %H:%M:%S".to_string(),
+            offset_source: OffsetSource::of(offset),
+            ..Default::default()
+        };
+        assert_eq!(clock(None).sample_text().as_deref(), Some("Tue 09:41:27"));
+        assert_eq!(
+            clock(Some("+05:00")).sample_text().as_deref(),
+            Some("Tue 14:41:27")
+        );
     }
 
     #[test]
