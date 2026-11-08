@@ -211,6 +211,8 @@ Closing does not discard anything, as in Zellij's own settings screen. Unsaved c
 - Bars in this session only. Other sessions pick the saved values up when they start.
 - Keys the alias controls for that bar. A key a layout sets on the bar's own pane, such as `show_mode true`, stays as the layout sets it through every later change to it.
 
+A bar takes a preview only from the settings screen, or another pane running the bar's own plugin. A preview sent by another plugin, or with `zellij pipe` or a keybinding, changes nothing. No other plugin can change a bar's options this way.
+
 A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so previews reach it by alias like any other bar.
 
 Unsaved changes last until the session ends. They never reach the config file, so a new session starts from the saved values.

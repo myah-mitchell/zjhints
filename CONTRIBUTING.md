@@ -35,7 +35,9 @@ The repository is a Cargo workspace. Run every command from its root: `make`, `c
 
 ### The shared crate
 
-zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. Host calls the plugin's tests need to stub out stay in the plugin, because `cfg(test)` is per crate and a stub in the plugin does not reach zjkit. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
+zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. The plugin describes itself to the shared bar code in a static `BarSpec` and keeps a `Role` and a `BarCore` in its state. See the docs of `zjkit::bar`.
+
+Every Zellij call a bar makes goes through the `Host` trait. In the plugin that is `Zellij`, and in tests it is `Recorder`, which makes no calls and keeps a `Call` for each one, so a test can assert what the bar asked Zellij to do. `cfg(test)` is set per crate, so zjkit cannot choose between them. Each plugin makes the choice once, as a `BarHost` alias in its `host.rs`. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
 
 | Module | What it does |
 | --- | --- |
@@ -64,7 +66,7 @@ zjkit holds what a bar needs whatever it shows. A plugin supplies its own names 
 | `main.rs` | The plugin state, its options, and the Zellij event loop |
 | `hints.rs` | Which actions get a hint, their labels, and laying a mode out on one line |
 | `keys.rs` | Key grouping, key and modifier aliases, and key order |
-| `host.rs` | Permissions, pipe names, and the host calls tests stub out |
+| `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
 | `keypress.rs` | Pressing keys in the focused pane, which is how a click reaches a nested session |
 | `popup.rs` | zjhints' names for the hover-preview popup |
 | `theme.rs` | The hint options each shared theme sets |

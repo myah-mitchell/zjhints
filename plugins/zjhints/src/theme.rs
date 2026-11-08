@@ -22,7 +22,7 @@ use crate::{
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, Styling};
 use zjkit::theme::{color_entries, Shape, ARROW, PILL_LEFT, PILL_RIGHT};
-pub use zjkit::theme::{unknown_names, ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
+pub use zjkit::theme::{ALIAS_CHOICES, COLOR_CHOICES, FORMAT_CHOICES};
 
 /// `configuration` with the selected themes' options laid under it. A key the
 /// user set, even to an empty string, is never replaced.
@@ -125,6 +125,7 @@ mod tests {
     use crate::settings::SCHEMA;
     use zellij_tile::prelude::PaletteColor;
     use zjkit::settings::schema::Kind;
+    use zjkit::theme::unknown_names;
     use zjkit::theme::*;
 
     fn cfg(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {

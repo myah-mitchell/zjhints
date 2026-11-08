@@ -5,7 +5,6 @@ pub mod options;
 
 #[cfg(test)]
 pub use zjkit::settings::{editor, view};
-pub use zjkit::settings::{live, screen};
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo};
@@ -61,8 +60,11 @@ fn draw_bar(
         configuration.remove(key);
     }
     let mut state = crate::State {
-        zellij_palette: Some(mode_info.style.colors),
-        pane_width: Some(width),
+        bar: zjkit::bar::BarCore {
+            zellij_palette: Some(mode_info.style.colors),
+            pane_width: Some(width),
+            ..Default::default()
+        },
         ..Default::default()
     };
     state.apply_configuration(configuration);
