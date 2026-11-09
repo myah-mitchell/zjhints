@@ -1,6 +1,6 @@
 # Shared instances
 
-zjhints and zjtabs each run as one shared Zellij plugin instance: a single running copy of the plugin serves every pane that loads it. This page covers what that means for a layout, what the bars of an instance share, and the `instance` option that keeps bars apart.
+zjhints, zjtabs and zjtaskbar each run as one shared Zellij plugin instance: a single running copy of the plugin serves every pane that loads it. This page covers what that means for a layout, what the bars of an instance share, and the `instance` option that keeps bars apart.
 
 ## Requirements
 
@@ -19,6 +19,7 @@ Aliases that name different locations, such as a release URL and a local file, r
 - Permissions. Zellij asks once for the instance, in the pane of one of its bars, and the answer covers every bar, the settings screen and the hover popups. Only one prompt is up at a time, and a bar that needs more waits for the prompt up to be answered, then asks for the whole set. Denying a prompt, such as the settings screen's, takes the grant away from every bar of the instance.
 - Messages. A hide, show or toggle message such as `zjhints::toggle` reaches every bar of the instance, including one loaded in the background with `load_plugins` and one in a tab you are not looking at. See [Hiding the bar](hiding.md).
 - The settings screen and the hover popup. Both open as panes of the bar's instance, and the screen's previews reach only the bars of its own instance. See [Settings screen](settings.md#what-a-preview-reaches).
+- zjtaskbar's minimized panes and frame buttons. See [Minimizing](zjtaskbar/mouse.md#minimizing) and [Frame buttons](zjtaskbar/mouse.md#frame-buttons).
 
 Zellij runs an instance as a unit, so a crash in the plugin stops every bar of that instance together.
 
@@ -35,9 +36,10 @@ plugins {
 }
 ```
 
-Separate instances differ in two ways:
+Separate instances differ in three ways:
 
 - Hide, show and toggle messages without a payload still reach every bar, since Zellij delivers them to every running plugin.
+- zjtaskbar bars of separate instances do not share minimized panes, and a frame can show both sets of buttons.
 - A settings screen previews only on the bars of its own instance.
 
 Permissions don't keep them apart. Each instance asks in a pane of its own, but Zellij remembers the answer by the plugin's location, not by instance, so a grant in one covers the other without a prompt, and a later answer in either replaces the remembered one. To keep permissions apart, load the second alias from a copy of the wasm file at another path.

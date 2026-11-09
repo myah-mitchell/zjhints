@@ -25,20 +25,21 @@ The first host build compiles all of `zellij-utils` and takes a while. After tha
 
 ## Repository layout
 
-The repository is a Cargo workspace. Run every command from its root: `make`, `cargo test` and `cargo build` cover every crate in it, and the built plugins land in `target/wasm32-wasip1/release/` as `zjhints.wasm` and `zjtabs.wasm`.
+The repository is a Cargo workspace. Run every command from its root: `make`, `cargo test` and `cargo build` cover every crate in it, and the built plugins land in `target/wasm32-wasip1/release/` as `zjhints.wasm`, `zjtabs.wasm` and `zjtaskbar.wasm`.
 
 | Path | What it holds |
 | --- | --- |
 | `crates/zjkit` | The library the plugins share, for code any bar needs rather than code about hints |
 | `plugins/zjhints` | The zjhints plugin itself |
 | `plugins/zjtabs` | The zjtabs plugin, a tab bar |
-| `docs/` | The documentation of every plugin, with the zjtabs pages in `docs/zjtabs/`, and the images their tests draw |
+| `plugins/zjtaskbar` | The zjtaskbar plugin, a taskbar for floating panes |
+| `docs/` | The documentation of every plugin, with the zjtabs pages in `docs/zjtabs/` and the zjtaskbar pages in `docs/zjtaskbar/`, and the images their tests draw |
 
 ### The shared crate
 
 zjkit holds what a bar needs whatever it shows. A plugin supplies its own names and options to it: popup and visibility message names through the `popup_names!` and `visibility_names!` macros, and its settings through a `settings::schema::Schema`. The plugin describes itself to the shared bar code in a static `BarSpec` and keeps a `Role` and a `BarCore` in its state. See the docs of `zjkit::bar`.
 
-Every plugin runs as a Zellij shared instance, registered in its `main.rs` with `register_shared_plugin!(zjkit::shared::Shared<State>)`. Zellij runs one instance for all the panes that load the plugin, and `Shared` keeps a separate `State` for each pane, its slot, so a `State` is still written for one pane. Three rules follow from that. Print nothing outside `render`, and make every Zellij call before `render` prints. Make a call about the plugin's own pane through `Host`, which hands it to `Shared` to make for the acting slot. Keep what the slots must share in one place every slot reaches. See the docs of `zjkit::shared`, and [Shared instances](docs/shared-instances.md) for how the instance looks to a user.
+Every plugin runs as a Zellij shared instance, registered in its `main.rs` with `register_shared_plugin!(zjkit::shared::Shared<State>)`. Zellij runs one instance for all the panes that load the plugin, and `Shared` keeps a separate `State` for each pane, its slot, so a `State` is still written for one pane. Three rules follow from that. Print nothing outside `render`, and make every Zellij call before `render` prints. Make a call about the plugin's own pane through `Host`, which hands it to `Shared` to make for the acting slot. Keep what the slots must share in one place every slot reaches, as zjtaskbar does in `instance.rs`. See the docs of `zjkit::shared`, and [Shared instances](docs/shared-instances.md) for how the instance looks to a user.
 
 Every Zellij call a bar makes goes through the `Host` trait. In the plugin that is `Zellij`, and in tests it is `Recorder`, which makes no calls and keeps a `Call` for each one, so a test can assert what the bar asked Zellij to do. `cfg(test)` is set per crate, so zjkit cannot choose between them. Each plugin makes the choice once, as a `BarHost` alias in its `host.rs`. The popup (`PreviewPopup::load` and its event handling) and the settings screen (`SettingsScreen::load` and saving) call Zellij directly, so tests drive their pure parts rather than those entry points.
 
@@ -91,6 +92,28 @@ zjtabs is a library with a binary on top. `main.rs` only registers the library's
 | `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
 | `theme.rs` | The tab options each shared theme sets |
 | `settings/` | zjtabs' option tables and `Schema` |
+| `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
+
+### The zjtaskbar plugin
+
+zjtaskbar is a library with a binary on top, as zjtabs is, so that its `draw_for_image` can be reached from tests elsewhere in the workspace through its `images` feature.
+
+| File | What it holds |
+| --- | --- |
+| `lib.rs` | The plugin state, its options, the Zellij event loop, and `draw_for_image` for the images |
+| `main.rs` | The plugin's registration with Zellij as a shared plugin |
+| `entries.rs` | Which floating panes the bar lists, in what order, and what it shows of each |
+| `draw.rs` | Laying out the line: the launcher's button, the window of entries around the focused one with its markers, and the tray |
+| `flags.rs` | The four flags an entry can show and their formats |
+| `frame.rs` | The minimize, maximize and close buttons on pane frames, and which bar puts them on which pane |
+| `instance.rs` | What the bars of the instance share: the minimized panes, which panes have a bar, and which bars ask before a frame close |
+| `launcher.rs` | The launcher's button, its menu, and the user's own `launch_<n>_*` entries |
+| `tray.rs` | The tray's items, and fitting them by dropping items from the left |
+| `clock.rs` | The tray's clock: its `strftime` subset, its offset from UTC, and when it ticks |
+| `mouse.rs` | Focusing, minimizing and restoring panes, the wheel, double-click renaming, middle-click closing, the pane menu and the tray's clicks |
+| `host.rs` | The `BarHost` alias, permissions, pipe names, and the `BarSpec` |
+| `theme.rs` | The entry, launcher and tray options each shared theme sets |
+| `settings/` | zjtaskbar's option tables and `Schema` |
 | `tests.rs`, `images.rs` | The tests, and the documentation images they draw and compare |
 
 ### Dependencies
@@ -150,14 +173,14 @@ chore(deps): bump unicode-width
 
 ### Documentation
 
-New config options need a row in the configuration reference, [docs/configuration.md](docs/configuration.md) for zjhints and [docs/zjtabs/configuration.md](docs/zjtabs/configuration.md) for zjtabs, and a prose section explaining them on the page for that topic. A test in each plugin passes its reference and its `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
+New config options need a row in the configuration reference, [docs/configuration.md](docs/configuration.md) for zjhints, [docs/zjtabs/configuration.md](docs/zjtabs/configuration.md) for zjtabs and [docs/zjtaskbar/configuration.md](docs/zjtaskbar/configuration.md) for zjtaskbar, and a prose section explaining them on the page for that topic. A test in each plugin passes its reference and its `Schema` to `zjkit::settings::reference`, so an option in the code and not on the page, or the reverse, fails the build.
 
 ### Images
 
-The images in the README and under `docs/` are SVGs in `docs/img/` for zjhints and `docs/img/zjtabs/` for zjtabs, each drawn by the `images.rs` of its plugin, such as `plugins/zjtabs/src/images.rs`, from the code that draws the bar and the settings screen, with the SVG engine in `crates/zjkit/src/images.rs`, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
+The images in the README and under `docs/` are SVGs in `docs/img/` for zjhints, `docs/img/zjtabs/` for zjtabs and `docs/img/zjtaskbar/` for zjtaskbar, each drawn by the `images.rs` of its plugin, such as `plugins/zjtabs/src/images.rs`, from the code that draws the bar and the settings screen, with the SVG engine in `crates/zjkit/src/images.rs`, so they cannot drift from what the plugin does and need no Zellij or screenshot to make. Do not edit them by hand. After a change that alters how the bar or the settings screen looks, regenerate them and commit the result with the change:
 
 ```bash
-make images    # rewrites the generated SVGs in docs/img and docs/img/zjtabs
+make images    # rewrites the generated SVGs in docs/img, docs/img/zjtabs and docs/img/zjtaskbar
 ```
 
 `make images` knows the SVGs a plugin draws by a comment on their second line that names the plugin. It rewrites those, removes the ones that plugin no longer draws, and leaves every other file in `docs/img` alone, including another plugin's images, so an image made by hand can live there too.
@@ -166,7 +189,7 @@ The images are tested like everything else. Without `ZJKIT_WRITE_IMAGES` set, `c
 
 To add an image, add it to `images()` in the plugin's `images.rs`, run `make images`, and reference it from the page it belongs on.
 
-The engine is behind zjkit's `images` feature, which only tests enable. A plugin keeps its own drawings, and its test passes them, its name and its image directory to `zjkit::images::write_or_compare_images`. The name goes into the mark of each SVG. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, so the output is the same on every machine. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
+The engine is behind zjkit's `images` feature, which only tests enable. A plugin keeps its own drawings, and its test passes them, its name and its image directory to `zjkit::images::write_or_compare_images`. The name goes into the mark of each SVG. The drawing uses Zellij's default keybindings, the Catppuccin Mocha theme for `color_theme "zellij"`, and a fixed cell size, and zjtaskbar's clock shows a fixed sample time, so the output is the same on every machine and every day. Powerline arrows are drawn as triangles and pill ends as half circles, because the image has no Nerd Font.
 
 #### Animated images
 

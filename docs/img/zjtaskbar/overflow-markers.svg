@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="168" viewBox="0 0 928 168" role="img">
+<!-- Drawn for zjtaskbar by zjkit's image engine: edit the code and run `make images`. -->
+<title>Ten floating panes as flat blocks after the launcher's button, in a bar of 100, 64 and 44 columns. At 100 columns all ten fit. At 64 and 44 the bar keeps the focused tests entry and the entries around it, with a marker on each side counting the entries hidden there</title>
+<rect width="928" height="168" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="54" height="18" fill="#313244"/>
+<rect x="63" y="18" width="54" height="18" fill="#313244"/>
+<rect x="126" y="18" width="54" height="18" fill="#313244"/>
+<rect x="189" y="18" width="72" height="18" fill="#313244"/>
+<rect x="270" y="18" width="72" height="18" fill="#313244"/>
+<rect x="351" y="18" width="63" height="18" fill="#cba6f7"/>
+<rect x="423" y="18" width="63" height="18" fill="#313244"/>
+<rect x="495" y="18" width="54" height="18" fill="#313244"/>
+<rect x="558" y="18" width="63" height="18" fill="#313244"/>
+<rect x="630" y="18" width="72" height="18" fill="#313244"/>
+<rect x="711" y="18" width="81" height="18" fill="#313244"/>
+<rect x="0" y="72" width="54" height="18" fill="#313244"/>
+<rect x="63" y="72" width="54" height="18" fill="#313244"/>
+<rect x="126" y="72" width="72" height="18" fill="#313244"/>
+<rect x="207" y="72" width="72" height="18" fill="#313244"/>
+<rect x="288" y="72" width="63" height="18" fill="#cba6f7"/>
+<rect x="360" y="72" width="63" height="18" fill="#313244"/>
+<rect x="432" y="72" width="54" height="18" fill="#313244"/>
+<rect x="495" y="72" width="54" height="18" fill="#313244"/>
+<rect x="0" y="126" width="54" height="18" fill="#313244"/>
+<rect x="63" y="126" width="54" height="18" fill="#313244"/>
+<rect x="126" y="126" width="63" height="18" fill="#cba6f7"/>
+<rect x="198" y="126" width="63" height="18" fill="#313244"/>
+<rect x="270" y="126" width="54" height="18" fill="#313244"/>
+<rect x="333" y="126" width="54" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90" fill="#878ca4">100columns</tspan></text>
+<text y="31"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99 135 144 153 162 198 207 216 225 234 243 279 288 297 306 315 324" fill="#cdd6f4">htoplogseditorserver</tspan><tspan x="360 369 378 387 396" fill="#1e1e2e" font-weight="bold">tests</tspan><tspan x="432 441 450 459 468 504 513 522 531 567 576 585 594 603 639 648 657 666 675 684 720 729 738 747 756 765 774" fill="#cdd6f4">notesmailbuilddeployscratch</tspan></text>
+<text y="67"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">64columns</tspan></text>
+<text y="85"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 90 99 135 144 153 162 171 180 216 225 234 243 252 261" fill="#cdd6f4">←+2editorserver</tspan><tspan x="297 306 315 324 333" fill="#1e1e2e" font-weight="bold">tests</tspan><tspan x="369 378 387 396 405 441 450 459 468 504 513 531" fill="#cdd6f4">notesmail+3→</tspan></text>
+<text y="121"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">44columns</tspan></text>
+<text y="139"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 90 99" fill="#cdd6f4">←+4</tspan><tspan x="135 144 153 162 171" fill="#1e1e2e" font-weight="bold">tests</tspan><tspan x="207 216 225 234 243 279 288 297 306 342 351 369" fill="#cdd6f4">notesmail+3→</tspan></text>
+</g>
+</g>
+</svg>

@@ -3,7 +3,7 @@
 The bar can be hidden and shown again from a keybinding, the right-click menu or a shell, without touching the configuration. A hidden bar draws nothing, sends zjstatus an empty string, and gives its row back to the panes around it. This page covers the messages that do it and the `hidden` option for starting hidden.
 
 > [!NOTE]
-> Every bar listens for messages named after itself. For zjtabs, read `zjtabs::toggle`, `zjtabs::hide` and `zjtabs::show` wherever this page says zjhints. Its `hidden` option works the same way.
+> Every bar listens for messages named after itself. For zjtabs, read `zjtabs::toggle`, `zjtabs::hide` and `zjtabs::show` wherever this page says zjhints. For zjtaskbar, read `zjtaskbar::toggle`, `zjtaskbar::hide` and `zjtaskbar::show`. Their `hidden` options work the same way.
 
 ## From a keybinding
 

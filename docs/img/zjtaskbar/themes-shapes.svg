@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="276" viewBox="0 0 928 276" role="img">
+<!-- Drawn for zjtaskbar by zjkit's image engine: edit the code and run `make images`. -->
+<title>The launcher's Menu button and the same four floating panes under each format theme, in catppuccin-mocha colors: zellij ribbons, flat blocks, plain colored text, blocks joined by Powerline arrows, and rounded pills. The focused editor entry stands out in the accent color and the minimized notes entry is dimmer than the rest</title>
+<rect width="928" height="276" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="54" height="18" fill="#cdd6f4"/>
+<rect x="63" y="18" width="54" height="18" fill="#cdd6f4"/>
+<rect x="126" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="207" y="18" width="171" height="18" fill="#181825"/>
+<rect x="405" y="18" width="108" height="18" fill="#cdd6f4"/>
+<rect x="0" y="72" width="54" height="18" fill="#313244"/>
+<rect x="63" y="72" width="54" height="18" fill="#313244"/>
+<rect x="126" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="207" y="72" width="171" height="18" fill="#313244"/>
+<rect x="405" y="72" width="108" height="18" fill="#313244"/>
+<rect x="0" y="180" width="54" height="18" fill="#313244"/>
+<rect x="72" y="180" width="54" height="18" fill="#313244"/>
+<rect x="144" y="180" width="72" height="18" fill="#cba6f7"/>
+<rect x="234" y="180" width="171" height="18" fill="#313244"/>
+<rect x="441" y="180" width="108" height="18" fill="#313244"/>
+<rect x="9" y="234" width="36" height="18" fill="#313244"/>
+<rect x="72" y="234" width="36" height="18" fill="#313244"/>
+<rect x="135" y="234" width="54" height="18" fill="#cba6f7"/>
+<rect x="216" y="234" width="153" height="18" fill="#313244"/>
+<rect x="414" y="234" width="90" height="18" fill="#313244"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180" fill="#878ca4">format_theme"zellij"</tspan></text>
+<text y="31"><tspan x="9 18 27 36" fill="#181825" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#181825">htop</tspan><tspan x="135 144 153 162 171 180" fill="#181825" font-weight="bold">editor</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 387" fill="#cdd6f4">notes(MINIMIZED)│</tspan><tspan x="414 423 432 450 459 468 477 486 495" fill="#181825">manzellij</tspan></text>
+<text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162" fill="#878ca4">format_theme"flat"</tspan></text>
+<text y="85"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#cdd6f4">htop</tspan><tspan x="135 144 153 162 171 180" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 387" fill="#6c7086">notes(MINIMIZED)│</tspan><tspan x="414 423 432 450 459 468 477 486 495" fill="#cdd6f4">manzellij</tspan></text>
+<text y="121"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171" fill="#878ca4">format_theme"plain"</tspan></text>
+<text y="139"><tspan x="0 9 18 27" fill="#cba6f7">Menu</tspan><tspan x="54 63 72 81" fill="#cdd6f4">htop</tspan><tspan x="108 117 126 135 144 153" fill="#cba6f7" font-weight="bold">editor</tspan><tspan x="180 189 198 207 216 234 243 252 261 270 279 288 297 306 315 324 342" fill="#6c7086">notes(MINIMIZED)│</tspan><tspan x="360 369 378 396 405 414 423 432 441" fill="#cdd6f4">manzellij</tspan></text>
+<text y="175"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171 180 189 198 207" fill="#878ca4">format_theme"powerline"</tspan></text>
+<path d="M54 180L63 189L54 198Z" fill="#313244"/>
+<path d="M126 180L135 189L126 198Z" fill="#313244"/>
+<path d="M216 180L225 189L216 198Z" fill="#cba6f7"/>
+<path d="M405 180L414 189L405 198Z" fill="#313244"/>
+<path d="M549 180L558 189L549 198Z" fill="#313244"/>
+<text y="193"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="81 90 99 108" fill="#cdd6f4">htop</tspan><tspan x="153 162 171 180 189 198" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="243 252 261 270 279 297 306 315 324 333 342 351 360 369 378 387 423" fill="#6c7086">notes(MINIMIZED)│</tspan><tspan x="450 459 468 486 495 504 513 522 531" fill="#cdd6f4">manzellij</tspan></text>
+<text y="229"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 117 126 135 144 153 162 171" fill="#878ca4">format_theme"pills"</tspan></text>
+<path d="M9 234A9 9 0 0 0 9 252Z" fill="#313244"/>
+<path d="M45 234A9 9 0 0 1 45 252Z" fill="#313244"/>
+<path d="M72 234A9 9 0 0 0 72 252Z" fill="#313244"/>
+<path d="M108 234A9 9 0 0 1 108 252Z" fill="#313244"/>
+<path d="M135 234A9 9 0 0 0 135 252Z" fill="#cba6f7"/>
+<path d="M189 234A9 9 0 0 1 189 252Z" fill="#cba6f7"/>
+<path d="M216 234A9 9 0 0 0 216 252Z" fill="#313244"/>
+<path d="M369 234A9 9 0 0 1 369 252Z" fill="#313244"/>
+<path d="M414 234A9 9 0 0 0 414 252Z" fill="#313244"/>
+<path d="M504 234A9 9 0 0 1 504 252Z" fill="#313244"/>
+<text y="247"><tspan x="9 18 27 36" fill="#cba6f7" font-weight="bold">Menu</tspan><tspan x="72 81 90 99" fill="#cdd6f4">htop</tspan><tspan x="135 144 153 162 171 180" fill="#1e1e2e" font-weight="bold">editor</tspan><tspan x="216 225 234 243 252 270 279 288 297 306 315 324 333 342 351 360 387" fill="#6c7086">notes(MINIMIZED)│</tspan><tspan x="414 423 432 450 459 468 477 486 495" fill="#cdd6f4">manzellij</tspan></text>
+</g>
+</g>
+</svg>

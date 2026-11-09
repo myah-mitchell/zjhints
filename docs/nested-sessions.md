@@ -5,7 +5,7 @@ Zellij 0.45 added built-in handling for running one Zellij session inside anothe
 This page covers how the two bars cooperate instead, and how to run this plugin in a pane of its own so that cooperation is possible at all.
 
 > [!NOTE]
-> zjtabs reads the same options for hiding, collapsing and dimming, with the same defaults. The sections on a descended nested session's hints and on standing alone are about zjhints only, though zjtabs takes the same `show_mode` options. See [Mode prefix](zjtabs/formats.md#mode-prefix).
+> zjtabs and zjtaskbar read the same options for hiding, collapsing and dimming, with the same defaults. The sections on a descended nested session's hints and on standing alone are about zjhints only, though zjtabs takes the same `show_mode` options. See [Mode prefix](zjtabs/formats.md#mode-prefix). zjtaskbar has no `show_mode`: its tray's `mode` item takes the other mode options. See [Session and mode](zjtaskbar/tray.md#session-and-mode).
 
 ## The state this relies on
 
