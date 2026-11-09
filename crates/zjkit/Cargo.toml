@@ -8,6 +8,15 @@ rust-version.workspace = true
 
 [dependencies]
 ansi_term.workspace = true
+unicode-segmentation.workspace = true
 unicode-width.workspace = true
 zellij-tile.workspace = true
 zellij-utils.workspace = true
+
+[features]
+# The image engine that draws docs/img from a plugin's own output. Only tests
+# use it, so it stays off in a plugin's wasm build.
+images = []
+# `junk`, the configurations the plugins' tests load them with to check
+# that no options at all make them panic. Only tests use it.
+testing = []

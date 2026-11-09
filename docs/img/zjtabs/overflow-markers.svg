@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="928" height="168" viewBox="0 0 928 168" role="img">
+<!-- Drawn for zjtabs by zjkit's image engine: edit the code and run `make images`. -->
+<title>Ten tabs between the NORMAL mode prefix and the session's name, work, in a bar of 100, 64 and 44 columns. At each width the bar keeps the logs tab and the tabs around it, with a marker counting the tabs hidden on each side</title>
+<rect width="928" height="168" rx="8" fill="#1e1e2e"/>
+<g transform="translate(14 12)">
+<g shape-rendering="crispEdges">
+<rect x="0" y="18" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="18" width="54" height="18" fill="#313244"/>
+<rect x="144" y="18" width="72" height="18" fill="#313244"/>
+<rect x="225" y="18" width="90" height="18" fill="#313244"/>
+<rect x="324" y="18" width="90" height="18" fill="#313244"/>
+<rect x="423" y="18" width="72" height="18" fill="#cba6f7"/>
+<rect x="504" y="18" width="72" height="18" fill="#313244"/>
+<rect x="585" y="18" width="81" height="18" fill="#313244"/>
+<rect x="675" y="18" width="81" height="18" fill="#313244"/>
+<rect x="765" y="18" width="54" height="18" fill="#313244"/>
+<rect x="846" y="18" width="54" height="18" fill="#cba6f7"/>
+<rect x="0" y="72" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="72" width="54" height="18" fill="#313244"/>
+<rect x="144" y="72" width="90" height="18" fill="#313244"/>
+<rect x="243" y="72" width="72" height="18" fill="#cba6f7"/>
+<rect x="324" y="72" width="72" height="18" fill="#313244"/>
+<rect x="405" y="72" width="54" height="18" fill="#313244"/>
+<rect x="522" y="72" width="54" height="18" fill="#cba6f7"/>
+<rect x="0" y="126" width="72" height="18" fill="#a6e3a1"/>
+<rect x="81" y="126" width="54" height="18" fill="#313244"/>
+<rect x="144" y="126" width="72" height="18" fill="#cba6f7"/>
+<rect x="225" y="126" width="54" height="18" fill="#313244"/>
+<rect x="342" y="126" width="54" height="18" fill="#cba6f7"/>
+</g>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
+<text y="13"><tspan x="0 9 18 36 45 54 63 72 81 90" fill="#878ca4">100columns</tspan></text>
+<text y="31"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 153 171 180 189 198 234 252 261 270 279 288 297 333 351 360 369 378 387 396" fill="#cdd6f4">←+12docs3editor4server</tspan><tspan x="432 450 459 468 477" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="513 531 540 549 558 594 612 621 630 639 648 684 702 711 720 729 738 774 783 801" fill="#cdd6f4">6mail7notes8build+2→</tspan><tspan x="855 864 873 882" fill="#1e1e2e" font-weight="bold">work</tspan></text>
+<text y="67"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">64columns</tspan></text>
+<text y="85"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117 153 171 180 189 198 207 216" fill="#cdd6f4">←+34server</tspan><tspan x="252 270 279 288 297" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="333 351 360 369 378 414 423 441" fill="#cdd6f4">6mail+4→</tspan><tspan x="531 540 549 558" fill="#1e1e2e" font-weight="bold">work</tspan></text>
+<text y="121"><tspan x="0 9 27 36 45 54 63 72 81" fill="#878ca4">44columns</tspan></text>
+<text y="139"><tspan x="9 18 27 36 45 54" fill="#1e1e2e" font-weight="bold">NORMAL</tspan><tspan x="90 108 117" fill="#cdd6f4">←+4</tspan><tspan x="153 171 180 189 198" fill="#1e1e2e" font-weight="bold">5logs</tspan><tspan x="234 243 261" fill="#cdd6f4">+5→</tspan><tspan x="351 360 369 378" fill="#1e1e2e" font-weight="bold">work</tspan></text>
+</g>
+</g>
+</svg>

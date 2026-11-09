@@ -51,13 +51,6 @@ pub const OPTIONS: &[OptionSpec] = &[
         "Columns to leave free beside the hints in zjstatus; unused in the bar's own pane",
     ),
     option(
-        "ambiguous_width",
-        "Fitting",
-        Kind::Choice(&["1", "2"]),
-        Some("1"),
-        "Columns an East Asian Ambiguous character occupies",
-    ),
-    option(
         "overflow_str",
         "Fitting",
         Kind::Format,
@@ -333,85 +326,36 @@ pub const FAMILIES: &[FamilySpec] = &[
 /// configure the screen rather than the bar, so they are not listed on it.
 pub const SCREEN_OPTIONS: &[&str] = &["settings", "alias"];
 
+/// Options the bar accepts but ignores, so a config setting one still loads.
+/// The settings screen says each has no effect, and the configuration
+/// reference lists them under "Deprecated".
+///
+/// `ambiguous_width` asked for East Asian Ambiguous characters to be measured
+/// two columns wide. Zellij lays a plugin's pane out with them one column
+/// wide whatever the terminal draws, so the bar always measures them as one.
+pub const DEPRECATED_OPTIONS: &[&str] = &["ambiguous_width"];
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::SCHEMA;
-    use std::collections::BTreeMap;
+    use zjkit::settings::reference;
 
-    /// The options the configuration reference lists: name -> default as
-    /// written there (`None` for "unset"), and the heading each is under.
-    fn documented() -> BTreeMap<String, (Option<String>, String)> {
-        let reference = include_str!("../../../../docs/configuration.md");
-        let mut heading = String::new();
-        let mut options = BTreeMap::new();
-        for line in reference.lines() {
-            if let Some(title) = line.strip_prefix("## ") {
-                heading = title.to_string();
-                continue;
-            }
-            let cells: Vec<&str> = line.split('|').map(str::trim).collect();
-            // "| `name` | default | what it does |" splits into five cells.
-            if cells.len() < 5 || !cells[1].starts_with('`') {
-                continue;
-            }
-            let name = cells[1].trim_matches('`').to_string();
-            let default = match cells[2] {
-                "unset" => None,
-                written => Some(written.trim_matches('`').to_string()),
-            };
-            options.insert(name, (default, heading.clone()));
-        }
-        options
-    }
+    const REFERENCE: &str = include_str!("../../../../docs/configuration.md");
 
     #[test]
     fn every_documented_option_is_in_the_table_and_no_other() {
-        let documented: Vec<String> = documented().into_keys().collect();
-        let mut in_code: Vec<String> = OPTIONS
-            .iter()
-            .map(|option| option.name.to_string())
-            .chain(FAMILIES.iter().map(|family| family.pattern.to_string()))
-            .chain(SCREEN_OPTIONS.iter().map(|name| name.to_string()))
-            .collect();
-        in_code.sort();
-        assert_eq!(in_code, documented);
+        reference::assert_names_match(REFERENCE, &SCHEMA);
     }
 
     #[test]
     fn defaults_and_groups_match_the_reference() {
-        let documented = documented();
-        for option in OPTIONS {
-            let (default, heading) = &documented[option.name];
-            assert_eq!(
-                option.default.map(str::to_string),
-                *default,
-                "default of {}",
-                option.name
-            );
-            assert_eq!(option.group, heading, "group of {}", option.name);
-        }
-        for family in FAMILIES {
-            let (_, heading) = &documented[family.pattern];
-            assert_eq!(family.group, heading, "group of {}", family.pattern);
-        }
+        reference::assert_defaults_and_groups_match(REFERENCE, &SCHEMA);
     }
 
     #[test]
     fn groups_are_in_reference_order() {
-        let reference = include_str!("../../../../docs/configuration.md");
-        let headings: Vec<&str> = reference
-            .lines()
-            .filter_map(|line| line.strip_prefix("## "))
-            .filter(|heading| GROUPS.contains(heading))
-            .collect();
-        assert_eq!(headings, GROUPS);
-        for option in OPTIONS {
-            assert!(GROUPS.contains(&option.group), "{}", option.name);
-        }
-        for family in FAMILIES {
-            assert!(GROUPS.contains(&family.group), "{}", family.pattern);
-        }
+        reference::assert_group_order_matches(REFERENCE, &SCHEMA);
     }
 
     #[test]
@@ -460,7 +404,20 @@ mod tests {
         assert_eq!(SCHEMA.group_of("keys_go_to_tab"), Some("Styling"));
         assert_eq!(SCHEMA.group_of("mode_format"), Some("Mode prefix"));
         assert_eq!(SCHEMA.group_of("something_else"), None);
-        assert_eq!(SCHEMA.group_of("mode_format_bogus"), None);
+        // A key that starts like a family's but fits none is listed with
+        // the family it was likely meant for, which the screen warns about.
+        for (key, group, pattern) in [
+            ("mode_format_bogus", "Mode prefix", "mode_format_<mode>"),
+            ("label_", "Labels", "label_<id>"),
+            ("color_", "Colors", "color_<name>"),
+        ] {
+            assert_eq!(SCHEMA.group_of(key), Some(group), "{key}");
+            let misfit = SCHEMA.misfit_family(key).map(|family| family.pattern);
+            assert_eq!(misfit, Some(pattern), "{key}");
+        }
+        assert_eq!(SCHEMA.patterns_with_prefix("label_"), "label_*");
+        assert!(SCHEMA.misfit_family("something_else").is_none());
+        assert!(SCHEMA.misfit_family("label_quit").is_none());
     }
 
     #[test]

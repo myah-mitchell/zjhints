@@ -5,7 +5,6 @@ pub mod options;
 
 #[cfg(test)]
 pub use zjkit::settings::{editor, view};
-pub use zjkit::settings::{live, screen};
 
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{BareKey, KeyWithModifier, ModeInfo};
@@ -18,6 +17,7 @@ pub static SCHEMA: Schema = Schema {
     options: options::OPTIONS,
     families: options::FAMILIES,
     screen_options: options::SCREEN_OPTIONS,
+    deprecated_options: options::DEPRECATED_OPTIONS,
     internal_options: crate::popup::INTERNAL_OPTIONS,
     live_message: "zjhints::configure",
     preview_group: Some("Theme"),
@@ -37,14 +37,8 @@ fn sample_values(key: &str, config: &BTreeMap<String, String>) -> Vec<(&'static 
         vec![("key", crate::compose_key_text(&[sample], config))]
     } else if key == "desc_format" || key.starts_with("desc_format_") {
         vec![("desc", "Pane".to_string())]
-    } else if key == "mode_format" {
-        vec![("mode", "NORMAL".to_string())]
-    } else if let Some(mode) = key.strip_prefix("mode_format_") {
-        // The bar names a mode by its variant, which is the suffix without
-        // underscores: enter_search is ENTERSEARCH.
-        vec![("mode", mode.replace('_', "").to_uppercase())]
     } else {
-        Vec::new()
+        zjkit::mode::sample_values(key, config).unwrap_or_default()
     }
 }
 
@@ -60,8 +54,11 @@ fn draw_bar(
         configuration.remove(key);
     }
     let mut state = crate::State {
-        zellij_palette: Some(mode_info.style.colors),
-        pane_width: Some(width),
+        bar: zjkit::bar::BarCore {
+            zellij_palette: Some(mode_info.style.colors),
+            pane_width: Some(width),
+            ..Default::default()
+        },
         ..Default::default()
     };
     state.apply_configuration(configuration);

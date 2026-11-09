@@ -5,6 +5,7 @@
 
 pub mod editor;
 pub mod live;
+pub mod reference;
 pub mod schema;
 pub mod screen;
 pub mod view;
@@ -39,6 +40,7 @@ pub(crate) static TEST_SCHEMA: schema::Schema = {
             "A color alias",
         )],
         screen_options: &["settings", "alias"],
+        deprecated_options: &[],
         internal_options: &[],
         live_message: "zjtest::configure",
         preview_group: None,

@@ -2,6 +2,12 @@
 
 This page covers adding zjhints to Zellij: a configuration with the common options annotated, the release channels and which build matches your Zellij, and the two ways to display the hints. For every option and its default, see the [configuration reference](configuration.md).
 
+To install the tab bar from the same repository, see the [zjtabs overview](zjtabs/overview.md).
+
+## Requirements
+
+Zellij 0.46 or newer. Every bar runs as a [shared instance](shared-instances.md), which earlier versions cannot load. Some features need Zellij APIs that no release has yet; see [Zellij support](../README.md#zellij-support).
+
 ## Placeholders
 
 Some option names and tag names on this page are families rather than fixed strings. Each family's variable part is written in angle brackets.
@@ -28,8 +34,6 @@ plugins {
         // terminal's, less reserve_columns for whatever shares the bar.
         auto_width true // default
         reserve_columns 0 // default, used only when feeding zjstatus
-        // Set to 2 if your terminal draws Nerd Font glyphs double-width.
-        ambiguous_width 1 // default
         // Appended when a single hint is too wide to fit even alone
         overflow_str "..." // default
         // Name of the pipe for zjstatus integration
@@ -241,6 +245,8 @@ Wire the plugin into your default layout (`layouts/default.kdl`) either of two w
 
 This is what the installation example above already does: give the plugin a pane of its own, referencing the `zjhints` alias defined in the `plugins {}` block. Set `show_mode true` so the line still carries the current mode, the way `{mode}` would in zjstatus. See [Standing alone](nested-sessions.md#standing-alone) for styling the mode prefix, and note that a pane-based plugin (unlike one loaded headless via `load_plugins`) is what lets [nested-session](nested-sessions.md) hiding and dimming work at all.
 
+In a `default_tab_template` this puts a bar in every tab. All of them are panes of one running zjhints, which is how [shared instances](shared-instances.md) work.
+
 ### Option B: piped into zjstatus
 
 If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints into its bar instead of giving zjhints a pane of its own. Two changes from the layout above:
@@ -268,4 +274,4 @@ If you already run [zjstatus](https://github.com/dj95/zjstatus), pipe the hints 
 
    Left unset, `pipe_name` also publishes on `zjstatus_hints`, the name this plugin used before it was renamed, so an existing zjstatus config reading `{pipe_zjstatus_hints}` keeps working as it is.
 
-`show_mode` and `mode_format` are unnecessary here, since zjstatus's own `{mode}` widget already covers that.
+`show_mode` and `mode_format` are unnecessary here, since zjstatus's own `{mode}` widget already covers that. With `show_mode` on anyway, a format theme draws the prefix closed at both ends, as zjstatus may place the line anywhere. See [Themes](themes.md#format-themes).

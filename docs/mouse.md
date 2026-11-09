@@ -8,6 +8,9 @@ mouse true
 
 It is off by default, because it needs permissions a bar that only shows hints has no reason to ask for (see [Permissions](#permissions)).
 
+> [!NOTE]
+> This page describes the mouse in zjhints. zjtabs has its own, on by default: see [Mouse in zjtabs](zjtabs/mouse.md).
+
 Mouse support needs the plugin in [a pane of its own](installation.md#option-a-its-own-pane). Piped into zjstatus, the hints are drawn by zjstatus and the clicks go to zjstatus, so `mouse` does nothing there.
 
 ## Right-click
@@ -93,7 +96,7 @@ The popup closes when the pointer leaves it, or three seconds after it opens if 
 
 The bar only sees the pointer when Zellij sends it hover events, so the preview needs Zellij's `mouse_hover_effects` option left on, which is the default.
 
-The popup is this plugin again, opened in a mode that only draws the entries and reports which one is clicked. The bar runs the entry, so the popup never holds an action of its own. It is granted the bar's own permissions, so it never prompts.
+The popup is this plugin again, opened as a pane of the bar's [shared instance](shared-instances.md) in a mode that only draws the entries and reports which one is clicked. The bar runs the entry, so the popup never holds an action of its own. It asks for the bar's own permissions, which the instance already holds, so it never prompts.
 
 ## While descended into a nested session
 
@@ -121,7 +124,7 @@ Keys are sent the way the nested session's pane expects them: re-encoded by Zell
 
 Opening Zellij's context menu and the hover preview also needs permission to change application state, which the bar always asks for to add its [settings entry](settings.md#from-zellijs-settings-screen).
 
-Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the plugin was already granted its usual permissions asks again for the new ones.
+Zellij asks once for the whole instance, in the pane of one of its bars, and remembers the answer. Turning `mouse` on after the plugin was already granted its usual permissions asks again for the new ones.
 
 ## Zellij support
 

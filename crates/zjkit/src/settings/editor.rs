@@ -4,7 +4,10 @@
 //! from the config and the keys pressed, and carries out what it asks for
 //! (previewing, saving) against the host.
 
-use super::schema::{validate, Kind, OptionSpec, Schema, RESERVED_KEYS};
+use super::schema::{
+    entry_key_start, is_unfinished, pattern_prefix, validate, Kind, OptionSpec, Schema,
+    RESERVED_KEYS,
+};
 use std::collections::BTreeMap;
 use zellij_tile::prelude::{fuzzy_match_indices, PluginAliasEntry};
 
@@ -37,9 +40,19 @@ pub enum Row {
     Option(&'static OptionSpec),
     /// A key outside the fixed options, such as `label_split_down`.
     Key(String),
-    /// The line that adds a new key starting with this prefix: a family's,
-    /// or nothing under "Other".
+    /// The line that adds a new key of the family with this pattern, such
+    /// as `color_<name>`, or, empty, any key under "Other". Each family has
+    /// its own, so families sharing a prefix, as `launch_<n>_name` and
+    /// `launch_<n>_command` do, each name the key they add. A numbered
+    /// family's line starts the key with the number of the entry being
+    /// worked on filled in (see `Editor::current_entry`).
     Add(&'static str),
+    /// The line that starts a new numbered entry from the first of its
+    /// fields, the family with this pattern, such as `launch_<n>_name`. The
+    /// key starts with the number after the highest entry set, so a new
+    /// entry never has to be numbered by hand. It comes before the add
+    /// lines of the entry's fields.
+    AddEntry(&'static str),
     /// The title of the section the search results under it come from. It
     /// cannot be selected.
     Heading(&'static str),
@@ -119,6 +132,9 @@ pub struct Editor {
     search: Option<String>,
     /// Index into `rows()` of the selected row.
     pub selected: usize,
+    /// The key last given a value. When it is a field of a numbered entry,
+    /// the add lines of the entry's other fields start with its number.
+    last_set: Option<String>,
     /// The part of the screen the keys act on.
     pub focus: Focus,
 }
@@ -186,6 +202,7 @@ impl Editor {
             search: None,
             selected: 0,
             focus: Focus::List,
+            last_set: None,
         };
         editor.load_chosen();
         Ok(editor)
@@ -202,6 +219,7 @@ impl Editor {
         let name = self.alias_name().to_string();
         let (section, search, selected, focus) =
             (self.section, self.search.take(), self.selected, self.focus);
+        let last_set = self.last_set.take();
         let (schema, location) = (self.schema, std::mem::take(&mut self.location));
         *self = Editor::new(
             schema,
@@ -216,6 +234,9 @@ impl Editor {
             self.search = search;
             self.selected = selected;
             self.focus = focus;
+        }
+        if self.alias_name() == name {
+            self.last_set = last_set;
         }
         self.clamp_selection();
         Ok(())
@@ -232,6 +253,7 @@ impl Editor {
             .map(|saved| saved.plugin.configuration.iter().cloned().collect())
             .unwrap_or_default();
         self.working = self.session.clone();
+        self.last_set = None;
         self.clamp_selection();
     }
 
@@ -330,8 +352,9 @@ impl Editor {
     }
 
     /// The lines of the list for `section`: its fixed options, then the
-    /// keys set in it, then a line to add a key for each family prefix in
-    /// it. "Other" holds the keys that fit nowhere else.
+    /// keys set in it, then a line to add a key for each family in it, with
+    /// a line to start a new entry before the fields of a numbered one.
+    /// "Other" holds the keys that fit nowhere else.
     pub fn rows_of(&self, section: Section) -> Vec<Row> {
         let group = match section {
             Section::Alias => return vec![Row::Alias],
@@ -353,20 +376,87 @@ impl Editor {
                 .filter(|key| self.section_of(key) == section)
                 .map(|key| Row::Key(key.clone())),
         );
-        match group {
-            Some(group) => {
-                let mut prefixes: Vec<&'static str> = Vec::new();
-                let families = self.schema.families.iter();
-                for family in families.filter(|family| family.group == group) {
-                    if !prefixes.contains(&family.prefix()) {
-                        prefixes.push(family.prefix());
-                    }
-                }
-                rows.extend(prefixes.into_iter().map(Row::Add));
+        let Some(group) = group else {
+            rows.push(Row::Add(""));
+            return rows;
+        };
+        let families = self.schema.families.iter();
+        for family in families.filter(|family| family.group == group) {
+            if self.first_field(family.prefix()) == Some(family.pattern) {
+                rows.push(Row::AddEntry(family.pattern));
             }
-            None => rows.push(Row::Add("")),
+            rows.push(Row::Add(family.pattern));
         }
         rows
+    }
+
+    /// The pattern of the first numbered family with `prefix`, the field a
+    /// new entry starts from, or `None` when no numbered family has it.
+    fn first_field(&self, prefix: &str) -> Option<&'static str> {
+        self.schema
+            .families
+            .iter()
+            .find(|family| family.is_numbered() && family.prefix() == prefix)
+            .map(|family| family.pattern)
+    }
+
+    /// The numbers of the entries with `prefix` that have a key set.
+    fn entry_numbers<'a>(&'a self, prefix: &'a str) -> impl Iterator<Item = u64> + 'a {
+        self.working
+            .keys()
+            .filter_map(move |key| self.schema.entry_number(prefix, key))
+    }
+
+    /// The number of the entry with `prefix` being worked on: that of the
+    /// key last given a value while the entry still has a key set, or
+    /// otherwise the highest-numbered entry set. `None` while no entry has a
+    /// key.
+    pub fn current_entry(&self, prefix: &str) -> Option<u64> {
+        let last = self
+            .last_set
+            .as_deref()
+            .and_then(|key| self.schema.entry_number(prefix, key))
+            .filter(|number| self.entry_numbers(prefix).any(|set| set == *number));
+        last.or_else(|| self.entry_numbers(prefix).max())
+    }
+
+    /// The number a new entry with `prefix` takes: one after the highest
+    /// entry set, or 1 for the first. `None` when the highest is as large as
+    /// a number can be, and there is no next.
+    pub fn next_entry(&self, prefix: &str) -> Option<u64> {
+        match self.entry_numbers(prefix).max() {
+            Some(highest) => highest.checked_add(1),
+            None => Some(1),
+        }
+    }
+
+    /// What typing a new key starts from on an add line: the family's
+    /// prefix, or for a numbered family the key with the entry's number
+    /// filled in, up to the next placeholder. A field's line numbers it for
+    /// the entry being worked on, or the first entry when there is none,
+    /// and the line starting an entry for the next one. `None` for a row
+    /// that adds nothing.
+    pub fn key_start(&self, row: &Row) -> Option<String> {
+        let (pattern, number) = match row {
+            Row::Add(pattern) => {
+                let prefix = pattern_prefix(pattern);
+                let numbered = (self.schema.families.iter())
+                    .any(|family| family.pattern == *pattern && family.is_numbered());
+                let number = numbered
+                    .then(|| {
+                        self.current_entry(prefix)
+                            .or_else(|| self.next_entry(prefix))
+                    })
+                    .flatten();
+                (*pattern, number)
+            }
+            Row::AddEntry(pattern) => (*pattern, self.next_entry(pattern_prefix(pattern))),
+            _ => return None,
+        };
+        Some(match number {
+            Some(number) => entry_key_start(pattern, number),
+            None => pattern_prefix(pattern).to_string(),
+        })
     }
 
     /// The options and keys of every section that match `query`, each
@@ -599,9 +689,9 @@ impl Editor {
                 text: self.value(&key).unwrap_or_default().to_string(),
                 field: Field::Value { key },
             },
-            Some(Row::Add(prefix)) => Outcome::StartField {
+            Some(row @ (Row::Add(_) | Row::AddEntry(_))) => Outcome::StartField {
                 field: Field::NewKey,
-                text: prefix.to_string(),
+                text: self.key_start(&row).unwrap_or_default(),
             },
             Some(Row::Heading(_)) | None => Outcome::None,
         }
@@ -740,13 +830,8 @@ impl Editor {
                         "A key is letters, digits and underscores".to_string(),
                     );
                 }
-                if let Some(family) = self
-                    .schema
-                    .families
-                    .iter()
-                    .find(|family| family.prefix() == key)
-                {
-                    return Outcome::Refused(format!("Finish the key, as in {}", family.pattern));
+                if let Some(pattern) = self.pattern_to_finish(key) {
+                    return Outcome::Refused(format!("Finish the key, as in {pattern}"));
                 }
                 if let Some((section, row)) = self.locate(key) {
                     self.show(section, row);
@@ -754,6 +839,9 @@ impl Editor {
                 }
                 if self.schema.screen_options.contains(&key) {
                     return Outcome::Refused(format!("{key} is read only by the settings screen"));
+                }
+                if self.schema.deprecated_options.contains(&key) {
+                    return Outcome::Refused(format!("{key} is deprecated and has no effect"));
                 }
                 if self.schema.internal_options.contains(&key) {
                     let plugin = self.schema.plugin;
@@ -772,6 +860,33 @@ impl Editor {
         }
     }
 
+    /// The pattern of a family `key` is typed up to a placeholder of and no
+    /// further, so the key is not finished yet: `color_` of `color_<name>`,
+    /// or `launch_1_config_` of `launch_<n>_config_<key>`. A key that is an
+    /// option or fits a family is finished, even when it also reads as the
+    /// start of another family's key. Several families may share the start,
+    /// as `launch_<n>_name` and `launch_<n>_command` do; the one whose add
+    /// line the key was started from is named then, and otherwise the first.
+    fn pattern_to_finish(&self, key: &str) -> Option<&'static str> {
+        if self.schema.find(key).is_some() || self.schema.family_of(key).is_some() {
+            return None;
+        }
+        let mut unfinished = self
+            .schema
+            .families
+            .iter()
+            .filter(|family| is_unfinished(family.pattern, key))
+            .map(|family| family.pattern);
+        let adding = match self.selected_row() {
+            Some(Row::Add(pattern) | Row::AddEntry(pattern)) => Some(pattern),
+            _ => None,
+        };
+        unfinished
+            .clone()
+            .find(|pattern| Some(*pattern) == adding)
+            .or_else(|| unfinished.next())
+    }
+
     /// Show `section` with `row` selected and the list focused, leaving any
     /// search behind.
     pub fn show(&mut self, section: Section, row: usize) {
@@ -788,6 +903,9 @@ impl Editor {
         };
         if previous.as_deref() == self.value(key) {
             return Outcome::None;
+        }
+        if self.working.contains_key(key) {
+            self.last_set = Some(key.to_string());
         }
         // The search results keep their place; anywhere else the list moves
         // to where the key is listed, which a new key changes.

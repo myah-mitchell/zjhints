@@ -6,8 +6,11 @@ use super::editor::{own_location, Editor, Field, Focus, Outcome, Row, Section};
 use super::live;
 use super::schema::Schema;
 use super::view::{self, Command, Control, FormatView, HelpState, Layout, Marker, RowView};
+use crate::host::{Host, Zellij};
+use crate::shared;
 use std::collections::BTreeMap;
 use zellij_tile::prelude::*;
+use zellij_tile::ui_components::BUTTON_PRESS_SECONDS;
 use zellij_utils::input::config_blocks::plugin_aliases_kdl;
 
 /// What the host is to report back on.
@@ -137,8 +140,8 @@ impl SettingsScreen {
         // needs.
         let mut permissions = vec![PermissionType::Reconfigure];
         permissions.extend((self.schema.permissions)());
-        request_permission(&permissions);
-        subscribe(&[
+        Zellij.request_permission(&permissions);
+        Zellij.subscribe(&[
             EventType::Key,
             EventType::Mouse,
             EventType::Timer,
@@ -161,7 +164,7 @@ impl SettingsScreen {
                 // pane, so it can sit beside the bar it edits without holding
                 // the keyboard. Pinning needs `ChangeApplicationState`, one
                 // of the bar's permissions asked for above.
-                set_floating_pane_pinned(PaneId::Plugin(get_plugin_ids().plugin_id), true);
+                set_floating_pane_pinned(PaneId::Plugin(Zellij.plugin_ids().plugin_id), true);
                 self.read();
                 true
             }
@@ -256,7 +259,7 @@ impl SettingsScreen {
         let snapshot = read_config();
         self.config_file = snapshot.config_file_path.clone();
         let aliases = snapshot.blocks.plugin_aliases;
-        let own_url = get_pane_info(PaneId::Plugin(get_plugin_ids().plugin_id))
+        let own_url = get_pane_info(PaneId::Plugin(Zellij.plugin_ids().plugin_id))
             .and_then(|pane| pane.plugin_url);
         let editor = match own_url.as_deref() {
             None => Err(
@@ -312,7 +315,7 @@ impl SettingsScreen {
 
     fn handle_key(&mut self, key: KeyWithModifier) -> bool {
         if self.closing {
-            close_self();
+            Zellij.close_self();
             return false;
         }
         if self.question.is_some() {
@@ -334,7 +337,7 @@ impl SettingsScreen {
         let previewed = self.shows_preview();
         let Some(editor) = self.editor_mut() else {
             if is_plain(&key, BareKey::Esc) {
-                close_self();
+                Zellij.close_self();
             }
             return false;
         };
@@ -528,7 +531,7 @@ impl SettingsScreen {
             }
         }
         if let Some(press) = pressed {
-            self.button_timers += 1;
+            self.count_button_press();
             return match press {
                 Some(bare) => self.handle_key(KeyWithModifier::new(bare)),
                 None => true,
@@ -607,12 +610,12 @@ impl SettingsScreen {
             (button.handle_mouse(mouse) == UiResponse::Activated).then_some(*command)
         });
         if let Some(command) = command {
-            self.button_timers += 1;
+            self.count_button_press();
             return self.run(command);
         }
         if let Some(button) = &mut self.overrides_button {
             if button.handle_mouse(mouse) == UiResponse::Activated {
-                self.button_timers += 1;
+                self.count_button_press();
                 self.overrides_hidden = !self.overrides_hidden;
                 return true;
             }
@@ -655,6 +658,14 @@ impl SettingsScreen {
         false
     }
 
+    /// Count the timer a button starts when it is pressed, which comes back
+    /// as a `Timer` event. The button sets it itself, so it is noted as this
+    /// slot's for `shared`.
+    fn count_button_press(&mut self) {
+        self.button_timers += 1;
+        shared::expect_timer(BUTTON_PRESS_SECONDS);
+    }
+
     fn handle_timer(&mut self) -> bool {
         if self.button_timers > 0 {
             self.button_timers -= 1;
@@ -671,7 +682,7 @@ impl SettingsScreen {
             return changed;
         }
         if self.closing {
-            close_self();
+            Zellij.close_self();
         }
         false
     }
@@ -784,15 +795,10 @@ impl SettingsScreen {
             self.notice = Some("Nothing to revert".to_string());
             return;
         }
-        let message = format!(
-            "Put the {} back to the config file's values?",
-            view::unsaved_text(unsaved)
-        );
-        let request = PromptRequest::confirm(message)
-            .title("Revert all?")
-            .yes("Revert all")
-            .no("Cancel");
-        self.question = Some((prompt(request), Question::RevertAll));
+        self.question = Some((
+            Zellij.prompt(revert_all_request(unsaved)),
+            Question::RevertAll,
+        ));
     }
 
     fn ask_changed_outside(&mut self) {
@@ -802,16 +808,10 @@ impl SettingsScreen {
             .and_then(|path| path.rsplit('/').next())
             .unwrap_or("The config file")
             .to_string();
-        let request = PromptRequest::menu(vec![
-            ChoiceItem::labeled("overwrite", "Overwrite: save your changes over the file"),
-            ChoiceItem::labeled(
-                "reload",
-                "Reload: take the file as it is, dropping your unsaved changes",
-            ),
-            ChoiceItem::labeled("cancel", "Cancel"),
-        ])
-        .title(format!("{file} changed outside Zellij"));
-        self.question = Some((prompt(request), Question::ChangedOutside));
+        self.question = Some((
+            Zellij.prompt(changed_outside_request(&file)),
+            Question::ChangedOutside,
+        ));
     }
 
     fn answer(&mut self, id: u64, result: &PromptResult) -> bool {
@@ -877,9 +877,10 @@ impl SettingsScreen {
         self.previewed = editor.working().clone();
     }
 
-    /// Put the pending values in the session's alias, so bars started from
-    /// now on load them, as Zellij keeps settings edits applied to the
-    /// session until they are saved or reverted.
+    /// Put the pending values in the session's alias, as Zellij keeps
+    /// settings edits applied to the session until they are saved or
+    /// reverted. Running bars already show them through the previews; a bar
+    /// started later still loads the alias as the session started with it.
     fn keep_in_session(&mut self) {
         let Some(editor) = self.editor_mut() else {
             return;
@@ -898,7 +899,7 @@ impl SettingsScreen {
         };
         self.keep_in_session();
         if unsaved == 0 {
-            close_self();
+            Zellij.close_self();
             return false;
         }
         let noun = if unsaved == 1 {
@@ -910,7 +911,7 @@ impl SettingsScreen {
             "{unsaved} unsaved {noun} applied to this session. Ctrl+a in settings saves them."
         ));
         self.closing = true;
-        set_timeout(CLOSE_SECONDS);
+        Zellij.set_timeout(CLOSE_SECONDS);
         true
     }
 
@@ -1321,6 +1322,7 @@ fn draw_row(
         let text = Text::from(marker);
         let text = match row.marker {
             Marker::Unsaved => text.color_all(1),
+            Marker::Ignored => text.error_color_all(),
             _ => text.dim_all(),
         };
         print_text_with_coordinates(text, marker_x, y, None, None);
@@ -1413,11 +1415,59 @@ fn is_shift_tab(key: &KeyWithModifier) -> bool {
     key.bare_key == BareKey::Tab && key.has_modifiers(&[KeyModifier::Shift])
 }
 
+/// The question asked before putting `unsaved` edits back to the config
+/// file's values. Zellij's prompt highlights the first button unless the
+/// default says otherwise, and Enter picks the highlighted one, so the default
+/// is Cancel: Enter never throws away edits by accident.
+fn revert_all_request(unsaved: usize) -> PromptRequest {
+    let message = format!(
+        "Put the {} back to the config file's values?",
+        view::unsaved_text(unsaved)
+    );
+    PromptRequest::confirm(message)
+        .title("Revert all?")
+        .yes("Revert all")
+        .no("Cancel")
+        .default("false")
+}
+
+/// The question asked when the config `file` changed on disk since the screen
+/// read it. Zellij's menu highlights its first item and ignores a default, and
+/// Enter picks the highlighted item, so Cancel comes first: Enter never saves
+/// over the file or drops edits by accident.
+fn changed_outside_request(file: &str) -> PromptRequest {
+    PromptRequest::menu(vec![
+        ChoiceItem::labeled("cancel", "Cancel"),
+        ChoiceItem::labeled("overwrite", "Overwrite: save your changes over the file"),
+        ChoiceItem::labeled(
+            "reload",
+            "Reload: take the file as it is, dropping your unsaved changes",
+        ),
+    ])
+    .title(format!("{file} changed outside Zellij"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::TEST_SCHEMA;
     use zellij_tile::prelude::{PluginAliasEntry, PluginEntry};
+
+    #[test]
+    fn revert_all_asks_with_cancel_as_the_default() {
+        let request = revert_all_request(2);
+        assert_eq!(request.default.as_deref(), Some("false"));
+    }
+
+    #[test]
+    fn changed_outside_lists_cancel_first() {
+        let request = changed_outside_request("config.kdl");
+        let PromptSpec::Menu { items, .. } = request.spec else {
+            panic!("the question is a menu");
+        };
+        let values: Vec<&str> = items.iter().map(|item| item.value.as_str()).collect();
+        assert_eq!(values, ["cancel", "overwrite", "reload"]);
+    }
 
     /// A screen searching the options of an alias with no configuration.
     fn searching() -> SettingsScreen {

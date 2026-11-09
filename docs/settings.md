@@ -2,7 +2,10 @@
 
 The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
-It needs the Zellij build zjhints is compiled against, [fork-v0.46.6](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.6), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
+It needs the Zellij build zjhints is compiled against, [fork-ea-v0.46.7-261103](https://github.com/myah-mitchell/zellij/releases/tag/fork-ea-v0.46.7-261103), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
+
+> [!NOTE]
+> Every plugin in this repository shares this screen, and the text below says zjhints where it means whichever one you are editing. For zjtabs, use its name in the launch examples and look for its entry on Zellij's settings screen. Its groups are in the [zjtabs configuration reference](zjtabs/configuration.md).
 
 ## Prerequisites
 
@@ -11,7 +14,7 @@ It needs the Zellij build zjhints is compiled against, [fork-v0.46.6](https://gi
 
 ## Opening it
 
-There are four ways in. Each one starts a separate zjhints instance with `settings true`, which draws the screen instead of a bar.
+There are four ways in. Each one opens a floating pane that loads zjhints with `settings true`, which draws the screen instead of a bar. The pane joins the bars' [shared instance](shared-instances.md), which is how the bars receive its previews. A bar that sets `instance` needs the screen opened with the same value; see [Opening the settings screen](shared-instances.md#opening-the-settings-screen).
 
 The screen opens pinned, so it stays on screen while you click into other panes and type there, and the bars it previews on stay in view beside it. Clicking it again gives it the keyboard back. To let it hide with the other floating panes, unpin it from Zellij's pane menu.
 
@@ -63,6 +66,8 @@ context_menu {
 
 With `mouse` and [`show_mode`](nested-sessions.md#standing-alone) on, left-click the mode prefix at the start of the bar. No config is needed for this one. While descended into a nested session the prefix opens it only with [`mouse_nested`](mouse.md#while-descended-into-a-nested-session) on, like the rest of the bar. The screen opens on the alias that bar was started from, and clicking again while it is open brings it back up instead of opening a second one.
 
+A zjtabs bar does the same with `mouse` on, and its `show_mode` is on by default, so its prefix is there to click with no config at all. See [Opening the settings screen](zjtabs/mouse.md#opening-the-settings-screen).
+
 ## Choosing the alias
 
 The screen edits the aliases that load the same plugin file it runs from, which is the file of the bar that opened it. The alias names and file name don't matter. With one such alias it edits that one. With several, the menu starts with *Alias*, whose one row is a dropdown of them; pick another there once the edits to the current one are saved or reverted.
@@ -93,9 +98,10 @@ After each value comes a marker of where it comes from:
 | *● unsaved* | Changed from the config file and not saved yet |
 | *○ default* | Not set, so the field shows the built-in default, dimmed |
 | *○ theme* | Not set, so the field shows the value the selected [theme](themes.md) gives it, dimmed |
+| *✗ ignored* | A key the bar does not read: it starts like a family's keys but fits none, as in [Keys that fit no family](#keys-that-fit-no-family) |
 | None | Set in the config file and unchanged |
 
-Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal.
+Text values are quoted, so their spaces show; true/false values, numbers and fixed choices are not. A control character in a key or value is shown as an escape, such as `\u{1b}` for ESC or `\n` for a newline, rather than sent to the terminal. So is a character that reorders text, such as `\u{202e}`.
 
 The screen needs a pane of at least 50 columns by 12 rows. A smaller one shows how much it needs instead.
 
@@ -152,7 +158,7 @@ Press `↓` to move from the search box to the results, and `↑` on the first r
 
 ## Format strings
 
-Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. `{key}` shows `Ctrl p`, spelled with your modifier aliases, `{desc}` shows `Pane`, and `{mode}` shows the mode's name, such as `NORMAL`. A format string that draws nothing visible is shown as written instead.
+Format strings, such as `key_format`, `mode_format_locked` and `hint_spacer`, are shown rendered: drawn as the bar draws them, colors included, with sample values in the placeholders. A `$name` color resolves the way the bar resolves it, from your own `color_<name>` or else from the selected theme. In a hint's format, `{key}` shows `Ctrl p`, spelled with your modifier aliases, and `{desc}` shows `Pane`. In a mode format, `{mode}` shows the mode's name, such as `NORMAL`, and `{desc}` and `{key}` show that mode's `mode_label_<mode>` and `mode_key_<mode>` as the bar draws them. A format string that draws nothing visible is shown as written instead.
 
 The *Styling* group below shows `key_format` and `key_format_quit` as the blocks the bar draws, an unsaved edit to `desc_format` that makes its description italic, and `hint_spacer` on the selected row:
 
@@ -178,7 +184,13 @@ Keys that are not single options, such as `label_<id>`, `key_format_<id>` and `c
 
 Each group with families ends in a button per family to add a key, such as *+ add color_\<name\>*. Click it, or select it and press `Enter`, and the key starts with the family's prefix: type the rest, press `Enter`, then type its value.
 
-*Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group.
+Families whose keys start alike each have a button of their own.
+
+*Other* lists the keys that fit no group, which zjhints does not read. Its *+ add a key* button starts the key empty, and a key you add there that fits a group is listed in that group. A [deprecated](configuration.md#deprecated) option set in the config is listed there too, and cannot be added.
+
+### Keys that fit no family
+
+A key that starts like a family's keys but fits none of them is listed in that family's group and marked *✗ ignored*, since the bar does not read it. An example is `mode_label_bogus`, whose last word is no mode. The line under the rows names the keys it could have been. Add the key you meant, then select the ignored one and press `Del` to remove it.
 
 ## Previewing and saving
 
@@ -186,23 +198,28 @@ Every change shows on the bars started from the alias as soon as you make it. No
 
 ![The settings screen on the Theme group, over a bar started from the alias. format_theme is set to flat, then powerline, then pills, then color_theme to dracula and alias_theme to unicode. With each change the header counts the unsaved changes, the preview under the theme options redraws, and the bar under the screen restyles to match it, from Zellij's ribbons to purple dracula pills with ^p style keys](img/settings-live.svg)
 
-`r` reverts the selected option, and `Ctrl r` reverts them all after asking. A revert puts the bars back to the file's values too.
+`r` reverts the selected option, and `Ctrl r` reverts them all after asking. The question highlights *Cancel*, so `Enter` keeps your changes. A revert puts the bars back to the file's values too.
 
-If the file changed on disk since Zellij read it, saving stops and asks what to do:
+If the file changed on disk since Zellij read it, saving stops and asks what to do. *Cancel* is highlighted, so `Enter` or `Esc` changes nothing:
 
+- **Cancel** keeps your changes unsaved.
 - **Overwrite** writes your changes over the file.
 - **Reload** takes the file as it is and drops your unsaved changes; the bars go back to the file's values.
-- **Cancel** keeps your changes unsaved.
 
 ### Closing with unsaved changes
 
-Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the session: the bars keep them, and bars started later in the session load them too. A notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+Closing does not discard anything, as in Zellij's own settings screen. Unsaved changes stay applied to the bars running in the session, and a notice says so for a moment before the screen closes. Open the screen again and press `Ctrl a` to save them, or `Ctrl r` to drop them. Closing the pane any other way, such as with Zellij's close-pane key, keeps them the same way.
+
+A bar started later in the session, such as one in a new tab, starts from the alias as the session loaded it, without the unsaved changes. It joins the instance with its own options and doesn't take the previews the other bars are showing.
 
 ### What a preview reaches
 
 - Bars started from the alias being edited. A bar started from another alias, or from a plugin location rather than an alias, is left alone.
 - Bars in this session only. Other sessions pick the saved values up when they start.
+- Bars in the screen's own instance. A bar that sets a different `instance` is left alone.
 - Keys the alias controls for that bar. A key a layout sets on the bar's own pane, such as `show_mode true`, stays as the layout sets it through every later change to it.
+
+A bar takes a preview only from a pane of its own instance, such as the settings screen. A preview sent by another plugin, another instance, `zellij pipe` or a keybinding changes nothing. No other plugin can change a bar's options this way.
 
 A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so previews reach it by alias like any other bar.
 
@@ -210,8 +227,6 @@ Unsaved changes last until the session ends. They never reach the config file, s
 
 ## Permissions
 
-The screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. Zellij keeps one grant for the screen and the bars, because they load from the same file, and each grant replaces the last; asking for the lot keeps opening the screen from taking permissions away from the bars.
-
-A bar granted its own, smaller set afterwards replaces the screen's grant in turn, so the screen can ask again the next time it opens. It is a floating pane, so the prompt can always be answered there.
+When it first draws, the screen asks for permission to change the configuration and to message other plugins, the latter to send its previews. Its questions, such as the one before reverting everything, are shown by Zellij in a prompt of its own, which needs the permission to open panes that the mouse permissions include. It also asks for everything a bar can use, [mouse permissions](mouse.md#permissions) included. The screen and the bars are one instance, so Zellij keeps one grant for them. Each request carries everything the instance has been granted or asked for so far, one prompt at a time, so opening the screen never takes a permission from the bars, and a bar's later request never takes one from the screen. Denying a prompt takes the grant from the screen and every bar. The screen is a floating pane, so the prompt can always be answered there.
 
 The bar asks for permission to change application state so it can add its entry to Zellij's settings screen, and opening the screen from that entry or the mode prefix uses the permission to message plugins it already holds. Turning `mouse` on from the screen makes a running bar ask for the mouse permissions, as it would when started with `mouse true`.

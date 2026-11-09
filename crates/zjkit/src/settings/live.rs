@@ -2,9 +2,10 @@
 //!
 //! The settings screen broadcasts every change as a pipe message, named by
 //! the plugin's `Schema::live_message`, to all plugins in the session; each
-//! bar keeps the ones meant for it. A broadcast
-//! launches nothing, unlike a message addressed by plugin URL, which starts a
-//! new instance when no running one matches its configuration exactly.
+//! bar keeps the ones meant for it, and only from its own shared instance,
+//! which the screen runs in as another slot. A broadcast launches nothing,
+//! unlike a message addressed by plugin URL, which starts a new slot when no
+//! running one matches its configuration exactly.
 //!
 //! A message names the alias it edits and carries, for each key it changes,
 //! the value the alias had before and the value it has now. The first time a

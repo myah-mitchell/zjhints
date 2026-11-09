@@ -603,7 +603,7 @@ pub(crate) fn lay_out_hints_for_mode(
             let mut parts = vec![];
             render_hint(&mut parts, hint, style);
             HintPiece {
-                width: visible_width(&parts, style.wide_ambiguous),
+                width: visible_width(&parts),
                 group: style.hint_order.group(hint),
                 parts,
                 index,
@@ -621,7 +621,7 @@ pub(crate) fn lay_out_hints_for_mode(
         .map(|indicator| format::render_template(indicator, &[], style.config, style.dim))
         .unwrap_or_default();
 
-    let spacer_width = visible_width(&spacer, style.wide_ambiguous);
+    let spacer_width = visible_width(&spacer);
     // The spacer after the mode prefix is there whatever is dropped, so it
     // comes off the budget up front.
     let leading_spacer = if style.spacer_after_prefix {
@@ -634,7 +634,7 @@ pub(crate) fn lay_out_hints_for_mode(
             &mut pieces,
             spacer_width,
             limit.saturating_sub(leading_spacer),
-            visible_width(&indicator, style.wide_ambiguous),
+            visible_width(&indicator),
             style.precedence,
         )
     });
@@ -678,7 +678,7 @@ pub(crate) fn lay_out_hints_for_mode(
             });
         }
         segments.push(LineSegment {
-            width: visible_width(&piece, style.wide_ambiguous),
+            width: visible_width(&piece),
             content,
         });
         parts.extend(piece);

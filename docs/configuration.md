@@ -1,8 +1,10 @@
 # Configuration
 
-Every option the plugin reads, with its default. The plugin works with none of them set, so this page is only for changing something.
+Every option the plugin reads, with its default. The plugin works with none of them set, so this page is only for changing something. The options of zjtabs, the tab bar from the same repository, are in [its own reference](zjtabs/configuration.md).
 
 Options are grouped by topic, and each group names the page carrying the detail behind it. An option written with a placeholder in it is a family rather than a single key: you append your own value.
+
+Zellij also reads an `instance` key from a plugin's options, to decide which panes share a running copy of the plugin. It is not an option of the plugin, so it has no row here. See [Shared instances](shared-instances.md#keeping-bars-apart).
 
 | Placeholder | You replace it with |
 | --- | --- |
@@ -21,7 +23,6 @@ The hint line is fitted to the terminal as it narrows. See [Fitting the bar](fit
 | `auto_width` | `true` | Fit the hints to the bar's own pane, or to the terminal when feeding zjstatus |
 | `max_length` | `0` | Hard cap on the line's width in columns, `0` for unlimited |
 | `reserve_columns` | `0` | Columns to leave free beside the hints in zjstatus; unused in the bar's own pane |
-| `ambiguous_width` | `1` | Columns an East Asian Ambiguous character occupies, `1` or `2` |
 | `overflow_str` | `...` | Format string appended when a lone hint is too wide to fit and must be cut mid-hint |
 | `hint_precedence` | `tl` | Which pinned group is kept longest, `tl` or `lt` |
 
@@ -149,15 +150,23 @@ Clicking the bar. Needs the plugin in its own pane. See [Mouse](mouse.md).
 | --- | --- | --- |
 | `pipe_name` | `zjhints` | Name of the pipe zjstatus reads the hints from |
 
-`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. See [Displaying the hints](installation.md#displaying-the-hints).
+`pipe_name` matters only when the plugin is piped into zjstatus rather than given a pane of its own. A bar loaded with `load_plugins` publishes its line whenever the line changes, and a bar in a pane publishes each time it draws. See [Displaying the hints](installation.md#displaying-the-hints).
 
 Left unset, the hints also go out on `zjstatus_hints`, the name this plugin published on before it was renamed, so a zjstatus config written against `{pipe_zjstatus_hints}` keeps rendering untouched. Setting `pipe_name` publishes on that name alone.
 
 ## Settings screen
 
-Options of the settings screen itself. They are read only by the instance that runs the screen, not by the bar. See [Settings screen](settings.md).
+Options of the settings screen itself. They are read only by the pane that runs the screen, not by the bars. See [Settings screen](settings.md).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `settings` | `false` | Run this instance as the settings screen instead of the bar |
+| `settings` | `false` | Run this pane as the settings screen instead of the bar |
 | `alias` | unset | The `plugins {}` alias to edit, when more than one loads zjhints |
+
+## Deprecated
+
+Options the plugin accepts, so a config setting one still loads, but ignores. The plugin logs a line for each one set, and the settings screen lists it under *Other*, where it can be removed.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `ambiguous_width` | unset | Nothing. Text is measured the way Zellij lays it out, with East Asian Ambiguous characters one column wide. See [Glyph width](fitting.md#glyph-width) |

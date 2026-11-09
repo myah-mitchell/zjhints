@@ -2,6 +2,9 @@
 
 The bar can be hidden and shown again from a keybinding, the right-click menu or a shell, without touching the configuration. A hidden bar draws nothing, sends zjstatus an empty string, and gives its row back to the panes around it. This page covers the messages that do it and the `hidden` option for starting hidden.
 
+> [!NOTE]
+> Every bar listens for messages named after itself. For zjtabs, read `zjtabs::toggle`, `zjtabs::hide` and `zjtabs::show` wherever this page says zjhints. Its `hidden` option works the same way.
+
 ## From a keybinding
 
 Zjhints listens for three pipe messages: `zjhints::toggle`, `zjhints::hide` and `zjhints::show`. Bind one with Zellij's `MessagePlugin` action, leaving out a plugin name so the message reaches every plugin already running:
@@ -16,23 +19,23 @@ keybinds {
 
 Pick any free key. Hiding lasts until the bar is shown again or the session ends; a new session starts from the [`hidden` option](#starting-hidden).
 
-A bar opened later, in a new tab, asks the running bars of its alias whether they are hidden and follows the first answer, so it joins them. With no bar running to ask, it starts from the `hidden` option.
+A bar opened later, in a new tab, starts in the state of the other bars started from its alias, so it joins them. A message that already hid or showed it wins over that. With no such bar running, it starts from the `hidden` option.
 
 A toggle flips each bar on its own. Bars that end up out of step, such as two aliases hidden separately, stay that way through a toggle; send `zjhints::hide` or `zjhints::show` to bring them all to one state.
 
 The same goes for a bar that is already blank for another reason, such as [`hide_in_base_mode`](configuration.md#hints) in the base mode: a toggle hides it with nothing to see, and it stays hidden after the mode changes. Bind `zjhints::hide` and `zjhints::show` to separate keys if that gets confusing.
 
-Don't name the plugin in the action, as in `MessagePlugin "zjhints" { ... }`. Zellij delivers a message addressed that way only to an instance whose configuration matches exactly, and a bar given its own settings in a layout does not match, so Zellij starts a new instance instead.
+Don't name the plugin in the action, as in `MessagePlugin "zjhints" { ... }`. Zellij delivers a message addressed that way only to a bar whose configuration matches exactly, and a bar given its own settings in a layout does not match, so Zellij starts a new bar instead.
 
 ## Hiding one alias's bars
 
-With no payload, a message reaches every bar in the session, on every tab. Give it a payload naming a `plugins {}` alias and only the bars started from that alias respond. This hides a nested session's bar while leaving the host's alone:
+With no payload, a message reaches every bar in the session, on every tab. The bars are panes of one [shared instance](shared-instances.md), and the message goes to each of them, so a bar in a tab you are not looking at changes too. Give it a payload naming a `plugins {}` alias and only the bars started from that alias respond. This hides a nested session's bar while leaving the host's alone:
 
 ```kdl
 bind "Alt H" { MessagePlugin { name "zjhints::toggle"; payload "zjhints-nested"; }; }
 ```
 
-A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so it knows its alias and responds the same way. Only a bar that has just started, before Zellij first reports the panes, cannot tell its alias yet, and it responds to every message in that moment.
+A bar loaded with `load_plugins` to feed zjstatus runs in a hidden pane of its own, so it knows its alias and responds the same way. It is a bar of the same instance as the others, so a message with no payload reaches it with the rest. Only a bar that has just started, before Zellij first reports the panes, cannot tell its alias yet, and it responds to every message in that moment.
 
 ## From the right-click menu
 
@@ -83,4 +86,4 @@ Changing `hidden` on the [settings screen](settings.md) hides or shows the bars 
 
 ## The row
 
-A bar in its own pane gives its row back while hidden even with [`collapse_when_empty`](nested-sessions.md#giving-the-row-back) off, and takes it back when shown. That option only decides what happens when the bar has nothing to draw by itself. Giving the row back needs a Zellij with [#5590](https://github.com/zellij-org/zellij/pull/5590); without it the row stays, blank.
+A bar in its own pane gives its row back while hidden even with [`collapse_when_empty`](nested-sessions.md#giving-the-row-back) off, and takes it back when shown. Every bar does so at once, including one in a tab you are not looking at, and a bar showing a permission prompt keeps its row until the prompt is answered. That option only decides what happens when the bar has nothing to draw by itself. Giving the row back needs a Zellij with [#5590](https://github.com/zellij-org/zellij/pull/5590); without it the row stays, blank.

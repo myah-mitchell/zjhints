@@ -242,7 +242,4 @@ That turns `Ctrl Left` into `^←` and `Alt Shift PgDn` into `⌥⇧⇟`.
 
 Nerd Fonts offer alternatives for several of these: arrows, Home and End, Page Up and Page Down, and Delete all have glyphs in the private-use area. They look sharper if you have the font, but they render as tofu for anyone who does not, so the set above is the safer default.
 
-> [!NOTE]
-> The four arrows and `⇧` are East Asian Ambiguous, as are all Nerd Font glyphs. If your terminal draws them double-width, set `ambiguous_width 2` or the hints will overflow slightly.
-
-Everything else in that set is unambiguously one column. See [Glyph width](fitting.md#glyph-width).
+Every symbol in that set takes one column. The four arrows and `⇧` are East Asian Ambiguous, as are all Nerd Font glyphs, and Zellij lays those out one column wide. See [Glyph width](fitting.md#glyph-width).
