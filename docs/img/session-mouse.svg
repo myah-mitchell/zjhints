@@ -251,7 +251,7 @@
 <text y="373"><tspan x="0 450" fill="#cdd6f4">││</tspan><tspan x="495 522 531 540 549 558 567 585 594 603 612 621 630 639 648 666 675 684 693 702" fill="#cdd6f4" font-weight="bold">wtogglefloatingpanes</tspan><tspan x="765" fill="#cdd6f4">│</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
 </g>
 <g class="f2">
-<text y="373"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="684 729 756 765 774 783 801 810 819 828 1071" fill="#cdd6f4">│umutepane│</tspan></text>
+<text y="373"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="684 729 738 765 774 783 792 801 810 828 837 846 855 864 882 891 900 909 927 936 945 954 963 972 981 990 999 1008 1017 1071" fill="#cdd6f4">│⇧stogglestacklistorientation│</tspan></text>
 </g>
 <g class="f5">
 <text y="391"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540 1071" fill="#a6e3a1" font-weight="bold">││</tspan></text>
@@ -263,7 +263,7 @@
 <text y="391"><tspan x="0 450 495 504 531 540 549 558 567 576 594 603 612 621 630 639 648 657 675 684 693 702 711 765" fill="#cdd6f4">││⌥ftogglefloatingpanes│</tspan><tspan x="1071" fill="#a6e3a1" font-weight="bold">│</tspan></text>
 </g>
 <g class="f2">
-<text y="391"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="684 729 756 765 774 783 792 810 819 828 837 1071" fill="#cdd6f4">│vwatchpane│</tspan></text>
+<text y="391"><tspan x="0 531" fill="#cdd6f4">││</tspan><tspan x="540" fill="#a6e3a1" font-weight="bold">│</tspan><tspan x="684 729 756 765 774 783 801 810 819 828 1071" fill="#cdd6f4">│umutepane│</tspan></text>
 </g>
 <g class="f5">
 <text y="409"><tspan x="0 9 18 27 36 45 54 63 72 81 90 99 108 117 126 135 144 153 162 171 180 189 198 207 216 225 234 243 252 261 270 279 288 297 306 315 324 333 342 351 360 369 378 387 396 405 414 423 432 441 450 459 468 477 486 495 504 513 522 531" fill="#cdd6f4">└──────────────────────────────────────────────────────────┘</tspan><tspan x="540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774 783 792 801 810 819 828 837 846 855 864 873 882 891 900 909 918 927 936 945 954 963 972 981 990 999 1008 1017 1026 1035 1044 1053 1062 1071" fill="#a6e3a1" font-weight="bold">└──────────────────────────────────────────────────────────┘</tspan></text>

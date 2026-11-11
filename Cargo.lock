@@ -2607,7 +2607,8 @@ dependencies = [
 [[package]]
 name = "zellij-tile"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e6ad77ddd486b1761318018f71dd33257ad4c7359d12f61f9fb576dd86e276a"
 dependencies = [
  "prost",
  "serde",
@@ -2621,7 +2622,8 @@ dependencies = [
 [[package]]
 name = "zellij-tile-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad5ccbb804a640512ac175d8fb2322ebd4f47f8b619a51ac7a8d6ae03428520c"
 dependencies = [
  "ansi_term",
 ]
@@ -2629,7 +2631,8 @@ dependencies = [
 [[package]]
 name = "zellij-utils"
 version = "0.46.0"
-source = "git+https://github.com/myah-mitchell/zellij?tag=fork-v0.46.6#bf517077c848d91f75091f66d1996cfeb84f4732"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a108a5b7278eafa6fa766d7fc32d19cacaf21396d784200939830fdd724ec0a5"
 dependencies = [
  "anyhow",
  "backtrace",

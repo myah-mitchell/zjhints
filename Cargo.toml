@@ -16,13 +16,3 @@ zellij-tile-utils = "0.46.0"
 # For the config-file block builders (plugin_aliases_kdl) the settings screen
 # saves through; zellij-tile already builds it, so it adds nothing to compile.
 zellij-utils = "0.46.0"
-
-# Override: myah-mitchell/zellij's fork-v0.46.6 is upstream main with the
-# nested-session, plugin-collapse, context menu/prompt, config-save, popup
-# outside-click and settings-entry APIs, all merged upstream but not yet
-# published to crates.io. Remove this block once zellij-tile/zellij-tile-utils
-# ship them upstream (see docs/automation.md#depending-on-an-unreleased-upstream-fix).
-[patch.crates-io]
-zellij-tile = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }
-zellij-tile-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }
-zellij-utils = { git = "https://github.com/myah-mitchell/zellij", tag = "fork-v0.46.6" }

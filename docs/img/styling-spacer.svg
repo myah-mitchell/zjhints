@@ -20,7 +20,9 @@
 <rect x="639" y="18" width="54" height="18" fill="#313244"/>
 <rect x="693" y="18" width="99" height="18" fill="#cba6f7"/>
 <rect x="792" y="18" width="63" height="18" fill="#313244"/>
-<rect x="864" y="18" width="9" height="18" fill="#313244"/>
+<rect x="855" y="18" width="54" height="18" fill="#cba6f7"/>
+<rect x="909" y="18" width="72" height="18" fill="#313244"/>
+<rect x="990" y="18" width="9" height="18" fill="#313244"/>
 <rect x="9" y="72" width="36" height="18" fill="#cba6f7"/>
 <rect x="45" y="72" width="54" height="18" fill="#313244"/>
 <rect x="117" y="72" width="36" height="18" fill="#cba6f7"/>
@@ -56,9 +58,9 @@
 </g>
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15" xml:space="preserve">
 <text y="13"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 117" fill="#878ca4">hint_spacer""</tspan></text>
-<path d="M864 18A9 9 0 0 0 864 36Z" fill="#313244"/>
-<path d="M873 18A9 9 0 0 1 873 36Z" fill="#313244"/>
-<text y="31"><tspan x="18 27" fill="#181825" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#cdd6f4">pane</tspan><tspan x="108 117" fill="#181825" font-weight="bold">^t</tspan><tspan x="144 153 162" fill="#cdd6f4">tab</tspan><tspan x="189 198" fill="#181825" font-weight="bold">^n</tspan><tspan x="225 234 243 252 261 270" fill="#cdd6f4">resize</tspan><tspan x="297 306" fill="#181825" font-weight="bold">^h</tspan><tspan x="333 342 351 360" fill="#cdd6f4">move</tspan><tspan x="387 396" fill="#181825" font-weight="bold">^s</tspan><tspan x="423 432 441 450 459 468" fill="#cdd6f4">scroll</tspan><tspan x="495 504" fill="#181825" font-weight="bold">^o</tspan><tspan x="531 540 549 558 567 576 585" fill="#cdd6f4">session</tspan><tspan x="612 621" fill="#181825" font-weight="bold">^q</tspan><tspan x="648 657 666 675" fill="#cdd6f4">quit</tspan><tspan x="702 711 720 729 738 747 756 765 774" fill="#181825" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="801 810 819 828 837 864" fill="#cdd6f4">focus…</tspan></text>
+<path d="M990 18A9 9 0 0 0 990 36Z" fill="#313244"/>
+<path d="M999 18A9 9 0 0 1 999 36Z" fill="#313244"/>
+<text y="31"><tspan x="18 27" fill="#181825" font-weight="bold">^p</tspan><tspan x="54 63 72 81" fill="#cdd6f4">pane</tspan><tspan x="108 117" fill="#181825" font-weight="bold">^t</tspan><tspan x="144 153 162" fill="#cdd6f4">tab</tspan><tspan x="189 198" fill="#181825" font-weight="bold">^n</tspan><tspan x="225 234 243 252 261 270" fill="#cdd6f4">resize</tspan><tspan x="297 306" fill="#181825" font-weight="bold">^h</tspan><tspan x="333 342 351 360" fill="#cdd6f4">move</tspan><tspan x="387 396" fill="#181825" font-weight="bold">^s</tspan><tspan x="423 432 441 450 459 468" fill="#cdd6f4">scroll</tspan><tspan x="495 504" fill="#181825" font-weight="bold">^o</tspan><tspan x="531 540 549 558 567 576 585" fill="#cdd6f4">session</tspan><tspan x="612 621" fill="#181825" font-weight="bold">^q</tspan><tspan x="648 657 666 675" fill="#cdd6f4">quit</tspan><tspan x="702 711 720 729 738 747 756 765 774" fill="#181825" font-weight="bold">⌥hjkl←↓↑→</tspan><tspan x="801 810 819 828 837" fill="#cdd6f4">focus</tspan><tspan x="864 873 882 891" fill="#181825" font-weight="bold">⌥-=+</tspan><tspan x="918 927 936 945 954 963 990" fill="#cdd6f4">resize…</tspan></text>
 <text y="67"><tspan x="0 9 18 27 36 45 54 63 72 81 90 108 135" fill="#878ca4">hint_spacer""</tspan></text>
 <path d="M1008 72A9 9 0 0 0 1008 90Z" fill="#313244"/>
 <path d="M1017 72A9 9 0 0 1 1017 90Z" fill="#313244"/>

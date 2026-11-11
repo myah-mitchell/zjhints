@@ -90,13 +90,13 @@
 <text y="211"><tspan x="432" fill="#cdd6f4">│</tspan><tspan x="477 504 513 522 531 540 549 567 576 585 594 603 612 621 630 648 657 666 675 684" fill="#cdd6f4" font-weight="bold">wtogglefloatingpanes</tspan><tspan x="774" fill="#cdd6f4">│</tspan></text>
 </g>
 <g class="f0">
-<text y="211"><tspan x="639 684 711 720 729 738 756 765 774 783 1071" fill="#cdd6f4">│umutepane│</tspan></text>
+<text y="211"><tspan x="639 684 693 702 711 720 738 765 774 783 792 801 810 828 837 846 855 864 882 891 900 909 927 936 945 954 963 972 981 990 999 1008 1017 1071" fill="#cdd6f4">│Shiftstogglestacklistorientation│</tspan></text>
 </g>
 <g class="f1">
 <text y="229"><tspan x="432 477 486 495 513 540 549 558 567 576 585 603 612 621 630 639 648 657 666 684 693 702 711 720 774" fill="#cdd6f4">│Altftogglefloatingpanes│</tspan></text>
 </g>
 <g class="f0">
-<text y="229"><tspan x="639 684 711 720 729 738 747 765 774 783 792 1071" fill="#cdd6f4">│vwatchpane│</tspan></text>
+<text y="229"><tspan x="639 684 711 720 729 738 756 765 774 783 1071" fill="#cdd6f4">│umutepane│</tspan></text>
 </g>
 <g class="f1">
 <text y="247"><tspan x="432 441 450 459 468 477 486 495 504 513 522 531 540 549 558 567 576 585 594 603 612 621 630 639 648 657 666 675 684 693 702 711 720 729 738 747 756 765 774" fill="#cdd6f4">╰─────────────────────────────────────╯</tspan></text>
