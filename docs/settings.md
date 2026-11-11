@@ -2,8 +2,6 @@
 
 The settings screen is a floating pane for changing zjhints options without editing the config file by hand. It sorts every option into the same groups as the [configuration reference](configuration.md), previews each change on the running bars as you make it, and writes the result to your config file when you save.
 
-It needs the Zellij build zjhints is compiled against, [fork-v0.46.6](https://github.com/myah-mitchell/zellij/releases/tag/fork-v0.46.6), or the next Zellij release. It edits the config through plugin APIs that are merged into Zellij but not in a release yet (see [Zellij support](../README.md#zellij-support)).
-
 ## Prerequisites
 
 - zjhints is defined as an alias in your config's `plugins {}` block, as in the [installation example](installation.md#example-configuration). The screen edits that alias, so options set only in a layout are not shown and not changed.

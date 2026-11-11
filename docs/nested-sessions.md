@@ -38,9 +38,6 @@ A layout that puts this plugin in its own pane reserves a row for it, and that r
 
 This is not specific to nesting. `hide_in_base_mode` empties the bar too, and so does any configuration that leaves nothing to show, and the row goes away in those cases as well.
 
-> [!NOTE]
-> This needs the `set_self_collapsed` plugin command, which is not in a released Zellij yet. On a Zellij without it the setting does nothing and the row stays where it is.
-
 ## Dimming
 
 `dim_when_unfocused` blends colors toward neutral gray by `dim_strength` whenever this session is not the one currently receiving input. `dim_strength` ranges from `0.0`, no change, to `1.0`, full gray.

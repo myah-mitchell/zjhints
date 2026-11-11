@@ -122,7 +122,3 @@ Keys are sent the way the nested session's pane expects them: re-encoded by Zell
 Opening Zellij's context menu and the hover preview also needs permission to change application state, which the bar always asks for to add its [settings entry](settings.md#from-zellijs-settings-screen).
 
 Zellij asks once, in the plugin's pane, and remembers the answer. Turning `mouse` on after the plugin was already granted its usual permissions asks again for the new ones.
-
-## Zellij support
-
-Right-click and the menus use the context menu and prompt APIs from [#5685](https://github.com/zellij-org/zellij/pull/5685), which is merged and expected in the next Zellij release. Until then, `mouse` needs a Zellij build that includes it. See [Zellij support](../README.md#zellij-support).
