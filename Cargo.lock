@@ -2763,7 +2763,7 @@ dependencies = [
 
 [[package]]
 name = "zjhints"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "ansi_term",
  "unicode-width 0.2.2",
